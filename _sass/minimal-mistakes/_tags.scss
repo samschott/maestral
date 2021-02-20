@@ -1,0 +1,23 @@
+/* ==========================================================================
+   TAGS
+   ========================================================================== */
+
+/*
+   Default tag
+   ========================================================================== */
+
+.doc-tags {
+  /* default */
+  padding: 5px 0px;
+}
+
+.doc-tag {
+  /* default */
+  text-decoration: none;
+  border: 1px solid;
+  border-radius: 2px;
+  border-spacing: 1px;
+  padding: 3px 5px;
+  font-size: $type-size-8;
+  color: #ff5100;
+}

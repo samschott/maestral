@@ -1,0 +1,49 @@
+
+.splash {
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    text-align: center;
+
+    h1, h2 {
+        padding-top: 2em;
+        padding-bottom: 2em;
+        border-style: none !important;
+    }
+}
+
+.splash-light{
+    background-color: rgb(251,251,251);
+    color: $text-color;
+
+    a {
+        color: $link-color;
+    }
+}
+
+.splash-dark{
+    background-color: rgb(40,40,50);
+    color: rgb(245,245,245) !important;
+
+    a {
+        color: rgb(50,150,250);
+    }
+}
+
+.flex-container {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 1em;
+    margin-bottom: 1em;
+    overflow-y: hidden;
+}
+
+.flex-child {
+    flex: 1;
+}

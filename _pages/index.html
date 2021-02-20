@@ -1,0 +1,96 @@
+---
+layout: splash
+permalink: /
+---
+
+<div class="splash-light" style="padding: 3em">
+    <img src="/assets/images/maestral.png" alt="App icon" style="width: 15%">
+    <h1> {{ site.description }} </h1>
+    <a href="/about">About Maestral</a>
+</div>
+
+<div class="splash-dark" style="padding: 0.5em">
+
+    <h2 style=> A powerful command line interface </h2>
+    <a href="/cli">Learn more</a>
+
+    <div class="flex-container" style="max-width: 1300px">
+
+        <div class="flex-child">
+
+            <div class="terminal space shadow">
+                <div class="top">
+                    <div class="btns">
+                        <span class="circle red"></span>
+                        <span class="circle yellow"></span>
+                        <span class="circle green"></span>
+                    </div>
+                </div>
+                <pre class="body">
+$ maestral status
+
+Account:      john.gruber@gmail.com (Business)
+Usage:        48.3% of 1498.4 TB used
+Status:       Up to date
+Sync errors:  <span class="green-text">0</span>
+                </pre>
+            </div>
+        </div>
+
+        <div class="flex-child">
+
+            <div class="terminal space shadow">
+                <div class="top">
+                    <div class="btns">
+                        <span class="circle red"></span>
+                        <span class="circle yellow"></span>
+                        <span class="circle green"></span>
+                    </div>
+                </div>
+                <pre class="body">
+$ maestral start
+Starting Maestral...        <span class="green-text">[OK]</span>
+- Linking new account for 'maestral' config
+- Retrieving auth code from Dropbox
+<span class="green-text">?</span> How would you like to you link your account? <span class="blue-text">Open Dropbox website</span>
+<span class="green-text">?</span> Enter the auth code: <span class="blue-text">6_AEcL89rUXN6Yfre4Cfdzo</span>
+<span class="green-text">✓</span> Linked to john.bruger@gmail.com
+<span class="green-text">?</span> Please choose a local Dropbox folder: <span class="blue-text">~/Dropbox (Work)</span>
+<span class="green-text">?</span> Would you like sync all folders? <span class="blue-text">Yes</span>
+<span class="green-text">✓</span> Setup completed. Starting sync.
+                </pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="splash-light">
+    <h2>A leight-weight gui</h2>
+    <img src="/assets/images/screenshot.png" alt="App icon" style="width: 50%; border-radius: 10px; margin: 2em;">
+</div>
+
+<div class="splash-dark" style="padding-top: 1em; padding-bottom: 2em">
+
+    <div class="flex-container" style="width: 60%; text-align: left;">
+
+        <div class="flex-child" style="margin: 0 0.5em">
+        <h3>Multiple Dropbox accounts</h3>
+        <p>
+        The command line interface allows configuring an unlimited number of Dropbox accounts. Just pass a new config name when linking a new accounts.
+        </p>
+        <a href="/cli" style="font-size: 0.75em"> > Learn more </a>
+        </div>
+
+        <div class="flex-child" style="margin: 0 0.5em">
+        <h3>Exclude files and folders</h3>
+        <p>More fine grained controls in the GUI and command line interface allow excluding individual files with selective sync.</p>
+        <a href="/cli" style="font-size: 0.75em"> > Learn more </a>
+        </div>
+
+        <div class="flex-child" style="margin: 0 0.5em">
+        <h3>.mignore</h3>
+        <p>Exclude local items from syncing by placing an .mignore file in the Dropbox root with patterns matching any number of items.</p>
+        <a href="/cli" style="font-size: 0.75em"> > Learn more </a>
+        </div>
+        </div>
+</div>
