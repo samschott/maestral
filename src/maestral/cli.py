@@ -274,6 +274,21 @@ class DropboxPath(click.ParamType):
         self.file_okay = file_okay
         self.dir_okay = dir_okay
 
+    def convert(
+        self,
+        value: Optional[str],
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ) -> Optional[str]:
+
+        if value is None:
+            return value
+
+        if not value.startswith("/"):
+            value = "/" + value
+
+        return value
+
     #
     # def shell_complete(
     #     self,
@@ -800,9 +815,6 @@ def sharelink_create(
 
     from .daemon import MaestralProxy
 
-    if not dropbox_path.startswith("/"):
-        dropbox_path = "/" + dropbox_path
-
     expiry_dt: Optional[float]
 
     if expiry:
@@ -844,9 +856,6 @@ def sharelink_revoke(url: str, config_name: str) -> None:
 def sharelink_list(dropbox_path: Optional[str], config_name: str) -> None:
 
     from .daemon import MaestralProxy
-
-    if dropbox_path and not dropbox_path.startswith("/"):
-        dropbox_path = "/" + dropbox_path
 
     with MaestralProxy(config_name, fallback=True) as m:
         links = m.list_shared_links(dropbox_path)
@@ -1094,9 +1103,6 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
     from .utils import natural_size
     from .daemon import MaestralProxy
 
-    if not dropbox_path.startswith("/"):
-        dropbox_path = "/" + dropbox_path
-
     with MaestralProxy(config_name, fallback=True) as m:
 
         cli.echo("Loading...\r", nl=False)
@@ -1310,9 +1316,6 @@ def excluded_add(dropbox_path: str, config_name: str) -> None:
 
     from .daemon import MaestralProxy
 
-    if not dropbox_path.startswith("/"):
-        dropbox_path = "/" + dropbox_path
-
     if dropbox_path == "/":
         raise cli.CliException("Cannot exclude the root directory.")
 
@@ -1337,9 +1340,6 @@ folder will be included as well (but no other items inside it).
 def excluded_remove(dropbox_path: str, config_name: str) -> None:
 
     from .daemon import MaestralProxy, CommunicationError
-
-    if not dropbox_path.startswith("/"):
-        dropbox_path = "/" + dropbox_path
 
     if dropbox_path == "/":
         return cli.echo("The root directory is always included")
@@ -1547,10 +1547,6 @@ def diff(
 
     from .daemon import MaestralProxy
 
-    # Reason for rel_dbx_path: os.path.join does not like leading /
-    if not dropbox_path.startswith("/"):
-        dropbox_path = "/" + dropbox_path
-
     def download_and_compare(
         m: MaestralProxy, old_rev: str, new_rev: Optional[str] = None
     ) -> None:
@@ -1671,9 +1667,6 @@ If no revision number is given, old revisions will be listed.
 def restore(dropbox_path: str, rev: str, limit: int, config_name: str) -> None:
 
     from .daemon import MaestralProxy
-
-    if not dropbox_path.startswith("/"):
-        dropbox_path = "/" + dropbox_path
 
     with MaestralProxy(config_name, fallback=True) as m:
 
