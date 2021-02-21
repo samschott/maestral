@@ -1438,9 +1438,16 @@ Rebuild the sync index.
 Rebuilding may take several minutes, depending on the size of your Dropbox.
 """,
 )
+@click.option(
+    "--yes",
+    "-Y", 
+    is_flag=True,
+    default=False,
+    help="Skip confirmation prompt."
+)
 @existing_config_option
 @convert_py_errors
-def rebuild_index(config_name: str) -> None:
+def rebuild_index(yes: bool, config_name: str) -> None:
 
     import textwrap
     from .daemon import MaestralProxy
@@ -1460,7 +1467,7 @@ def rebuild_index(config_name: str) -> None:
 
         cli.echo(msg + "\n")
 
-        if cli.confirm("Do you want to continue?", default=False):
+        if yes or cli.confirm("Do you want to continue?", default=False):
 
             m.rebuild_index()
 
