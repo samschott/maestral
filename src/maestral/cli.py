@@ -699,11 +699,11 @@ def auth():
 
 @auth.command(name="link", help="Link a new Dropbox account.")
 @click.option(
+    "--relink",
     "-r",
-    "relink",
     is_flag=True,
     default=False,
-    help="Relink to the current account. Keeps the sync state.",
+    help="Relink to the existing account. Keeps the sync state.",
 )
 @config_option
 @convert_py_errors
