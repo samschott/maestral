@@ -731,11 +731,7 @@ If Maestral is running, it will be stopped before unlinking.
 """,
 )
 @click.option(
-    "--yes",
-    "-Y", 
-    is_flag=True,
-    default=False,
-    help="Skip confirmation prompt."
+    "--yes", "-Y", is_flag=True, default=False, help="Skip confirmation prompt."
 )
 @existing_config_option
 @convert_py_errors
@@ -1439,11 +1435,7 @@ Rebuilding may take several minutes, depending on the size of your Dropbox.
 """,
 )
 @click.option(
-    "--yes",
-    "-Y", 
-    is_flag=True,
-    default=False,
-    help="Skip confirmation prompt."
+    "--yes", "-Y", is_flag=True, default=False, help="Skip confirmation prompt."
 )
 @existing_config_option
 @convert_py_errors
