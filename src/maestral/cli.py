@@ -730,7 +730,13 @@ Unlink your Dropbox account.
 If Maestral is running, it will be stopped before unlinking.
 """,
 )
-@click.option("--yes", "-Y", is_flag=True, default=False)
+@click.option(
+    "--yes",
+    "-Y", 
+    is_flag=True,
+    default=False,
+    help="Skip confirmation prompt."
+)
 @existing_config_option
 @convert_py_errors
 def auth_unlink(yes: bool, config_name: str) -> None:
@@ -1448,7 +1454,7 @@ def rebuild_index(config_name: str) -> None:
             "your Dropbox. Any changes to local files will be synced once rebuilding "
             "has completed. If you stop the daemon during the process, rebuilding will "
             "start again on the next launch.\nIf the daemon is not currently running, "
-            "a rebuild will be schedules for the next startup.",
+            "a rebuild will be scheduled for the next startup.",
             width=width,
         )
 
