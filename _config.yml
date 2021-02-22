@@ -19,7 +19,7 @@ title_separator          : "-"
 subtitle                 : # site tagline that appears below site title in masthead
 name                     : "Sam Schott"
 description              : "An open source Dropbox client for macOS and Linux."
-url                      : # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
+url                      : "https://samschott.github.io/maestral/"
 baseurl                  : # the subpath of your site, e.g. "/blog"
 repository               : samschott/maestral
 teaser                   : # path of fallback teaser image, e.g. "/assets/images/500x300.png"
