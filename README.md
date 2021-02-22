@@ -114,6 +114,9 @@ work         user@mycorp.org
 By default, the Dropbox folder names will contain the capitalised config-name in braces.
 In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
 
+A full documentation of the CLI is available on the
+[website](https://samschott.github.io/maestral/cli/).
+
 ## Contribute
 
 There are multiple topics that could use your help. Some of them are easy, such as adding
