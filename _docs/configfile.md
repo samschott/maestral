@@ -11,16 +11,17 @@ The config files are located at **$XDG_CONFIG_HOME/maestral** on Linux (typicall
 configuration will get its own INI file with the settings documented below.
 
 Changes to the config values may be performed through [`maestral config
-set`](/cli/config) directly but some will only take effect once you restart Maestral.
+set`]({{ site.baseurl }}/cli/config) directly but some will only take effect once you restart Maestral.
 Any manual changes to the config file may be overwritten when the daemon is still
 running.
 
 **You should not change the config values in the sections "main" and "account"
 directly** but rather use the corresponding CLI commands or GUI options, for instance
-[`maestral move-dir`](/cli/move-dir) or [`maestral excluded add`](/cli/excluded). This
-is because changes of these settings require Maestral to perform accompanying actions,
-e.g., download folders which have been removed from the excluded list or move the local
-Dropbox directory. Those will not be performed if you edit the options manually.
+[`maestral move-dir`]({{ site.baseurl }}/cli/move-dir) or
+[`maestral excluded add`]({{site.baseurl }}/cli/excluded). This is because changes of
+these settings require Maestral to perform accompanying actions, e.g., download folders
+which have been removed from the excluded list or move the local Dropbox directory.
+Those will not be performed if you edit the options manually.
 
 ```ini
 [main]
