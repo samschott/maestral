@@ -55,8 +55,11 @@ $(document).ready(function() {
   });
 
   // Smooth scrolling
+  header = document.querySelector(".masthead")
+  scrollOffset = header.offsetHeight
+
   var scroll = new SmoothScroll('a[href*="#"]', {
-    offset: 20,
+    offset: scrollOffset,
     speed: 400,
     speedAsDuration: true,
     durationMax: 500
@@ -129,7 +132,7 @@ $(document).ready(function() {
       var anchor = document.createElement("a");
       anchor.className = 'header-link';
       anchor.href = '#' + id;
-      anchor.innerHTML = '<span class=\"sr-only\">Permalink</span><i class=\"fas fa-paragraph\"></i>';
+      anchor.innerHTML = '<span class=\"sr-only\">Permalink</span><i class=\"fas fa-link\"></i>';
       anchor.title = "Permalink";
       $(this).append(anchor);
     }
