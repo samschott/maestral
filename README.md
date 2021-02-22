@@ -19,10 +19,9 @@ use the Dropbox website or the official client. Maestral does support syncing
 multiple Dropbox accounts and excluding local files from sync with a ".mignore" file.
 
 The focus on "simple" file syncing does come with advantages: on macOS, the Maestral App
-bundle is significantly smaller than the official Dropbox app (35 MB vs 400 MB) and uses
-much less memory (100 MB vs 500 MB for a medium-sized Dropbox on macOS). The memory usage
-will depend on the size of your synced Dropbox folder and can be further reduced when
-running Maestral without a GUI.
+bundle is significantly smaller than the official Dropbox app and uses less memory. The
+exact memory usage will depend on the size of your synced Dropbox folder and can be further
+reduced when running Maestral without a GUI.
 
 Maestral uses the public Dropbox API which, unlike the official client, does not support
 transferring only those parts of a file which changed ("binary diff"). Maestral may
@@ -53,8 +52,15 @@ on Linux and `maestral-cocoa` on macOS:
 $ python3 -m pip install --upgrade maestral[gui]
 ```
 
-More detailed installation instructions are given in the
-[Wiki](https://github.com/SamSchott/maestral-dropbox/wiki/Installation-Requirements).
+There also a Docker image available for x86, arm/v7 (32bit) and arm64 platforms which can
+be installed with:
+
+```colsole
+docker pull maestraldbx/maestral
+```
+
+For more detailed information on the installation, setup and system requirements, please
+check the [documentation](https://samschott.github.io/maestral/docs/installation).
 
 ## Usage
 
@@ -108,37 +114,6 @@ work         user@mycorp.org
 By default, the Dropbox folder names will contain the capitalised config-name in braces.
 In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
 
-### Docker usage
-
-The Docker image is available for x86, arm/v7 (32bit) and arm64 platforms. You can do
-everything that you supposed to do in the command line, except running the GUI.
-
-For the first run, get access to the shell within the Docker container 
-
-```console
-$ docker run -it -v /mnt/dropbox:/dropbox maestraldbx/maestral:latest ash
-```
-
-where `/mnt/dropbox` is the directory that which contains the `Dropbox` directory.
-Maestral runs with `UID` 1000, make sure that the user owns `/mnt/dropbox` and the
-contents within (`chown -R 1000 /mnt/dropbox`).
-
-Later, if you want just a `maestral start`, just execute
-
-```console
-$ docker run \
-  -d \
-  --name maestral \
-  --rm \
-  -v /mnt/dropbox:/dropbox \
-  maestraldbx/maestral:latest
-```
-
-- To step into the Maestral container: `docker exec -it maestral ash`
-- List the logs of the container: `docker logs maestral`
-- Get the build info of a running container: `docker inspect maestral | jq ".[].Config.Labels"`
-
-
 ## Contribute
 
 There are multiple topics that could use your help. Some of them are easy, such as adding
@@ -165,25 +140,3 @@ month to offset the cost of an Apple Developer account to sign and notarize the 
 - For the system tray icon on Linux:
   - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
     on Gnome 3.26 and higher
-
-# Acknowledgements
-
-Maestral directly uses code from the following projects:
-
-- The config module uses code from the [Spyder IDE](https://github.com/spyder-ide)
-- The DropboxClient module is inspired by work from [Orphilia](https://github.com/ksiazkowicz/orphilia-dropbox)
-  
-It also would not be possible without the following excellent Python packages:
-
-- Communication between sync daemon and frontends uses [Pyro5](https://github.com/irmen/Pyro5).
-- The command line interface is built with [click](https://github.com/pallets/click) and
-  uses beautiful interactive prompts by [survey](https://github.com/Exahilosys/survey).
-- The Cocoa GUI is built using [toga](https://github.com/beeware/toga) and the macOS app
-  bundle is built using [briefcase](https://github.com/beeware/briefcase), both part of
-  the [beeware](https://beeware.org) project for writing cross-platform Python applications.
-- Credential storage uses system keychains via [keyring](https://github.com/jaraco/keyring).
-- [watchdog](https://github.com/gorakhargosh/watchdog) allows us to receive local file
-  system events.  
-- Error reporting is generously provided by [bugsnag](https://www.bugsnag.com).
-- Many more well known libraries that have become the backbone of Python projects
-  such as requests, sqlalchemy, etc. 
