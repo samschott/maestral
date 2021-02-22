@@ -1,90 +1,92 @@
 # main links
 main:
   - title: "About"
-    url: /about/
+    url: /about
   - title: "Documentation"
     url: /docs/installation
   - title: "Command line"
-    url: /cli/
+    url: /cli
   - title: "Download"
-    url: /download/
+    url: /download
   - title: "GitHub"
     url: https://github.com/samschott/maestral
 
 docs:
   - title: "Installtion and Setup"
-    url: /docs/installation/
+    url: /docs/installation
   - title: "Syncing"
     children:
       - title: "Selective sync"
-        url: /docs/selective-sync/
+        url: /docs/selective-sync
       - title: "mignore"
-        url: /docs/mignore/
+        url: /docs/mignore
+      - title: "Sync issues"
+        url: /docs/sync-issues
       - title: "Case-sensitive file systems"
-        url: /docs/filesystem/
+        url: /docs/filesystem
       - title: "Symlinks"
-        url: /docs/symlinks/
+        url: /docs/symlinks
       - title: "Supported folder locations"
-        url: /docs/locations/
+        url: /docs/locations
   - title: "Configuration"
     children:
       - title: "Systemd / launchd integration"
-        url: /docs/autostart/
+        url: /docs/autostart
       - title: "Configuration file"
-        url: /docs/configfile/
+        url: /docs/configfile
 
 cli-docs:
   - title: "Core commands"
     children:
       - title: "start"
-        url: /cli/start/
+        url: /cli/start
       - title: "stop"
-        url: /cli/stop/
+        url: /cli/stop
       - title: "gui"
-        url: /cli/gui/
+        url: /cli/gui
       - title: "pause"
-        url: /cli/pause/
+        url: /cli/pause
       - title: "resume"
-        url: /cli/resume/
+        url: /cli/resume
       - title: "auth"
-        url: /cli/auth/
+        url: /cli/auth
       - title: "sharelink"
-        url: /cli/sharelink/
+        url: /cli/sharelink
   - title: "Information"
     children:
       - title: "status"
-        url: /cli/status/
+        url: /cli/status
       - title: "filestatus"
-        url: /cli/filestatus/
+        url: /cli/filestatus
       - title: "activity"
-        url: /cli/activity/
+        url: /cli/activity
       - title: "history"
-        url: /cli/history/
+        url: /cli/history
       - title: "ls"
-        url: /cli/ls/
+        url: /cli/ls
       - title: "config-files"
-        url: /cli/config-files/
+        url: /cli/config-files
   - title: "Settings"
     children:
       - title: "autostart"
-        url: /cli/autostart/
+        url: /cli/autostart
       - title: "excluded"
-        url: /cli/excluded/
+        url: /cli/excluded
       - title: "notify"
-        url: /cli/notify/
+        url: /cli/notify
   - title: "Maintenance"
     children:
       - title: "move-dir"
-        url: /cli/move-dir/
+        url: /cli/move-dir
       - title: "rebuild-index"
-        url: /cli/rebuild-index/
+        url: /cli/rebuild-index
       - title: "revs"
-        url: /cli/revs/
+        url: /cli/revs
       - title: "diff"
-        url: /cli/diff/
+        url: /cli/diff
       - title: "restore"
-        url: /cli/restore/
+        url: /cli/restore
       - title: "log"
-        url: /cli/log/
+        url: /cli/log
       - title: "config"
-        url: /cli/config/
+        url: /cli/config
