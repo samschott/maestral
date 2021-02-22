@@ -37,7 +37,7 @@ recommended for newer platforms.
 
 To install the GUI, you can either specify the gui extra when install Maestral
 
-```
+```console
 $ python3 -m pip install --upgrade maestral[gui]
 ```
 
@@ -63,19 +63,24 @@ Logging to the systemd journal requires
 [python-systemd](https://github.com/systemd/python-systemd) which is currently not a
 dependency but will be installed when specifying the 'syslog' extra in the installation
 command:
-```
+
+```console
 $ python3 -m pip install --upgrade maestral[syslog]
 ```
+
 Note however that a pip installation will build python-systemd from source and requires
 gcc, systemd headers and python headers and may therefore fail on some systems. It is
 recommended to install python-systemd from your distribution's package manager instead:
 
 On Fedora/RHEL/CentOS:
-```
+
+```console
 dnf install python3-systemd
 ```
+
 On Debian/Ubuntu/Mint:
-```
+
+```console
 apt-get install python3-systemd
 ```
 
@@ -112,11 +117,20 @@ To get the build info of a running container:
 
 ## Notes on Raspberry Pi
 
-Maestral has been shown to run on Raspberry Pi but requires at least Python 3.6 while, as of this writing, Raspbian comes preinstalled with versions 2.7 and 3.5. You will therefore need to build Python 3.6 yourself. Build instructions can be found for example [here](https://medium.com/@isma3il/install-python-3-6-or-3-7-and-pip-on-raspberry-pi-85e657aadb1e).
+Maestral has been shown to run on Raspberry Pi but requires at least Python 3.6 while,
+as of this writing, Raspbian comes preinstalled with versions 2.7 and 3.5. You will
+therefore need to build Python 3.6 yourself. Build instructions can be found for example
+[here](https://medium.com/@isma3il/install-python-3-6-or-3-7-and-pip-on-raspberry-
+pi-85e657aadb1e).
 
-If you would like to use the GUI, you will also need to build PyQt5 since (for the time being) there is no pre-built wheel for arm64. Due to the low amount of memory on a Pi 3, the build will fail unless you temporary disable the Desktop GUI. To do that, run `sudo raspi-config`, select `Boot Options`, `Desktop/CLI` and then choose the second option. After rebooting the system, you should have enough memory to build `PyQt5`. So just run
-```
-python3.6 -m pip install --upgrade maestral[gui]
+If you would like to use the GUI, you will also need to build PyQt5 since (for the time
+being) there is no pre-built wheel for arm64. Due to the low amount of memory on a Pi 3,
+the build will fail unless you temporary disable the Desktop GUI. To do that, run `sudo
+raspi-config`, select `Boot Options`, `Desktop/CLI` and then choose the second option.
+After rebooting the system, you should have enough memory to build `PyQt5`. So just run
+
+```console
+$ python3.6 -m pip install --upgrade maestral[gui]
 ```
 
 Building `PyQt5` may take _a couple of hours_. If the build keeps failing for low
