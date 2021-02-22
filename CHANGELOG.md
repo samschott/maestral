@@ -1,3 +1,10 @@
+## v1.4.3.dev
+
+#### Dependencies:
+
+* Bumped desktop-notifier to >=3.2.2
+* Bumped watchdog to >=2.0.1
+
 ## v1.4.2
 
 Fixes an issue where the daemon might restart syncing even though it should be paused
