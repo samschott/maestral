@@ -20,7 +20,7 @@
     @include clearfix;
     margin-left: auto;
     margin-right: auto;
-    padding: 0.5em;
+    padding: $nav-padding;
     max-width: 100%;
     display: -webkit-box;
     display: -ms-flexbox;
