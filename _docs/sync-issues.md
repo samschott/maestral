@@ -5,7 +5,7 @@ sidebar:
   nav: "docs"
 ---
 
-## Sync issues
+# Sync issues
 
 Generally, the same limitations as outlined in this Dropbox [support
 article](https://help.dropbox.com/installs-integrations/sync-uploads/files-not-syncing)
