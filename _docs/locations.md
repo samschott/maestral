@@ -1,11 +1,10 @@
 ---
 layout: single
+title: Supported folder locations
 permalink: /docs/locations
 sidebar:
   nav: "docs"
 ---
-
-# Supported folder locations
 
 Network drives and some external hard drives are not fully supported as locations for
 the Dropbox folder because Maestral will not be notified of file changes in those

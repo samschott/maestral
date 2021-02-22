@@ -1,11 +1,10 @@
 ---
 layout: single
+title: maestral move-dir
 permalink: /cli/move-dir/
 sidebar:
   nav: "cli-docs"
 ---
-
-# maestral move-dir
 
 Move the local Dropbox folder.
 

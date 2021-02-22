@@ -1,11 +1,10 @@
 ---
 layout: single
+title: Case-sensitive file systems
 permalink: /docs/filesystem
 sidebar:
   nav: "docs"
 ---
-
-# Case-sensitive file systems
 
 Dropbox is case-insensitive: it does not allow files "Readme.txt" and "readme.txt" to
 exist at the same location. This likely is a deliberate choice to enable syncing between

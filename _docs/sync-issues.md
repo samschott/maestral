@@ -1,11 +1,10 @@
 ---
 layout: single
+title: Sync issues
 permalink: /docs/sync-issues
 sidebar:
   nav: "docs"
 ---
-
-# Sync issues
 
 Generally, the same limitations as outlined in this Dropbox [support
 article](https://help.dropbox.com/installs-integrations/sync-uploads/files-not-syncing)

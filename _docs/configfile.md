@@ -1,11 +1,10 @@
 ---
 layout: single
+title: Configuration file
 permalink: /docs/configfile
 sidebar:
   nav: "docs"
 ---
-
-# Configuration file
 
 The config files are located at **$XDG_CONFIG_HOME/maestral** on Linux (typically
 **~/.config/maestral**) and **~/Library/Application Support/maestral** on macOS. Each

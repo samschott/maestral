@@ -1,11 +1,10 @@
 ---
 layout: single
+title: maestral excluded
 permalink: /cli/excluded/
 sidebar:
   nav: "cli-docs"
 ---
-
-# maestral excluded
 
 A command group to view and manage excluded files or folders.
 

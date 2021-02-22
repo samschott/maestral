@@ -1,11 +1,10 @@
 ---
 layout: single
+title: Selective sync
 permalink: /docs/selective-sync
 sidebar:
   nav: "docs"
 ---
-
-# Selective sync
 
 With selective sync, you can select files and folders to remove from your hard drive but keep in your online account. Maestral will ask you during setup, before the initial download, which files or folder you would like to include in syncing. You can also select which items to sync later, through the GUI in the settings pane, or through the CLI with the `maestral excluded` command group. If you want to keep files or folder inside the Dropbox directory on your hard drive but not sync them to the cloud, you can use an [mignore](/docs/mignore) file instead.
 

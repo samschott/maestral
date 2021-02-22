@@ -1,11 +1,10 @@
 ---
 layout: single
+title: maestral restore
 permalink: /cli/restore/
 sidebar:
   nav: "cli-docs"
 ---
-
-# maestral restore
 
 Restore a previous version of a file.
 

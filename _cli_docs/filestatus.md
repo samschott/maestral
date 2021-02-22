@@ -1,11 +1,10 @@
 ---
 layout: single
+title: maestral filestatus
 permalink: /cli/filestatus/
 sidebar:
   nav: "cli-docs"
 ---
-
-# maestral filestatus
 
 Show the sync status of a local file or folder. This command takes a local path as an
 argument. On case-senstitive file systems, the local path must be correctly cased.

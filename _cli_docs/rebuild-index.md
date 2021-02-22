@@ -1,11 +1,10 @@
 ---
 layout: single
+title: maestral rebuild-index
 permalink: /cli/rebuild-index/
 sidebar:
   nav: "cli-docs"
 ---
-
-# maestral rebuild-index
 
 Rebuild the sync index.
 

@@ -1,11 +1,10 @@
 ---
 layout: single
+title: maestral stop
 permalink: /cli/stop/
 sidebar:
   nav: "cli-docs"
 ---
-
-# maestral stop
 
 Stop the sync daemon.
 

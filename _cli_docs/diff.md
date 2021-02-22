@@ -1,11 +1,10 @@
 ---
 layout: single
+title: maestral diff
 permalink: /cli/diff/
 sidebar:
   nav: "cli-docs"
 ---
-
-# maestral diff
 
 Compare two revisions of a file.
 

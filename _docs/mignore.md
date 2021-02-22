@@ -1,11 +1,10 @@
 ---
 layout: single
+title: Mignore
 permalink: /docs/mignore
 sidebar:
   nav: "docs"
 ---
-
-# Mignore
 
 When excluding files or folders with selective sync (`maestral exclude` in the CLI),
 they will be removed from the local folder and kept in the cloud only. However, there

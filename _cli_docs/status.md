@@ -1,11 +1,10 @@
 ---
 layout: single
+title: maestral status
 permalink: /cli/status/
 sidebar:
   nav: "cli-docs"
 ---
-
-# maestral status
 
 Show the status of the daemon.
 

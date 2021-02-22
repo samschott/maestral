@@ -1,11 +1,10 @@
 ---
 layout: single
+title: maestral history
 permalink: /cli/history/
 sidebar:
   nav: "cli-docs"
 ---
-
-# maestral history
 
 Show recent file changes in chronological order.
 

@@ -1,11 +1,10 @@
 ---
 layout: single
 permalink: /cli/revs/
+title: maestral revs
 sidebar:
   nav: "cli-docs"
 ---
-
-# maestral revs
 
 List old file revisions.
 

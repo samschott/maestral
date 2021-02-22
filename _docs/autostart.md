@@ -1,11 +1,10 @@
 ---
 layout: single
+title: Systemd and launchd integration
 permalink: /docs/autostart
 sidebar:
   nav: "docs"
 ---
-
-# Systemd and launchd integration
 
 File syncing should happen in the background and should require as little user
 interaction as possible. To simplify this, the GUI includes an option to automatically

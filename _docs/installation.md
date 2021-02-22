@@ -1,11 +1,10 @@
 ---
 layout: single
+title: Installation
 permalink: /docs/installation
 sidebar:
   nav: "docs"
 ---
-
-# Installation
 
 An app bundle is currently provided only for macOS. On other platforms, you can either
 install the Docker image or the Python package from PyPI:

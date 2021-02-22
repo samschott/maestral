@@ -1,11 +1,10 @@
 ---
 layout: single
+title: Command line interface
 permalink: /cli/
 sidebar:
   nav: "cli-docs"
 ---
-
-# Command line interface
 
 The `maestral` command will be automatically added to your PATH when installing the
 Python package with pip. When using an app bundle on macOS, the command line interface

@@ -1,11 +1,10 @@
 ---
 layout: single
+title: Symlinks
 permalink: /docs/symlinks
 sidebar:
   nav: "docs"
 ---
-
-# Symlinks
 
 Maestral will follow local symlinks, even if they point to locations outside of your
 Dropbox folder, and upload the contents of the destination. It will raise a sync issue

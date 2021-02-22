@@ -1,11 +1,10 @@
 ---
 layout: single
+title: maestral ls
 permalink: /cli/ls/
 sidebar:
   nav: "cli-docs"
 ---
-
-# maestral ls
 
 List contents of a Dropbox directory.
 
