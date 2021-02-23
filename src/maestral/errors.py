@@ -201,7 +201,7 @@ class SharedLinkError(MaestralApiError):
 # sync errors only appear in the sync errors list
 # all other errors raise an error dialog in the GUI
 
-GENERAL_ERRORS = (
+GENERAL_ERRORS = {
     MaestralApiError,
     NotLinkedError,
     InvalidDbidError,
@@ -219,9 +219,9 @@ GENERAL_ERRORS = (
     BusyError,
     UnsupportedFileTypeForDiff,
     SharedLinkError,
-)
+}
 
-SYNC_ERRORS = (
+SYNC_ERRORS = {
     SyncError,
     CancelledError,
     InsufficientPermissionsError,
@@ -235,4 +235,4 @@ SYNC_ERRORS = (
     RestrictedContentError,
     UnsupportedFileError,
     FileSizeError,
-)
+}
