@@ -189,7 +189,7 @@ class Lock:
     method to create / retrieve a lock instance.
     """
 
-    _instances: Dict[str, "Lock"] = dict()
+    _instances: Dict[str, "Lock"] = {}
     _singleton_lock = threading.Lock()
 
     @classmethod

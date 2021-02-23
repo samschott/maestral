@@ -141,7 +141,7 @@ def _get_conf(
     return conf
 
 
-_config_instances: Dict[str, UserConfig] = dict()
+_config_instances: Dict[str, UserConfig] = {}
 _config_lock = threading.Lock()
 
 
@@ -161,7 +161,7 @@ def MaestralConfig(config_name: str) -> UserConfig:
         return _get_conf(config_name, config_path, DEFAULTS_CONFIG, _config_instances)
 
 
-_state_instances: Dict[str, UserConfig] = dict()
+_state_instances: Dict[str, UserConfig] = {}
 _state_lock = threading.Lock()
 
 

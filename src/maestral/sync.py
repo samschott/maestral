@@ -1830,8 +1830,8 @@ class SyncEngine:
         # of the destination path of has other events associated with it or is excluded
         # from sync.
 
-        histories: Dict[str, List[FileSystemEvent]] = dict()
-        moved_events: Dict[str, List[FileSystemEvent]] = dict()
+        histories: Dict[str, List[FileSystemEvent]] = {}
+        moved_events: Dict[str, List[FileSystemEvent]] = {}
         unique_events: List[FileSystemEvent] = []
 
         for event in events:
@@ -1953,7 +1953,7 @@ class SyncEngine:
         )
 
         if len(dir_moved_paths) > 0:
-            child_moved_events: Dict[Tuple[str, str], List[FileSystemEvent]] = dict()
+            child_moved_events: Dict[Tuple[str, str], List[FileSystemEvent]] = {}
             for paths in dir_moved_paths:
                 child_moved_events[paths] = []
 
@@ -1977,7 +1977,7 @@ class SyncEngine:
         )
 
         if len(dir_deleted_paths) > 0:
-            child_deleted_events: Dict[str, List[FileSystemEvent]] = dict()
+            child_deleted_events: Dict[str, List[FileSystemEvent]] = {}
             for path in dir_deleted_paths:
                 child_deleted_events[path] = []
 
@@ -2760,9 +2760,9 @@ class SyncEngine:
         # sort according to path hierarchy:
         # do not create sub-folder / file before parent exists
         # delete parents before deleting children to save some work
-        files: List[SyncEvent] = list()
-        folders: Dict[int, List[SyncEvent]] = dict()
-        deleted: Dict[int, List[SyncEvent]] = dict()
+        files: List[SyncEvent] = []
+        folders: Dict[int, List[SyncEvent]] = {}
+        deleted: Dict[int, List[SyncEvent]] = {}
 
         for event in changes_included:
 
@@ -3091,7 +3091,7 @@ class SyncEngine:
         # Note: we won't have to deal with modified or moved events,
         # Dropbox only reports DeletedMetadata or FileMetadata / FolderMetadata
 
-        histories: Dict[str, List[Metadata]] = dict()
+        histories: Dict[str, List[Metadata]] = {}
         for entry in changes.entries:
             add_to_bin(histories, entry.path_lower, entry)
 
