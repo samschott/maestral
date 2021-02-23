@@ -67,7 +67,6 @@ $h-size-6: 0.8em; // ~17.6px
 
     --background-color: #fff;
     --code-background-color: var(--lighter-gray);
-    --code-background-color-dark: var(--light-gray);
     --header-background-color: rgba(255,255,255,0.9);
     --header-border-color: var(--lighter-gray);
     --text-color: var(--dark-gray);
@@ -147,8 +146,7 @@ $h-size-6: 0.8em; // ~17.6px
     --lighter-gray: rgb(17,17,17);
 
     --background-color: rgb(30,30,30);
-    --code-background-color: var(--lighter-gray);
-    --code-background-color-dark: var(--light-gray);
+    --code-background-color: rgb(40,50,55);
     --header-background-color: rgba(30,30,30,0.9);
     --header-border-color: var(--lighter-gray);
     --text-color: rgb(222,222,222);
