@@ -38,8 +38,12 @@ official Dropbox client:
 
 ## Sync issues
 
-You will be notified of sync issues through the GUI and can list them with `maestral
-status` from the CLI. The following file names may result in sync issues:
+Some file names may result in sync issues, depending on the platform.
+You can view sync issues with [`maestral status`]({{ site.baseurl }}/cli/status) from
+the CLI will be notified of sync issues through the GUI with the tray icon showing a bell.
+The GUI also features a panel to show all sync issues:
+
+{% include figure image_path="/assets/images/syncissue.png" alt="Sync issue" width="500px"%}
 
 ### Incompatible characters for all operating systems
 
@@ -71,3 +75,4 @@ but do not cause any issues with Dropbox or Maestral.
 * ? (question mark)
 * \* (asterisk)
 * . (period) or a space at the end of a file or folder name
+
