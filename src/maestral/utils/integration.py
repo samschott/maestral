@@ -135,8 +135,6 @@ def get_inotify_limits() -> Tuple[int, int, int]:
         happen if /proc/sys is left out of the kernel image or simply not mounted.
     """
 
-    from pathlib import Path
-
     root = Path("/proc/sys/fs/inotify")
 
     max_user_watches_path = root / "max_user_watches"
