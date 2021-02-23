@@ -24,7 +24,7 @@ maestral notify level [OPTIONS] [[ERROR|SYNCISSUE|FILECHANGE]]
 
 ```
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show this message and exit.
+--help                    Show help for this command and exit.
 ```
 
 ## maestral notify snooze
@@ -41,5 +41,5 @@ maestral notify snooze [OPTIONS] MINUTES
 
 ```
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show this message and exit.
+--help                    Show help for this command and exit.
 ```

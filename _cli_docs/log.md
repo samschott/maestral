@@ -37,7 +37,7 @@ maestral log clear [OPTIONS]
 
 ```
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show this message and exit.
+--help                    Show help for this command and exit.
 ```
 
 ## maestral log level
@@ -56,7 +56,7 @@ maestral log level [OPTIONS] [[DEBUG|INFO|WARNING|ERROR]]
 
 ```
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show this message and exit.
+--help                    Show help for this command and exit.
 ```
 
 ## maestral log show
@@ -74,5 +74,5 @@ maestral log show [OPTIONS]
 ```
 -e, --external            Open in external program.
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show this message and exit.
+--help                    Show help for this command and exit.
 ```

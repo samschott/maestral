@@ -19,5 +19,5 @@ maestral revs [OPTIONS] DROPBOX_PATH
 ```
 -l, --limit INTEGER RANGE  Maximum number of revs to list.  [default: 10]
 -c, --config-name CONFIG   Run command with the given configuration.
---help                     Show this message and exit.
+--help                     Show help for this command and exit.
 ```

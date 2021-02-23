@@ -43,7 +43,7 @@ maestral sharelink create [OPTIONS] DROPBOX_PATH
 -p, --password TEXT       Optional password for the link.
 -e, --expiry DATE         Expiry time for the link (e.g. '2025-07-24 20:50').
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show this message and exit.
+--help                    Show help for this command and exit.
 ```
 
 ## maestral sharelink list
@@ -61,7 +61,7 @@ maestral sharelink list [OPTIONS] [DROPBOX_PATH]
 
 ```
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show this message and exit.
+--help                    Show help for this command and exit.
 ```
 
 ## maestral sharelink revoke
@@ -76,5 +76,5 @@ maestral sharelink revoke [OPTIONS] URL
 
 ```
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show this message and exit.
+--help                    Show help for this command and exit.
 ```

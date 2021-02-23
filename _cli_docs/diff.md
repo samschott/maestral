@@ -30,5 +30,5 @@ maestral diff [OPTIONS] DROPBOX_PATH
 --no-pager                 Don't use a pager for output.
 -l, --limit INTEGER RANGE  Maximum number of revs to list.  [default: 10]
 -c, --config-name CONFIG   Run command with the given configuration.
---help                     Show this message and exit.
+--help                     Show help for this command and exit.
 ```

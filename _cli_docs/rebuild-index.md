@@ -23,5 +23,5 @@ maestral rebuild-index [OPTIONS]
 
 ```
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show this message and exit.
+--help                    Show help for this command and exit.
 ```

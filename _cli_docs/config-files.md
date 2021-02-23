@@ -29,5 +29,5 @@ work         user@corp.org           ~/.config/maestral/work.ini
 
 ```
 --clean  Remove config files without a linked account.
---help   Show this message and exit.
+--help   Show help for this command and exit.
 ```

@@ -40,7 +40,7 @@ maestral auth link [OPTIONS]
 ```
 -r, --relink              Relink to the current account. Keeps the sync state.
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show this message and exit.
+--help                    Show help for this command and exit.
 ```
 
 ## maestral auth status
@@ -57,7 +57,7 @@ maestral auth status [OPTIONS]
 
 ```
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show this message and exit.
+--help                    Show help for this command and exit.
 ```
 
 ## maestral auth unlink
@@ -75,5 +75,5 @@ maestral auth unlink [OPTIONS]
 ```
 -Y, --yes                 Skip the confirmation prompt.
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show this message and exit.
+--help                    Show help for this command and exit.
 ```

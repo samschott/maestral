@@ -31,5 +31,5 @@ Path                             Change    Time
 
 ```
 -c, --config-name CONFIG  Run command with the given configuration.
---help                    Show help for command.
+--help                    Show help for this command and exit.
 ```
