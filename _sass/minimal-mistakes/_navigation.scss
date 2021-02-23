@@ -324,8 +324,8 @@
       display: inline-block;
       padding: 0.5em 2.5em 0.5em 1em;
       color: var(--muted-text-color);
-      font-size: $type-size-8;
-      font-weight: bold;
+      font-size: 0.6em;
+      // font-weight: bold;
       border: 1px solid var(--muted-text-color);
       border-radius: $border-radius;
       z-index: 20;
@@ -340,7 +340,7 @@
         right: 1em;
         top: 1.25em;
         width: 0.75em;
-        height: 0.125em;
+        height: 1px;
         line-height: 1;
         background-color: var(--muted-text-color);
         -webkit-transition: 0.2s ease-out;
@@ -368,11 +368,15 @@
     /* selected*/
     input:checked + label {
 
-      &:before,
+      &:before {
+        -webkit-transform: rotate(45deg);
+        -ms-transform: rotate(45deg);
+        transform: rotate(45deg);
+      }
       &:after {
-        -webkit-transform: rotate(0);
-        -ms-transform: rotate(0);
-        transform: rotate(0);
+        -webkit-transform: rotate(135deg);
+        -ms-transform: rotate(135deg);
+        transform: rotate(135deg);
       }
     }
 
@@ -435,7 +439,6 @@
     max-height: 9999px; /* exaggerate max-height to accommodate tall lists*/
     overflow: visible;
     opacity: 1;
-    margin-top: 1em;
     -webkit-transform: translate(0, 0);
     -ms-transform: translate(0, 0);
     transform: translate(0, 0);

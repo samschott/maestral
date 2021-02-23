@@ -332,33 +332,28 @@ body:hover .visually-hidden button {
 
 .navicon {
   position: relative;
-  width: $navicon-width;
-  height: $navicon-pill-width;
-  border-radius: 2px;
-  background: var(--masthead-link-color);
-  margin: auto;
-  -webkit-transition: 0.3s;
-  transition: 0.3s;
+  width: 17px;
+  background: transparent;
+  left: 0;
 
   &:before,
   &:after {
     content: "";
     position: absolute;
     left: 0;
-    width: $navicon-width;
-    height: $navicon-pill-width;
-    border-radius: 2px;
+    width: 17px;
+    height: 1px;
     background: var(--masthead-link-color);
     -webkit-transition: 0.3s;
     transition: 0.3s;
   }
 
   &:before {
-    top: (-2 * $navicon-spacing);
+    top: -3.5px;
   }
 
   &:after {
-    bottom: (-2 * $navicon-spacing);
+    bottom: -3.5px;
   }
 }
 
@@ -373,7 +368,7 @@ body:hover .visually-hidden button {
     -ms-transform-origin: 50% 50%;
     transform-origin: 50% 50%;
     top: 0;
-    width: $navicon-width;
+    width: 17px;
   }
 
   /* rotate the lines to form the x shape*/

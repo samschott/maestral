@@ -69,7 +69,7 @@ $h-size-6: 0.8em; // ~17.6px
     --code-background-color: var(--lighter-gray);
     --header-background-color: rgba(255,255,255,0.9);
     --header-border-color: var(--lighter-gray);
-    --text-color: var(--dark-gray);
+    --text-color: rgb(29,29,31);
     --muted-text-color: var(--light-gray);
     --border-color: var(--lighter-gray);
     --form-background-color: var(--lighter-gray);
@@ -156,7 +156,7 @@ $h-size-6: 0.8em; // ~17.6px
     --border-color: rgb(100,100,100);
     --form-background-color: rgb(25,25,25);
     --footer-background-color: rgb(25,25,25);
-    --splash-background-color-light: rgb(240,240,240);
+    --splash-background-color-light: rgb(251,251,251);
     --splash-background-color-dark: rgb(40,40,50);
 
     --primary-color: #6f777d;
@@ -212,7 +212,7 @@ $nav-padding: 0.5em;
 $nav-toggle-height: 2rem;
 $navicon-width: 1.2rem;
 $navicon-height: 1.2rem;
-$navicon-pill-width: 4px;
+$navicon-pill-width: 2px;
 $navicon-spacing: 4.5px;
 $global-transition: all 0.2s ease-in-out;
 $intro-transition: intro 0.3s both;
