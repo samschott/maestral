@@ -3879,7 +3879,7 @@ class SyncMonitor:
                     )
                     err_cls = InotifyError
 
-                elif PermissionError:
+                elif exc.errno in (errno.EPERM, errno.EACCES):
                     title = "Insufficient permissions to monitor local changes"
                     msg = "Please check the permissions for your local Dropbox folder"
                     err_cls = InotifyError
