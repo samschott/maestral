@@ -119,8 +119,12 @@ def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
     :param d: Dictionary of serialized class.
     :returns: Class instance.
     """
-    # import maestral errors for evaluation
-    # this import needs to be absolute to reconstruct the Exception class
+
+    # Import maestral.errors for evaluation.
+    # This import needs to be absolute to reconstruct the Exception class. Note that the
+    # eval is safe here because ``serpent_deserialize_api_error`` is only registered for
+    # strings that match an error class name.
+
     import maestral.errors  # noqa: F401
 
     cls = eval(class_name)
