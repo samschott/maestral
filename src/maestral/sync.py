@@ -1288,7 +1288,9 @@ class SyncEngine:
 
         if self.has_sync_errors():
             for error in self.sync_errors.copy():
-                if is_equal_or_child(error.dbx_path.lower(), dbx_path_lower):
+                if error.dbx_path and is_equal_or_child(
+                    error.dbx_path.lower(), dbx_path_lower
+                ):
                     try:
                         self.sync_errors.remove(error)
                     except KeyError:
