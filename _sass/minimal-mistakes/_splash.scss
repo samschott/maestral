@@ -1,16 +1,9 @@
 
 .splash {
-    width: 100vw;
-    position: relative;
-    left: 50%;
-    right: 50%;
-    margin-left: -50vw;
-    margin-right: -50vw;
     text-align: center;
 
     h1, h2 {
-        padding-top: 2em;
-        padding-bottom: 2em;
+        padding: 1em;
         border-style: none !important;
     }
 }
@@ -20,6 +13,7 @@
     color: $text-color;
     text-align: center;
     margin: auto;
+    padding: 1em;
 
     a {
         color: $link-color;
@@ -31,6 +25,7 @@
     color: rgb(245,245,245) !important;
     text-align: center;
     margin: auto;
+    padding: 1em;
 
     a {
         color: rgb(50,150,250);

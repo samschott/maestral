@@ -19,6 +19,15 @@
   }
 }
 
+#mainsplash {
+  @include clearfix;
+  -webkit-animation: $intro-transition;
+  animation: $intro-transition;
+  max-width: 100vw;
+  -webkit-animation-delay: 0.15s;
+  animation-delay: 0.15s;
+}
+
 body {
   display: -webkit-box;
   display: -ms-flexbox;
