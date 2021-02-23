@@ -173,7 +173,7 @@ td > code {
   padding-bottom: 0.1rem;
   font-size: 0.8em;
   background: $code-background-color;
-  border-radius: $border-radius;
+  border-radius: 4px;
 
   &:before,
   &:after {

@@ -55,8 +55,16 @@ $(document).ready(function() {
   });
 
   // Smooth scrolling
+
   header = document.querySelector(".masthead")
-  scrollOffset = header.offsetHeight
+  headerStyle = getComputedStyle(header)
+  
+  // accomodate sticky header
+  if ( headerStyle.position === "sticky" ) {
+    scrollOffset = header.offsetHeight
+  } else {
+    scrollOffset = 0
+  }
 
   var scroll = new SmoothScroll('a[href*="#"]', {
     offset: scrollOffset,
