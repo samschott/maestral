@@ -135,8 +135,6 @@ def get_inotify_limits() -> Tuple[int, int, int]:
         happen if /proc/sys is left out of the kernel image or simply not mounted.
     """
 
-    from pathlib import Path
-
     root = Path("/proc/sys/fs/inotify")
 
     max_user_watches_path = root / "max_user_watches"
@@ -169,7 +167,7 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
     :returns: CPU usage during interval in percent.
     """
 
-    if not interval > 0:
+    if interval <= 0:
         raise ValueError(f"interval is not positive (got {interval!r})")
 
     def timer():
