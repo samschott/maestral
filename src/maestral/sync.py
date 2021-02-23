@@ -1288,7 +1288,6 @@ class SyncEngine:
 
         if self.has_sync_errors():
             for error in self.sync_errors.copy():
-                assert isinstance(error.dbx_path, str)
                 if is_equal_or_child(error.dbx_path.lower(), dbx_path_lower):
                     try:
                         self.sync_errors.remove(error)
@@ -1441,7 +1440,7 @@ class SyncEngine:
         # fill out missing dbx_path_dst or local_path_dst
         if err.dbx_path_dst and not err.local_path_dst:
             err.local_path_dst = self.to_local_path_from_cased(err.dbx_path_dst)
-        if err.local_path_dst and not not err.dbx_path:
+        if err.local_path_dst and not err.dbx_path_dst:
             err.dbx_path_dst = self.to_dbx_path(err.local_path_dst)
 
         if err.dbx_path:
