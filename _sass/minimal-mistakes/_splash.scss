@@ -15,18 +15,22 @@
     }
 }
 
-.splash-light{
+.wide-light{
     background-color: rgb(251,251,251);
     color: $text-color;
+    text-align: center;
+    margin: auto;
 
     a {
         color: $link-color;
     }
 }
 
-.splash-dark{
+.wide-dark{
     background-color: rgb(40,40,50);
     color: rgb(245,245,245) !important;
+    text-align: center;
+    margin: auto;
 
     a {
         color: rgb(50,150,250);
@@ -35,13 +39,17 @@
 
 .flex-container {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     flex-wrap: wrap;
     margin-left: auto;
     margin-right: auto;
     margin-top: 1em;
     margin-bottom: 1em;
     overflow-y: hidden;
+
+    @include breakpoint($large) {
+        flex-direction: row;
+    }
 }
 
 .flex-child {
