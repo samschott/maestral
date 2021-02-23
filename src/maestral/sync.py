@@ -1490,14 +1490,6 @@ class SyncEngine:
         try:
             with self._db_lock:
                 yield
-        except (
-            sqlalchemy.exc.DatabaseError,
-            sqlalchemy.exc.DataError,
-            sqlalchemy.exc.IntegrityError,
-        ) as exc:
-            title = "Database integrity error"
-            msg = "Please rebuild the index to continue syncing."
-            new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
         except sqlalchemy.exc.OperationalError as exc:
             title = "Database transaction error"
             msg = (
@@ -1509,6 +1501,10 @@ class SyncEngine:
         except sqlalchemy.exc.InternalError as exc:
             title = "Database transaction error"
             msg = "Please restart Maestral to continue syncing."
+            new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
+        except sqlalchemy.exc.DatabaseError as exc:
+            title = "Database integrity error"
+            msg = "Please rebuild the index to continue syncing."
             new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
 
         if new_exc:
