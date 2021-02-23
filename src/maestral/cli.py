@@ -460,7 +460,7 @@ class OrderedGroup(click.Group):
             commands.append((name, cmd))
 
         # allow for 3 times the default spacing
-        if len(commands):
+        if len(commands) > 0:
             max_len = max(len(name) for name, cmd in commands)
             limit = formatter.width - 6 - max_len  # type: ignore
 
