@@ -9,7 +9,7 @@
 }
 
 .wide-light{
-    background-color: rgb(251,251,251);
+    background-color: var(--splash-background-color-light);
     color: rgb(17,17,17);
     text-align: center;
     margin: auto;
@@ -21,7 +21,7 @@
 }
 
 .wide-dark{
-    background-color: rgb(40,40,50);
+    background-color: var(--splash-background-color-dark);
     color: rgb(245,245,245);
     text-align: center;
     margin: auto;

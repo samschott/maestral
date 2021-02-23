@@ -74,6 +74,8 @@ $h-size-6: 0.8em; // ~17.6px
     --border-color: var(--lighter-gray);
     --form-background-color: var(--lighter-gray);
     --footer-background-color: rgb(242,242,242);
+    --splash-background-color-light: rgb(251,251,251);
+    --splash-background-color-dark: rgb(40,40,50);
 
     --primary-color: #6f777d;
     --success-color: #3fa63f;
@@ -145,15 +147,17 @@ $h-size-6: 0.8em; // ~17.6px
     --light-gray: rgb(10,10,10);
     --lighter-gray: rgb(17,17,17);
 
-    --background-color: rgb(30,30,30);
+    --background-color: rgb(30,32,35);
     --code-background-color: rgb(40,50,55);
-    --header-background-color: rgba(30,30,30,0.9);
-    --header-border-color: var(--lighter-gray);
+    --header-background-color: rgba(20,20,20,.9);
+    --header-border-color: rgba(20,20,20,.9);
     --text-color: rgb(222,222,222);
     --muted-text-color: rgb(180,180,180);
     --border-color: rgb(100,100,100);
-    --form-background-color: var(--lighter-gray);
-    --footer-background-color: var(--lighter-gray);
+    --form-background-color: rgb(25,25,25);
+    --footer-background-color: rgb(25,25,25);
+    --splash-background-color-light: rgb(240,240,240);
+    --splash-background-color-dark: rgb(40,40,50);
 
     --primary-color: #6f777d;
     --success-color: #3fa63f;
