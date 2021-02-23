@@ -12,7 +12,7 @@ main:
     url: https://github.com/samschott/maestral
 
 docs:
-  - title: "Installtion and Setup"
+  - title: "Installation and Setup"
     url: /docs/installation
   - title: "Syncing"
     children:
