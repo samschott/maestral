@@ -13,13 +13,13 @@
 @mixin notice($notice-color) {
   margin: 2em 0 !important;  /* override*/
   padding: 1em;
-  color: $dark-gray;
+  color: var(--dark-gray);
   font-family: $global-font-family;
   font-size: $type-size-7 !important;
   text-indent: initial; /* override*/
-  background-color: mix(#fff, $notice-color, 90%);
+  background-color: var(--notice-color);
   border-radius: $border-radius;
-  box-shadow: 0 1px 1px rgba($notice-color, 0.25);
+  box-shadow: 0 1px 1px var(--notice-color);
 
   h4 {
     margin-top: 0 !important; /* override*/
@@ -49,12 +49,12 @@
     color: $notice-color;
 
     &:hover {
-      color: mix(#000, $notice-color, 40%);
+      color: var(--notice-color);
     }
   }
 
   code {
-    background-color: mix(#fff, $notice-color, 95%)
+    background-color: var(--notice-color);
   }
 
 	pre code {
@@ -71,35 +71,35 @@
 /* Default notice */
 
 .notice {
-  @include notice($light-gray);
+  @include notice(--light-gray);
 }
 
 /* Primary notice */
 
 .notice--primary {
-  @include notice($primary-color);
+  @include notice(--primary-color);
 }
 
 /* Info notice */
 
 .notice--info {
-  @include notice($info-color);
+  @include notice(--info-color);
 }
 
 /* Warning notice */
 
 .notice--warning {
-  @include notice($warning-color);
+  @include notice(--warning-color);
 }
 
 /* Success notice */
 
 .notice--success {
-  @include notice($success-color);
+  @include notice(--success-color);
 }
 
 /* Danger notice */
 
 .notice--danger {
-  @include notice($danger-color);
+  @include notice(--danger-color);
 }

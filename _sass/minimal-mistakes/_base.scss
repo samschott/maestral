@@ -11,7 +11,7 @@ html {
 body {
   margin: 0;
   padding: 0;
-  color: $text-color;
+  color: var(--text-color);
   font-family: $global-font-family;
   line-height: 1.5;
 
@@ -70,7 +70,7 @@ p {
 u,
 ins {
   text-decoration: none;
-  border-bottom: 1px solid $text-color;
+  border-bottom: 1px solid var(--text-color);
   a {
     color: inherit;
   }
@@ -101,7 +101,7 @@ abbr[title],
 abbr[data-original-title] {
   text-decoration: none;
   cursor: help;
-  border-bottom: 1px dotted $text-color;
+  border-bottom: 1px dotted var(--text-color);
 }
 
 /* blockquotes */
@@ -111,7 +111,7 @@ blockquote {
   padding-left: 1em;
   padding-right: 1em;
   font-style: italic;
-  border-left: 0.25em solid $primary-color;
+  border-left: 0.25em solid var(--primary-color);
 
   cite {
     font-style: italic;
@@ -134,11 +134,11 @@ a {
   }
 
   &:visited {
-    color: $link-color-visited;
+    color: var(--link-color-visited);
   }
 
   &:hover {
-    color: $link-color-hover;
+    color: var(--link-color-hover);
     outline: 0;
   }
 }
@@ -172,7 +172,7 @@ td > code {
   padding-top: 0.1rem;
   padding-bottom: 0.1rem;
   font-size: 0.8em;
-  background: $code-background-color;
+  background: var(--code-background-color);
   border-radius: 4px;
 
   &:before,
@@ -188,7 +188,7 @@ hr {
   display: block;
   margin: 1em 0;
   border: 0;
-  border-top: 1px solid $border-color;
+  border-top: 1px solid var(--border-color);
 }
 
 /* lists */
@@ -272,7 +272,7 @@ figure {
 
 figcaption {
   margin-bottom: 0.5em;
-  color: $muted-text-color;
+  color: var(--muted-text-color);
   font-family: $caption-font-family;
   font-size: $type-size-6;
 
@@ -281,7 +281,7 @@ figcaption {
     transition: $global-transition;
 
     &:hover {
-      color: $link-color-hover;
+      color:var(--link-color-hover);
     }
   }
 }

@@ -35,8 +35,8 @@
   margin: 1.414em 0 0.5em;
   padding-bottom: 0.5em;
   font-size: $type-size-5;
-  color: $muted-text-color;
-  border-bottom: 1px solid $border-color;
+  color: var(--muted-text-color);
+  border-bottom: 1px solid var(--border-color);
 
   + .list__item .archive__item-title {
     margin-top: 0.5em;
@@ -241,7 +241,7 @@
 .feature__wrapper {
   @include clearfix();
   margin-bottom: 2em;
-  border-bottom: 1px solid $border-color;
+  border-bottom: 1px solid var(--border-color);
 
   .archive__item-title {
     margin-bottom: 0;

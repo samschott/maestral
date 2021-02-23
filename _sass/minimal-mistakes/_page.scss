@@ -95,7 +95,7 @@ body {
 
   h2 {
     padding-bottom: 0.2em;
-    border-bottom: 1px solid $border-color;
+    border-bottom: 1px solid var(--border-color);
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -266,7 +266,7 @@ body {
 .page__share {
   margin-top: 2em;
   padding-top: 1em;
-  border-top: 1px solid $border-color;
+  border-top: 1px solid var(--border-color);
 
   @include breakpoint(max-width $small) {
     .btn span {
@@ -294,7 +294,7 @@ body {
 
 .page__meta {
   margin-top: 2em;
-  color: $muted-text-color;
+  color: var(--muted-text-color);
   font-family: $sans-serif;
   font-size: $type-size-6;
 
@@ -339,12 +339,12 @@ body {
   margin-bottom: 8px;
   padding: 5px 10px;
   text-decoration: none;
-  border: 1px solid mix(#000, $border-color, 25%);
+  border: 1px solid var(--border-color);
   border-radius: $border-radius;
 
   &:hover {
     text-decoration: none;
-    color: $link-color-hover;
+    color: var(--link-color-hover);
   }
 }
 
@@ -353,7 +353,7 @@ body {
   padding-bottom: 1em;
 
   &:not(:last-child) {
-    border-bottom: solid 1px $border-color;
+    border-bottom: solid 1px var(--border-color);
   }
 
   .archive__item-title {
@@ -372,11 +372,11 @@ body {
 
 .taxonomy__title {
   margin-bottom: 0.5em;
-  color: $muted-text-color;
+  color: var(--muted-text-color);
 }
 
 .taxonomy__count {
-  color: $muted-text-color;
+  color: var(--muted-text-color);
 }
 
 .taxonomy__index {
@@ -402,14 +402,14 @@ body {
     justify-content: space-between;
     color: inherit;
     text-decoration: none;
-    border-bottom: 1px solid $border-color;
+    border-bottom: 1px solid var(--border-color);
   }
 }
 
 .back-to-top {
   display: block;
   clear: both;
-  color: $muted-text-color;
+  color: var(--muted-text-color);
   font-size: 0.6em;
   text-transform: uppercase;
   text-align: right;
@@ -433,7 +433,7 @@ body {
   margin-bottom: 10px;
   padding-top: 2rem;
   font-size: $type-size-6;
-  border-top: 1px solid $border-color;
+  border-top: 1px solid var(--border-color);
   text-transform: uppercase;
 }
 
@@ -460,7 +460,7 @@ body {
   margin: 1em 0;
 
   &:not(:last-child) {
-    border-bottom: 1px solid $border-color;
+    border-bottom: 1px solid var(--border-color);
   }
 }
 
@@ -484,7 +484,7 @@ body {
     width: 80px;
     height: 80px;
     padding: 5px;
-    border: 1px solid $border-color;
+    border: 1px solid var(--border-color);
   }
 }
 
@@ -523,7 +523,7 @@ body {
   float: left;
   margin-top: 2em;
   padding-top: 1em;
-  border-top: 1px solid $border-color;
+  border-top: 1px solid var(--border-color);
 
   @include breakpoint($large) {
     float: right;

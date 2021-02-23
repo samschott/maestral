@@ -7,8 +7,8 @@
 html {
   /* apply a natural box layout model to all elements */
   box-sizing: border-box;
-  background-color: $background-color;
-  font-size: 22px;
+  background-color: var(--background-color);
+  font-size: $font-size;
   -webkit-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
 }
@@ -62,7 +62,7 @@ audio:not([controls]) {
 }
 
 a {
-  color: $link-color;
+  color: var(--link-color);
 }
 
 /* Apply focus state */

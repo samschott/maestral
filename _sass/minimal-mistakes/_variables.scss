@@ -6,168 +6,211 @@
    Typography
    ========================================================================== */
 
-$doc-font-size: 16 !default;
+$doc-font-size: 16;
+$font-size: 22px;
 
 /* paragraph indention */
-$paragraph-indent: false !default; // true, false (default)
-$indent-var: 1.3em !default;
+$paragraph-indent: false; // true, false (default)
+$indent-var: 1.3em;
 
 /* system typefaces */
-$serif: Georgia, Times, serif !default;
+$serif: Georgia, Times, serif;
 $sans-serif: -apple-system, BlinkMacSystemFont, "Roboto", "Segoe UI",
-  "Helvetica Neue", "Lucida Grande", Arial, sans-serif !default;
-$monospace: Monaco, Consolas, "Lucida Console", monospace !default;
+  "Helvetica Neue", "Lucida Grande", Arial, sans-serif;
+$monospace: Monaco, Consolas, "Lucida Console", monospace;
 
 /* sans serif typefaces */
-$sans-serif-narrow: $sans-serif !default;
-$helvetica: Helvetica, "Helvetica Neue", Arial, sans-serif !default;
+$sans-serif-narrow: $sans-serif;
+$helvetica: Helvetica, "Helvetica Neue", Arial, sans-serif;
 
 /* serif typefaces */
-$georgia: Georgia, serif !default;
-$times: Times, serif !default;
-$bodoni: "Bodoni MT", serif !default;
-$calisto: "Calisto MT", serif !default;
-$garamond: Garamond, serif !default;
+$georgia: Georgia, serif;
+$times: Times, serif;
+$bodoni: "Bodoni MT", serif;
+$calisto: "Calisto MT", serif;
+$garamond: Garamond, serif;
 
-$global-font-family: $sans-serif !default;
-$header-font-family: $sans-serif !default;
-$caption-font-family: $serif !default;
+$global-font-family: $sans-serif;
+$header-font-family: $sans-serif;
+$caption-font-family: $serif;
 
 /* type scale */
-$type-size-1: 2.441em !default; // ~54px
-$type-size-2: 1.953em !default; // ~43px
-$type-size-3: 1.563em !default; // ~27.5px
-$type-size-4: 1.25em !default; // ~20px
-$type-size-5: 1em !default; // ~22px
-$type-size-6: 0.75em !default; // ~16.5px
-$type-size-7: 0.69em !default; // ~15-2px
-$type-size-8: 0.625em !default; // ~13.75
+$type-size-1: 2.441em; // ~54px
+$type-size-2: 1.953em; // ~43px
+$type-size-3: 1.563em; // ~27.5px
+$type-size-4: 1.25em; // ~20px
+$type-size-5: 1em; // ~22px
+$type-size-6: 0.75em; // ~16.5px
+$type-size-7: 0.69em; // ~15-2px
+$type-size-8: 0.625em; // ~13.75
 
 /* headline scale */
-$h-size-1: 1.5em !default; // ~33px
-$h-size-2: 1.2em !default; // ~26.4px
-$h-size-3: 1em !default; // ~22px
-$h-size-4: 0.9em !default; // ~20px
-$h-size-5: 0.85em !default; // ~17.8px
-$h-size-6: 0.8em !default; // ~17.6px
-$h-size-6: 0.8em !default; // ~17.6px
+$h-size-1: 1.5em; // ~33px
+$h-size-2: 1.2em; // ~26.4px
+$h-size-3: 1em; // ~22px
+$h-size-4: 0.9em; // ~20px
+$h-size-5: 0.85em; // ~17.8px
+$h-size-6: 0.8em; // ~17.6px
+$h-size-6: 0.8em; // ~17.6px
 
 /*
    Colors
    ========================================================================== */
 
-$gray: #7a8288 !default;
-$dark-gray: rgb(17,17,17) !default;
-$darker-gray: mix(#000, $gray, 60%) !default;
-$light-gray: mix(#fff, $gray, 50%) !default;
-$lighter-gray: mix(#fff, $gray, 80%) !default;
+:root {
+    color-scheme: light dark;
+    --gray: #7a8288;
+    --dark-gray: rgb(17,17,17);
+    --darker-gray: rgb(10,10,10);
+    --light-gray: rgb(60,60,60);
+    --lighter-gray: rgb(240,240,240);
 
-$background-color: #fff !default;
-$code-background-color: mix(#fff, $gray, 90%) !default;
-$code-background-color-dark: $light-gray !default;
-$header-background-color: rgba(255,255,255,0.9) !default;
-$text-color: $dark-gray !default;
-$muted-text-color: mix(#fff, $text-color, 20%) !default;
-$border-color: $lighter-gray !default;
-$form-background-color: $lighter-gray !default;
-$footer-background-color: rgb(242,242,242) !default;
+    --background-color: #fff;
+    --code-background-color: var(--lighter-gray);
+    --code-background-color-dark: var(--light-gray);
+    --header-background-color: rgba(255,255,255,0.9);
+    --header-border-color: var(--lighter-gray);
+    --text-color: var(--dark-gray);
+    --muted-text-color: var(--light-gray);
+    --border-color: var(--lighter-gray);
+    --form-background-color: var(--lighter-gray);
+    --footer-background-color: rgb(242,242,242);
 
-$primary-color: #6f777d !default;
-$success-color: #3fa63f !default;
-$warning-color: #d67f05 !default;
-$danger-color: #ee5f5b !default;
-$info-color: #3b9cba !default;
-$focus-color: $primary-color !default;
-$active-color: mix(#fff, $primary-color, 80%) !default;
-$brand-color: #115B5F !default;
+    --primary-color: #6f777d;
+    --success-color: #3fa63f;
+    --warning-color: #d67f05;
+    --danger-color: #ee5f5b;
+    --info-color: #3b9cba;
+    --focus-color: var(--primary-color);
+    --active-color: var(--primary-color);
+    --brand-color: #115B5F;
 
-/* YIQ color contrast */
-$yiq-contrasted-dark-default: $dark-gray !default;
-$yiq-contrasted-light-default: #fff !default;
-$yiq-contrasted-threshold: 175 !default;
-$yiq-debug: false !default;
+    /* links */
+    --link-color: rgb(12,100,200);
+    --link-color-hover: var(--link-color);
+    --link-color-visited: var(--link-color);
+    --masthead-link-color: rgb(60,60,60);
+    --masthead-link-color-hover: rgb(0,80,200);
+    --navicon-link-color-hover: #115B5F;
 
-/* brands */
-$behance-color: #1769ff !default;
-$bitbucket-color: #205081 !default;
-$dribbble-color: #ea4c89 !default;
-$facebook-color: #3b5998 !default;
-$flickr-color: #ff0084 !default;
-$foursquare-color: #0072b1 !default;
-$github-color: #171516 !default;
-$gitlab-color: #e24329 !default;
-$instagram-color: #517fa4 !default;
-$keybase-color: #ef7639 !default;
-$lastfm-color: #d51007 !default;
-$linkedin-color: #007bb6 !default;
-$mastodon-color: #2b90d9 !default;
-$pinterest-color: #cb2027 !default;
-$reddit-color: #ff4500 !default;
-$rss-color: #fa9b39 !default;
-$soundcloud-color: #ff3300 !default;
-$stackoverflow-color: #fe7a15 !default;
-$tumblr-color: #32506d !default;
-$twitter-color: #55acee !default;
-$vimeo-color: #1ab7ea !default;
-$vine-color: #00bf8f !default;
-$youtube-color: #bb0000 !default;
-$xing-color: #006567 !default;
+    /* brands */
+    --behance-color: #1769ff;
+    --bitbucket-color: #205081;
+    --dribbble-color: #ea4c89;
+    --facebook-color: #3b5998;
+    --flickr-color: #ff0084;
+    --foursquare-color: #0072b1;
+    --github-color: #171516;
+    --gitlab-color: #e24329;
+    --instagram-color: #517fa4;
+    --keybase-color: #ef7639;
+    --lastfm-color: #d51007;
+    --linkedin-color: #007bb6;
+    --mastodon-color: #2b90d9;
+    --pinterest-color: #cb2027;
+    --reddit-color: #ff4500;
+    --rss-color: #fa9b39;
+    --soundcloud-color: #ff3300;
+    --stackoverflow-color: #fe7a15;
+    --tumblr-color: #32506d;
+    --twitter-color: #55acee;
+    --vimeo-color: #1ab7ea;
+    --vine-color: #00bf8f;
+    --youtube-color: #bb0000;
+    --xing-color: #006567;
 
-/* links */
-$link-color: rgb(12,100,200) !default;
-$link-color-hover: rgb(12,100,200) !default;
-$link-color-visited: mix(#fff, $link-color, 15%) !default;
-$masthead-link-color: rgb(60,60,60) !default;
-$masthead-link-color-hover: rgb(0,80,200) !default;
-$navicon-link-color-hover: #115B5F !default;
+    /* syntax highlighting (base16) */
+    --base00: #263238;
+    --base01: #2e3c43;
+    --base02: #314549;
+    --base03: #546e7a;
+    --base04: #b2ccd6;
+    --base05: #eeffff;
+    --base06: #eeffff;
+    --base07: #ffffff;
+    --base08: #f07178;
+    --base09: #f78c6c;
+    --base0a: #ffcb6b;
+    --base0b: #c3e88d;
+    --base0c: #89ddff;
+    --base0d: #82aaff;
+    --base0e: #c792ea;
+    --base0f: #ff5370;
+}
 
-/* syntax highlighting (base16) */
-$base00: #263238 !default;
-$base01: #2e3c43 !default;
-$base02: #314549 !default;
-$base03: #546e7a !default;
-$base04: #b2ccd6 !default;
-$base05: #eeffff !default;
-$base06: #eeffff !default;
-$base07: #ffffff !default;
-$base08: #f07178 !default;
-$base09: #f78c6c !default;
-$base0a: #ffcb6b !default;
-$base0b: #c3e88d !default;
-$base0c: #89ddff !default;
-$base0d: #82aaff !default;
-$base0e: #c792ea !default;
-$base0f: #ff5370 !default;
+@media (prefers-color-scheme: dark) {
+    :root {
+    --gray: #7a8288;
+    --dark-gray: rgb(240,240,240);
+    --darker-gray: rgb(60,60,60);
+    --light-gray: rgb(10,10,10);
+    --lighter-gray: rgb(17,17,17);
+
+    --background-color: rgb(30,30,30);
+    --code-background-color: var(--lighter-gray);
+    --code-background-color-dark: var(--light-gray);
+    --header-background-color: rgba(30,30,30,0.9);
+    --header-border-color: var(--lighter-gray);
+    --text-color: rgb(222,222,222);
+    --muted-text-color: rgb(180,180,180);
+    --border-color: rgb(100,100,100);
+    --form-background-color: var(--lighter-gray);
+    --footer-background-color: var(--lighter-gray);
+
+    --primary-color: #6f777d;
+    --success-color: #3fa63f;
+    --warning-color: #d67f05;
+    --danger-color: #ee5f5b;
+    --info-color: #3b9cba;
+    --focus-color: var(--primary-color);
+    --active-color: var(--primary-color);
+    --brand-color: #115B5F;
+
+    /* links */
+    --link-color: rgb(50,150,250);
+    --link-color-hover: var(--link-color);
+    --link-color-visited: var(--link-color);
+    --masthead-link-color: rgb(220,220,220);
+    --masthead-link-color-hover: rgb(250,250,250);
+    --navicon-link-color-hover: #115B5F;
+
+    /* brands */
+    --github-color: var(--text-color);
+
+    }
+}
 
 /*
    Breakpoints
    ========================================================================== */
 
-$small: 600px !default;
-$medium: 768px !default;
-$medium-wide: 900px !default;
-$large: 1024px !default;
-$x-large: 1280px !default;
-$max-width: $x-large !default;
+$small: 600px;
+$medium: 768px;
+$medium-wide: 900px;
+$large: 1024px;
+$x-large: 1280px;
+$max-width: $x-large;
 
 /*
    Grid
    ========================================================================== */
 
-$right-sidebar-width-narrow: 200px !default;
-$right-sidebar-width: 300px !default;
-$right-sidebar-width-wide: 400px !default;
+$right-sidebar-width-narrow: 200px;
+$right-sidebar-width: 300px;
+$right-sidebar-width-wide: 400px;
 
 /*
    Other
    ========================================================================== */
 
-$border-radius: 10px !default;
-$box-shadow: 0 1px 1px rgba(0, 0, 0, 0.125) !default;
-$nav-height: 2em !default;
-$nav-padding: 0.5em !default;
-$nav-toggle-height: 2rem !default;
-$navicon-width: 1.2rem !default;
-$navicon-height: 0.2rem !default;
-$global-transition: all 0.2s ease-in-out !default;
-$intro-transition: intro 0.3s both !default;
+$border-radius: 10px;
+$box-shadow: 0 1px 1px rgba(0, 0, 0, 0.125);
+$nav-height: 2em;
+$nav-padding: 0.5em;
+$nav-toggle-height: 2rem;
+$navicon-width: 1.2rem;
+$navicon-height: 1.2rem;
+$navicon-pill-width: 4px;
+$navicon-spacing: 4.5px;
+$global-transition: all 0.2s ease-in-out;
+$intro-transition: intro 0.3s both;

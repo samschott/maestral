@@ -10,19 +10,19 @@
 
 .wide-light{
     background-color: rgb(251,251,251);
-    color: $text-color;
+    color: rgb(17,17,17);
     text-align: center;
     margin: auto;
     padding: 1em;
 
     a {
-        color: $link-color;
+        color: rgb(12,100,200);
     }
 }
 
 .wide-dark{
     background-color: rgb(40,40,50);
-    color: rgb(245,245,245) !important;
+    color: rgb(245,245,245);
     text-align: center;
     margin: auto;
     padding: 1em;

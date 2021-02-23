@@ -30,33 +30,28 @@
 
   /* button colors */
   $buttoncolors:
-  (primary, $primary-color),
-  (inverse, #fff),
-  (light-outline, transparent),
-  (success, $success-color),
-  (warning, $warning-color),
-  (danger, $danger-color),
-  (info, $info-color),
-  (facebook, $facebook-color),
-  (twitter, $twitter-color),
-  (linkedin, $linkedin-color);
+  (primary, var(--primary-color)),
+  (inverse, var(--background-color)),
+  (success, var(--success-color)),
+  (warning, var(--warning-color)),
+  (danger, var(--danger-color)),
+  (info, var(--info-color)),
+  (facebook, var(--facebook-color)),
+  (twitter, var(--twitter-color)),
+  (linkedin, var(--linkedin-color));
 
   @each $buttoncolor, $color in $buttoncolors {
     &--#{$buttoncolor} {
-      @include yiq-contrasted($color);
+      color: white;
+      background-color: $color;
       @if ($buttoncolor == inverse) {
-        border: 1px solid $border-color;
+        border: 1px solid var(--border-color);
       }
       @if ($buttoncolor == light-outline) {
         border: 1px solid #fff;
       }
-
       &:visited {
-        @include yiq-contrasted($color);
-      }
-
-      &:hover {
-        @include yiq-contrasted(mix(#000, $color, 20%));
+        color: white;
       }
     }
   }

@@ -6,8 +6,8 @@
   position: sticky;
   top: 0;
   backdrop-filter: blur(6px);
-  background-color: $header-background-color;
-  border-bottom: 1px solid $border-color;
+  background-color: var(--header-background-color);
+  border-bottom: 1px solid var(--header-border-color);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-animation: $intro-transition;
