@@ -53,6 +53,7 @@ $(function() {
 
   $btn.on('click', function() {
     $hlinks.toggleClass('hidden');
+    $btn.toggleClass('close');
   });
 
   // Initial check
