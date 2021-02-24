@@ -238,7 +238,7 @@
     left: 0;
     width: 100vw;
     padding: 1em;
-    background: var(--background-color);
+    background: var(--saturated-background-color);
 
     &.hidden {
       display: none;
@@ -319,17 +319,6 @@
         -webkit-transform: rotate(90deg);
         -ms-transform: rotate(90deg);
         transform: rotate(90deg);
-      }
-
-      &:hover {
-        color: #fff;
-        border-color: var(--border-color);
-        background-color: mix(white, #000, 20%);
-
-        &:before,
-        &:after {
-          background-color: #fff;
-        }
       }
     }
 

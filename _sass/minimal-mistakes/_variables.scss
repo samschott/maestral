@@ -66,6 +66,7 @@ $h-size-6: 0.8em; // ~17.6px
     --lighter-gray: rgb(240,240,240);
 
     --background-color: #fff;
+    --saturated-background-color: white;
     --code-background-color: var(--lighter-gray);
     --header-background-color: rgba(255,255,255,0.9);
     --header-border-color: var(--lighter-gray);
@@ -148,6 +149,7 @@ $h-size-6: 0.8em; // ~17.6px
     --lighter-gray: rgb(17,17,17);
 
     --background-color: rgb(30,32,35);
+    --saturated-background-color: black;
     --code-background-color: rgb(40,50,55);
     --header-background-color: rgba(20,20,20,.9);
     --header-border-color: rgba(20,20,20,.9);

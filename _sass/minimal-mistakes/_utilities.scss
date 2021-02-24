@@ -342,18 +342,19 @@ body:hover .visually-hidden button {
     position: absolute;
     left: 0;
     width: 17px;
-    height: 1px;
+    height: 2px;
+    border-radius: 1px;
     background: var(--masthead-link-color);
     -webkit-transition: 0.3s;
     transition: 0.3s;
   }
 
   &:before {
-    top: -3.5px;
+    top: -5px;
   }
 
   &:after {
-    bottom: -3.5px;
+    bottom: -5px;
   }
 }
 
@@ -392,18 +393,14 @@ body:hover .visually-hidden button {
       width: 100%;
       height: 100%;
       opacity: 0;
-      background-color: var(--background-color);
-      -webkit-transition: $global-transition;
-      transition: $global-transition;
+      background-color: var(--saturated-background-color);
       pointer-events: none;
     }
   }
 
   &.close {
     &:before {
-      opacity: 0.9;
-      -webkit-transition: $global-transition;
-      transition: $global-transition;
+      opacity: 1;
       pointer-events: auto;
     }
   }
