@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral diff
-permalink: /cli/diff/
+permalink: /cli/diff
 sidebar:
   nav: "cli-docs"
 ---

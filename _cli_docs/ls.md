@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral ls
-permalink: /cli/ls/
+permalink: /cli/ls
 sidebar:
   nav: "cli-docs"
 ---

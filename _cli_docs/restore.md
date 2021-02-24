@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral restore
-permalink: /cli/restore/
+permalink: /cli/restore
 sidebar:
   nav: "cli-docs"
 ---

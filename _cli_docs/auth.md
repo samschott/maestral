@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral auth
-permalink: /cli/auth/
+permalink: /cli/auth
 sidebar:
   nav: "cli-docs"
 ---

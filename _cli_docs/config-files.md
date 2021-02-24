@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral config-files
-permalink: /cli/config-files/
+permalink: /cli/config-files
 sidebar:
   nav: "cli-docs"
 ---

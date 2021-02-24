@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral notify
-permalink: /cli/notify/
+permalink: /cli/notify
 sidebar:
   nav: "cli-docs"
 ---

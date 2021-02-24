@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral config
-permalink: /cli/config/
+permalink: /cli/config
 sidebar:
   nav: "cli-docs"
 ---

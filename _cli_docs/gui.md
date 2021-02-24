@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral gui
-permalink: /cli/gui/
+permalink: /cli/gui
 sidebar:
   nav: "cli-docs"
 ---

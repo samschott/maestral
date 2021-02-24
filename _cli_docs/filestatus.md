@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral filestatus
-permalink: /cli/filestatus/
+permalink: /cli/filestatus
 sidebar:
   nav: "cli-docs"
 ---

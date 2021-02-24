@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral history
-permalink: /cli/history/
+permalink: /cli/history
 sidebar:
   nav: "cli-docs"
 ---

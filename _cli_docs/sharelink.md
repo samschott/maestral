@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral sharelink
-permalink: /cli/sharelink/
+permalink: /cli/sharelink
 sidebar:
   nav: "cli-docs"
 ---

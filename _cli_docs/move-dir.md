@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral move-dir
-permalink: /cli/move-dir/
+permalink: /cli/move-dir
 sidebar:
   nav: "cli-docs"
 ---

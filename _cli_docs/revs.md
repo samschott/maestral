@@ -1,6 +1,6 @@
 ---
 layout: single
-permalink: /cli/revs/
+permalink: /cli/revs
 title: maestral revs
 sidebar:
   nav: "cli-docs"

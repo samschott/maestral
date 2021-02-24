@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral excluded
-permalink: /cli/excluded/
+permalink: /cli/excluded
 sidebar:
   nav: "cli-docs"
 ---

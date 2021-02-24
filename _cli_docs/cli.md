@@ -1,7 +1,7 @@
 ---
 layout: single
 title: Command line interface
-permalink: /cli/
+permalink: /cli
 sidebar:
   nav: "cli-docs"
 ---

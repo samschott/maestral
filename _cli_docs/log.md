@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral log
-permalink: /cli/log/
+permalink: /cli/log
 sidebar:
   nav: "cli-docs"
 ---

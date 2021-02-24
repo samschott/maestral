@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral rebuild-index
-permalink: /cli/rebuild-index/
+permalink: /cli/rebuild-index
 sidebar:
   nav: "cli-docs"
 ---

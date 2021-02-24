@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral activity
-permalink: /cli/activity/
+permalink: /cli/activity
 sidebar:
   nav: "cli-docs"
 ---

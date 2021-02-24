@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral stop
-permalink: /cli/stop/
+permalink: /cli/stop
 sidebar:
   nav: "cli-docs"
 ---

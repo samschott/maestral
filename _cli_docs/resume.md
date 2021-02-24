@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral resume
-permalink: /cli/resume/
+permalink: /cli/resume
 sidebar:
   nav: "cli-docs"
 ---

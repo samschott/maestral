@@ -1,7 +1,7 @@
 ---
 layout: single
 title: maestral autostart
-permalink: /cli/autostart/
+permalink: /cli/autostart
 sidebar:
   nav: "cli-docs"
 ---
