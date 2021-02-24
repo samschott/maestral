@@ -36,6 +36,8 @@
     display: flex;
     flex-direction: column;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
     margin-left: auto;
     margin-right: auto;
     margin-top: 1em;
@@ -44,6 +46,7 @@
 
     @include breakpoint($large) {
         flex-direction: row;
+        align-items: flex-start;
     }
 }
 
