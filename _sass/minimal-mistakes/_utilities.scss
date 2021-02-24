@@ -345,6 +345,12 @@ body:hover .visually-hidden button {
     height: 2px;
     border-radius: 1px;
     background: var(--masthead-link-color);
+    -webkit-transition-property: top, transform;
+    -webkit-transition-duration: 0.05s, 0.1s;
+    -webkit-transition-timing-function:
+        cubic-bezier(0.3, 0, 0.8, 0.5),
+        cubic-bezier(0.2, 0.5, 0.7, 1);
+    -webkit-transition-delay: 0.1s, 0s;
     transition-property: top, transform;
     transition-duration: 0.05s, 0.1s;
     transition-timing-function:
@@ -371,6 +377,10 @@ body:hover .visually-hidden button {
   &:before,
   &:after {
     width: 17px;
+    -webkit-transition-timing-function:
+        cubic-bezier(0, 0.3, 0.5, 0.8),
+        cubic-bezier(0.5, 0.2, 1, 0.7);
+    -webkit-transition-delay: 0s, 0.05s;
     transition-timing-function:
         cubic-bezier(0, 0.3, 0.5, 0.8),
         cubic-bezier(0.5, 0.2, 1, 0.7);
@@ -380,10 +390,12 @@ body:hover .visually-hidden button {
   /* rotate the lines to form the x shape*/
   &:before {
     top: 0;
+    -webkit-transform: rotate(45deg);
     transform: rotate(45deg);
   }
   &:after {
     top: 0;
+    -webkit-transform: rotate(-45deg);
     transform: rotate(-45deg);
   }
 }
