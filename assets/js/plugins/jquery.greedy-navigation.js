@@ -8,7 +8,7 @@ $(function() {
 
   var $btn = $("nav.greedy-nav .greedy-nav__toggle");
   var $vlinks = $("nav.greedy-nav .visible-links");
-  var $hlinks = $("nav.greedy-nav .hidden-links");
+  var $hlinks = $("nav.hidden-links");
   var $nav = $("nav.greedy-nav");
   var $logo = $('nav.greedy-nav .site-logo');
   var $logoImg = $('nav.greedy-nav .site-logo img');
@@ -52,7 +52,7 @@ $(function() {
   });
 
   $btn.on('click', function() {
-    $hlinks.toggleClass('hidden');
+    $hlinks.toggleClass('collapsed');
     $btn.toggleClass('close');
   });
 

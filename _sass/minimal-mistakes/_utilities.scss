@@ -383,43 +383,6 @@ body:hover .visually-hidden button {
   }
 }
 
-.greedy-nav__toggle {
-  &:before {
-    @supports (pointer-events: none) {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      background-color: var(--saturated-background-color);
-      pointer-events: none;
-    }
-  }
-
-  &.close {
-    &:before {
-      opacity: 1;
-      pointer-events: auto;
-    }
-  }
-}
-
-.greedy-nav__toggle:hover {
-  .navicon,
-  .navicon:before,
-  .navicon:after {
-    background: var(--masthead-link-color-hover);
-  }
-
-  &.close {
-    .navicon {
-      background: transparent;
-    }
-  }
-}
-
 /*
    Sticky, fixed to top content
    ========================================================================== */

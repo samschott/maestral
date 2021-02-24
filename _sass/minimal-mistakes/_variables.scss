@@ -211,6 +211,7 @@ $border-radius: 10px;
 $box-shadow: 0 1px 1px rgba(0, 0, 0, 0.125);
 $nav-height: 2em;
 $nav-padding: 0.5em;
+$nav-transition: background .36s cubic-bezier(0.32, 0.08, 0.24, 1),height .46s cubic-bezier(0.52, 0.16, 0.24, 1),padding .56s cubic-bezier(0.32, 0.08, 0.24, 1);
 $navicon-spacing: 4.5px;
 $global-transition: all 0.2s ease-in-out;
 $intro-transition: intro 0.3s both;
