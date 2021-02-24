@@ -6,6 +6,7 @@
   @include clearfix;
   margin-left: auto;
   margin-right: auto;
+  margin-top: $nav-height + 2 * $nav-padding;
   padding-left: 1em;
   padding-right: 1em;
   -webkit-animation: $intro-transition;

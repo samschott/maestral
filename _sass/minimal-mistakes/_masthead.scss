@@ -3,8 +3,10 @@
    ========================================================================== */
 
 .masthead {
-  position: sticky;
+  position: fixed;
   top: 0;
+  right: 0;
+  left: 0;
   backdrop-filter: blur(6px);
   background-color: var(--header-background-color);
   border-bottom: 1px solid var(--header-border-color);
