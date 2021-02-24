@@ -20,7 +20,7 @@
     @include clearfix;
     margin-left: auto;
     margin-right: auto;
-    padding: $nav-padding;
+    padding: $nav-padding 1em;
     max-width: 100%;
     display: -webkit-box;
     display: -ms-flexbox;
@@ -45,7 +45,7 @@
 }
 
 .site-logo img {
-  max-height: 1.5rem;
+  max-height: $nav-height;
 }
 
 .site-title {
