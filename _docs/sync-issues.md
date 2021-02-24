@@ -43,7 +43,10 @@ You can view sync issues with [`maestral status`]({{ site.baseurl }}/cli/status)
 the CLI will be notified of sync issues through the GUI with the tray icon showing a bell.
 The GUI also features a panel to show all sync issues:
 
-{% include figure image_path="/assets/images/syncissue.png" alt="Sync issue" width="500px"%}
+{% include figure
+image_path="/assets/images/syncissue.png"
+image_path_dark="/assets/images/syncissue-dark.png"
+alt="Sync issue" width="500px"%}
 
 ### Incompatible characters for all operating systems
 

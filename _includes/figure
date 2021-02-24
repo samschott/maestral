@@ -1,7 +1,12 @@
 <figure class="{{ include.class }}">
-  <img src="{{ include.image_path | relative_url }}"
+  <picture>
+    {%- if include.image_path_dark -%}
+    <source srcset="{{ include.image_path_dark | relative_url }}" media="(prefers-color-scheme: dark)">
+    {%- endif -%}
+    <img src="{{ include.image_path | relative_url }}"
        alt="{% if include.alt %}{{ include.alt }}{% endif %}"
        style="{%- if include.width -%}width: {{ include.width }}{% endif %}">
+  </picture>
   {%- if include.caption -%}
     <figcaption>
       {{ include.caption | markdownify | remove: "<p>" | remove: "</p>" }}

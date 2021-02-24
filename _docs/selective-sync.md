@@ -12,7 +12,10 @@ With selective sync, you can select files and folders to remove from your hard d
 
 Selective sync settings are accessible through the settings pane:
 
-{% include figure image_path="/assets/images/selective-sync.png" alt="Selective sync" %}
+{% include figure
+image_path="/assets/images/selective-sync.png"
+image_path_dark="/assets/images/selective-sync-dark.png"
+alt="Selective sync" %}
 
 ### Example CLI usage
 
