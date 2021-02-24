@@ -200,9 +200,10 @@
   }
 
   &__toggle {
+    visibility: hidden;
     -ms-flex-item-align: center;
     align-self: center;
-    height: $nav-height;
+    height: $nav-height + 2 * $nav-padding;
     border: 0;
     outline: none;
     background-color: transparent;
@@ -212,7 +213,6 @@
   .visible-links {
     display: -webkit-box;
     display: -ms-flexbox;
-    display: flex;
     -webkit-box-pack: end;
     -ms-flex-pack: end;
     justify-content: flex-end;
@@ -226,6 +226,17 @@
       -ms-flex: none;
       flex: none;
     }
+  }
+}
+
+@include breakpoint(max-width $navbar-breakpoint) {
+
+  .greedy-nav__toggle {
+    visibility: visible;
+  }
+
+  .greedy-nav .visible-links {
+     visibility: hidden;
   }
 }
 

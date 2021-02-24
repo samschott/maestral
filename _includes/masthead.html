@@ -1,7 +1,15 @@
 {% capture logo_path %}{{ site.logo }}{% endcapture %}
 
 <div class="masthead">
-  <nav class="hidden-links collapsed"></nav>
+  <nav class="hidden-links collapsed">
+    <ul>
+    {%- for link in site.data.navigation.main -%}
+      <li class="masthead__menu-item">
+        <a href="{{ link.url | relative_url }}"{% if link.description %} title="{{ link.description }}"{% endif %}>{{ link.title }}</a>
+      </li>
+    {%- endfor -%}
+    </ul>
+  </nav>
   <div class="masthead__inner-wrap">
     <div class="masthead__menu">
       <nav id="site-nav" class="greedy-nav">
@@ -27,7 +35,7 @@
           </svg>
         </button>
         {% endif %}
-        <button class="greedy-nav__toggle hidden" type="button">
+        <button class="greedy-nav__toggle" type="button">
           <span class="visually-hidden">{{ site.data.ui-text[site.locale].menu_label | default: "Toggle menu" }}</span>
           <div class="navicon"></div>
         </button>

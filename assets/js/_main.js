@@ -3,6 +3,16 @@
    ========================================================================== */
 
 $(document).ready(function() {
+
+  // Toggle navigation when burger is clicked
+  var $btn = $("nav.greedy-nav .greedy-nav__toggle");
+  var $hlinks = $("nav.hidden-links");
+
+  $btn.on("click", function() {
+    $hlinks.toggleClass("collapsed");
+    $btn.toggleClass("close");
+  });
+
   // FitVids init
   $("#main").fitVids();
 
@@ -58,7 +68,7 @@ $(document).ready(function() {
 
   header = document.querySelector(".masthead")
   headerStyle = getComputedStyle(header)
-  
+
   // accomodate sticky header
   if ( headerStyle.position === "sticky" ) {
     scrollOffset = header.offsetHeight
