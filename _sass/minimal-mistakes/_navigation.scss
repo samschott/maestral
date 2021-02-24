@@ -311,7 +311,10 @@
     display: none;
   }
 
+  /* appearance for narrow window (hidden nav list) */
   @include breakpoint(max-width $large - 1px) {
+
+    /* label to toggle nav list visibility */
     label {
       position: relative;
       display: inline-block;
@@ -325,6 +328,7 @@
       transition: 0.2s ease-out;
       cursor: pointer;
 
+      /* plus sign */
       &:before,
       &:after {
         content: "";
@@ -346,7 +350,7 @@
       }
     }
 
-    /* selected*/
+    /* plus sign transform on checked */
     input:checked + label {
 
       &:before {
@@ -361,22 +365,9 @@
       }
     }
 
+    /* bottom margin of list to inner page content */
     ul {
-      margin-bottom: 1em;
-    }
-
-    a {
-      display: block;
-      padding: 0.25em 0;
-
-      @include breakpoint($large) {
-        padding-top: 0.125em;
-        padding-bottom: 0.125em;
-      }
-
-      &:hover {
-        text-decoration: underline;
-      }
+      margin-bottom: 0.5em;
     }
   }
 }
@@ -384,45 +375,32 @@
 .nav__list .nav__items {
   margin: 0;
   font-size: 1.2rem;
-  color: var(--text-color);
+  color: var(--masthead-link-color);
 
   a {
-    color: inherit;
+    color: var(--masthead-link-color);
   }
-  a:hover {
-    color: var(--link-color-hover);
+    a:hover {
+    color: var(--masthead-link-color-hover);
   }
   .active {
-    margin-left: -0.5em;
-    padding-left: 0.5em;
-    padding-right: 0.5em;
-    font-weight: bold;
+    font-weight: 600;
   }
 
+  /* hide navlist on narrow window */
   @include breakpoint(max-width $large - 1px) {
-    position: relative;
     max-height: 0;
-    opacity: 0%;
+    opacity: 0;
     overflow: hidden;
     z-index: 10;
-    -webkit-transition: 0.2s ease-in-out;
-    transition: 0.2s ease-in-out;
-    -webkit-transform: translate(0, -2%);
-    -ms-transform: translate(0, -2%);
-    transform: translate(0, -2%);
   }
 }
 
 @include breakpoint(max-width $large - 1px) {
   .nav__list input:checked ~ .nav__items {
-    -webkit-transition: 0.5s ease-in-out;
-    transition: 0.5s ease-in-out;
     max-height: 9999px; /* exaggerate max-height to accommodate tall lists*/
     overflow: visible;
     opacity: 1;
-    -webkit-transform: translate(0, 0);
-    -ms-transform: translate(0, 0);
-    transform: translate(0, 0);
   }
 }
 
