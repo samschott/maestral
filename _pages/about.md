@@ -1,11 +1,8 @@
 ---
 layout: single
+title: About Maestral
 permalink: /about/
 ---
-
-&nbsp;
-
-# About Maestral
 
 Maestral is an open-source Dropbox client written in Python. The project's main goal is
 to provide a client for platforms and file systems that are no longer directly supported
