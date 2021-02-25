@@ -17,8 +17,7 @@ table {
 }
 
 thead {
-  background-color: var(--border-color);
-  border-bottom: 2px solid #000;
+  border-bottom: 2px solid var(--muted-text-color);
 }
 
 th {
@@ -29,7 +28,7 @@ th {
 
 td {
   padding: 0.5em;
-  border-bottom: 1px solid #000;
+  border-bottom: 1px solid var(--muted-text-color);
 }
 
 tr,
