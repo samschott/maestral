@@ -279,7 +279,6 @@
 
     &.collapsed {
         height: 0;
-        transition: $nav-transition;
         background: var(--header-background-color);
 
         li {
@@ -287,7 +286,6 @@
             padding: 0;
             border-bottom: 1px solid var(--border-color);
             font-size: $type-size-6;
-            transition: $nav-transition;
 
             &:first-child {
                 margin-top: $nav-height + 3 * $nav-padding;
@@ -311,7 +309,6 @@
      ========================================================================== */
 
 .nav__list {
-  margin-bottom: 1.5em;
 
   input[type="checkbox"],
   label {
@@ -330,8 +327,6 @@
       font-size: 0.6em;
       border: 1px solid var(--muted-text-color);
       border-radius: $border-radius;
-      -webkit-transition: 0.2s ease-out;
-      transition: 0.2s ease-out;
       cursor: pointer;
 
       /* plus sign */
@@ -345,8 +340,8 @@
         height: 1px;
         line-height: 1;
         background-color: var(--muted-text-color);
-        -webkit-transition: 0.2s ease-out;
-        transition: 0.2s ease-out;
+        -webkit-transition: transform 0.2s ease-out;
+        transition: transform 0.2s ease-out;
       }
 
       &:after {
@@ -370,42 +365,48 @@
         transform: rotate(135deg);
       }
     }
-
-    /* bottom margin of list to inner page content */
-    ul {
-      margin-bottom: 0.5em;
-    }
   }
 }
 
-.nav__list .nav__items {
-  margin: 0;
+ .nav__items {
   font-size: 1.2rem;
   color: var(--masthead-link-color);
 
   a {
     color: var(--masthead-link-color);
   }
-    a:hover {
+  a:hover {
     color: var(--masthead-link-color-hover);
   }
   .active {
     font-weight: 600;
   }
-
-  /* hide navlist on narrow window */
-  @include breakpoint(max-width $large - 1px) {
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-  }
 }
 
 @include breakpoint(max-width $large - 1px) {
+
+  /* animate appearance of nav list */
   .nav__list input:checked ~ .nav__items {
-    max-height: 9999px; /* exaggerate max-height to accommodate tall lists*/
+    max-height: 1024px;
     overflow: visible;
     opacity: 1;
+    transition: opacity 0.2s ease-out;
+
+    .nav__title, .nav__sub-title {
+        transition: margin 0.2s ease-out, padding 0.2s ease-out;
+    }
+  }
+  .nav__list input:not(:checked) ~ .nav__items {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.2s ease-in, max-height 0.2s ease-in;
+
+    .nav__title, .nav__sub-title {
+        margin: 0;
+        padding: 0;
+        transition: margin 0.2s ease-in, padding 0.2s ease-in;
+    }
   }
 }
 
