@@ -8,6 +8,20 @@ html {
   min-height: 100%;
 }
 
+/* remove animations and transitions if requested by user */
+@media (prefers-reduced-motion) {
+  *, :before, :after {
+    -webkit-transition: none !important;
+    -moz-transition: none !important;
+    -o-transition: none !important;
+    transition: none !important;
+    -webkit-animation: none !important;
+    -moz-animation: none !important;
+    -o-animation: none !important;
+    animation: none !important;
+  }
+}
+
 body {
   margin: 0;
   padding: 0;
