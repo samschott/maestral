@@ -18,9 +18,10 @@
 .terminal .circle {
     width: 12px;
     height: 12px;
-    display: inline-block;
     border-radius: 12px;
-    margin-left: 2px;
+    border: 0;
+    display: inline-block;
+    margin-right: 7px;
 }
 .title{
     text-align: center;
