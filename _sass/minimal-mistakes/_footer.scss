@@ -14,11 +14,13 @@
 
   footer {
     @include clearfix;
+    @include safe-padding(left, $global-padding);
+    @include safe-padding(right, $global-padding);
+    @include safe-padding(bottom, 44px);
     margin-left: auto;
     margin-right: auto;
-    margin-top: 2em;
+    margin-top: 44px;
     max-width: 100%;
-    padding: 0 1em 2em;
 
     @include breakpoint($x-large) {
       max-width: $x-large;

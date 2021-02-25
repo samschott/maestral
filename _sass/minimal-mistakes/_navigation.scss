@@ -163,18 +163,16 @@
 .greedy-nav {
   position: relative;
   display: -webkit-box;
-  display: -ms-flexbox;
   display: flex;
   -webkit-box-align: center;
-  -ms-flex-align: center;
   align-items: center;
   max-height: $nav-height;
   background-color: rgba(0, 0, 0, 0);
   font-size: $type-size-8;
 
   a {
-    display: block;
-    margin: 0 1rem;
+    display: flex;
+    margin-left: 2rem;
     color: var(--masthead-link-color);
     text-decoration: none;
     -webkit-transition: none;
@@ -194,10 +192,6 @@
     }
   }
 
-  img{
-    -webkit-transition: none;
-    transition: none;
-  }
 
   &__toggle {
     visibility: hidden;
@@ -212,18 +206,15 @@
 
   .visible-links {
     display: -webkit-box;
-    display: -ms-flexbox;
+    display: flex;
     -webkit-box-pack: end;
-    -ms-flex-pack: end;
     justify-content: flex-end;
-    -webkit-box-flex: 1;
-    -ms-flex: 1;
-    flex: 1;
+    -webkit-box-flex: 2;
+    flex: 2;
     overflow: hidden;
 
     li {
       -webkit-box-flex: 0;
-      -ms-flex: none;
       flex: none;
     }
   }
@@ -233,6 +224,8 @@
 
   .greedy-nav__toggle {
     visibility: visible;
+    display: -webkit-box;
+    display: flex;
   }
 
   .greedy-nav .visible-links {
@@ -241,6 +234,8 @@
 }
 
 .hidden-links {
+    @include safe-padding(left, $global-padding);
+    @include safe-padding(right, $global-padding);
     position: fixed;
     display: block;
     top: 0;
@@ -263,14 +258,13 @@
 
     li {
         display: block;
-        margin: 0 2em;
         padding: 0.5em 0;
         border-bottom: 1px solid var(--border-color);
         font-size: $type-size-6;
         transition: $nav-transition;
 
         &:first-child {
-            margin-top: $nav-height + 3 * $nav-padding;
+            margin-top: calc(#{$effective-navbar-height} + #{$nav-padding});
         }
         &:last-child {
             border-bottom: none;
@@ -282,13 +276,12 @@
         background: var(--header-background-color);
 
         li {
-            margin: 0 2em;
             padding: 0;
             border-bottom: 1px solid var(--border-color);
             font-size: $type-size-6;
 
             &:first-child {
-                margin-top: $nav-height + 3 * $nav-padding;
+                margin-top: calc(#{$effective-navbar-height});
             }
         }
     }
@@ -297,7 +290,6 @@
 .no-js {
   .greedy-nav {
     .visible-links {
-      -ms-flex-wrap: wrap;
       flex-wrap: wrap;
       overflow: visible;
     }
@@ -346,7 +338,6 @@
 
       &:after {
         -webkit-transform: rotate(90deg);
-        -ms-transform: rotate(90deg);
         transform: rotate(90deg);
       }
     }
@@ -356,12 +347,10 @@
 
       &:before {
         -webkit-transform: rotate(45deg);
-        -ms-transform: rotate(45deg);
         transform: rotate(45deg);
       }
       &:after {
         -webkit-transform: rotate(135deg);
-        -ms-transform: rotate(135deg);
         transform: rotate(135deg);
       }
     }

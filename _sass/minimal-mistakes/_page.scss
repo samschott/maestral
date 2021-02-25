@@ -4,11 +4,11 @@
 
 #main {
   @include clearfix;
+  @include safe-padding(left, $global-padding);
+  @include safe-padding(right, $global-padding);
+  padding-top: $effective-navbar-height;
   margin-left: auto;
   margin-right: auto;
-  margin-top: $nav-height + 2 * $nav-padding;
-  padding-left: 1em;
-  padding-right: 1em;
   max-width: 100%;
 
   @include breakpoint($x-large) {
@@ -93,7 +93,7 @@ body {
 
   h1, h2, h3, h4, h5, h6 {
 
-    scroll-margin-top: $nav-height + $nav-padding + em(1);
+    scroll-margin-top: $effective-navbar-height;
 
     .header-link {
       position: relative;

@@ -1,6 +1,17 @@
 
 .splash {
+    width: 100vw;
     text-align: center;
+    padding-bottom: 0;
+}
+
+.wide {
+    @include safe-padding(left, $global-padding);
+    @include safe-padding(right, $global-padding);
+    padding-top: 1em;
+    padding-bottom: 1em;
+    text-align: center;
+    margin: auto;
 
     h1, h2 {
         padding: 1em;
@@ -8,24 +19,19 @@
     }
 }
 
-.wide-light{
+.wide__light{
+
     background-color: var(--splash-background-color-light);
     color: rgb(17,17,17);
-    text-align: center;
-    margin: auto;
-    padding: 1em;
 
     a {
         color: rgb(12,100,200);
     }
 }
 
-.wide-dark{
+.wide__dark{
     background-color: var(--splash-background-color-dark);
     color: rgb(245,245,245);
-    text-align: center;
-    margin: auto;
-    padding: 1em;
 
     a {
         color: rgb(50,150,250);

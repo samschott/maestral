@@ -193,15 +193,15 @@ $medium: 768px;
 $medium-wide: 900px;
 $large: 1024px;
 $x-large: 1280px;
-$max-width: $x-large;
 
 /*
    Grid
    ========================================================================== */
 
-$right-sidebar-width-narrow: 200px;
+$max-width: $x-large;
+$global-padding: 22px;
 $right-sidebar-width: 300px;
-$right-sidebar-width-wide: 400px;
+$right-sidebar-width-narrow: 200px;
 
 /*
    Other
@@ -209,8 +209,9 @@ $right-sidebar-width-wide: 400px;
 
 $border-radius: 10px;
 $box-shadow: 0 1px 1px rgba(0, 0, 0, 0.125);
-$nav-height: 2em;
-$nav-padding: 0.5em;
+$nav-height: 25px;
+$nav-padding: 11px;
+$effective-navbar-height: calc(#{$nav-height + 2 * $nav-padding} + env(safe-area-inset-top, 0px));
 $navbar-breakpoint: 800px;
 $nav-transition:
     background .36s cubic-bezier(0.32, 0.08, 0.24, 1),
@@ -218,4 +219,5 @@ $nav-transition:
     padding .56s cubic-bezier(0.32, 0.08, 0.24, 1),
     margin .56s cubic-bezier(0.32, 0.08, 0.24, 1);
 $navicon-spacing: 8px;
+$navicon-width: 17px;
 $global-transition: all 0.2s ease-in-out;

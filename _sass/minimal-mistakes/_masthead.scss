@@ -16,9 +16,12 @@
 
   &__inner-wrap {
     @include clearfix;
+    @include safe-padding(left, $global-padding);
+    @include safe-padding(right, $global-padding);
+    @include safe-padding(top, $nav-padding);
+    padding-bottom: $nav-padding;
     margin-left: auto;
     margin-right: auto;
-    padding: $nav-padding 1em;
     max-width: 100%;
     display: -webkit-box;
     display: -ms-flexbox;

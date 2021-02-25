@@ -332,7 +332,7 @@ body:hover .visually-hidden button {
 
 .navicon {
   position: relative;
-  width: 17px;
+  width: $navicon-width;
   background: transparent;
   left: 0;
 
@@ -341,7 +341,7 @@ body:hover .visually-hidden button {
     content: "";
     position: absolute;
     left: 0;
-    width: 17px;
+    width: $navicon-width;
     height: 2px;
     border-radius: 1px;
     background: var(--masthead-link-color);
