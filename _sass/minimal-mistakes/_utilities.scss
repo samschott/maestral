@@ -178,14 +178,6 @@ body:hover .visually-hidden button {
   margin-right: auto;
 }
 
-/* file page content container */
-
-.full {
-  @include breakpoint($large) {
-    margin-right: -1 * span(2.5 of 12) !important;
-  }
-}
-
 /*
    Icons
    ========================================================================== */
