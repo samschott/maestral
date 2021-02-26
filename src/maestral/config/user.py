@@ -159,10 +159,8 @@ class UserConfig(DefaultsConfig):
         # when loading form file.
         self.reset_to_defaults(save=False)
 
-        self._defaults_folder = "defaults"
         self._backup_folder = "backups"
         self._backup_suffix = ".bak"
-        self._defaults_name_prefix = "defaults"
 
         if backup:
             self._make_backup()
@@ -171,9 +169,6 @@ class UserConfig(DefaultsConfig):
             # If config file already exists, it overrides Default options
             self._load_from_ini(self.get_config_fpath())
             old_version = self.get_version(version)
-
-            # Save new defaults
-            self._save_new_defaults(self.default_config)
 
             # Updating defaults only if major/minor version is different
             major_ver = self._get_major_version(version)
@@ -269,21 +264,6 @@ class UserConfig(DefaultsConfig):
             except cp.MissingSectionHeaderError:
                 logger.error("File contains no section headers.")
 
-    def _load_old_defaults(self, old_version: str) -> cp.ConfigParser:
-        """Read old defaults."""
-        old_defaults = cp.ConfigParser()
-        fpath = self.get_defaults_fpath_from_version(old_version)
-        old_defaults.read(fpath)
-        return old_defaults
-
-    def _save_new_defaults(self, defaults: DefaultsType) -> None:
-        """Save new defaults."""
-        path = self.get_defaults_fpath_from_version(self._version)
-        new_defaults = DefaultsConfig(path=path)
-        if not osp.isfile(new_defaults.get_config_fpath()):
-            new_defaults.read_dict(defaults)
-            new_defaults.save()
-
     def _remove_deprecated_options(self) -> None:
         """
         Remove options which are present in the file but not in defaults.
@@ -304,31 +284,14 @@ class UserConfig(DefaultsConfig):
         """
         Get backup location based on version.
         """
-        fpath = self.get_config_fpath()
-        path = osp.join(osp.dirname(fpath), self._backup_folder)
-        new_fpath = osp.join(path, osp.basename(fpath))
+        path = osp.join(self._dirname, self._backup_folder)
+
         if version is None:
-            backup_fpath = "{}{}".format(new_fpath, self._backup_suffix)
+            name = f"{self._filename}{self._backup_suffix}"
         else:
-            backup_fpath = "{}-{}{}".format(new_fpath, version, self._backup_suffix)
-        return backup_fpath
+            name = f"{self._filename}-{version}{self._backup_suffix}"
 
-    def get_defaults_fpath_from_version(self, version: str) -> str:
-        """
-        Get defaults location based on version.
-
-        To be reimplemented if versions changed defaults location.
-        """
-
-        defaults_path = osp.join(
-            osp.dirname(self.get_config_fpath()), self._defaults_folder
-        )
-        name = "{}-{}-{}".format(self._defaults_name_prefix, self._filename, version)
-
-        if not osp.isdir(defaults_path):
-            os.makedirs(defaults_path)
-
-        return osp.join(defaults_path, name + self._suffix)
+        return osp.join(path, name)
 
     def apply_configuration_patches(self, old_version: str = None) -> None:
         """
@@ -477,29 +440,17 @@ class UserConfig(DefaultsConfig):
         """Remove files associated with config and reset to defaults."""
 
         self.reset_to_defaults(save=False)
-
-        fpath = self.get_config_fpath()
-
         backup_path = osp.join(self._dirname, self._backup_folder)
-        defaults_path = osp.join(self._dirname, self._defaults_folder)
 
         # remove config file
         try:
-            os.remove(fpath)
+            os.remove(self.get_config_fpath())
         except FileNotFoundError:
             pass
 
         # remove saved backups
         for file in os.scandir(backup_path):
             if file.name.startswith(self._filename):
-                try:
-                    os.remove(file.path)
-                except FileNotFoundError:
-                    pass
-
-        # remove saved defaults
-        for file in os.scandir(defaults_path):
-            if file.name.startswith(f"{self._defaults_name_prefix}-{self._filename}"):
                 try:
                     os.remove(file.path)
                 except FileNotFoundError:
