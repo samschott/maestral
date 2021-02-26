@@ -20,77 +20,56 @@ CONFIG_DIR_NAME = "maestral"
 #  Defaults
 # =============================================================================
 
-DEFAULTS_CONFIG: DefaultsType = [
-    (
-        "main",
-        {
-            "path": "",  # dropbox folder location
-            "excluded_items": [],  # files and folders excluded from sync
-        },
-    ),
-    (
-        "account",
-        {
-            "account_id": "",  # dropbox account id, must match the saved account key
-        },
-    ),
-    (
-        "app",
-        {
-            "notification_level": 15,  # desktop notification level, default: FILECHANGE
-            "log_level": 20,  # log level for journal and file, default: INFO
-            "update_notification_interval": 60 * 60 * 24 * 7,  # default: weekly
-            "keyring": "automatic",  # keychain backend to use for credential storage
-        },
-    ),
-    (
-        "sync",
-        {
-            "reindex_interval": 60 * 60 * 24 * 14,  # default: every fortnight
-            "max_cpu_percent": 20.0,  # max usage target per cpu core, default: 20%
-            "keep_history": 60 * 60 * 24 * 7,  # default: one week
-            "upload": True,  # if download sync is enabled
-            "download": True,  # if upload sync is enabled
-        },
-    ),
-]
+DEFAULTS_CONFIG: DefaultsType = {
+    "main": {
+        "path": "",  # dropbox folder location
+        "excluded_items": [],  # files and folders excluded from sync
+    },
+    "account": {
+        "account_id": "",  # dropbox account id, must match the saved account key
+    },
+    "app": {
+        "notification_level": 15,  # desktop notification level, default: FILECHANGE
+        "log_level": 20,  # log level for journal and file, default: INFO
+        "update_notification_interval": 60 * 60 * 24 * 7,  # default: weekly
+        "keyring": "automatic",  # keychain backend to use for credential storage
+    },
+    "sync": {
+        "reindex_interval": 60 * 60 * 24 * 14,  # default: every fortnight
+        "max_cpu_percent": 20.0,  # max usage target per cpu core, default: 20%
+        "keep_history": 60 * 60 * 24 * 7,  # default: one week
+        "upload": True,  # if download sync is enabled
+        "download": True,  # if upload sync is enabled
+    },
+}
 
-DEFAULTS_STATE: DefaultsType = [
-    (
-        "account",  # account state, periodically updated from dropbox servers
-        {
-            "email": "",
-            "display_name": "",
-            "abbreviated_name": "",
-            "type": "",
-            "usage": "",
-            "usage_type": "",  # private vs business
-            "token_access_type": "",  # will be updated on completed OAuth
-        },
-    ),
-    (
-        "app",  # app state
-        {
-            "updated_scripts_completed": __version__,
-            "update_notification_last": 0.0,
-            "latest_release": "0.0.0",
-        },
-    ),
-    (
-        "sync",  # sync state, updated by monitor
-        {
-            "cursor": "",  # remote cursor: represents last state synced from dropbox
-            "lastsync": 0.0,  # local cursor: time-stamp of last upload
-            "last_reindex": 0.0,  # time-stamp of full last reindexing
-            "indexing_counter": 0,  # counter for indexing progress between restarts
-            "did_finish_indexing": False,  # indicates completed indexing
-            "upload_errors": [],  # failed uploads to retry on next sync
-            "download_errors": [],  # failed downloads to retry on next sync
-            "pending_uploads": [],  # incomplete uploads to retry on next sync
-            "pending_downloads": [],  # incomplete downloads to retry on next sync
-        },
-    ),
-]
+DEFAULTS_STATE: DefaultsType = {
+    "account": {  # account state, periodically updated from dropbox servers
+        "email": "",
+        "display_name": "",
+        "abbreviated_name": "",
+        "type": "",
+        "usage": "",
+        "usage_type": "",  # private vs business
+        "token_access_type": "",  # will be updated on completed OAuth
+    },
+    "app": {  # app state
+        "updated_scripts_completed": __version__,
+        "update_notification_last": 0.0,
+        "latest_release": "0.0.0",
+    },
+    "sync": {  # sync state, updated by monitor
+        "cursor": "",  # remote cursor: represents last state synced from dropbox
+        "lastsync": 0.0,  # local cursor: time-stamp of last upload
+        "last_reindex": 0.0,  # time-stamp of full last reindexing
+        "indexing_counter": 0,  # counter for indexing progress between restarts
+        "did_finish_indexing": False,  # indicates completed indexing
+        "upload_errors": [],  # failed uploads to retry on next sync
+        "download_errors": [],  # failed downloads to retry on next sync
+        "pending_uploads": [],  # incomplete uploads to retry on next sync
+        "pending_downloads": [],  # incomplete downloads to retry on next sync
+    },
+}
 
 # IMPORTANT NOTES:
 # 1. If you want to *change* the default value of a current option, you need to
