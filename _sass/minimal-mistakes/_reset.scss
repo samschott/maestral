@@ -8,7 +8,7 @@ html {
   /* apply a natural box layout model to all elements */
   box-sizing: border-box;
   background-color: var(--background-color);
-  font-size: $font-size;
+  font-size: $reference-font-size;
   -webkit-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
 }
