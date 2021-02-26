@@ -14,11 +14,11 @@ Please refer to the [Documentation]({{ site.baseurl }}/docs/installation) for a
 comprehensive guide to installing Maestral from PyPI or Docker Hub. The options compare as
 follows:
 
-| Package          | GUI included | Size            |
-| :---             | :---         | :---            |
-| macOS App bundle | yes          | 33 MB           |
+| Package          | GUI included | Size        |
+| :---             | :---         |        ---: |
+| macOS App bundle | yes          | 33 MB       |
 | PyPI             | optional     | 20 - 160 MB |
-| Docker image     | no           | 87 MB           |
+| Docker image     | no           | 87 MB       |
 
 The install from PyPI will vary in size, depending on the platform. It will require about
 20 MB on macOS, including all dependencies. For the Linux GUI, the largest dependency is

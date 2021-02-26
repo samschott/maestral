@@ -17,22 +17,18 @@ table {
 }
 
 thead {
-  border-bottom: 2px solid var(--muted-text-color);
+    font-weight: bold;
+    border-bottom: 2px solid var(--muted-text-color)
 }
 
-th {
-  padding: 0.5em;
-  font-weight: bold;
-  text-align: left;
+th, td {
+    padding: 0.3em;
 }
 
-td {
-  padding: 0.5em;
-  border-bottom: 1px solid var(--muted-text-color);
+tr {
+    border-bottom: 1px solid var(--muted-text-color);
 }
 
-tr,
-td,
-th {
-  vertical-align: middle;
+tr:last-child {
+    border-bottom: 2px solid var(--muted-text-color)
 }
