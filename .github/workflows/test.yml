@@ -118,9 +118,25 @@ jobs:
         run: |
           pytest -v --reruns 5 --cov=maestral --cov-report=xml tests/linked
 
-      - name: Upload coverage to Codecov
+      - name: Upload Code Coverage
         uses: codecov/codecov-action@v1
+        if: github.event_name != 'pull_request_target'
         with:
+          file: ./coverage.xml
+          flags: pytest
+          env_vars: OS,PYTHON,TYPE
+          name: pytests
+        env:
+          OS: ${{ matrix.platform }}
+          PYTHON: ${{ matrix.python-version }}
+          TYPE: 'linked'
+
+      - name: Upload Code Coverage for PR-target
+        uses: codecov/codecov-action@v1
+        if: github.event_name == 'pull_request_target'
+        with:
+          override_pr: ${{ github.event.number }}
+          override_sha: ${{ github.event.pull_request.head.sha }}
           file: ./coverage.xml
           flags: pytest
           env_vars: OS,PYTHON,TYPE
