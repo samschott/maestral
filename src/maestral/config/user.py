@@ -166,11 +166,11 @@ class UserConfig(DefaultsConfig):
             self._make_backup()
 
         if load:
-            # If config file already exists, it overrides Default options
+            # If config file already exists, it overrides Default options.
             self._load_from_ini(self.get_config_fpath())
             old_version = self.get_version(version)
 
-            # Updating defaults only if major/minor version is different
+            # Updating defaults only if major/minor version is different.
             major_ver = self._get_major_version(version)
             major_old_ver = self._get_major_version(old_version)
 
@@ -184,12 +184,15 @@ class UserConfig(DefaultsConfig):
 
                 self.apply_configuration_patches(old_version)
 
-                # Remove deprecated options if major version has changed
+                # Remove deprecated options if major version has changed.
                 if remove_obsolete and major_ver != major_old_ver:
                     self._remove_deprecated_options()
 
-                # Set new version number
+                # Set new version number.
                 self.set_version(version, save=False)
+
+            # Save any changes back to file.
+            self.save()
 
     # --- Helpers and checkers ---------------------------------------------------------
 
