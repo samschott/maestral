@@ -5,7 +5,7 @@
 $(document).ready(function() {
 
   // Toggle navigation when burger is clicked
-  var $btn = $("nav.greedy-nav .greedy-nav__toggle");
+  var $btn = $("nav.global-nav .global-nav__toggle");
   var $hlinks = $("nav.hidden-links");
 
   $btn.on("click", function() {

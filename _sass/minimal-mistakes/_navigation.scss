@@ -160,7 +160,7 @@
      Priority plus navigation
      ========================================================================== */
 
-.greedy-nav {
+.global-nav {
   position: relative;
   display: -webkit-box;
   display: flex;
@@ -226,13 +226,13 @@
 
 @include breakpoint(max-width $navbar-breakpoint) {
 
-  .greedy-nav__toggle {
+  .global-nav__toggle {
     visibility: visible;
     display: -webkit-box;
     display: flex;
   }
 
-  .greedy-nav .visible-links {
+  .global-nav .visible-links {
      visibility: hidden;
   }
 }
@@ -292,7 +292,7 @@
 }
 
 .no-js {
-  .greedy-nav {
+  .global-nav {
     .visible-links {
       flex-wrap: wrap;
       overflow: visible;
