@@ -49,7 +49,23 @@ jobs:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
+        if: github.event_name != 'pull_request_target'
         with:
+          file: ./coverage.xml
+          flags: pytest
+          env_vars: OS,PYTHON,TYPE
+          name: pytests -v
+        env:
+          OS: ${{ matrix.platform }}
+          PYTHON: ${{ matrix.python-version }}
+          TYPE: 'offline'
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v1
+        if: github.event_name == 'pull_request_target'
+        with:
+          override_pr: ${{ github.event.number }}
+          override_commit: ${{ github.event.pull_request.head.sha }}
           file: ./coverage.xml
           flags: pytest
           env_vars: OS,PYTHON,TYPE
@@ -136,7 +152,7 @@ jobs:
         if: github.event_name == 'pull_request_target'
         with:
           override_pr: ${{ github.event.number }}
-          override_sha: ${{ github.event.pull_request.head.sha }}
+          override_commit: ${{ github.event.pull_request.head.sha }}
           file: ./coverage.xml
           flags: pytest
           env_vars: OS,PYTHON,TYPE
