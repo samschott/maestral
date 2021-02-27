@@ -44,8 +44,6 @@ class DefaultsConfig(cp.ConfigParser):
     Class used to save defaults to a file and as base class for UserConfig.
     """
 
-    _lock = RLock()
-
     def __init__(self, path: str) -> None:
         super().__init__(interpolation=None)
 
@@ -73,22 +71,21 @@ class DefaultsConfig(cp.ConfigParser):
         # See spyder-ide/spyder#1086 and spyder-ide/spyder#1242 for background
         # on why this method contains all the exception handling.
 
-        with self._lock:
+        try:
+            # The "easy" way
+            self.__write_file(fpath)
+        except EnvironmentError:
             try:
-                # The "easy" way
-                self.__write_file(fpath)
-            except EnvironmentError:
-                try:
-                    # The "delete and sleep" way
-                    if osp.isfile(fpath):
-                        os.remove(fpath)
+                # The "delete and sleep" way
+                if osp.isfile(fpath):
+                    os.remove(fpath)
 
-                    time.sleep(0.05)
-                    self.__write_file(fpath)
-                except Exception:
-                    logger.warning(
-                        "Failed to write user configuration to disk", exc_info=True
-                    )
+                time.sleep(0.05)
+                self.__write_file(fpath)
+            except Exception:
+                logger.warning(
+                    "Failed to write user configuration to disk", exc_info=True
+                )
 
     def __write_file(self, fpath: str) -> None:
 
@@ -147,6 +144,8 @@ class UserConfig(DefaultsConfig):
     ) -> None:
         """UserConfig class, based on ConfigParser."""
         super().__init__(path=path)
+
+        self._lock = RLock()
 
         self._load = load
         self._backup = backup
@@ -308,26 +307,31 @@ class UserConfig(DefaultsConfig):
 
     def get_version(self, version: str = "0.0.0") -> str:
         """Return configuration (not application!) version."""
-        return self.get(self.DEFAULT_SECTION_NAME, "version", version)
+        with self._lock:
+            return self.get(self.DEFAULT_SECTION_NAME, "version", version)
 
     def set_version(self, version: str = "0.0.0", save: bool = True) -> None:
         """Set configuration (not application!) version."""
-        version = self._check_version(version)
-        self.set(self.DEFAULT_SECTION_NAME, "version", version, save=save)
+
+        with self._lock:
+            version = self._check_version(version)
+            self.set(self.DEFAULT_SECTION_NAME, "version", version, save=save)
 
     def reset_to_defaults(
         self, save: bool = True, section: Optional[str] = None
     ) -> None:
         """Reset config to Default values."""
 
-        for sec, options in self.default_config.items():
-            if section is None or section == sec:
-                for option in options:
-                    value = options[option]
-                    self._set(sec, option, value)
+        with self._lock:
 
-        if save:
-            self.save()
+            for sec, options in self.default_config.items():
+                if section is None or section == sec:
+                    for option in options:
+                        value = options[option]
+                        self._set(sec, option, value)
+
+            if save:
+                self.save()
 
     def get_default(self, section: str, option: str) -> Any:
         """
@@ -335,8 +339,10 @@ class UserConfig(DefaultsConfig):
 
         This is useful for type checking in `get` method.
         """
-        secdict = self.default_config.get(section, {})
-        return secdict.get(option, NoDefault)
+
+        with self._lock:
+            secdict = self.default_config.get(section, {})
+            return secdict.get(option, NoDefault)
 
     def get(self, section: str, option: str, default: Any = NoDefault) -> Any:  # type: ignore
         """
@@ -352,41 +358,46 @@ class UserConfig(DefaultsConfig):
             Default value (if not specified, an exception will be raised if
             option doesn't exist).
         """
-        section = self._check_section(section)
 
-        if not self.has_section(section):
-            if default is NoDefault:
-                raise cp.NoSectionError(section)
-            else:
-                self.add_section(section)
+        with self._lock:
 
-        if not self.has_option(section, option):
-            if default is NoDefault:
-                raise cp.NoOptionError(option, section)
-            else:
-                self.set(section, option, default)
-                return default
+            section = self._check_section(section)
 
-        raw_value: str = super(UserConfig, self).get(section, option, raw=True)
-        default_value = self.get_default(section, option)
-        value: Any
+            if not self.has_section(section):
+                if default is NoDefault:
+                    raise cp.NoSectionError(section)
+                else:
+                    self.add_section(section)
 
-        if isinstance(default_value, str):
-            value = raw_value
-        else:
-            try:
-                value = ast.literal_eval(raw_value)
-            except (SyntaxError, ValueError):
+            if not self.has_option(section, option):
+                if default is NoDefault:
+                    raise cp.NoOptionError(option, section)
+                else:
+                    self.set(section, option, default)
+                    return default
+
+            raw_value: str = super(UserConfig, self).get(section, option, raw=True)
+            default_value = self.get_default(section, option)
+            value: Any
+
+            if isinstance(default_value, str):
                 value = raw_value
+            else:
+                try:
+                    value = ast.literal_eval(raw_value)
+                except (SyntaxError, ValueError):
+                    value = raw_value
 
-        if default_value is not NoDefault and type(default_value) is not type(value):
-            logger.error(
-                f"Inconsistent config type for [{section}][{option}]. "
-                f"Expected {default_value.__class__.__name__} but "
-                f"got {value.__class__.__name__}."
-            )
+            if default_value is not NoDefault and type(default_value) is not type(
+                value
+            ):
+                logger.error(
+                    f"Inconsistent config type for [{section}][{option}]. "
+                    f"Expected {default_value.__class__.__name__} but "
+                    f"got {value.__class__.__name__}."
+                )
 
-        return value
+            return value
 
     def set_default(self, section: str, option: str, default_value: Any) -> None:
         """
@@ -395,10 +406,12 @@ class UserConfig(DefaultsConfig):
         If the section or option does not exist, it will be created.
         """
 
-        if section not in self.default_config:
-            self.default_config[section] = {}
+        with self._lock:
 
-        self.default_config[section][option] = default_value
+            if section not in self.default_config:
+                self.default_config[section] = {}
+
+            self.default_config[section][option] = default_value
 
     def set(self, section: str, option: str, value: Any, save: bool = True) -> None:  # type: ignore
         """
@@ -406,55 +419,64 @@ class UserConfig(DefaultsConfig):
 
         If section is None, the `option` is added to the default section.
         """
-        section = self._check_section(section)
-        default_value = self.get_default(section, option)
 
-        if default_value is NoDefault:
-            default_value = value
-            self.set_default(section, option, default_value)
+        with self._lock:
 
-        if isinstance(default_value, float) and isinstance(value, int):
-            value = float(value)
+            section = self._check_section(section)
+            default_value = self.get_default(section, option)
 
-        if type(default_value) is not type(value):
-            raise ValueError(
-                f"Inconsistent config type for [{section}][{option}]. "
-                f"Expected {default_value.__class__.__name__} but "
-                f"got {value.__class__.__name__}."
-            )
+            if default_value is NoDefault:
+                default_value = value
+                self.set_default(section, option, default_value)
 
-        self._set(section, option, value)
-        if save:
-            self.save()
+            if isinstance(default_value, float) and isinstance(value, int):
+                value = float(value)
+
+            if type(default_value) is not type(value):
+                raise ValueError(
+                    f"Inconsistent config type for [{section}][{option}]. "
+                    f"Expected {default_value.__class__.__name__} but "
+                    f"got {value.__class__.__name__}."
+                )
+
+            self._set(section, option, value)
+            if save:
+                self.save()
 
     def remove_section(self, section: str) -> bool:
         """Remove `section` and all options within it."""
-        res = super().remove_section(section)
-        self.save()
-        return res
+
+        with self._lock:
+            res = super().remove_section(section)
+            self.save()
+            return res
 
     def remove_option(self, section: str, option: str) -> bool:
         """Remove `option` from `section`."""
-        res = super().remove_option(section, option)
-        self.save()
-        return res
+
+        with self._lock:
+            res = super().remove_option(section, option)
+            self.save()
+            return res
 
     def cleanup(self) -> None:
         """Remove files associated with config and reset to defaults."""
 
-        self.reset_to_defaults(save=False)
-        backup_path = osp.join(self._dirname, self._backup_folder)
+        with self._lock:
 
-        # remove config file
-        try:
-            os.remove(self.get_config_fpath())
-        except FileNotFoundError:
-            pass
+            self.reset_to_defaults(save=False)
+            backup_path = osp.join(self._dirname, self._backup_folder)
 
-        # remove saved backups
-        for file in os.scandir(backup_path):
-            if file.name.startswith(self._filename):
-                try:
-                    os.remove(file.path)
-                except FileNotFoundError:
-                    pass
+            # remove config file
+            try:
+                os.remove(self.get_config_fpath())
+            except FileNotFoundError:
+                pass
+
+            # remove saved backups
+            for file in os.scandir(backup_path):
+                if file.name.startswith(self._filename):
+                    try:
+                        os.remove(file.path)
+                    except FileNotFoundError:
+                        pass
