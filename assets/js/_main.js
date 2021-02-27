@@ -1,76 +1,65 @@
 /* ==========================================================================
-   jQuery plugin settings and other scripts
+   JavaScript scripts for site
    ========================================================================== */
 
-$(document).ready(function() {
+onready = function() {
 
   // Toggle navigation when burger is clicked
-  var $btn = $("nav.global-nav .global-nav__toggle");
-  var $hlinks = $("nav.hidden-links");
+  var btn = document.getElementById("gn-toggle");
+  var hlinks = document.getElementById("gn-hidden-link");
 
-  $btn.on("click", function() {
-    $hlinks.toggleClass("collapsed");
-    $btn.toggleClass("close");
-  });
-
-  // Sticky sidebar
-  var stickySideBar = function() {
-    var show =
-      $(".author__urls-wrapper button").length === 0
-        ? $(window).width() > 1024 // width should match $large Sass variable
-        : !$(".author__urls-wrapper button").is(":visible");
-    show = false;
-    if (show) {
-      // fix
-      $(".sidebar").addClass("sticky");
-    } else {
-      // unfix
-      $(".sidebar").removeClass("sticky");
-    }
+  btn.onclick = function() {
+    hlinks.classList.toggle("collapsed");
+    btn.classList.toggle("close");
   };
 
-  stickySideBar();
+  // Search
 
-  $(window).resize(function() {
-    stickySideBar();
-  });
+  var initial_content = document.getElementsByClassName("initial-content").item(0);
+  var search_content = document.getElementsByClassName("search-content").item(0);
 
-  // Follow menu drop down
-  $(".author__urls-wrapper button").on("click", function() {
-    $(".author__urls").toggleClass("is--visible");
-    $(".author__urls-wrapper button").toggleClass("open");
-  });
+  if (search_content) {
 
-  // Close search screen with Esc key
-  $(document).keyup(function(e) {
-    if (e.keyCode === 27) {
-      if ($(".initial-content").hasClass("is--hidden")) {
-        $(".search-content").toggleClass("is--visible");
-        $(".initial-content").toggleClass("is--hidden");
+    // Search toggle
+    var search_toggle = document.getElementsByClassName("search__toggle").item(0);
+    var search_content_input = document.getElementById("search");
+
+    search_toggle.onclick = function() {
+      search_content.classList.toggle("is--visible");
+      initial_content.classList.toggle("is--hidden");
+      // set focus on input
+      setTimeout(function() {
+        search_content_input.focus();
+      }, 400);
+    };
+
+    // Close search with ESC key
+    document.onkeyup = function(e) {
+      if (e.keyCode === 27) {
+        if (initial_content.classList.contains("is--hidden")) {
+          search_content.classList.toggle("is--visible");
+          initial_content.classList.toggle("is--hidden");
+        }
       }
-    }
-  });
+    };
 
-  // Search toggle
-  $(".search__toggle").on("click", function() {
-    $(".search-content").toggleClass("is--visible");
-    $(".initial-content").toggleClass("is--hidden");
-    // set focus on input
-    setTimeout(function() {
-      $(".search-content input").focus();
-    }, 400);
-  });
+  }
 
-  // Add anchors for headings
-  $('.page__content').find('h1, h2, h3, h4, h5, h6').each(function() {
-    var id = $(this).attr('id');
+  // Add anchors for all headings with id
+
+  var page__content = document.getElementsByClassName("page__content").item(0);
+  var headings = page__content.querySelectorAll('h1, h2, h3, h4, h5, h6');
+  headings.forEach($heading => {
+    var id = $heading.getAttribute('id');
     if (id) {
       var anchor = document.createElement("a");
       anchor.className = 'header-link';
       anchor.href = '#' + id;
       anchor.innerHTML = '<span class=\"sr-only\">Permalink</span><i class=\"fas fa-link\"></i>';
       anchor.title = "Permalink";
-      $(this).append(anchor);
+      $heading.append(anchor);
     }
   });
-});
+};
+
+document.addEventListener("DOMContentLoaded", onready);

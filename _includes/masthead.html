@@ -1,7 +1,7 @@
 {% capture logo_path %}{{ site.logo }}{% endcapture %}
 
 <div class="masthead">
-  <nav class="hidden-links collapsed">
+  <nav class="hidden-links collapsed" id="gn-hidden-link">
     <ul>
     {%- for link in site.data.navigation.main -%}
       <li class="masthead__menu-item">
@@ -35,7 +35,7 @@
           </svg>
         </button>
         {% endif %}
-        <button class="global-nav__toggle" type="button">
+        <button class="global-nav__toggle" id="gn-toggle" type="button">
           <span class="visually-hidden">{{ site.data.ui-text[site.locale].menu_label | default: "Toggle menu" }}</span>
           <div class="navicon"></div>
         </button>

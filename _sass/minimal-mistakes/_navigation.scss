@@ -294,8 +294,7 @@
 .no-js {
   .global-nav {
     .visible-links {
-      flex-wrap: wrap;
-      overflow: visible;
+      overflow: auto;
     }
   }
 }
