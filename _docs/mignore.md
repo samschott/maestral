@@ -30,5 +30,5 @@ scm.com/docs/gitignore) but behaves a bit differently:
   cloud, the remote file may be downloaded and included in syncing temporally. However,
   the next time syncing is paused and resumed, it will removed from the cloud.
 
-<p>Warning: A long list of patterns in mignore may impact performance when Maestral is
-indexing a large number of local file changes.</p>{: .notice--danger}
+<p><b>Warning:</b> A long list of patterns in mignore may impact performance when Maestral 
+is indexing a large number of local file changes.</p>{: .notice--warning}
