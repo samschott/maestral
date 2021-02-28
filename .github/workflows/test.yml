@@ -25,6 +25,7 @@ jobs:
         if: github.event_name == 'pull_request_target'
         with:
           ref: 'refs/pull/${{ github.event.number }}/merge'
+          persist-credentials: false
 
       - name: Checkout head commit
         uses: actions/checkout@v2
@@ -99,6 +100,7 @@ jobs:
         if: github.event_name == 'pull_request_target'
         with:
           ref: 'refs/pull/${{ github.event.number }}/merge'
+          persist-credentials: false
 
       - name: Checkout head commit
         uses: actions/checkout@v2
