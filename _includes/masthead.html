@@ -1,18 +1,9 @@
 {% capture logo_path %}{{ site.logo }}{% endcapture %}
 
 <div class="masthead">
-  <nav class="hidden-links collapsed" id="gn-hidden-link">
-    <ul>
-    {%- for link in site.data.navigation.main -%}
-      <li class="masthead__menu-item">
-        <a href="{{ link.url | relative_url }}"{% if link.description %} title="{{ link.description }}"{% endif %}>{{ link.title }}</a>
-      </li>
-    {%- endfor -%}
-    </ul>
-  </nav>
   <div class="masthead__inner-wrap">
     <div class="masthead__menu">
-      <nav id="site-nav" class="global-nav">
+      <nav class="global-nav">
         {% unless logo_path == empty %}
           <a class="site-logo" href="{{ '/' | relative_url }}"><img src="{{ logo_path | relative_url }}" alt=""></a>
         {% endunless %}
@@ -20,9 +11,13 @@
           {{ site.masthead_title | default: site.title }}
           {% if site.subtitle %}<span class="site-subtitle">{{ site.subtitle }}</span>{% endif %}
         </a>
-        <ul class="visible-links">
+        <input id="gn-ac-toc" name="gn-accordion-toc" type="checkbox" />
+        <label class="global-nav__toggle" for="gn-ac-toc">
+            <div class="global-nav__navicon"></div>
+        </label>
+        <ul class="global-nav__list">
           {%- for link in site.data.navigation.main -%}
-            <li class="masthead__menu-item">
+            <li class="global-nav__menu-item">
               <a href="{{ link.url | relative_url }}"{% if link.description %} title="{{ link.description }}"{% endif %}>{{ link.title }}</a>
             </li>
           {%- endfor -%}
@@ -35,10 +30,6 @@
           </svg>
         </button>
         {% endif %}
-        <button class="global-nav__toggle" id="gn-toggle" type="button">
-          <span class="visually-hidden">{{ site.data.ui-text[site.locale].menu_label | default: "Toggle menu" }}</span>
-          <div class="navicon"></div>
-        </button>
       </nav>
     </div>
   </div>

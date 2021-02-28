@@ -70,30 +70,5 @@
   margin-right: 0;
   width: 100%;
   clear: both;
-
-  .site-nav {
-    margin-left: 0;
-
-    @include breakpoint($small) {
-      float: right;
-    }
-  }
-
-  ul {
-    margin: 0;
-    padding: 0;
-    clear: both;
-    list-style-type: none;
-  }
 }
 
-.masthead__menu-item {
-  display: block;
-  list-style-type: none;
-  white-space: nowrap;
-
-  &--lg {
-    padding-right: 2em;
-    font-weight: 700;
-  }
-}
