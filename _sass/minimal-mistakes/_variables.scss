@@ -79,10 +79,14 @@ $h-size-6: 0.8em; // ~17.6px
     --splash-background-color-dark: rgb(40,40,50);
 
     --primary-color: #6f777d;
-    --success-color: #3fa63f;
-    --warning-color: #d67f05;
-    --danger-color: #ee5f5b;
-    --info-color: #3b9cba;
+    --success-color: rgb(223,239,224);
+    --success-color-dark: var(--light-gray);
+    --warning-color: rgb(255,237,213);
+    --warning-color-dark: #d67f05;
+    --danger-color: rgb(255,238,240);
+    --danger-color-dark: rgb(148, 46, 46);
+    --info-color: #e0edff;
+    --info-color-dark: #3b9cba;
     --focus-color: var(--primary-color);
     --active-color: var(--primary-color);
     --brand-color: #115B5F;
@@ -162,10 +166,14 @@ $h-size-6: 0.8em; // ~17.6px
     --splash-background-color-dark: rgb(40,40,50);
 
     --primary-color: #6f777d;
-    --success-color: #3fa63f;
-    --warning-color: #d67f05;
-    --danger-color: #90002d;
-    --info-color: #3b9cba;
+    --success-color: rgb(3, 70, 29);
+    --success-color-dark: rgb(87, 173, 120);
+    --warning-color: rgb(68, 39, 0);
+    --warning-color-dark: #d67f05;
+    --danger-color: #500000ff;
+    --danger-color-dark: rgb(148, 46, 46);
+    --info-color: #222e3e;
+    --info-color-dark: #5895a8;
     --focus-color: var(--primary-color);
     --active-color: var(--primary-color);
     --brand-color: #115B5F;
