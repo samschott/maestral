@@ -14,8 +14,13 @@
     margin: auto;
 
     h1, h2 {
-        padding: 1em;
+        padding-top: 1em !important;
+        padding-bottom: 0.5em !important;
         border-style: none !important;
+    }
+
+    a {
+       font-size: 0.9em !important;
     }
 }
 
@@ -38,16 +43,21 @@
     }
 }
 
-.flex-container {
+.flex-container, .flex-container-break{
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-evenly;
     margin-left: auto;
     margin-right: auto;
     margin-top: 1em;
     margin-bottom: 1em;
-    overflow-x: hidden;
+}
+
+.flex-container-break {
+    flex-direction: column;
+    align-items: center;
 
     @include breakpoint($large) {
         flex-direction: row;
@@ -59,4 +69,14 @@
     flex: 1;
     max-width: 100%;
     overflow-x: hidden;
+}
+
+.info-box {
+    flex: none;
+    width: 270px;
+    margin: 0 0.6em;
+
+    a {
+        font-size: 0.75em
+    }
 }
