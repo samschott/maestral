@@ -15,7 +15,7 @@ def test_help():
     runner = CliRunner()
     result = runner.invoke(main)
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert result.output.startswith("Usage: main [OPTIONS] COMMAND [ARGS]")
 
 
@@ -38,7 +38,7 @@ def test_start(config_name):
     runner = CliRunner()
     result = runner.invoke(main, ["start", "-c", config_name])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert "already running" in result.output
 
 
@@ -50,14 +50,14 @@ def test_stop(config_name):
     runner = CliRunner()
     result = runner.invoke(main, ["stop", "-c", config_name])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
 
 
 def test_filestatus(m):
     runner = CliRunner()
     result = runner.invoke(main, ["filestatus", "/usr", "-c", m.config_name])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert result.output == "unwatched\n"
 
     result = runner.invoke(main, ["filestatus", "/invalid-dir", "-c", m.config_name])
@@ -93,7 +93,7 @@ def test_autostart(m):
     runner = CliRunner()
     result = runner.invoke(main, ["autostart", "-c", m.config_name])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert "disabled" in result.output
 
     result = runner.invoke(main, ["autostart", "-Y", "-c", m.config_name])
@@ -111,7 +111,7 @@ def test_autostart(m):
 
     result = runner.invoke(main, ["autostart", "-N", "-c", m.config_name])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert "Disabled" in result.output
     assert not autostart.enabled
 
@@ -120,7 +120,7 @@ def test_excluded_list(m):
     runner = CliRunner()
     result = runner.invoke(main, ["excluded", "list", "-c", m.config_name])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert result.output == "No excluded files or folders.\n"
 
 
@@ -152,14 +152,14 @@ def test_notify_level(config_name):
 
     level_name = level_number_to_name(m.notification_level)
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert level_name in result.output
 
     level_name = "SYNCISSUE"
     level_number = level_name_to_number(level_name)
     result = runner.invoke(main, ["notify", "level", level_name, "-c", m.config_name])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert level_name in result.output
     assert m.notification_level == level_number
 
@@ -177,12 +177,12 @@ def test_notify_snooze(config_name):
     runner = CliRunner()
     result = runner.invoke(main, ["notify", "snooze", "20", "-c", m.config_name])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert 0 < m.notification_snooze <= 20
 
     result = runner.invoke(main, ["notify", "snooze", "0", "-c", m.config_name])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert m.notification_snooze == 0
 
 
@@ -192,11 +192,11 @@ def test_log_level(m):
 
     level_name = logging.getLevelName(m.log_level)
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert level_name in result.output
 
     result = runner.invoke(main, ["log", "level", "DEBUG", "-c", m.config_name])
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert "DEBUG" in result.output
 
     result = runner.invoke(main, ["notify", "level", "INVALID", "-c", m.config_name])
@@ -210,7 +210,7 @@ def test_log_show(m):
     runner = CliRunner()
     result = runner.invoke(main, ["log", "show", "-c", m.config_name])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert "Hello from pytest!" in result.output
 
 
@@ -220,12 +220,12 @@ def test_log_clear(m):
     runner = CliRunner()
     result = runner.invoke(main, ["log", "show", "-c", m.config_name])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert "Hello from pytest!" in result.output
 
     # clear the logs
     result = runner.invoke(main, ["log", "clear", "-c", m.config_name])
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
 
     with open(m.log_handler_file.stream.name) as f:
         log_content = f.read()

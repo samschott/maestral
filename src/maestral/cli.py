@@ -1815,8 +1815,9 @@ def config_get(key: str, config_name: str) -> None:
     from .config.main import DEFAULTS_CONFIG
     from .daemon import MaestralProxy, CommunicationError
 
+    # Check if the config key exists in any section.
     section = next(
-        iter(s for s, conf_dict in DEFAULTS_CONFIG if key in conf_dict), None
+        iter(sec for sec, secdict in DEFAULTS_CONFIG.items() if key in secdict), None
     )
 
     if not section:
@@ -1852,7 +1853,10 @@ def config_set(key: str, value: str, config_name: str) -> None:
     from .daemon import MaestralProxy, CommunicationError
 
     section, defaults = next(
-        iter((s, d) for s, d in DEFAULTS_CONFIG if key in d), (None, None)
+        iter(
+            (sec, secdict) for sec, secdict in DEFAULTS_CONFIG.items() if key in secdict
+        ),
+        (None, None),
     )
 
     if not section or not defaults:
