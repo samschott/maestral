@@ -15,6 +15,7 @@ import os.path as osp
 import re
 import shutil
 import time
+import copy
 import configparser as cp
 from threading import RLock
 import logging
@@ -219,6 +220,8 @@ class UserConfig(DefaultsConfig):
 
     def _set_defaults(self, defaults: Optional[DefaultsType]) -> DefaultsType:
         """Check if defaults are valid and update defaults values."""
+
+        defaults = copy.deepcopy(defaults)
 
         if not defaults:
             defaults = {}
