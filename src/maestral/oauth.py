@@ -192,11 +192,11 @@ class OAuth2Session:
     def _get_accessor(self) -> str:
         return f"config:{self._config_name}:{self._account_id}"
 
-    def _migrate_keyring(self) -> None:
-        token = self.keyring.get_password("Maestral", self._account_id)
+    def _migrate_keyring(self, account_id: str) -> None:
+        token = self.keyring.get_password("Maestral", account_id)
         if token:
             self.keyring.set_password("Maestral", self._get_accessor(), token)
-            self.keyring.delete_password("Maestral", self._account_id)
+            self.keyring.delete_password("Maestral", account_id)
 
     @property
     def linked(self) -> bool:
@@ -282,7 +282,7 @@ class OAuth2Session:
 
         try:
 
-            self._migrate_keyring()
+            self._migrate_keyring(self._account_id)
 
             token = self.keyring.get_password("Maestral", self._get_accessor())
             access_type = self._state.get("account", "token_access_type")
@@ -366,6 +366,9 @@ class OAuth2Session:
                 token = self.refresh_token
             else:
                 token = self.access_token
+
+            if not token:
+                raise RuntimeError("No credentials set")
 
             try:
                 self.keyring.set_password("Maestral", self._get_accessor(), token)
