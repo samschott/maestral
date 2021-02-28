@@ -350,16 +350,3 @@ nav {
     margin-top: 0;
   }
 }
-
-/*
-   Global animation transition
-   ========================================================================== */
-
-b,
-i,
-strong,
-em,
-{
-  -webkit-transition: $global-transition;
-  transition: $global-transition;
-}
