@@ -31,7 +31,7 @@ Currently available config keys are:
 For example, changing the config value for the Dropbox location needs to be accompanied by
 actually moving the folder. This command only gets / sets the value in the config file.
 Most changes will also require a restart of the daemon to become effective.
-</p>{: .notice--warning}
+</p>{: .notice--danger}
 
 ## maestral config get
 

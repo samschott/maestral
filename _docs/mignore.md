@@ -31,4 +31,4 @@ scm.com/docs/gitignore) but behaves a bit differently:
   the next time syncing is paused and resumed, it will removed from the cloud.
 
 <p><b>Warning:</b> A long list of patterns in mignore may impact performance when Maestral 
-is indexing a large number of local file changes.</p>{: .notice--warning}
+is indexing a large number of local file changes.</p>{: .notice--danger}
