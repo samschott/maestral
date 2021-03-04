@@ -137,35 +137,6 @@ CONNECTION_ERRORS = (
 )
 
 
-class SpaceUsage(users.SpaceUsage):
-    @property
-    def allocation_type(self) -> str:
-        if self.allocation.is_team():
-            return "team"
-        elif self.allocation.is_individual():
-            return "individual"
-        else:
-            return ""
-
-    def __str__(self) -> str:
-
-        if self.allocation.is_individual():
-            used = self.used
-            allocated = self.allocation.get_individual().allocated
-        elif self.allocation.is_team():
-            used = self.allocation.get_team().used
-            allocated = self.allocation.get_team().allocated
-        else:
-            return natural_size(self.used)
-
-        percent = used / allocated
-        return f"{percent:.1%} of {natural_size(allocated)} used"
-
-    @classmethod
-    def from_dbx_space_usage(cls, su: users.SpaceUsage) -> "SpaceUsage":
-        return cls(used=su.used, allocation=su.allocation)
-
-
 @contextlib.contextmanager
 def convert_api_errors(
     dbx_path: Optional[str] = None, local_path: Optional[str] = None
@@ -376,21 +347,37 @@ class DropboxClient:
 
         return res
 
-    def get_space_usage(self) -> SpaceUsage:
+    def get_space_usage(self) -> users.SpaceUsage:
         """
         :returns: The space usage of the currently linked account.
         """
         with convert_api_errors():
             res = self.dbx.users_get_space_usage()
 
-        # convert from users.SpaceUsage to SpaceUsage
-        space_usage = SpaceUsage.from_dbx_space_usage(res)
+        # query space usage type
+        if res.allocation.is_team():
+            usage_type = "team"
+        elif res.allocation.is_individual():
+            usage_type = "individual"
+        else:
+            usage_type = ""
+
+        # generate space usage string
+        if res.allocation.is_team():
+            used = res.allocation.get_team().used
+            allocated = res.allocation.get_team().allocated
+        else:
+            used = res.used
+            allocated = res.allocation.get_individual().allocated
+
+        percent = used / allocated
+        space_usage = f"{percent:.1%} of {natural_size(allocated)} used"
 
         # save results to config
-        self._state.set("account", "usage", str(space_usage))
-        self._state.set("account", "usage_type", space_usage.allocation_type)
+        self._state.set("account", "usage", space_usage)
+        self._state.set("account", "usage_type", usage_type)
 
-        return space_usage
+        return res
 
     def get_metadata(self, dbx_path: str, **kwargs) -> Optional[files.Metadata]:
         """
