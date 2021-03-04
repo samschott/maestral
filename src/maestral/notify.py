@@ -28,7 +28,7 @@ __all__ = [
 
 _desktop_notifier = DesktopNotifier(
     app_name=APP_NAME,
-    app_icon=f"file://{APP_ICON_PATH}",
+    app_icon=APP_ICON_PATH.as_uri(),
     notification_limit=10,
 )
 

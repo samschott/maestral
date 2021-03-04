@@ -6,7 +6,6 @@ be kept free of memory heavy imports.
 
 # system imports
 import sys
-import os
 import platform
 from enum import Enum
 
@@ -33,7 +32,7 @@ for dist_name in ("maestral", "maestral-cocoa", "maestral-qt", "maestral-gui"):
 # app
 APP_NAME = "Maestral"
 BUNDLE_ID = "com.samschott.maestral"
-APP_ICON_PATH = os.path.join(files("maestral"), "resources", "maestral.png")
+APP_ICON_PATH = files("maestral") / "resources" / "maestral.png"
 
 # sync
 OLD_REV_FILE = ".maestral"
