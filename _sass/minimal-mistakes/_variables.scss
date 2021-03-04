@@ -6,9 +6,6 @@
    Typography
    ========================================================================== */
 
-$doc-font-size: 16;
-$reference-font-size: 22px;
-
 /* paragraph indention */
 $paragraph-indent: false; // true, false (default)
 $indent-var: 1.3em;
@@ -35,23 +32,23 @@ $header-font-family: $sans-serif;
 $caption-font-family: $serif;
 
 /* type scale */
-$type-size-1: 2.441em; // ~54px
-$type-size-2: 1.953em; // ~43px
-$type-size-3: 1.563em; // ~27.5px
-$type-size-4: 1.25em; // ~20px
-$type-size-5: 1em; // ~22px
-$type-size-6: 0.75em; // ~16.5px
-$type-size-7: 0.69em; // ~15px
-$type-size-8: 0.625em; // ~13.75
+$type-size-1: 2em; // 32px
+$type-size-2: 1.75em; // 28px
+$type-size-3: 1.5em; // 24px
+$type-size-4: 1.25em; // 20px
+$type-size-5: 1.125em; // 18px
+$type-size-6: 1em; // 16px
+$type-size-7: 0.9375em; // 15px
+$type-size-8: 0.875em; // 14px
 
 /* headline scale */
-$h-size-1: 1.5em; // ~33px
-$h-size-2: 1.2em; // ~26.4px
-$h-size-3: 1em; // ~22px
-$h-size-4: 0.9em; // ~20px
-$h-size-5: 0.85em; // ~17.8px
-$h-size-6: 0.8em; // ~17.6px
-$h-size-6: 0.8em; // ~17.6px
+$h-size-1: 2em; // 32px
+$h-size-2: 1.625em; // 26px
+$h-size-3: 1.375; // 22px
+$h-size-4: 1.125em; // 18px
+$h-size-5: 1.1em; // 17.6px
+$h-size-6: 1.1em; // 17.6px
+$h-size-6: 1.1em; // 17.6px
 
 /*
    Colors

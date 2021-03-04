@@ -19,8 +19,8 @@
         border-style: none !important;
     }
 
-    a {
-       font-size: 0.9em !important;
+    .large-link {
+       font-size: $type-size-4;
     }
 }
 
@@ -75,8 +75,4 @@
     flex: none;
     width: 270px;
     margin: 0 0.6em;
-
-    a {
-        font-size: 0.75em
-    }
 }
