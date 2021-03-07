@@ -6,7 +6,6 @@ from setuptools import setup, find_packages  # type: ignore
 
 # proceed with actual install
 install_requires = [
-    "alembic>=1.3",
     "click>=7.1.1",
     "desktop-notifier>=3.2.2",
     "dropbox>=10.9.0,<12.0",
@@ -22,7 +21,6 @@ install_requires = [
     "rubicon-objc>=0.4.0;sys_platform=='darwin'",
     "sdnotify>=0.3.2",
     "setuptools",
-    "sqlalchemy>=1.3",
     "survey>=3.2.2,<4.0",
     "watchdog>=2.0.1",
 ]
