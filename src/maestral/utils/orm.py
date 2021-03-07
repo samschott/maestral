@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 A basic object relational mapper for SQLite.
-Contains only functionality needed by Maestral.
+
+This is a very simple ORM implementation which contains only functionality needed by
+Maestral. Many operations will still require explicit SQL statements. This module is no
+alternative to fully featured ORMs such as sqlalchemy but may be useful when system
+memory is constrained.
 """
 import os
 import sqlite3
@@ -16,22 +20,50 @@ SQLSafeType = Union[str, int, float, None]
 T = TypeVar("T")
 
 
+__all__ = [
+    "SqlType",
+    "SqlString",
+    "SqlInt",
+    "SqlFloat",
+    "SqlPath",
+    "SqlEnum",
+    "Column",
+    "NoDefault",
+    "Database",
+    "Manager",
+    "Model",
+    "ColumnValueType",
+]
+
+
 class NoDefault:
+    """
+    Class to denote the absence of a default value.
+
+    This is distinct from ``None`` which may be a valid default.
+    """
+
     pass
 
 
 class SqlType:
+    """Base class to represent Python types in SQLite table"""
+
     sql_type = "TEXT"
     py_type: Type[ColumnValueType] = str
 
     def sql_to_py(self, value):
+        """Converts the return value from sqlite3 to the target Python type."""
         raise NotImplementedError()
 
     def py_to_sql(self, value):
+        """Converts a Python value to a type accepted by sqlite3."""
         raise NotImplementedError()
 
 
 class SqlString(SqlType):
+    """Class to represent Python strings in SQLite table"""
+
     sql_type = "TEXT"
     py_type = str
 
@@ -43,6 +75,8 @@ class SqlString(SqlType):
 
 
 class SqlInt(SqlType):
+    """Class to represent Python integers in SQLite table"""
+
     sql_type = "INTEGER"
     py_type = int
 
@@ -54,6 +88,8 @@ class SqlInt(SqlType):
 
 
 class SqlFloat(SqlType):
+    """Class to represent Python floats in SQLite table"""
+
     sql_type = "REAL"
     py_type = float
 
@@ -65,6 +101,13 @@ class SqlFloat(SqlType):
 
 
 class SqlPath(SqlType):
+    """
+    Class to represent Python paths in SQLite table
+
+    This class contains special handling for strings with surrogate escape characters
+    which can appear in badly encoded file names.
+    """
+
     sql_type = "TEXT"
     py_type = str
 
@@ -79,6 +122,8 @@ class SqlPath(SqlType):
 
 
 class SqlEnum(SqlType):
+    """Class to represent Python enums in SQLite table"""
+
     sql_type = "TEXT"
     py_type = Enum
 
@@ -99,6 +144,21 @@ class SqlEnum(SqlType):
 
 
 class Column(property):
+    """
+    Represents a column in a database table.
+
+    :param type: Column type in database table. Python types which don't have SQLite
+        equivalents, such as :class:`enum.Enum`, will be converted appropriately.
+    :param nullable: When set to ``False``, will cause the “NOT NULL” phrase to be added
+        when generating the column.
+    :param unique: If ``True``, sets a unique constraint on the column.
+    :param primary_key: If ``True``, marks this column as a primary key column.
+        Currently, only a single primary key column is supported.
+    :param default: Default value for the column. Set to :class:`NoDefault` if no
+        default value should be used. Note than None / NULL is a valid default for an
+        SQLite column.
+    """
+
     def __init__(
         self,
         type: SqlType,
@@ -135,6 +195,7 @@ class Column(property):
         setattr(obj, self.private_name, value)
 
     def render_constraints(self) -> str:
+        """Returns a string with constraints for the SQLite column definition."""
 
         constraints = []
 
@@ -153,6 +214,7 @@ class Column(property):
         return " ".join(constraints)
 
     def render_properties(self) -> str:
+        """Returns a string with properties for the SQLite column definition."""
 
         properties = []
 
@@ -167,6 +229,7 @@ class Column(property):
         return " ".join(properties)
 
     def render_column(self) -> str:
+        """Returns a string with the full SQLite column definition."""
         return " ".join(
             [
                 self.name,
@@ -177,26 +240,42 @@ class Column(property):
         )
 
     def py_to_sql(self, value: ColumnValueType) -> SQLSafeType:
+        """
+        Converts a Python value to a value which can be stored in the database column.
+
+        :param value: Native Python value.
+        :returns: Converted Python value to store in database. Will only return str,
+            int, float or None.
+        """
         return self.type.py_to_sql(value)
 
     def sql_to_py(self, value: SQLSafeType) -> ColumnValueType:
+        """
+        Converts a database column value to the original Python type.
+
+        :param value: Value from database column. Only accepts  str, int, float or None.
+        :returns: Converted Python value.
+        """
         return self.type.sql_to_py(value)
 
 
 def columns(klass: Type["Model"]) -> List[Column]:
-    """ Return column values dictionary for an object """
+    """Returns all columns of a :class:`Model` which represents a database table."""
     return [attr for attr in vars(klass).values() if isinstance(attr, Column)]
 
 
 def column_value_dict(obj: "Model") -> Dict[str, Any]:
-    """ Return column values dictionary for an object """
+    """
+    Return dictionary with column names and values for a :class:`Model` instance which
+    represents a row in the database table.
+    """
     cols = columns(type(obj))
 
     return dict((col.name, getattr(obj, col.name)) for col in cols)
 
 
 class Database:
-    """ Proxy class to access sqlite3.connect method """
+    """Proxy class to access sqlite3.connect method."""
 
     def __init__(self, *args, **kwargs) -> None:
         self.args = args
@@ -206,7 +285,7 @@ class Database:
 
     @property
     def connection(self) -> sqlite3.Connection:
-        """ Create SQL connection """
+        """Returns an existing SQL connection or creates a new one."""
 
         if self._connection:
             return self._connection
@@ -217,27 +296,48 @@ class Database:
             return connection
 
     def close(self) -> None:
-        """ Close SQL connection """
+        """Closes the SQL connection."""
         if self._connection:
             self._connection.close()
         self._connection = None
 
     def commit(self) -> None:
-        """ Commit SQL changes """
+        """Commits SQL changes."""
         self.connection.commit()
 
     def execute(self, sql: str, *args) -> sqlite3.Cursor:
-        """ Execute SQL """
+        """
+        Creates a cursor and executes the given SQL statement.
+
+        :param sql: SQL statement to execute.
+        :param args: Parameters to substitute for placeholders in SQL statement.
+        :returns: The created cursor.
+        """
         return self.connection.execute(sql, args)
 
     def executescript(self, script: str) -> None:
-        """ Execute SQL script """
+        """
+        Creates a cursor and executes the given SQL script.
+
+        :param script: SQL script to execute.
+        :returns: The created cursor.
+        """
         self.connection.cursor().executescript(script)
         self.commit()
 
 
 class Manager:
-    """ Data mapper interface (generic repository) for models """
+    """
+    A data mapper interface for a table model.
+
+    Creates the table as defined in the model if it doesn't already exist. Keeps a cache
+    of weak references to all retrieved and created rows to speed up queries. The cache
+    should be cleared manually changes where made to the table from outside this
+    manager.
+
+    :param db: Database to use.
+    :param model: Model for database table.
+    """
 
     def __init__(self, db: Database, model: Type["Model"]) -> None:
         self.db = db
@@ -271,6 +371,7 @@ class Manager:
             self.create_table()
 
     def create_table(self) -> None:
+        """Creates the table as defined by the model."""
 
         column_defs = [col.render_column() for col in columns(self.model)]
         column_defs_str = ", ".join(column_defs)
@@ -279,6 +380,7 @@ class Manager:
         self.db.executescript(sql)
 
     def clear_cache(self) -> None:
+        """Clears our cache."""
         self._cache.clear()
 
     def _find_primary_key(self, model: Type["Model"]) -> str:
@@ -289,14 +391,30 @@ class Manager:
         raise ValueError("Model has no primary key")
 
     def get_primary_key(self, obj: "Model") -> SQLSafeType:
+        """
+        Returns the primary key for a model object / row in the table.
+
+        :param obj: Model instance which represents the row.
+        :returns: Primary key for row.
+        """
         return getattr(obj, self.primary_key_name)
 
     def all(self) -> List["Model"]:
-        """ Get all model objects from database """
+        """
+        Get all model objects / rows from database in a single query.
+
+        :returns: List of model objects.
+        """
         result = self.db.execute(f"SELECT * FROM {self.table_name}")
         return [self.create(**row) for row in result.fetchall()]
 
     def iter_all(self, size: int = 1000) -> Generator[List["Model"], Any, None]:
+        """
+        Get all model objects / rows from database in multiple queries.
+
+        :param size: Number of rows to fetch in each query.
+        :returns: Iterator over lists of model objects.
+        """
         result = self.db.execute(f"SELECT * FROM {self.table_name}")
         rows = result.fetchmany(size)
 
@@ -305,7 +423,12 @@ class Manager:
             rows = result.fetchmany(size)
 
     def create(self, **kwargs) -> "Model":
-        """ Create a model object from SQL column values"""
+        """
+        Create a model object from SQL column values
+
+        :param kwargs: Column values.
+        :returns: Model object.
+        """
 
         # Convert any types as appropriate.
         for key, value in kwargs.items():
@@ -320,7 +443,11 @@ class Manager:
         return obj
 
     def delete(self, obj: "Model") -> None:
-        """ Delete a model object from database """
+        """
+        Delete a model object / row from database
+
+        :param obj: Object / row to delete.
+        """
         pk = self.get_primary_key(obj)
         sql = f"DELETE from {self.table_name} WHERE {self.primary_key_name} = ?"
         self.db.execute(sql, self.get_primary_key(obj))
@@ -331,7 +458,13 @@ class Manager:
             pass
 
     def get(self, primary_key) -> Optional["Model"]:
-        """ Get a model object from database by its primary key """
+        """
+        Gets a model object from database by its primary key. This will return a cached
+        value if available and None if no row with the primary key exists.
+
+        :param primary_key: Primary key for row.
+        :returns: Model object representing the row.
+        """
         sql = f"SELECT * FROM {self.table_name} WHERE {self.primary_key_name} = ?"
         result = self.db.execute(sql, primary_key)
         row = result.fetchone()
@@ -342,13 +475,25 @@ class Manager:
         return self.create(**row)
 
     def has(self, primary_key) -> bool:
-        """ Check if a model object exists in database by its id """
+        """
+        Checks if a model object exists in database by its primary key
+
+        :param primary_key: The primary key.
+        :returns: Whether the corresponding row exists in the table.
+        """
         sql = f"SELECT {self.primary_key_name} FROM {self.table_name} WHERE {self.primary_key_name} = ?"
         result = self.db.execute(sql, primary_key)
         return True if result.fetchone() else False
 
     def save(self, obj: "Model") -> "Model":
-        """ Save a model object """
+        """
+        Saves a model object to the database table. If the primary key is None, a new
+        primary key will be generated by SQLite on inserting the row. This key will be
+        retrieved and stored in the primary key property of the object.
+
+        :param obj: Model object to save.
+        :returns: Saved model object.
+        """
         primary_key = self.get_primary_key(obj)
 
         if self.has(primary_key):
@@ -370,33 +515,54 @@ class Manager:
         return obj
 
     def update(self, obj: "Model") -> None:
-        """ Update a model object """
+        """
+        Updates the database table from a model object.
+
+        :param obj: The object to update.
+        """
         py_values = column_value_dict(obj).values()
         sql_values = (col.py_to_sql(val) for col, val in zip(self._columns, py_values))
         pk = self.get_primary_key(obj)
         self.db.execute(self._sql_update_template, *(list(sql_values) + [pk]))
 
-    def query_to_objects(self, q: str, *args) -> List["Model"]:
-        result = self.db.execute(q, *args)
+    def query_to_objects(self, sql: str, *args) -> List["Model"]:
+        """
+        Performs the given SQL query and converts any returned rows to model objects.
+
+        :param sql: SQL statement to execute.
+        :param args: Parameters to substitute for placeholders in SQL statement.
+        :returns: List of model objects from the query.
+        """
+        result = self.db.execute(sql, *args)
         return [self.create(**row) for row in result.fetchall()]
 
     def count(self) -> int:
+        """Returns the number of rows in the table."""
         res = self.db.execute(f"SELECT COUNT(*) FROM {self.table_name};")
         counts = res.fetchone()
         return counts[0]
 
     def _has_table(self) -> bool:
-        """ Check if entity model already has a database table """
+        """Checks if entity model already has a database table."""
         sql = "SELECT name len FROM sqlite_master WHERE type = 'table' AND name = ?"
         result = self.db.execute(sql, self.table_name.strip("'\""))
         return True if result.fetchall() else False
 
 
 class Model:
-    """ Abstract entity model with an active record interface """
+    """
+    Abstract object model to represent an SQL table.
+
+    Instances of this class are model objects which correspond to rows in the database
+    table.
+
+    To define a table, subclass this Model and define :class:`Column`s as class
+    properties. Override the ``__tablename__`` attribute with the actual table name.
+
+    :param kwargs: Keyword arguments assigning values to table columns.
+    """
 
     __tablename__ = ""
-    _manager = None
 
     def __init__(self, **kwargs) -> None:
         """Allows initialization from kwargs.
