@@ -1924,8 +1924,10 @@ class SyncEngine:
                             unique_events.append(FileDeletedEvent(path))
                             unique_events.append(DirCreatedEvent(path))
                     else:
-                        # item was only temporary
-                        pass
+                        # Item was likely only temporary. We still trigger a rescan of
+                        # the path because some atomic modifications may be reported as
+                        # out-of-order created and deleted events on macOS.
+                        self.rescan(path)
 
         # event order does not matter anymore from this point because we have already
         # consolidated events for every path
