@@ -119,10 +119,10 @@ def test_move_events(sync):
 def test_gedit_save(sync):
 
     file_events = [
-        FileCreatedEvent(".gedit-save-UR4EC0"),  # save new version to tmp file
-        FileModifiedEvent(".gedit-save-UR4EC0"),  # modify tmp file
+        FileCreatedEvent("/.gedit-save-UR4EC0"),  # save new version to tmp file
+        FileModifiedEvent("/.gedit-save-UR4EC0"),  # modify tmp file
         FileMovedEvent(ipath(1), ipath(1) + "~"),  # move old version to backup
-        FileMovedEvent(".gedit-save-UR4EC0", ipath(1)),  # replace old version with tmp
+        FileMovedEvent("/.gedit-save-UR4EC0", ipath(1)),  # replace old version with tmp
     ]
 
     res = [
@@ -156,12 +156,12 @@ def test_msoffice_created(sync):
         FileCreatedEvent(ipath(1)),
         FileDeletedEvent(ipath(1)),
         FileCreatedEvent(ipath(1)),
-        FileCreatedEvent("~$" + ipath(1)),
+        FileCreatedEvent("/~$" + ipath(1)),
     ]
 
     res = [
         FileCreatedEvent(ipath(1)),  # created file
-        FileCreatedEvent("~$" + ipath(1)),  # backup
+        FileCreatedEvent("/~$" + ipath(1)),  # backup
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
