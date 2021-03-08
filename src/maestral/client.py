@@ -123,7 +123,6 @@ PaginationResultType = Union[sharing.ListSharedLinksResult, files.ListFolderResu
 FT = TypeVar("FT", bound=Callable[..., Any])
 
 # create single requests session for all clients
-SESSION = create_session()
 _major_minor_version = ".".join(__version__.split(".")[:2])
 USER_AGENT = f"Maestral/v{_major_minor_version}"
 
@@ -176,18 +175,26 @@ class DropboxClient:
 
     :param config_name: Name of config file and state file to use.
     :param timeout: Timeout for individual requests. Defaults to 100 sec if not given.
+    :param session: Optional requests session to use. If not given, a new session will
+        be created with :function:`dropbox.create_session`.
     """
 
     SDK_VERSION: str = "2.0"
 
     _dbx: Optional[Dropbox]
 
-    def __init__(self, config_name: str, timeout: float = 100) -> None:
+    def __init__(
+        self,
+        config_name: str,
+        timeout: float = 100,
+        session: Optional[requests.Session] = None,
+    ) -> None:
 
         self.config_name = config_name
         self.auth = OAuth2Session(config_name)
 
         self._timeout = timeout
+        self._session = session or create_session()
         self._backoff_until = 0
         self._dbx = None
         self._state = MaestralState(config_name)
@@ -300,7 +307,7 @@ class DropboxClient:
                 oauth2_access_token=access_token,
                 oauth2_access_token_expiration=access_token_expiration,
                 app_key=DROPBOX_APP_KEY,
-                session=SESSION,
+                session=self._session,
                 user_agent=USER_AGENT,
                 timeout=self._timeout,
             )
@@ -311,6 +318,57 @@ class DropboxClient:
     def account_id(self) -> Optional[str]:
         """The unique Dropbox ID of the linked account"""
         return self.auth.account_id
+
+    # ---- session management ----------------------------------------------------------
+
+    def close(self) -> None:
+        """Cleans up all resources like the request session/network connection."""
+        if self._dbx:
+            self._dbx.close()
+
+    def __enter__(self) -> "DropboxClient":
+        return self
+
+    def __exit__(self, *args) -> None:
+        self.close()
+
+    def clone(
+        self,
+        config_name: Optional[str] = None,
+        timeout: Optional[float] = None,
+        session: Optional[requests.Session] = None,
+    ) -> "DropboxClient":
+        """
+        Creates a new copy of the Dropbox client with the same defaults unless modified
+        by arguments to clone().
+
+        See constructor for original parameter descriptions.
+
+        :returns: A new instance of DropboxClient.
+        """
+
+        session = session or self._session
+
+        client = self.__class__(
+            config_name or self.config_name,
+            timeout or self._timeout,
+            session,
+        )
+
+        if self._dbx:
+            client._dbx = self._dbx.clone(session=session)
+
+        return client
+
+    def clone_with_new_session(self) -> "DropboxClient":
+        """
+        Creates a new copy of the Dropbox client with the same defaults but a new
+        requests session. Use :meth:`close()` to clean up any resources from the network
+        session when done using the copy.
+
+        :returns: A new instance of DropboxClient.
+        """
+        return self.clone(session=create_session())
 
     # ---- SDK wrappers ----------------------------------------------------------------
 
