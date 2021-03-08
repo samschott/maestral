@@ -3238,10 +3238,7 @@ class SyncEngine:
         # check if we should preserve permissions of destination file
         old_entry = self.get_index_entry(event.dbx_path)
 
-        if old_entry and event.dbx_id == old_entry.dbx_id:
-            preserve_permissions = True
-        else:
-            preserve_permissions = False
+        preserve_permissions = bool(old_entry and event.dbx_id == old_entry.dbx_id)
 
         ignore_events = [FileMovedEvent(tmp_fname, local_path)]
 
