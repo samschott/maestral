@@ -88,6 +88,26 @@ class SyncEvent(Model):
     :class:`watchdog.events.FileSystemEvent` instance, respectively.
     """
 
+    __slots__ = [
+        "_id",
+        "_direction",
+        "_item_type",
+        "_sync_time",
+        "_dbx_id",
+        "_dbx_path",
+        "_local_path",
+        "_dbx_path_from",
+        "_local_path_from",
+        "_rev",
+        "_content_hash",
+        "_change_type",
+        "_change_dbid",
+        "_change_user_name",
+        "_status",
+        "_size",
+        "_completed",
+    ]
+
     __tablename__ = "history"
 
     id = Column(SqlInt(), primary_key=True)
@@ -392,6 +412,16 @@ class SyncEvent(Model):
 class IndexEntry(Model):
     """Represents an entry in our local sync index"""
 
+    __slots__ = [
+        "_dbx_path_lower",
+        "_dbx_path_cased",
+        "_dbx_id",
+        "_item_type",
+        "_last_sync",
+        "_rev",
+        "_content_hash",
+    ]
+
     __tablename__ = "'index'"
 
     dbx_path_lower = Column(SqlPath(), nullable=False, primary_key=True)
@@ -442,6 +472,8 @@ class IndexEntry(Model):
 
 class HashCacheEntry(Model):
     """Represents an entry in our cache of content hashes"""
+
+    __slots__ = ["_local_path", "_hash_str", "_mtime"]
 
     __tablename__ = "hash_cache"
 
