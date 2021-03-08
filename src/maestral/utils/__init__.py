@@ -79,7 +79,7 @@ def get_newer_version(version: str, releases: Iterable[str]) -> Optional[str]:
     """
 
     releases = [r for r in releases if not Version(r).is_prerelease]
-    releases.sort(key=lambda x: Version(x))
+    releases.sort(key=Version)
     latest_release = releases[-1]
 
     return latest_release if Version(version) < Version(latest_release) else None
