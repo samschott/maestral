@@ -9,9 +9,9 @@ memory is constrained.
 """
 import os
 import sqlite3
-from enum import Enum, EnumMeta
+from enum import Enum
 from weakref import WeakValueDictionary
-from typing import Union, Type, Any, Dict, Generator, List, Optional, TypeVar
+from typing import Union, Type, Any, Dict, Generator, List, Optional, TypeVar, Iterable
 
 
 ColumnValueType = Union[str, int, float, Enum, None]
@@ -127,7 +127,7 @@ class SqlEnum(SqlType):
     sql_type = "TEXT"
     py_type = Enum
 
-    def __init__(self, enum: EnumMeta) -> None:
+    def __init__(self, enum: Iterable[Enum]) -> None:
         self.enum_type = enum
 
     def sql_to_py(self, value: Optional[str]) -> Optional[Enum]:
@@ -200,9 +200,7 @@ class Column(property):
         constraints = []
 
         if isinstance(self.type, SqlEnum):
-            values = ", ".join(  # type: ignore
-                repr(member.name) for member in self.type.enum_type
-            )
+            values = ", ".join(repr(member.name) for member in self.type.enum_type)
             constraints.append(f"CHECK( {self.name} IN ({values}) )")
 
         if not self.nullable:
