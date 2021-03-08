@@ -168,9 +168,9 @@ def assert_synced(m: Maestral):
         if not m.sync.is_excluded(path) and is_child(path, m.dropbox_path):
             if not m.sync.is_excluded(path):
                 dbx_path = m.sync.to_dbx_path(path).lower()
-                matching_items = list(
+                matching_items = [
                     e for e in listing.entries if e.path_lower == dbx_path
-                )
+                ]
                 assert (
                     len(matching_items) == 1
                 ), f'local item "{path}" does not exist on dbx'
@@ -180,9 +180,9 @@ def assert_synced(m: Maestral):
 
         if is_child(index_entry.dbx_path_lower, "/"):
             # check that there is a match on the server
-            matching_items = list(
+            matching_items = [
                 e for e in listing.entries if e.path_lower == index_entry.dbx_path_lower
-            )
+            ]
             assert (
                 len(matching_items) == 1
             ), f'indexed item "{index_entry.dbx_path_lower}" does not exist on dbx'

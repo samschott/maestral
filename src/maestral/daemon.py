@@ -766,7 +766,7 @@ class MaestralProxy:
 
     def __dir__(self) -> Iterable[str]:
         own_result = dir(self.__class__) + list(self.__dict__.keys())
-        proxy_result = list(k for k in self._m.__dir__() if not k.startswith("_"))
+        proxy_result = [k for k in self._m.__dir__() if not k.startswith("_")]
 
         return sorted(set(own_result) | set(proxy_result))
 

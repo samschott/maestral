@@ -1609,7 +1609,7 @@ def diff(
 
             index_base = cli.select(
                 message="New revision:",
-                options=list(e["desc"] for e in entries),
+                options=[e["desc"] for e in entries],
                 hint="(↓ to see more)" if len(entries) > 6 else "",
             )
 
@@ -1622,7 +1622,7 @@ def diff(
             comparable_versions = entries[index_base + 1 :]
             index_new = cli.select(
                 message="Old revision:",
-                options=list(e["desc"] for e in comparable_versions),
+                options=[e["desc"] for e in comparable_versions],
                 hint="(↓ to see more)" if len(comparable_versions) > 6 else "",
             )
 
