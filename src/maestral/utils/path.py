@@ -112,8 +112,7 @@ def cased_path_candidates(
         if depth >= n_components:
             if is_fs_case_sensitive:
                 continue
-            else:
-                break
+            break
 
         found = False
         path_lower = path_list[depth].lower()
