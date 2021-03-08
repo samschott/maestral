@@ -43,8 +43,6 @@ class NoDefault:
     This is distinct from ``None`` which may be a valid default.
     """
 
-    pass
-
 
 class SqlType:
     """Base class to represent Python types in SQLite table"""
@@ -269,7 +267,7 @@ def column_value_dict(obj: "Model") -> Dict[str, Any]:
     """
     cols = columns(type(obj))
 
-    return dict((col.name, getattr(obj, col.name)) for col in cols)
+    return {col.name: getattr(obj, col.name) for col in cols}
 
 
 class Database:
@@ -481,7 +479,7 @@ class Manager:
         """
         sql = f"SELECT {self.primary_key_name} FROM {self.table_name} WHERE {self.primary_key_name} = ?"
         result = self.db.execute(sql, primary_key)
-        return True if result.fetchone() else False
+        return bool(result.fetchone())
 
     def save(self, obj: "Model") -> "Model":
         """
@@ -544,7 +542,7 @@ class Manager:
         """Checks if entity model already has a database table."""
         sql = "SELECT name len FROM sqlite_master WHERE type = 'table' AND name = ?"
         result = self.db.execute(sql, self.table_name.strip("'\""))
-        return True if result.fetchall() else False
+        return bool(result.fetchall())
 
 
 class Model:
