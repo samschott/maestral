@@ -1,0 +1,11 @@
+codecov:
+  notify:
+    after_n_builds: 10
+    wait_for_ci: true
+
+coverage:
+  status:
+    project:
+      informational: true
+    patch:
+      informational: true
