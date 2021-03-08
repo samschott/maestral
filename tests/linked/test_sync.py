@@ -260,7 +260,7 @@ def test_folder_tree_created_local(m):
     shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
 
     snap = DirectorySnapshot(resources + "/test_folder")
-    num_items = len(list(p for p in snap.paths if not m.sync.is_excluded(p)))
+    num_items = len([p for p in snap.paths if not m.sync.is_excluded(p)])
 
     wait_for_idle(m, 10)
 
@@ -993,19 +993,19 @@ def clean_local(m):
 def count_conflicts(entries, name):
     basename, ext = osp.splitext(name)
 
-    candidates = list(e for e in entries if e["name"].startswith(basename))
-    ccs = list(
+    candidates = [e for e in entries if e["name"].startswith(basename)]
+    ccs = [
         e
         for e in candidates
         if "(1)" in e["name"]  # created by Dropbox for add conflict
         or "conflicted copy" in e["name"]  # created by Dropbox for update conflict
-        or "conflicting copy" in e["name"]
-    )  # created by us
+        or "conflicting copy" in e["name"]  # created by us
+    ]
     return len(ccs)
 
 
 def count_originals(entries, name):
-    originals = list(e for e in entries if e["name"] == name)
+    originals = [e for e in entries if e["name"] == name]
     return len(originals)
 
 
