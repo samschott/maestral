@@ -1506,8 +1506,6 @@ class SyncEngine:
         msg = ""
         new_exc = None
 
-        # TODO: update error handling
-
         try:
             with self._db_lock:
                 yield
@@ -1519,13 +1517,16 @@ class SyncEngine:
                 "rebuild the index if necessary."
             )
             new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
-        except sqlite3.ProgrammingError as exc:
-            title = "Database transaction error"
-            msg = "Please restart Maestral to continue syncing."
-            new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
         except sqlite3.IntegrityError as exc:
             title = "Database integrity error"
             msg = "Please rebuild the index to continue syncing."
+            new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
+        except sqlite3.DatabaseError as exc:
+            title = "Database transaction error"
+            msg = (
+                "Please restart Maestral to continue syncing. "
+                "Rebuild the index if this issue persists."
+            )
             new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
 
         if new_exc:
