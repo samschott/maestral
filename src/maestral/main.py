@@ -11,6 +11,7 @@ import warnings
 import logging.handlers
 import asyncio
 import random
+import gc
 from concurrent.futures import ThreadPoolExecutor
 from typing import (
     Union,
@@ -763,8 +764,9 @@ class Maestral:
 
         self._check_linked()
 
-        res = self.client.list_folder(dbx_path, **kwargs)
-        entries = [dropbox_stone_to_dict(e) for e in res.entries]
+        with self.client.clone_with_new_session() as client:
+            res = client.list_folder(dbx_path, **kwargs)
+            entries = [dropbox_stone_to_dict(e) for e in res.entries]
 
         return entries
 
@@ -791,11 +793,15 @@ class Maestral:
 
         self._check_linked()
 
-        res_iter = self.client.list_folder_iterator(dbx_path, **kwargs)
+        with self.client.clone_with_new_session() as client:
 
-        for res in res_iter:
-            entries = [dropbox_stone_to_dict(e) for e in res.entries]
-            yield entries
+            res_iter = client.list_folder_iterator(dbx_path, **kwargs)
+
+            for res in res_iter:
+                entries = [dropbox_stone_to_dict(e) for e in res.entries]
+                yield entries
+                del entries
+                gc.collect()
 
     def list_revisions(self, dbx_path: str, limit: int = 10) -> List[StoneType]:
         """
@@ -815,8 +821,9 @@ class Maestral:
 
         self._check_linked()
 
-        res = self.client.list_revisions(dbx_path, limit=limit)
-        entries = [dropbox_stone_to_dict(e) for e in res.entries]
+        with self.client.clone_with_new_session() as client:
+            res = client.list_revisions(dbx_path, limit=limit)
+            entries = [dropbox_stone_to_dict(e) for e in res.entries]
 
         return entries
 
