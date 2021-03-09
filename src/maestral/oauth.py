@@ -151,7 +151,6 @@ class OAuth2Session:
             try:
                 ring = load_keyring(keyring_class)
             except Exception as exc:
-                self._conf.set("app", "keyring", "automatic")
                 # Bomb out with an exception.
 
                 title = f"Cannot load keyring {keyring_class}"
