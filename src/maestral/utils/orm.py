@@ -464,10 +464,18 @@ class Manager:
         :param primary_key: Primary key for row.
         :returns: Model object representing the row.
         """
+
+        pk_sql = self.pk_column.py_to_sql(primary_key)
+
+        try:
+            return self._cache[pk_sql]
+        except KeyError:
+            pass
+
         sql = f"SELECT * FROM {self.table_name} WHERE {self.pk_column.name} = ?"
 
         try:
-            result = self.db.execute(sql, self.pk_column.py_to_sql(primary_key))
+            result = self.db.execute(sql, pk_sql)
         except UnicodeEncodeError:
             return None
 
