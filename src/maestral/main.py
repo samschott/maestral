@@ -70,7 +70,7 @@ from .utils.serializer import (
     StoneType,
     ErrorType,
 )
-from .utils.appdirs import get_log_path, get_cache_path, get_data_path
+from .utils.appdirs import get_log_path, get_cache_path
 from .utils.integration import get_ac_state, ACState
 from .constants import IDLE, PAUSED, CONNECTING, FileStatus, GITHUB_RELEASES_API
 
@@ -1476,65 +1476,15 @@ class Maestral:
 
         updated_from = self.get_state("app", "updated_scripts_completed")
 
-        if Version(updated_from) < Version("1.2.0"):
-            self._update_from_pre_v1_2_0()
-        elif Version(updated_from) < Version("1.2.1"):
+        if Version(updated_from) < Version("1.2.1"):
             self._update_from_pre_v1_2_1()
         elif Version(updated_from) < Version("1.3.2"):
             self._update_from_pre_v1_3_2()
 
         self.set_state("app", "updated_scripts_completed", __version__)
 
-    def _update_from_pre_v1_2_0(self) -> None:
-
-        logger.info("Reindexing after update from pre v1.2.0")
-
-        # remove old index to trigger resync
-        old_rev_file = get_data_path("maestral", f"{self.config_name}.index")
-        delete(old_rev_file)
-        self.sync.remote_cursor = ""
-
     def _update_from_pre_v1_2_1(self) -> None:
-
-        logger.info("Recreating autostart entries after update from pre v1.2.1")
-
-        from .autostart import AutoStart
-
-        autostart = AutoStart(self.config_name)
-
-        if autostart.enabled:
-            autostart.disable()
-            autostart.enable()
-
-        logger.info("Migrating index after update from pre v1.2.1")
-
-        from alembic.migration import MigrationContext  # type: ignore
-        from alembic.operations import Operations  # type: ignore
-        from sqlalchemy.engine import reflection  # type: ignore
-        from .database import db_naming_convention as nc
-        from .database import IndexEntry
-
-        table_name = IndexEntry.__tablename__
-
-        with self.sync._database_access():
-            insp = reflection.Inspector.from_engine(self.sync._db_engine)
-            unique_constraints = insp.get_unique_constraints(table_name)
-
-            with self.sync._db_engine.connect() as con:
-                ctx = MigrationContext.configure(con)
-                op = Operations(ctx)
-                with op.batch_alter_table(table_name, naming_convention=nc) as batch_op:
-                    for uq in unique_constraints:
-
-                        name = uq["name"]
-                        if name is None:
-                            # generate name from naming convention
-                            name = nc["uq"] % {
-                                "table_name": table_name,
-                                "column_0_name": uq["column_names"][0],
-                            }
-
-                        batch_op.drop_constraint(constraint_name=name, type_="unique")
+        raise RuntimeError("Cannot upgrade from version before v1.2.1")
 
     def _update_from_pre_v1_3_2(self) -> None:
 

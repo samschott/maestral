@@ -15,6 +15,7 @@ import urllib.parse
 import enum
 import pprint
 import gc
+import sqlite3
 from threading import Thread, Event, Condition, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
@@ -41,10 +42,6 @@ from types import TracebackType
 
 # external imports
 import click
-import sqlalchemy.exc  # type: ignore
-import sqlalchemy.engine.url  # type: ignore
-from sqlalchemy.sql import func  # type: ignore
-from sqlalchemy import create_engine  # type: ignore
 import pathspec  # type: ignore
 import dropbox  # type: ignore
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
@@ -103,8 +100,6 @@ from .client import (
     convert_api_errors,
 )
 from .database import (
-    Base,
-    Session,
     SyncEvent,
     HashCacheEntry,
     IndexEntry,
@@ -132,6 +127,7 @@ from .utils.path import (
     is_equal_or_child,
     content_hash,
 )
+from .utils.orm import Database, Manager
 from .utils.appdirs import get_data_path, get_home_dir
 
 
@@ -554,16 +550,10 @@ class SyncEngine:
             self.remote_cursor = ""
 
         # initialize SQLite database
-        url = sqlalchemy.engine.url.URL(
-            drivername="sqlite",
-            database=f"file:{self._db_path}",
-            query={"check_same_thread": "false", "uri": "true"},
-        )
-        self._db_engine = create_engine(url)
-        with self._database_access(log_errors=True):
-            Base.metadata.create_all(self._db_engine)
-            Session.configure(bind=self._db_engine)
-        self._db_session = Session()
+        self._db = Database(self._db_path, check_same_thread=False)
+        self._db_manager_index = Manager(self._db, IndexEntry)
+        self._db_manager_history = Manager(self._db, SyncEvent)
+        self._db_manager_hash_cache = Manager(self._db, HashCacheEntry)
 
         # load cached properties
         self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
@@ -702,10 +692,10 @@ class SyncEngine:
 
         with self._database_access():
 
-            res = self._db_session.query(func.max(IndexEntry.last_sync)).first()
+            res = self._db.execute("SELECT MAX(last_sync) FROM 'index'").fetchone()
 
             if res:
-                return res[0] or 0.0
+                return res["MAX(sync_time)"] or 0.0
             else:
                 return 0.0
 
@@ -721,16 +711,18 @@ class SyncEngine:
         interval specified by the config value ``keep_history`` (defaults to two weeks)
         but at most 1,000 events will be kept."""
         with self._database_access():
-            query = self._db_session.query(SyncEvent)
-            ordered_query = query.order_by(SyncEvent.change_time_or_sync_time)
-            return ordered_query.limit(self._max_history).all()
+
+            sync_events = self._db_manager_history.query_to_objects(
+                "SELECT * FROM history ORDER BY IFNULL(change_time, sync_time)"
+            )
+            return cast(List[SyncEvent], sync_events)
 
     def clear_sync_history(self) -> None:
         """Clears the sync history."""
         with self._database_access():
-            SyncEvent.metadata.drop_all(self._db_engine)
-            Base.metadata.create_all(self._db_engine)
-            self._db_session.expunge_all()
+            self._db.execute("DROP TABLE history")
+            self._db_manager_history.create_table()
+            self._db_manager_history.clear_cache()
 
     # ==== index management ============================================================
 
@@ -741,7 +733,7 @@ class SyncEngine:
         :returns: List of index entries.
         """
         with self._database_access():
-            return self._db_session.query(IndexEntry).all()
+            return cast(List[IndexEntry], self._db_manager_index.all())
 
     def iter_index(self) -> Iterator[IndexEntry]:
         """
@@ -750,8 +742,9 @@ class SyncEngine:
         :returns: Iterator over index entries.
         """
         with self._database_access():
-            for entry in self._db_session.query(IndexEntry).yield_per(1000):
-                yield entry
+            for entries in self._db_manager_index.iter_all():
+                for entry in entries:
+                    yield cast(IndexEntry, entry)
 
     def index_count(self) -> int:
         """
@@ -761,7 +754,7 @@ class SyncEngine:
         """
 
         with self._database_access():
-            return self._db_session.query(IndexEntry).count()
+            return self._db_manager_index.count()
 
     def get_local_rev(self, dbx_path: str) -> Optional[str]:
         """
@@ -772,15 +765,10 @@ class SyncEngine:
             been saved.
         """
 
-        with self._database_access():
-            res = (
-                self._db_session.query(IndexEntry.rev)
-                .filter(IndexEntry.dbx_path_lower == dbx_path.lower())
-                .first()
-            )
+        entry = self.get_index_entry(dbx_path)
 
-        if res:
-            return res[0]
+        if entry:
+            return entry.rev
         else:
             return None
 
@@ -792,11 +780,10 @@ class SyncEngine:
         :returns: Time of last sync.
         """
 
-        with self._database_access():
-            res = self._db_session.query(IndexEntry).get(dbx_path.lower())
+        entry = self.get_index_entry(dbx_path)
 
-        if res:
-            last_sync = res.last_sync or 0.0
+        if entry:
+            last_sync = entry.last_sync or 0.0
         else:
             last_sync = 0.0
 
@@ -811,7 +798,8 @@ class SyncEngine:
         """
 
         with self._database_access():
-            return self._db_session.query(IndexEntry).get(dbx_path.lower())
+            entry = self._db_manager_index.get(dbx_path.lower())
+            return cast(Optional[IndexEntry], entry)
 
     def get_local_hash(self, local_path: str) -> Optional[str]:
         """
@@ -827,9 +815,10 @@ class SyncEngine:
         except (FileNotFoundError, NotADirectoryError):
             # remove any existing cache entries for path
             with self._database_access():
-                cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
+                cache_entry = self._db_manager_hash_cache.get(local_path)
+                cache_entry = cast(Optional[HashCacheEntry], cache_entry)
                 if cache_entry:
-                    self._db_session.delete(cache_entry)
+                    self._db_manager_hash_cache.delete(cache_entry)
             return None
         except OSError as err:
             raise os_to_maestral_error(err, local_path=local_path)
@@ -842,7 +831,8 @@ class SyncEngine:
 
         with self._database_access():
             # check cache for an up-to-date content hash and return if it exists
-            cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
+            cache_entry = self._db_manager_hash_cache.get(local_path)
+            cache_entry = cast(Optional[HashCacheEntry], cache_entry)
 
             if cache_entry and cache_entry.mtime == mtime:
                 return cache_entry.hash_str
@@ -868,7 +858,8 @@ class SyncEngine:
 
         with self._database_access():
 
-            cache_entry = self._db_session.query(HashCacheEntry).get(local_path)
+            cache_entry = self._db_manager_hash_cache.get(local_path)
+            cache_entry = cast(Optional[HashCacheEntry], cache_entry)
 
             if hash_str:
 
@@ -876,25 +867,28 @@ class SyncEngine:
                     cache_entry.hash_str = hash_str
                     cache_entry.mtime = mtime
 
+                    self._db_manager_hash_cache.update(cache_entry)
+
                 else:
                     cache_entry = HashCacheEntry(
                         local_path=local_path, hash_str=hash_str, mtime=mtime
                     )
-                    self._db_session.add(cache_entry)
+                    self._db_manager_hash_cache.save(cache_entry)
             else:
                 if cache_entry:
-                    self._db_session.delete(cache_entry)
+                    self._db_manager_hash_cache.delete(cache_entry)
                 else:
                     pass
 
-            self._db_session.commit()
+            self._db.commit()
 
     def clear_hash_cache(self) -> None:
         """Clears the sync history."""
         with self._database_access():
-            HashCacheEntry.metadata.drop_all(self._db_engine)
-            Base.metadata.create_all(self._db_engine)
-            self._db_session.expunge_all()
+            self._db.execute("DROP TABLE hash_cache")
+            self._db_manager_hash_cache.clear_cache()
+            self._db_manager_hash_cache.create_table()
+            self._db.commit()
 
     def update_index_from_sync_event(self, event: SyncEvent) -> None:
         """
@@ -932,6 +926,8 @@ class SyncEngine:
                     entry.rev = event.rev
                     entry.content_hash = event.content_hash
 
+                    self._db_manager_index.update(entry)
+
                 else:
                     # create new entry
                     entry = IndexEntry(
@@ -944,9 +940,9 @@ class SyncEngine:
                         content_hash=event.content_hash,
                     )
 
-                    self._db_session.add(entry)
+                    self._db_manager_index.save(entry)
 
-            self._db_session.commit()
+            self._db.commit()
 
     def update_index_from_dbx_metadata(
         self, md: Metadata, client: Optional[DropboxClient] = None
@@ -990,6 +986,8 @@ class SyncEngine:
                     entry.rev = rev
                     entry.content_hash = hash_str
 
+                    self._db_manager_index.update(entry)
+
                 else:
                     entry = IndexEntry(
                         dbx_path_cased=dbx_path_cased,
@@ -1001,9 +999,9 @@ class SyncEngine:
                         content_hash=hash_str,
                     )
 
-                    self._db_session.add(entry)
+                    self._db_manager_index.save(entry)
 
-            self._db_session.commit()
+            self._db.commit()
 
     def remove_node_from_index(self, dbx_path: str) -> None:
         """
@@ -1015,24 +1013,28 @@ class SyncEngine:
         with self._database_access():
 
             dbx_path_lower = dbx_path.lower().rstrip("/")
-            match = f"{dbx_path_lower}/%"
 
-            self._db_session.query(IndexEntry).filter(
-                IndexEntry.dbx_path_lower == dbx_path_lower
-            ).delete(synchronize_session="fetch")
-            self._db_session.query(IndexEntry).filter(
-                IndexEntry.dbx_path_lower.ilike(match)
-            ).delete(synchronize_session="fetch")
+            try:
+                self._db.execute(
+                    "DELETE FROM 'index' WHERE dbx_path_lower = ?", dbx_path_lower
+                )
+                self._db.execute(
+                    "DELETE FROM 'index' WHERE dbx_path_lower LIKE ?",
+                    f"{dbx_path_lower}/%",
+                )
+            except UnicodeEncodeError:
+                return
 
-            self._db_session.commit()
+            self._db_manager_index.clear_cache()
+            self._db.commit()
 
     def clear_index(self) -> None:
         """Clears the revision index."""
         with self._database_access():
-
-            IndexEntry.metadata.drop_all(self._db_engine)
-            Base.metadata.create_all(self._db_engine)
-            self._db_session.expunge_all()
+            self._db.execute("DROP TABLE 'index'")
+            self._db_manager_index.clear_cache()
+            self._db_manager_index.create_table()
+            self._db.commit()
 
     # ==== mignore management ==========================================================
 
@@ -1510,7 +1512,7 @@ class SyncEngine:
         try:
             with self._db_lock:
                 yield
-        except sqlalchemy.exc.OperationalError as exc:
+        except sqlite3.OperationalError as exc:
             title = "Database transaction error"
             msg = (
                 f'The index file at "{self._db_path}" cannot be read. '
@@ -1518,13 +1520,16 @@ class SyncEngine:
                 "rebuild the index if necessary."
             )
             new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
-        except sqlalchemy.exc.InternalError as exc:
-            title = "Database transaction error"
-            msg = "Please restart Maestral to continue syncing."
-            new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
-        except sqlalchemy.exc.DatabaseError as exc:
+        except sqlite3.IntegrityError as exc:
             title = "Database integrity error"
             msg = "Please rebuild the index to continue syncing."
+            new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
+        except sqlite3.DatabaseError as exc:
+            title = "Database transaction error"
+            msg = (
+                "Please restart Maestral to continue syncing. "
+                "Rebuild the index if this issue persists."
+            )
             new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
 
         if new_exc:
@@ -1536,14 +1541,9 @@ class SyncEngine:
 
     def _free_memory(self) -> None:
         """
-        Frees memory by resetting our database session and the requests session,
-        clearing out case-conversion cache and clearing all expired event ignores and.
+        Frees memory by clearing out case-conversion cache, clearing all expired event
+        ignores and running garbage collection.
         """
-
-        with self._database_access():
-            self._db_session.flush()
-            self._db_session.close()
-            self._db_session = Session()
 
         self._case_conversion_cache.clear()
         self.fs_events.expire_ignored_events()
@@ -1783,8 +1783,8 @@ class SyncEngine:
 
             for event in dir_moved:
                 logger.info(f"Moving {event.dbx_path_from}...")
-                res = self._create_remote_entry(event)
-                results.append(res)
+                r = self._create_remote_entry(event)
+                results.append(r)
 
             # apply other events in parallel since order does not matter
             with ThreadPoolExecutor(
@@ -2175,7 +2175,7 @@ class SyncEngine:
         # add to history database
         if event.status == SyncStatus.Done:
             with self._database_access():
-                self._db_session.add(event)
+                self._db_manager_history.save(event)
 
         return event
 
@@ -3259,7 +3259,7 @@ class SyncEngine:
         # add to history database
         if event.status == SyncStatus.Done:
             with self._database_access():
-                self._db_session.add(event)
+                self._db_manager_history.save(event)
 
         return event
 
@@ -3472,19 +3472,20 @@ class SyncEngine:
         """
 
         with self._database_access():
-            old_entry = self.get_index_entry(event.dbx_path.lower())
+            entry = self.get_index_entry(event.dbx_path.lower())
 
-        if old_entry and old_entry.dbx_path_cased != event.dbx_path:
+        if entry and entry.dbx_path_cased != event.dbx_path:
 
-            local_path_old = self.to_local_path_from_cased(old_entry.dbx_path_cased)
+            local_path_old = self.to_local_path_from_cased(entry.dbx_path_cased)
 
             event_cls = DirMovedEvent if osp.isdir(local_path_old) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path_old, event.local_path)):
                 move(local_path_old, event.local_path)
 
             with self._database_access():
-                old_entry.dbx_path_cased = event.dbx_path
-                self._db_session.commit()
+                entry.dbx_path_cased = event.dbx_path
+                self._db_manager_index.update(entry)
+                self._db.commit()
 
             logger.debug('Renamed "%s" to "%s"', local_path_old, event.local_path)
 
@@ -3518,15 +3519,16 @@ class SyncEngine:
             # add deleted events
 
             with self._database_access():
-                entries = (
-                    self._db_session.query(IndexEntry)
-                    .filter(IndexEntry.dbx_path_lower.like(f"{local_path_lower}%"))
-                    .all()
+
+                entries = self._db_manager_index.query_to_objects(
+                    "SELECT * FROM 'index' WHERE dbx_path_lower LIKE ?",
+                    f"{local_path_lower}%",
                 )
 
             dbx_root_lower = self.dropbox_path.lower()
 
             for entry in entries:
+                entry = cast(IndexEntry, entry)
                 child_path_uncased = f"{dbx_root_lower}{entry.dbx_path_lower}"
                 if child_path_uncased not in lowercase_snapshot_paths:
                     local_child = self.to_local_path_from_cased(entry.dbx_path_cased)
@@ -3553,19 +3555,20 @@ class SyncEngine:
         with self._database_access():
 
             # commit previous
-            self._db_session.commit()
+            self._db.commit()
 
             # drop all entries older than keep_history
             now = time.time()
             keep_history = self._conf.get("sync", "keep_history")
-            query = self._db_session.query(SyncEvent)
-            subquery = query.filter(
-                SyncEvent.change_time_or_sync_time < now - keep_history
+
+            self._db.execute(
+                "DELETE FROM history WHERE IFNULL(change_time, sync_time) < ?",
+                now - keep_history,
             )
-            subquery.delete(synchronize_session="fetch")
+            self._db_manager_history.clear_cache()
 
             # commit to drive
-            self._db_session.commit()
+            self._db.commit()
 
     def _scandir_with_mignore(self, path: str) -> List:
         return [

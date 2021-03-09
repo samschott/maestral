@@ -12,13 +12,6 @@ from datetime import timezone
 from typing import Optional, TYPE_CHECKING
 
 # external imports
-import sqlalchemy.types as sqltypes  # type: ignore
-from sqlalchemy.ext.declarative import declarative_base  # type: ignore
-from sqlalchemy.orm import sessionmaker  # type: ignore
-from sqlalchemy.sql import case  # type: ignore
-from sqlalchemy.sql.elements import Case  # type: ignore
-from sqlalchemy.ext.hybrid import hybrid_property  # type: ignore
-from sqlalchemy import Column, MetaData  # type: ignore
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
 from watchdog.events import (
     FileSystemEvent,
@@ -27,6 +20,9 @@ from watchdog.events import (
     EVENT_TYPE_MOVED,
     EVENT_TYPE_MODIFIED,
 )
+
+# local imports
+from .utils.orm import Model, Column, SqlEnum, SqlInt, SqlString, SqlFloat, SqlPath
 
 if TYPE_CHECKING:
     from .sync import SyncEngine
@@ -40,21 +36,7 @@ __all__ = [
     "SyncEvent",
     "IndexEntry",
     "HashCacheEntry",
-    "Session",
-    "Base",
-    "db_naming_convention",
 ]
-
-
-db_naming_convention = {
-    "ix": "ix_%(column_0_label)s",
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(column_0_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s",
-}
-Base = declarative_base(metadata=MetaData(naming_convention=db_naming_convention))
-Session = sessionmaker(expire_on_commit=False)
 
 
 class SyncDirection(enum.Enum):
@@ -92,28 +74,7 @@ class ChangeType(enum.Enum):
     Modified = "modified"
 
 
-class StringPath(sqltypes.TypeDecorator):
-    """
-    Database column type which accepts strings the Python surrogate escapes as input.
-    Those may be passed when the local path contains bytes outside of the reported file
-    system encoding.
-    """
-
-    # TODO: bijective conversion of surrogate escapes in our database
-
-    impl = sqltypes.String
-
-    def process_bind_param(self, value: Optional[str], dialect) -> Optional[str]:
-        if value is None:
-            return value
-        else:
-            return os.fsencode(value).decode(errors="replace")
-
-    def process_result_value(self, value: Optional[str], dialect) -> Optional[str]:
-        return value
-
-
-class SyncEvent(Base):  # type: ignore
+class SyncEvent(Model):
     """Represents a file or folder change in the sync queue
 
     This class is used to represent both local and remote file system changes and track
@@ -127,115 +88,128 @@ class SyncEvent(Base):  # type: ignore
     :class:`watchdog.events.FileSystemEvent` instance, respectively.
     """
 
+    __slots__ = [
+        "_id",
+        "_direction",
+        "_item_type",
+        "_sync_time",
+        "_dbx_id",
+        "_dbx_path",
+        "_local_path",
+        "_dbx_path_from",
+        "_local_path_from",
+        "_rev",
+        "_content_hash",
+        "_change_type",
+        "_change_dbid",
+        "_change_user_name",
+        "_status",
+        "_size",
+        "_completed",
+    ]
+
     __tablename__ = "history"
 
-    id = Column(sqltypes.Integer, primary_key=True)
+    id = Column(SqlInt(), primary_key=True)
     """A unique identifier of the SyncEvent."""
 
-    direction = Column(sqltypes.Enum(SyncDirection), nullable=False)
+    direction = Column(SqlEnum(SyncDirection), nullable=False)
     """The :class:`SyncDirection`."""
 
-    item_type = Column(sqltypes.Enum(ItemType), nullable=False)
+    item_type = Column(SqlEnum(ItemType), nullable=False)
     """
     The :class:`ItemType`. May be undetermined for remote deletions.
     """
 
-    sync_time = Column(sqltypes.Float, nullable=False)
+    sync_time = Column(SqlFloat(), nullable=False)
     """The time the SyncEvent was registered."""
 
-    dbx_id = Column(sqltypes.String)
+    dbx_id = Column(SqlString())
     """
     A unique dropbox ID for the file or folder. Will only be set for download events
     which are not deletions.
     """
 
-    dbx_path = Column(StringPath, nullable=False)
+    dbx_path = Column(SqlPath(), nullable=False)
     """
     Dropbox path of the item to sync. If the sync represents a move operation, this will
     be the destination path. Follows the casing from server.
     """
 
-    local_path = Column(StringPath, nullable=False)
+    local_path = Column(SqlPath(), nullable=False)
     """
     Local path of the item to sync. If the sync represents a move operation, this will
     be the destination path. This will be correctly cased.
     """
 
-    dbx_path_from = Column(StringPath)
+    dbx_path_from = Column(SqlPath())
     """
     Dropbox path that this item was moved from. Will only be set if :attr:`change_type`
     is :attr:`ChangeType.Moved`. Follows the casing from server.
     """
 
-    local_path_from = Column(StringPath)
+    local_path_from = Column(SqlPath())
     """
     Local path that this item was moved from. Will only be set if :attr:`change_type`
     is :attr:`ChangeType.Moved`. This will be correctly cased.
     """
 
-    rev = Column(sqltypes.String)
+    rev = Column(SqlString())
     """
     The file revision. Will only be set for remote changes. Will be ``'folder'`` for
     folders and ``None`` for deletions.
     """
 
-    content_hash = Column(sqltypes.String)
+    content_hash = Column(SqlString())
     """
     A hash representing the file content. Will be ``'folder'`` for folders and ``None``
     for deletions. Set for both local and remote changes.
     """
 
-    change_type = Column(sqltypes.Enum(ChangeType), nullable=False)
+    change_type = Column(SqlEnum(ChangeType), nullable=False)
     """
     The :class:`ChangeType`. Remote SyncEvents currently do not generate moved events
     but are reported as deleted and added at the new location.
     """
 
-    change_time = Column(sqltypes.Float)
+    change_time = Column(SqlFloat())
     """
     Local ctime or remote ``client_modified`` time for files. ``None`` for folders or
     for remote deletions. Note that ``client_modified`` may not be reliable as it is set
     by other clients and not verified.
     """
 
-    change_dbid = Column(sqltypes.String)
+    change_dbid = Column(SqlString())
     """
     The Dropbox ID of the account which performed the changes. This may not be set for
     added folders or deletions on the server.
     """
 
-    change_user_name = Column(sqltypes.String)
+    change_user_name = Column(SqlString())
     """
     The user name corresponding to :attr:`change_dbid`, if the account still exists.
     This field may not be set for performance reasons.
     """
 
-    status = Column(sqltypes.Enum(SyncStatus), nullable=False)
+    status = Column(SqlEnum(SyncStatus), nullable=False)
     """The :class:`SyncStatus`."""
 
-    size = Column(sqltypes.Integer, nullable=False)
+    size = Column(SqlInt(), nullable=False)
     """Size of the item in bytes. Always zero for folders."""
 
-    completed = Column(sqltypes.Integer, default=0)
+    completed = Column(SqlInt(), default=0)
     """
     File size in bytes which has already been uploaded or downloaded. Always zero for
     folders.
     """
 
-    @hybrid_property
+    @property
     def change_time_or_sync_time(self) -> float:
         """
         Change time when available, otherwise sync time. This can be used for sorting or
         user information purposes.
         """
         return self.change_time or self.sync_time
-
-    @change_time_or_sync_time.expression  # type: ignore
-    def change_time_or_sync_time(cls) -> Case:
-        return case(
-            [(cls.change_time != None, cls.change_time)],  # noqa: E711
-            else_=cls.sync_time,
-        )
 
     @property
     def is_file(self) -> bool:
@@ -435,35 +409,45 @@ class SyncEvent(Base):  # type: ignore
         )
 
 
-class IndexEntry(Base):  # type: ignore
+class IndexEntry(Model):
     """Represents an entry in our local sync index"""
 
-    __tablename__ = "index"
+    __slots__ = [
+        "_dbx_path_lower",
+        "_dbx_path_cased",
+        "_dbx_id",
+        "_item_type",
+        "_last_sync",
+        "_rev",
+        "_content_hash",
+    ]
 
-    dbx_path_lower = Column(StringPath, nullable=False, primary_key=True)
+    __tablename__ = "'index'"
+
+    dbx_path_lower = Column(SqlPath(), nullable=False, primary_key=True)
     """
     Dropbox path of the item in lower case. This acts as a primary key for the SQLites
     database since there can only be one entry per case-insensitive Dropbox path.
     """
 
-    dbx_path_cased = Column(StringPath, nullable=False)
+    dbx_path_cased = Column(SqlPath(), nullable=False)
     """Dropbox path of the item, correctly cased."""
 
-    dbx_id = Column(sqltypes.String, nullable=False)
+    dbx_id = Column(SqlString(), nullable=False)
     """The unique dropbox ID for the item."""
 
-    item_type = Column(sqltypes.Enum(ItemType), nullable=False)
+    item_type = Column(SqlEnum(ItemType), nullable=False)
     """The :class:`ItemType`."""
 
-    last_sync = Column(sqltypes.Float)
+    last_sync = Column(SqlFloat())
     """
     The last time a local change was uploaded. Should be the ctime of the local item.
     """
 
-    rev = Column(sqltypes.String, nullable=False)
+    rev = Column(SqlString(), nullable=False)
     """The file revision. Will be ``'folder'`` for folders."""
 
-    content_hash = Column(sqltypes.String)
+    content_hash = Column(SqlString())
     """
     A hash representing the file content. Will be ``'folder'`` for folders. May be
     ``None`` if not yet calculated.
@@ -486,18 +470,20 @@ class IndexEntry(Base):  # type: ignore
         )
 
 
-class HashCacheEntry(Base):  # type: ignore
+class HashCacheEntry(Model):
     """Represents an entry in our cache of content hashes"""
+
+    __slots__ = ["_local_path", "_hash_str", "_mtime"]
 
     __tablename__ = "hash_cache"
 
-    local_path = Column(StringPath, nullable=False, primary_key=True)
+    local_path = Column(SqlPath(), nullable=False, primary_key=True)
     """The local path of the item."""
 
-    hash_str = Column(sqltypes.String)
+    hash_str = Column(SqlString())
     """The content hash of the item."""
 
-    mtime = Column(sqltypes.Float)
+    mtime = Column(SqlFloat())
     """
     The mtime of the item just before the hash was computed. When the current ctime is
     newer, the hash will need to be recalculated.
