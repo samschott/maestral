@@ -32,6 +32,7 @@ from typing import (
     Tuple,
     Union,
     Iterator,
+    Iterable,
     Callable,
     Hashable,
     Type,
@@ -1601,9 +1602,16 @@ class SyncEngine:
         )
         lowercase_snapshot_paths: Set[str] = set()
 
-        # don't use iterator here but pre-fetch all entries
-        # this significantly improves performance but can lead to high memory usage
-        entries = self.get_index()
+        # If the number of index entries is not too large, pre-load them now to enable
+        # database queries to use the cache. This results in significant performance
+        # improvements. Otherwise, fetch entries on-demand during iteration.
+
+        entries: Iterable[IndexEntry]
+
+        if self._db_manager_index.count() < 150000:
+            entries = self.get_index()
+        else:
+            entries = self.iter_index()
 
         # get modified or added items
         for path in snapshot.paths:
