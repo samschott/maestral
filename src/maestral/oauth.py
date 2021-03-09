@@ -145,27 +145,29 @@ class OAuth2Session:
         keyring_class: str = self._conf.get("app", "keyring").strip()
 
         if self._account_id and keyring_class != "automatic":
-            # we are already linked and have a keyring set
+            # We are already linked and have a keyring set. Insist on using
+            # the recorded backend.
 
             try:
                 ring = load_keyring(keyring_class)
             except Exception as exc:
-                # reset the keyring and prompt to relink
-                # them bomb out with an exception
-
                 self._conf.set("app", "keyring", "automatic")
+                # Bomb out with an exception.
 
                 title = f"Cannot load keyring {keyring_class}"
-                message = "Please relink Maestral to get a new access token"
+                message = "Please relink Maestral to get a new access token."
                 new_exc = KeyringAccessError(title, message).with_traceback(
                     exc.__traceback__
                 )
                 logger.error(title, exc_info=_exc_info(new_exc))
                 raise new_exc
-            else:
-                return ring
+
+            return ring
 
         else:
+
+            # We are not yet linked. Try loading the preset or the preferred keyring
+            # backend for the platform.
 
             try:
                 ring = load_keyring(keyring_class)
@@ -310,11 +312,11 @@ class OAuth2Session:
                 self._token_access_type = access_type
 
         except (KeyringLocked, InitError):
-            title = f"Could not load auth token, {self.keyring.name} is locked"
-            msg = "Please unlock the keyring and try again."
-            exc = KeyringAccessError(title, msg)
-            logger.error(title, exc_info=_exc_info(exc))
-            raise exc
+            title = "Could not load auth token"
+            msg = f"{self.keyring.name} is locked. Please unlock the keyring and try again."
+            new_exc = KeyringAccessError(title, msg)
+            logger.error(title, exc_info=_exc_info(new_exc))
+            raise new_exc
 
     def get_auth_url(self) -> str:
         """
@@ -397,8 +399,8 @@ class OAuth2Session:
                 self.keyring.delete_password("Maestral", self._get_accessor())
                 cli.ok("Credentials removed")
             except (KeyringLocked, InitError):
-                title = f"Could not delete auth token, {self.keyring.name} is locked"
-                msg = "Please unlock the keyring and try again."
+                title = "Could not delete auth token"
+                msg = f"{self.keyring.name} is locked. Please unlock the keyring and try again."
                 exc = KeyringAccessError(title, msg)
                 logger.error(title, exc_info=_exc_info(exc))
                 raise exc
