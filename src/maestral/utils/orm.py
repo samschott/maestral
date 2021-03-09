@@ -7,7 +7,6 @@ Maestral. Many operations will still require explicit SQL statements. This modul
 alternative to fully featured ORMs such as sqlalchemy but may be useful when system
 memory is constrained.
 """
-import os
 import sqlite3
 from enum import Enum
 from weakref import WeakValueDictionary
@@ -113,10 +112,7 @@ class SqlPath(SqlType):
         return value
 
     def py_to_sql(self, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return value
-        else:
-            return os.fsencode(value).decode(errors="replace")
+        return value
 
 
 class SqlEnum(SqlType):
@@ -339,7 +335,7 @@ class Manager:
         self.db = db
         self.model = model
         self.table_name = model.__tablename__
-        self.primary_key_name = self._find_primary_key(model)
+        self.pk_column = self._find_primary_key(model)
 
         self._cache: "WeakValueDictionary[SQLSafeType, Model]" = WeakValueDictionary()
 
@@ -359,12 +355,20 @@ class Manager:
         self._sql_update_template = "UPDATE {} SET {} WHERE {} = ?".format(
             self.table_name,
             where_expressions_str,
-            self.primary_key_name,
+            self.pk_column.name,
         )
 
         # Create table if required.
         if not self._has_table():
             self.create_table()
+
+    @staticmethod
+    def _find_primary_key(model: Type["Model"]) -> Column:
+        for col in columns(model):
+            if col.primary_key:
+                return col
+
+        raise ValueError("Model has no primary key")
 
     def create_table(self) -> None:
         """Creates the table as defined by the model."""
@@ -379,13 +383,6 @@ class Manager:
         """Clears our cache."""
         self._cache.clear()
 
-    def _find_primary_key(self, model: Type["Model"]) -> str:
-        for col in columns(model):
-            if col.primary_key:
-                return col.name
-
-        raise ValueError("Model has no primary key")
-
     def get_primary_key(self, obj: "Model") -> SQLSafeType:
         """
         Returns the primary key for a model object / row in the table.
@@ -393,7 +390,8 @@ class Manager:
         :param obj: Model instance which represents the row.
         :returns: Primary key for row.
         """
-        return getattr(obj, self.primary_key_name)
+        pk_py = getattr(obj, self.pk_column.name)
+        return self.pk_column.py_to_sql(pk_py)
 
     def all(self) -> List["Model"]:
         """
@@ -433,8 +431,8 @@ class Manager:
 
         obj = self.model(**kwargs)
 
-        pk = self.get_primary_key(obj)
-        self._cache[pk] = obj
+        pk_sql = self.get_primary_key(obj)
+        self._cache[pk_sql] = obj
 
         return obj
 
@@ -444,16 +442,21 @@ class Manager:
 
         :param obj: Object / row to delete.
         """
-        pk = self.get_primary_key(obj)
-        sql = f"DELETE from {self.table_name} WHERE {self.primary_key_name} = ?"
-        self.db.execute(sql, self.get_primary_key(obj))
+        pk_sql = self.get_primary_key(obj)
+        sql = f"DELETE from {self.table_name} WHERE {self.pk_column.name} = ?"
 
         try:
-            del self._cache[pk]
+            self.db.execute(sql, pk_sql)
+        except UnicodeEncodeError:
+            # Item was not in the database in the first place.
+            pass
+
+        try:
+            del self._cache[pk_sql]
         except KeyError:
             pass
 
-    def get(self, primary_key) -> Optional["Model"]:
+    def get(self, primary_key: ColumnValueType) -> Optional["Model"]:
         """
         Gets a model object from database by its primary key. This will return a cached
         value if available and None if no row with the primary key exists.
@@ -461,8 +464,13 @@ class Manager:
         :param primary_key: Primary key for row.
         :returns: Model object representing the row.
         """
-        sql = f"SELECT * FROM {self.table_name} WHERE {self.primary_key_name} = ?"
-        result = self.db.execute(sql, primary_key)
+        sql = f"SELECT * FROM {self.table_name} WHERE {self.pk_column.name} = ?"
+
+        try:
+            result = self.db.execute(sql, self.pk_column.py_to_sql(primary_key))
+        except UnicodeEncodeError:
+            return None
+
         row = result.fetchone()
 
         if not row:
@@ -470,15 +478,20 @@ class Manager:
 
         return self.create(**row)
 
-    def has(self, primary_key) -> bool:
+    def has(self, primary_key: ColumnValueType) -> bool:
         """
         Checks if a model object exists in database by its primary key
 
         :param primary_key: The primary key.
         :returns: Whether the corresponding row exists in the table.
         """
-        sql = f"SELECT {self.primary_key_name} FROM {self.table_name} WHERE {self.primary_key_name} = ?"
-        result = self.db.execute(sql, primary_key)
+        sql = f"SELECT {self.pk_column.name} FROM {self.table_name} WHERE {self.pk_column.name} = ?"
+        try:
+            result = self.db.execute(sql, primary_key)
+        except UnicodeEncodeError:
+            # Item cannot be in the table.
+            return False
+
         return bool(result.fetchone())
 
     def save(self, obj: "Model") -> "Model":
@@ -490,10 +503,10 @@ class Manager:
         :param obj: Model object to save.
         :returns: Saved model object.
         """
-        primary_key = self.get_primary_key(obj)
+        pk_sql = self.get_primary_key(obj)
 
-        if self.has(primary_key):
-            msg = f"Object with primary key {primary_key} is already registered"
+        if self.has(pk_sql):
+            msg = f"Object with primary key {pk_sql} is already registered"
             raise ValueError(msg)
 
         py_values = column_value_dict(obj).values()
@@ -501,12 +514,14 @@ class Manager:
 
         self.db.execute(self._sql_insert_template, *sql_values)
 
-        if primary_key is None:
+        if pk_sql is None:
             # Round trip to fetch created primary key.
             res = self.db.execute("SELECT last_insert_rowid()").fetchone()
-            setattr(obj, self.primary_key_name, res["last_insert_rowid()"])
+            pk_sql = res["last_insert_rowid()"]
+            pk_py = self.pk_column.sql_to_py(pk_sql)
+            setattr(obj, self.pk_column.name, pk_py)
 
-        self._cache[primary_key] = obj
+        self._cache[pk_sql] = obj
 
         return obj
 
@@ -518,8 +533,8 @@ class Manager:
         """
         py_values = column_value_dict(obj).values()
         sql_values = (col.py_to_sql(val) for col, val in zip(self._columns, py_values))
-        pk = self.get_primary_key(obj)
-        self.db.execute(self._sql_update_template, *(list(sql_values) + [pk]))
+        pk_sql = self.get_primary_key(obj)
+        self.db.execute(self._sql_update_template, *(list(sql_values) + [pk_sql]))
 
     def query_to_objects(self, sql: str, *args) -> List["Model"]:
         """

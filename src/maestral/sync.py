@@ -1014,15 +1014,18 @@ class SyncEngine:
 
             dbx_path_lower = dbx_path.lower().rstrip("/")
 
-            self._db.execute(
-                "DELETE FROM 'index' WHERE dbx_path_lower = ?", dbx_path_lower
-            )
-            self._db.execute(
-                "DELETE FROM 'index' WHERE dbx_path_lower LIKE ?", f"{dbx_path_lower}/%"
-            )
+            try:
+                self._db.execute(
+                    "DELETE FROM 'index' WHERE dbx_path_lower = ?", dbx_path_lower
+                )
+                self._db.execute(
+                    "DELETE FROM 'index' WHERE dbx_path_lower LIKE ?",
+                    f"{dbx_path_lower}/%",
+                )
+            except UnicodeEncodeError:
+                return
 
             self._db_manager_index.clear_cache()
-
             self._db.commit()
 
     def clear_index(self) -> None:
