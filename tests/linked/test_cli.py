@@ -29,6 +29,22 @@ def wait_for_idle(m: MaestralProxy, minimum: int = 2):
             m.status_change_longpoll(timeout=minimum)
 
 
+def test_start_stop(proxy):
+
+    config_name = proxy.config_name
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["stop", "-c", config_name])
+
+    assert result.exit_code == 0, result.output
+    assert "OK" in result.output
+
+    result = runner.invoke(main, ["start", "-c", config_name])
+
+    assert result.exit_code == 0, result.output
+    assert "OK" in result.output
+
+
 def test_pause_resume(proxy):
 
     runner = CliRunner()
