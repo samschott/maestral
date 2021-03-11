@@ -1463,15 +1463,16 @@ def dropbox_to_maestral_error(
         elif isinstance(error, sharing.RevokeSharedLinkError):
             title = "Could not revoke shared link"
 
-            if error.is_shared_link_not_found():
+            if error.is_shared_link_malformed():
+                text = "The shared link is malformed."
+                err_cls = SharedLinkError
+
+            elif error.is_shared_link_not_found():
                 text = "The given link does not exist."
                 err_cls = NotFoundError
             elif error.is_shared_link_access_denied():
                 text = "You do not have access to revoke the shared link."
                 err_cls = InsufficientPermissionsError
-            elif error.is_shared_link_malformed():
-                text = "The shared link is malformed."
-                err_cls = SharedLinkError
             elif error.is_unsupported_link_type():
                 text = "The link type is not supported."
                 err_cls = SharedLinkError
