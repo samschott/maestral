@@ -1609,7 +1609,7 @@ class SyncEngine:
 
         entries: Iterable[IndexEntry]
 
-        if self._db_manager_index.count() < 150000:
+        if self.index_count() < 150000:
             entries = self.get_index()
         else:
             entries = self.iter_index()
