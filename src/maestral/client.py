@@ -1419,6 +1419,7 @@ def dropbox_to_maestral_error(
             elif error.is_in_progress():
                 title = "Restore in progress"
                 text = "Please check again later if the restore completed"
+                err_cls = SyncError
 
         elif isinstance(error, files.GetMetadataError):
             title = "Could not get metadata"
