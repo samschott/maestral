@@ -68,6 +68,7 @@ from .errors import (
     NotLinkedError,
     InvalidDbidError,
     SharedLinkError,
+    DropboxConnectionError,
 )
 from .config import MaestralState
 from .constants import DROPBOX_APP_KEY
@@ -152,11 +153,17 @@ def convert_api_errors(
         raise dropbox_to_maestral_error(exc, dbx_path, local_path)
     # catch connection errors first, they may inherit from OSError
     except CONNECTION_ERRORS:
-        raise ConnectionError("Cannot connect to Dropbox")
+        raise DropboxConnectionError(
+            "Cannot connect to Dropbox",
+            "Please check you internet connection and try again later.",
+        )
     except OSError as exc:
         if exc.errno == errno.EPROTOTYPE:
             # Can occur on macOS, see https://bugs.python.org/issue33450
-            raise ConnectionError("Cannot connect to Dropbox")
+            raise DropboxConnectionError(
+                "Cannot connect to Dropbox",
+                "Please check you internet connection and try again later.",
+            )
         else:
             raise os_to_maestral_error(exc, dbx_path, local_path)
 

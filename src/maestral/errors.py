@@ -124,6 +124,10 @@ class FileReadError(SyncError):
 # ==== errors which are not related to a specific sync event ===========================
 
 
+class DropboxConnectionError(MaestralApiError):
+    """Raised when the connection to Dropbox fails"""
+
+
 class CancelledError(MaestralApiError):
     """Raised when syncing is cancelled by the user."""
 
@@ -219,6 +223,7 @@ GENERAL_ERRORS = {
     BusyError,
     UnsupportedFileTypeForDiff,
     SharedLinkError,
+    DropboxConnectionError,
 }
 
 SYNC_ERRORS = {

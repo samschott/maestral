@@ -94,6 +94,7 @@ from .errors import (
     InvalidDbidError,
     DatabaseError,
     InotifyError,
+    DropboxConnectionError,
 )
 from .client import (
     DropboxClient,
@@ -3602,7 +3603,7 @@ def handle_sync_thread_errors(
         yield
     except CancelledError:
         running.clear()
-    except ConnectionError:
+    except DropboxConnectionError:
         logger.info(DISCONNECTED)
         logger.debug("Connection error", exc_info=True)
         running.clear()
