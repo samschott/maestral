@@ -1,9 +1,32 @@
 ## v1.4.3.dev
 
+This release improves performance and memory usage by switching from sqlalchamey to our  
+own database interaction layer.
+
+Maestral now also has a website with a detailed documentation of the command line
+interface, released with github pages at
+[https://samschott.github.io/maestral](https://samschott.github.io/maestral).
+
+#### Changed:
+
+* We now use our own ORM layer instead of sqlalchemy. This improves both baseline memory 
+  usage and peak memory usage during startup and indexing.
+* Use a new network session for each thread and clean up network resources before the
+  thread stops.
+* The macOS GUI will now show a dock icon if there is an open window.
+* The CLI will print full tracebacks to the console in case of unexpected errors.
+
+#### Fixed:
+
+* Fixed detecting local changes when saving an MS Office on macOS with recent versions 
+  of the Office suite.
+
 #### Dependencies:
 
 * Bumped desktop-notifier to >=3.2.2
 * Bumped watchdog to >=2.0.1
+* Removed sqlalchemy
+* Removed alembic
 
 ## v1.4.2
 
