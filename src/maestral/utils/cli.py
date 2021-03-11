@@ -689,18 +689,6 @@ def select_path(
     return res
 
 
-class RemoteApiError(click.ClickException):
-    def __init__(self, title: str, message: str) -> None:
-        super().__init__(message)
-        self.title = title
-
-    def format_message(self) -> str:
-        return f"{self.title}. {self.message}"
-
-    def show(self, file=None) -> None:
-        warn(self.format_message())
-
-
 class CliException(click.ClickException):
     def show(self, file=None) -> None:
         warn(self.format_message())

@@ -225,11 +225,7 @@ def convert_py_errors(func: Callable) -> Callable:
         try:
             return func(*args, **kwargs)
         except MaestralApiError as exc:
-            raise cli.RemoteApiError(exc.title, exc.message)
-        except ConnectionError:
-            raise cli.CliException("Could not connect to Dropbox")
-        except Exception as exc:
-            raise cli.CliException(f"{exc.__class__.__name__}: {exc.args[0]}")
+            raise cli.CliException(f"{exc.title}. {exc.message}")
 
     return wrapper
 
