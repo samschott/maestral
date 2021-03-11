@@ -1275,18 +1275,12 @@ def dropbox_to_maestral_error(
                     "request. Please try to move fewer items at once."
                 )
                 err_cls = SyncError
-            else:
-                text = "Please check the logs or traceback for more information"
-                err_cls = SyncError
 
         elif isinstance(error, (files.CreateFolderError, files.CreateFolderEntryError)):
             title = "Could not create folder"
             if error.is_path():
                 write_error = error.get_path()
                 text, err_cls = _get_write_error_msg(write_error)
-            else:
-                text = "Please check the logs or traceback for more information"
-                err_cls = SyncError
 
         elif isinstance(error, files.DeleteError):
             title = "Could not delete item"
@@ -1308,9 +1302,6 @@ def dropbox_to_maestral_error(
                     "Dropbox. Please try again later."
                 )
                 err_cls = SyncError
-            else:
-                text = "Please check the logs or traceback for more information"
-                err_cls = SyncError
 
         elif isinstance(error, files.UploadError):
             title = "Could not upload file"
@@ -1320,9 +1311,6 @@ def dropbox_to_maestral_error(
             elif error.is_properties_error():
                 # this is a programming error in maestral
                 text = "Invalid property group provided."
-            else:
-                text = "Please check the logs or traceback for more information"
-                err_cls = SyncError
 
         elif isinstance(error, files.UploadSessionStartError):
             title = "Could not upload file"
@@ -1332,9 +1320,6 @@ def dropbox_to_maestral_error(
             elif error.is_concurrent_session_data_not_allowed():
                 # this is a programming error in maestral
                 text = "Uploading data not allowed when starting concurrent upload session."
-            else:
-                text = "Please check the logs or traceback for more information"
-                err_cls = SyncError
 
         elif isinstance(error, files.UploadSessionFinishError):
             title = "Could not upload file"
@@ -1353,9 +1338,6 @@ def dropbox_to_maestral_error(
                     "Dropbox. Please retry again later."
                 )
                 err_cls = SyncError
-            else:
-                text = "Please check the logs or traceback for more information"
-                err_cls = SyncError
 
         elif isinstance(error, files.UploadSessionLookupError):
             title = "Could not upload file"
@@ -1369,9 +1351,6 @@ def dropbox_to_maestral_error(
             elif error.is_unsupported_file():
                 text = "This file type cannot be downloaded but must be exported."
                 err_cls = UnsupportedFileError
-            else:
-                text = "Please check the logs or traceback for more information"
-                err_cls = SyncError
 
         elif isinstance(error, files.ListFolderError):
             title = "Could not list folder contents"
