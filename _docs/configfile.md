@@ -10,10 +10,10 @@ The config files are located at `$XDG_CONFIG_HOME/maestral` on Linux (typically
 `~/.config/maestral`) and `~/Library/Application Support/maestral` on macOS. Each
 configuration will get its own INI file with the settings documented below.
 
-Changes to the config values may be performed through [`maestral config
-set`]({{ site.baseurl }}/cli/config) directly but some will only take effect once you restart Maestral.
-Any manual changes to the config file may be overwritten if the daemon is still
-running.
+Changes to the config values may be performed through [`maestral config set`]({{
+site.baseurl }}/cli/config) directly but some will only take effect once you restart
+Maestral. Any manual changes to the config file may be overwritten if the daemon is
+still running.
 
 **You should not change the config values in the sections "main" and "account"
 directly** but rather use the corresponding CLI commands or GUI options, for instance

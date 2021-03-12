@@ -3,7 +3,7 @@ main:
   - title: "About"
     url: /about
   - title: "Documentation"
-    url: /docs/installation
+    url: /docs
   - title: "Command line"
     url: /cli
   - title: "Download"
@@ -12,8 +12,14 @@ main:
     url: https://github.com/samschott/maestral
 
 docs:
-  - title: "Installation and Setup"
-    url: /docs/installation
+  - title: "Setup"
+    children:
+      - title: "Installation"
+        url: /docs/installation
+      - title: "Keyring integration"
+        url: /docs/keyring
+      - title: "Notes on Raspberry Pi"
+        url: /docs/raspberry-pi
   - title: "Syncing"
     children:
       - title: "Selective sync"
