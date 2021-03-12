@@ -30,7 +30,6 @@ from fasteners import InterProcessLock  # type: ignore
 
 # local imports
 from .errors import SYNC_ERRORS, GENERAL_ERRORS, MaestralApiError
-from .constants import IS_MACOS, FROZEN
 from .utils.appdirs import get_runtime_path
 
 
@@ -47,7 +46,7 @@ __all__ = [
     "sockpath_for_config",
     "lockpath_for_config",
     "is_running",
-    "set_executable",
+    "freeze_support",
     "start_maestral_daemon",
     "start_maestral_daemon_process",
     "stop_maestral_daemon_process",
@@ -72,23 +71,31 @@ IS_WATCHDOG = WATCHDOG_USEC and (
 URI = "PYRO:maestral.{0}@{1}"
 Pyro5.config.THREADPOOL_SIZE_MIN = 2
 
-if FROZEN and IS_MACOS:
-    EXECUTABLE = [sys.executable, "--run-python", "-OO"]
-else:
-    EXECUTABLE = [sys.executable, "-OO"]
 
-
-def set_executable(executable: str, *argv: str) -> None:
+def freeze_support() -> None:
     """
-    Sets the path of the Python executable to use when starting the daemon. By default
-    :obj:`sys.executable` is used. Can be used when embedding the daemon.
-
-    :param executable: Path to custom Python executable.
-    :param argv: Any command line arguments to be injected before the daemon startup
-        command. By default, "-OO" will be used.
+    Call this as early as possible in the main entry point of a frozen executable.
+    This call will start the sync daemon if a matching command line arguments are
+    detected and do nothing otherwise.
     """
-    global EXECUTABLE
-    EXECUTABLE = [executable, *argv]
+    import argparse
+    import ast
+    import re
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c")
+    parsed_args, _ = parser.parse_known_args()
+
+    if parsed_args.c:
+        template = r'.*start_maestral_daemon\("(?P<config_name>\S+)", start_sync=(?P<start_sync>\S+)\).*'
+        match = re.match(template, parsed_args.c)
+
+        if match:
+            config_name = match["config_name"]
+            start_sync = ast.literal_eval(match["start_sync"])
+
+            start_maestral_daemon(config_name, start_sync)
+            sys.exit()
 
 
 class Stop(enum.Enum):
@@ -594,7 +601,7 @@ def start_maestral_daemon_process(
         f'maestral.daemon.start_maestral_daemon("{cc}", start_sync={start_sync})'
     )
 
-    cmd = [*EXECUTABLE, "-c", script]
+    cmd = [sys.executable, "-OO", "-c", script]
 
     process = subprocess.Popen(
         cmd,
