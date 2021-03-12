@@ -37,6 +37,11 @@ Finally, since Maestral is not an official Dropbox App but just a third-party
 application, it will not count towards the three devices limit for basic Dropbox
 accounts.
 
+## Privacy policy
+
+Maestral does not collect any usage data, anonymous or otherwise. It only communicates
+with Dropbox servers and the Dropbox privacy policiy of course applies.
+
 ## Acknowledgements
 
 Maestral directly uses code from the following projects:
