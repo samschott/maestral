@@ -1,4 +1,4 @@
-## v1.4.3.dev
+## v1.4.3
 
 This release improves performance and memory usage by switching from sqlalchamey to our  
 own database interaction layer.
