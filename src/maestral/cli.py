@@ -840,7 +840,7 @@ def sharelink_revoke(url: str, config_name: str) -> None:
     with MaestralProxy(config_name, fallback=True) as m:
         m.revoke_shared_link(url)
 
-    cli.echo("Revoked shared link.")
+    cli.confirm("Revoked shared link.")
 
 
 @sharelink.command(
