@@ -1,3 +1,11 @@
+## v1.4.4.dev
+
+#### Fixed:
+
+* Fixes a rare issue where throttling of sync threads would be disabled if the 
+  "max_cpu_percent" config value would be set to 100% divided by the number of CPU cores
+  (e.g, 25% on a 4-core CPU).
+
 ## v1.4.3
 
 This release improves performance and memory usage by switching from sqlalchamey to our  
