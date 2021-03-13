@@ -62,7 +62,6 @@ class OAuth2Session:
         * MacOS Keychain
         * Any keyring implementing the SecretService Dbus specification
         * KWallet
-        * Gnome Keyring
         * Plain text storage
 
     When the auth flow is completed, a short-lived access token and a long-lived refresh
@@ -73,6 +72,10 @@ class OAuth2Session:
     If the auth flow was previously completed before Dropbox migrated to short-lived
     tokens, the :attr:`token_access_type` will be 'legacy' and only a long-lived access
     token will be available.
+
+    .. note:: Once the token has been stored with a keyring backend, that backend will be
+        saved in the config file and remembered until the user unlinks the account. This
+        module will therefore never switch keyring backends while linked.
 
     .. warning:: Unlike MacOS Keychain, Gnome Keyring and KWallet do not support
         app-specific access to passwords. If the user unlocks those keyrings, we and any
