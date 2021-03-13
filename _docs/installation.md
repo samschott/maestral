@@ -113,7 +113,6 @@ $ docker run \
   maestraldbx/maestral:latest
 ```
 
-To step into the Maestral container use `docker exec -it maestral ash`. list the logs of
-To the container use `docker logs maestral` get the build info of a running container:
-To get the build info of a running container:
+To step into the Maestral container use `docker exec -it maestral ash`. To list the logs
+of the container use `docker logs maestral`. To get the build info of a running container:
 `docker inspect maestral | jq ".[].Config.Labels"`.
