@@ -11,8 +11,8 @@
  */
 
 @mixin notice($background-color, $border-color) {
-  margin: 2em 0 !important;  /* override*/
-  padding: 1em;
+  margin: 1.5em 0 !important;  /* override*/
+  padding: 0.8em;
   color: var(--text-color);
   font-family: $global-font-family;
   text-indent: initial; /* override*/
