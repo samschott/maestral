@@ -9,7 +9,6 @@
 .btn {
   /* default */
   display: inline-block;
-  margin-bottom: 0.25em;
   padding: 0.5em 1em;
   font-family: $sans-serif;
   font-size: $type-size-6;
@@ -89,4 +88,8 @@
   &--small {
     font-size: $type-size-7;
   }
+}
+
+.btn:not(:last-child) {
+  margin-right: 0.5em;
 }
