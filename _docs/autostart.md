@@ -1,48 +1,32 @@
 ---
 layout: single
-title: Systemd and launchd integration
+title: Start on login
 permalink: /docs/autostart
 sidebar:
   nav: "docs"
 ---
 
 File syncing should happen in the background and should require as little user
-interaction as possible. To simplify this, the GUI includes an option to automatically
-start on login. On macOS, this will create an appropriate launchd service which will
-show up as a "Login item" in System Preferences. On Linux, this will create an
-appropriate ".desktop" entry.
+interaction as possible. Therefore, both the GUI and the daemon provide options to start
+on login.
+
+The settings panel provides a checkbox to start the GUI on login. On macOS, this will
+create an appropriate launchd service. On Linux, this will create an appropriate
+".desktop" entry.
 
 The CLI includes an equivalent command `maestral autostart` which will create the
 appropriate systemd (Linux) or launchd (macOS) entry to start the Maestral daemon with
 the selected config on login. If used together with the GUI's "Start on login" option,
 the GUI will simply attach itself to the started daemon.
 
-## systemd integration
+## Creating your own systemd service file
 
-Maestral plays nicely with systemd. This means that it will notify systemd of its status
-while it is running and send log output to the journal. The latter requires the
-installation of [python-systemd](https://github.com/systemd/python-systemd) which is not
-a default requirement. If you install Maestral with the syslog option `pip3 install
-maestral[syslog]`, this dependency will be automatically installed for you. Note however
-that a pip installation will build python-systemd from source and requires gcc, systemd
-headers and python headers and may therefore fail on some systems. It is recommended to
-install python-systemd from your distribution's package manager instead:
-
-On Fedora/RHEL/CentOS:
-```
-dnf install python3-systemd
-```
-On Debian/Ubuntu/Mint:
-```
-apt-get install python3-systemd
-```
-
-The `maestral autostart` command setup and enable a systemd service with reasinable
-defaults for each config with which it is run. However, in some cases, it may make sense
-to manually create a systemd service file with custom settings.
+On Linux, the `maestral autostart` command sets up and enables a systemd service with
+reasonable defaults for each config with which it is run. However, in some cases, it may
+make sense to manually create a systemd service file with custom settings.
 
 To run the Maestral with your own systemd configuration, you can adapt the template
-below and save it at "~/.config/systemd/user/maestral.service". `/usr/bin/maestral`
+below and save it at "~/.config/systemd/user/maestral.service". `/usr/local/bin/maestral`
 should be replaced with the path to the command line script, as returned by `which
 maestral`.
 
@@ -53,8 +37,8 @@ Description = Maestral daemon
 [Service]
 Type = notify
 NotifyAccess = exec
-ExecStart = /usr/bin/maestral start -f
-ExecStop = /usr/bin/maestral stop
+ExecStart = /usr/local/bin/maestral start -f
+ExecStop = /usr/local/bin/maestral stop
 ExecStopPost=/usr/bin/env bash -c "if [ ${SERVICE_RESULT} != success ]; \
 then notify-send Maestral 'Daemon failed'; fi"
 WatchdogSec = 30s

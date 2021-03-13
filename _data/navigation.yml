@@ -36,8 +36,10 @@ docs:
         url: /docs/locations
   - title: "Configuration"
     children:
-      - title: "Systemd / launchd integration"
+      - title: "Start on login"
         url: /docs/autostart
+      - title: "Logging"
+        url: /docs/logging
       - title: "Configuration file"
         url: /docs/configfile
 
