@@ -6,7 +6,8 @@ sidebar:
   nav: "cli-docs"
 ---
 
-List all configured Dropbox accounts.
+List all configured Dropbox accounts. To create a new configuration, simply start the sync
+daemon with a new config name and follow the setup dialog.
 
 ### Syntax
 

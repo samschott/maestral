@@ -7,7 +7,7 @@ sidebar:
 ---
 
 Show the sync status of a local file or folder. This command takes a local path as an
-argument. On case-senstitive file systems, the local path must be correctly cased.
+argument. On case-sensitive file systems, the local path must be correctly cased.
 
 Returned value will be "uploading", "downloading", "up to date", "error", or "unwatched"
 (for files outside of the Dropbox directory). This will always be "unwatched" if syncing

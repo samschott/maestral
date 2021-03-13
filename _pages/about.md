@@ -39,8 +39,8 @@ accounts.
 
 ## Privacy policy
 
-Maestral does not collect any usage data, anonymous or otherwise. It only communicates
-with Dropbox servers and the Dropbox privacy policiy of course applies.
+Maestral does not collect any user data, anonymous or otherwise. It only communicates
+with Dropbox servers and the Dropbox privacy policy of course applies.
 
 ## Acknowledgements
 

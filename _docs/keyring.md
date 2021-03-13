@@ -20,7 +20,7 @@ The best keyring will be chosen when linking to an account and will be used unti
 unlinked.
 
 Note that keyrings advertised over D-Bus require a running D-Bus session which may not
-be avilable on headless sessions. If such a D-Bus service is not available or the user
+be available on headless sessions. If such a D-Bus service is not available or the user
 does not unlock the keyring, Maestral will fall back to storing the token in a plain
 text file at `~/.local/share/python_keyring/keyring_pass.cfg` when linking. This will
 only be secure if the home folder is encrypted.

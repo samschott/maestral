@@ -12,7 +12,7 @@ can be installed from the settings panel. This will create the appropriate symli
 /usr/local/bin, prompting for your admin password if this directory is owned by root.
 
 The command line interface provides access to a wide number of features, including some
-that are not available from the GUI. This inlcudes creating shared links for files and
+that are not available from the GUI. This includes creating shared links for files and
 folders, listing and restoring old versions of a file, and low-level access to Maestral's
 configuration such as maximum CPU usage, reindex intervals, etc.
 

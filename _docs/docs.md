@@ -8,7 +8,7 @@ sidebar:
 
 Welcome to the user documentation. The following pages provide support for installing
 and configuring Maestral, they discuss non-trivial functionality such as ".mignore"
-files and sync issues arrising from unsupported file names, symlinks and other edge
+files and sync issues arising from unsupported file names, symlinks and other edge
 cases.
 
 Other resources for help are:

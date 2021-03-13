@@ -6,7 +6,13 @@ sidebar:
   nav: "docs"
 ---
 
-With selective sync, you can select files and folders to remove from your hard drive but keep in your online account. Maestral will ask you during setup, before the initial download, which files or folder you would like to include in syncing. You can also select which items to sync later, through the GUI in the settings pane, or through the CLI with the `maestral excluded` command group. If you want to keep files or folder inside the Dropbox directory on your hard drive but not sync them to the cloud, you can use an [mignore]({{ site.baseurl }}/docs/mignore) file instead.
+With selective sync, you can select files and folders to remove from your hard drive but
+keep in your online account. Maestral will ask you during setup, before the initial
+download, which files or folder you would like to include in syncing. You can also
+select which items to sync later, through the GUI in the settings pane, or through the
+CLI with the `maestral excluded` command group. If you want to keep files or folder
+inside the Dropbox directory on your hard drive but not sync them to the cloud, you can
+use an [mignore]({{ site.baseurl }}/docs/mignore) file instead.
 
 ### Example GUI usage
 
@@ -31,7 +37,9 @@ To include the folder again, run:
 $ maestral excluded remove Pictures
 ```
 
-Items which have been excluded from syncing will be removed from your hard drive and items which have been newly included will be downloaded. The command `maestral excluded remove` will therefore only work when the sync daemon is running.
+Items which have been excluded from syncing will be removed from your hard drive and
+items which have been newly included will be downloaded. The command `maestral excluded
+remove` will therefore only work when the sync daemon is running.
 
 To list all currently excluded files and folders, run:
 
@@ -39,7 +47,8 @@ To list all currently excluded files and folders, run:
 $ maestral excluded list
 ```
 
-Finally, the command `maestral ls -l` will list all files and folders in your Dropbox or together with the any of its directories included state. For example:
+Finally, the command `maestral ls -l` will list all files and folders in your Dropbox or
+together with the any of its directories included state. For example:
 
 ```shell
 $ maestral ls

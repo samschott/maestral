@@ -6,7 +6,7 @@ sidebar:
   nav: "cli-docs"
 ---
 
-A command group to wiew and manage the log.
+A command group to view and manage the log.
 
 ### Examples
 
