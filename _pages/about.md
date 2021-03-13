@@ -1,6 +1,6 @@
 ---
 layout: single
-title: About Maestral
+title: About
 permalink: /about/
 ---
 
