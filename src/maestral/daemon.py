@@ -17,6 +17,9 @@ import struct
 import tempfile
 import logging
 import warnings
+import argparse
+import ast
+import re
 from shlex import quote
 from typing import Optional, Any, Union, Tuple, Dict, Iterable, Type, TYPE_CHECKING
 from types import TracebackType
@@ -78,9 +81,6 @@ def freeze_support() -> None:
     This call will start the sync daemon if a matching command line arguments are
     detected and do nothing otherwise.
     """
-    import argparse
-    import ast
-    import re
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-c")
