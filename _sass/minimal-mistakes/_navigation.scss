@@ -445,6 +445,7 @@
 
 .nav__items {
   color: var(--masthead-link-color);
+  font-size: $type-size-7;
 
   a {
     color: var(--masthead-link-color);
@@ -497,7 +498,7 @@
   margin: 0.5rem 0;
   padding: 0.25rem 0;
   font-family: $sans-serif-narrow;
-  font-size: $type-size-7;
+  font-size: $type-size-6;
   font-weight: bold;
   border-bottom: 1px solid var(--border-color);
 }
