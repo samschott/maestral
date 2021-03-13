@@ -1414,10 +1414,17 @@ class SyncEngine:
         if self._max_cpu_percent == 100:
             return
 
-        if "pool" in current_thread().name:
-            cpu_usage = cpu_usage_percent()
+        cpu_usage = cpu_usage_percent()
+
+        if cpu_usage > self._max_cpu_percent:
+
+            thread_name = current_thread().name
+            logger.debug(f"{thread_name}: {cpu_usage}% CPU usage - throttling")
+
             while cpu_usage > self._max_cpu_percent:
                 cpu_usage = cpu_usage_percent(0.5 + 2 * random.random())
+
+            logger.debug(f"{thread_name}: {cpu_usage}% CPU usage - end throttling")
 
     def cancel_sync(self) -> None:
         """
