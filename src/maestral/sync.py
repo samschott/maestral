@@ -1411,7 +1411,7 @@ class SyncEngine:
         Pauses if CPU usage is too high if called from one of our thread pools.
         """
 
-        if self._max_cpu_percent == 100:
+        if self._max_cpu_percent == 100 * CPU_COUNT:
             return
 
         cpu_usage = cpu_usage_percent()
