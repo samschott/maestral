@@ -52,7 +52,7 @@ setup(
     name="maestral",
     author="Sam Schott",
     author_email="ss2151@cam.ac.uk",
-    version="1.4.3",
+    version="1.4.4.dev0",
     url="https://github.com/SamSchott/maestral",
     description="Open-source Dropbox client for macOS and Linux.",
     license="MIT",

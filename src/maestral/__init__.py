@@ -2,7 +2,7 @@
 
 import warnings
 
-__version__ = "1.4.3"
+__version__ = "1.4.4.dev0"
 __author__ = "Sam Schott"
 __url__ = "https://samschott.github.io/maestral"
 
