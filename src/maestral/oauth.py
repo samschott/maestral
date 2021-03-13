@@ -65,9 +65,10 @@ class OAuth2Session:
         * Plain text storage
 
     When the auth flow is completed, a short-lived access token and a long-lived refresh
-    token are generated. Only the long-lived refresh token will be saved in the system
-    keychain for future sessions, it can be used to generate short-lived access tokens
-    as needed.
+    token are generated. They can be accessed through the properties :attr:`access_token`
+    and :attr:`refresh_token`. Only the long-lived refresh token will be saved in the
+    system keychain for future sessions, the Dropbox SDK will use it to generate
+    short-lived access tokens as needed.
 
     If the auth flow was previously completed before Dropbox migrated to short-lived
     tokens, the :attr:`token_access_type` will be 'legacy' and only a long-lived access
@@ -227,7 +228,8 @@ class OAuth2Session:
     def token_access_type(self) -> Optional[str]:
         """Returns the type of access token. If 'legacy', we have a long-lived access
         token. If 'offline', we have a short-lived access token with an expiry time and
-        a long-lived refresh token to generate new access tokens."""
+        a long-lived refresh token to generate new access tokens. This call may block
+        until the keyring is unlocked."""
 
         with self._lock:
             if not self.loaded:
@@ -241,7 +243,7 @@ class OAuth2Session:
         token. For an 'offline' token, this will only be set if we completed the auth
         flow in the current session. In case of an 'offline' token, use the refresh
         token to retrieve a short-lived access token through the Dropbox API instead.
-        The call may block until the keyring is unlocked."""
+        This call may block until the keyring is unlocked."""
 
         with self._lock:
             if not self.loaded:
@@ -252,7 +254,7 @@ class OAuth2Session:
     @property
     def refresh_token(self) -> Optional[str]:
         """Returns the refresh token (read only). This will only be set for an 'offline'
-        token. The call may block until the keyring is unlocked."""
+        token. This call may block until the keyring is unlocked."""
 
         with self._lock:
             if not self.loaded:
@@ -273,8 +275,9 @@ class OAuth2Session:
     def load_token(self) -> None:
         """
         Loads auth token from system keyring. This will be called automatically when
-        accessing of the properties :attr:`linked`, :attr:`access_token`,
-        :attr:`refresh_token` or :attr:`token_access_type`.
+        accessing any of the properties :attr:`linked`, :attr:`access_token`,
+        :attr:`refresh_token` or :attr:`token_access_type`. This call may block until
+        the keyring is unlocked.
 
         :raises KeyringAccessError: If the system keyring is locked.
         """
@@ -322,16 +325,18 @@ class OAuth2Session:
 
     def get_auth_url(self) -> str:
         """
-        Gets the auth URL to start the OAuth2 implicit grant flow.
+        Retrieves an auth URL to start the OAuth2 implicit grant flow.
 
         :returns: Dropbox auth URL.
         """
         authorize_url = self._auth_flow.start()
         return authorize_url
 
-    def verify_auth_token(self, token) -> int:
+    def verify_auth_token(self, code: str) -> int:
         """
-        Verify the provided authorization token with Dropbox servers.
+        If the user approves the app, they will be presented with a single usage
+        "authorization code". Have the user copy/paste that authorization code into the
+        app and then call this method to exchange it for a long-lived auth token.
 
         :returns: :attr:`Success`, :attr:`InvalidToken`, or :attr:`ConnectionFailed`.
         """
@@ -339,7 +344,7 @@ class OAuth2Session:
         with self._lock:
 
             try:
-                res = self._auth_flow.finish(token)
+                res = self._auth_flow.finish(code)
 
                 self._access_token = res.access_token
                 self._refresh_token = res.refresh_token
@@ -358,7 +363,8 @@ class OAuth2Session:
     def save_creds(self) -> None:
         """
         Saves the auth token to system keyring. Falls back to plain text storage if the
-        user denies access to keyring.
+        user denies access to keyring. This should be called after
+        :meth:`verify_auth_token` returned successfully.
         """
 
         with self._lock:
