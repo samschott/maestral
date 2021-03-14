@@ -1456,7 +1456,8 @@ class Maestral:
 
         if not self.client.linked:
             raise NotLinkedError(
-                "No Dropbox account linked", 'Please call "link" to link an account.'
+                "No Dropbox account linked",
+                "Please link an account using the GUI or CLI.",
             )
 
     def _check_dropbox_dir(self) -> None:
@@ -1464,7 +1465,7 @@ class Maestral:
         if self.pending_dropbox_folder:
             raise NoDropboxDirError(
                 "No local Dropbox directory",
-                'Call "create_dropbox_directory" to set up.',
+                "Please set up a local Dropbox directory using the GUI or CLI.",
             )
 
     # ==== housekeeping on update  =====================================================
