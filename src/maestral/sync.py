@@ -33,10 +33,8 @@ from typing import (
     Iterable,
     Callable,
     Hashable,
-    Type,
     cast,
 )
-from types import TracebackType
 
 # external imports
 import click
@@ -138,9 +136,6 @@ logger = logging.getLogger(__name__)
 
 umask = os.umask(0o22)
 os.umask(umask)
-
-# type definitions
-ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
 
 
 # ======================================================================================

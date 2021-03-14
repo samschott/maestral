@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """Utility modules and functions"""
 import os
+from types import TracebackType
 
 from packaging.version import Version
-from typing import List, Iterator, TypeVar, Optional, Iterable
+from typing import List, Iterator, TypeVar, Optional, Iterable, Tuple, Type
 
-from src.maestral.sync import ExecInfoType
 
+# type definitions
 _N = TypeVar("_N", float, int)
+ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
 
 
 def natural_size(num: float, unit: str = "B", sep: bool = True) -> str:
