@@ -5,6 +5,7 @@ import os
 from packaging.version import Version
 from typing import List, Iterator, TypeVar, Optional, Iterable
 
+from src.maestral.sync import ExecInfoType
 
 _N = TypeVar("_N", float, int)
 
@@ -113,3 +114,8 @@ def sanitize_string(string: str) -> str:
     :returns: Sanitised path where all surrogate escapes have been replaced with "�".
     """
     return os.fsencode(string).decode(errors="replace")
+
+
+def exc_info_tuple(exc: BaseException) -> ExecInfoType:
+    """Creates an exc-info tuple from an exception."""
+    return type(exc), exc, exc.__traceback__

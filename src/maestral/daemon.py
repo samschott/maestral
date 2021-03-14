@@ -33,6 +33,7 @@ from fasteners import InterProcessLock  # type: ignore
 
 # local imports
 from .errors import SYNC_ERRORS, GENERAL_ERRORS, MaestralApiError
+from .utils import exc_info_tuple
 from .utils.appdirs import get_runtime_path
 
 
@@ -614,10 +615,7 @@ def start_maestral_daemon_process(
     try:
         _wait_for_startup(config_name, timeout=timeout)
     except Exception as exc:
-        logger.debug(
-            "Could not communicate with daemon",
-            exc_info=(type(exc), exc, exc.__traceback__),
-        )
+        logger.debug("Could not communicate with daemon", exc_info_tuple(exc))
 
         # let's check what the daemon has been doing
         returncode = process.poll()
