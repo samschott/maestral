@@ -7,7 +7,8 @@ import logging
 import pytest
 
 from maestral.main import Maestral, logger
-from maestral.sync import SyncEngine, Observer
+from maestral.sync import SyncEngine
+from maestral.fsevents import Observer
 from maestral.client import DropboxClient
 from maestral.config import list_configs, remove_configuration
 from maestral.daemon import stop_maestral_daemon_process, Stop

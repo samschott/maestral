@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 """Utility modules and functions"""
 import os
+from types import TracebackType
 
 from packaging.version import Version
-from typing import List, Iterator, TypeVar, Optional, Iterable
+from typing import List, Iterator, TypeVar, Optional, Iterable, Tuple, Type
 
 
+# type definitions
 _N = TypeVar("_N", float, int)
+ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
 
 
 def natural_size(num: float, unit: str = "B", sep: bool = True) -> str:
@@ -113,3 +116,8 @@ def sanitize_string(string: str) -> str:
     :returns: Sanitised path where all surrogate escapes have been replaced with "�".
     """
     return os.fsencode(string).decode(errors="replace")
+
+
+def exc_info_tuple(exc: BaseException) -> ExecInfoType:
+    """Creates an exc-info tuple from an exception."""
+    return type(exc), exc, exc.__traceback__

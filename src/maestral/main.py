@@ -12,6 +12,9 @@ import logging.handlers
 import asyncio
 import random
 import gc
+import tempfile
+import mimetypes
+import difflib
 from concurrent.futures import ThreadPoolExecutor
 from typing import (
     Union,
@@ -24,9 +27,6 @@ from typing import (
     Optional,
     Any,
 )
-import tempfile
-import mimetypes
-import difflib
 
 # external imports
 import requests
@@ -44,7 +44,8 @@ except ImportError:
 # local imports
 from . import __version__
 from .client import CONNECTION_ERRORS, DropboxClient, convert_api_errors
-from .sync import SyncMonitor, SyncDirection
+from .sync import SyncDirection
+from .manager import SyncMonitor
 from .errors import (
     MaestralApiError,
     NotLinkedError,

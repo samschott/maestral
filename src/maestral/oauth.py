@@ -25,7 +25,7 @@ from dropbox.oauth import DropboxOAuth2FlowNoRedirect  # type: ignore
 from .config import MaestralConfig, MaestralState
 from .constants import DROPBOX_APP_KEY
 from .errors import KeyringAccessError
-from .utils import cli
+from .utils import cli, exc_info_tuple
 
 
 __all__ = ["OAuth2Session"]
@@ -162,7 +162,7 @@ class OAuth2Session:
                 new_exc = KeyringAccessError(title, message).with_traceback(
                     exc.__traceback__
                 )
-                logger.error(title, exc_info=_exc_info(new_exc))
+                logger.error(title, exc_info=exc_info_tuple(new_exc))
                 raise new_exc
 
             return ring
@@ -311,7 +311,7 @@ class OAuth2Session:
                 else:
                     msg = "Invalid token access type in state file."
                     err = RuntimeError("Invalid token access type in state file.")
-                    logger.error(msg, exc_info=_exc_info(err))
+                    logger.error(msg, exc_info=exc_info_tuple(err))
                     raise err
 
                 self._token_access_type = access_type
@@ -320,7 +320,7 @@ class OAuth2Session:
             title = "Could not load auth token"
             msg = f"{self.keyring.name} is locked. Please unlock the keyring and try again."
             new_exc = KeyringAccessError(title, msg)
-            logger.error(title, exc_info=_exc_info(new_exc))
+            logger.error(title, exc_info=exc_info_tuple(new_exc))
             raise new_exc
 
     def get_auth_url(self) -> str:
@@ -410,7 +410,7 @@ class OAuth2Session:
                 title = "Could not delete auth token"
                 msg = f"{self.keyring.name} is locked. Please unlock the keyring and try again."
                 exc = KeyringAccessError(title, msg)
-                logger.error(title, exc_info=_exc_info(exc))
+                logger.error(title, exc_info=exc_info_tuple(exc))
                 raise exc
             except PasswordDeleteError as exc:
                 # password does not exist in keyring
@@ -430,7 +430,3 @@ class OAuth2Session:
             f"<{self.__class__.__name__}(config={self._config_name!r}, "
             f"account_id={self._account_id})>"
         )
-
-
-def _exc_info(exc):
-    return type(exc), exc, exc.__traceback__
