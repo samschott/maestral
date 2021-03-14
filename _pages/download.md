@@ -20,7 +20,7 @@ follows:
 
 | Package          | GUI included | Size        |
 | :---             | :---         |        ---: |
-| macOS App bundle | yes          | 33 MB       |
+| macOS App bundle | yes          | 40 MB       |
 | PyPI             | optional     | 20 - 160 MB |
 | Docker image     | no           | 87 MB       |
 
