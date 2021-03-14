@@ -93,3 +93,7 @@
 .btn:not(:last-child) {
   margin-right: 0.5em;
 }
+
+.btn:hover {
+  filter: brightness(110%);
+}
