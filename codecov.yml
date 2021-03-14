@@ -6,6 +6,6 @@ codecov:
 coverage:
   status:
     project:
-      informational: true
+      threshold: 5%
     patch:
-      informational: true
+      threshold: 5%
