@@ -10,6 +10,7 @@
   /* default */
   display: inline-block;
   padding: 0.5em 1em;
+  margin: 0.5em 0 0.5em 0;
   font-family: $sans-serif;
   font-size: $type-size-6;
   font-weight: bold;
@@ -91,7 +92,7 @@
 }
 
 .btn:not(:last-child) {
-  margin-right: 0.5em;
+  margin-right: 1em;
 }
 
 .btn:hover {
