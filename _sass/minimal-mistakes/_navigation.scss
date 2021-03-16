@@ -478,12 +478,10 @@
     max-height: 0;
     overflow: hidden;
     opacity: 0;
-    transition: opacity 0.2s ease-in, max-height 0.2s ease-in;
 
     .nav__title, .nav__sub-title {
         margin: 0;
         padding: 0;
-        transition: margin 0.2s ease-in, padding 0.2s ease-in;
     }
   }
 }
