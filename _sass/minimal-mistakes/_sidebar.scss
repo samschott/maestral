@@ -7,14 +7,6 @@
    ========================================================================== */
 
 .sidebar {
-  @include clearfix();
-  // @include breakpoint(max-width $large) {
-  //   /* fix z-index order of follow links */
-  //   position: relative;
-  //   z-index: 10;
-  //   -webkit-transform: translate3d(0, 0, 0);
-  //   transform: translate3d(0, 0, 0);
-  // }
 
   @include breakpoint($large) {
     float: left;
@@ -32,12 +24,18 @@
   }
 
   @include breakpoint($x-large) {
-    width: calc(#{$right-sidebar-width} - 1em);
+    width: calc(#{$right-sidebar-width} - 3em);
   }
 
   > * {
-    margin-top: 1em;
+    margin-top: 3em;
     margin-bottom: 0;
+  }
+
+  @include breakpoint(max-width $large) {
+    > * {
+      margin-top: 2em;
+    }
   }
 
   h2,

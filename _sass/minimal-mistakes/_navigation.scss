@@ -447,6 +447,9 @@
   color: var(--masthead-link-color);
   font-size: $type-size-7;
 
+  li {
+    margin-bottom: 0.1em;
+  }
   a {
     color: var(--masthead-link-color);
   }
