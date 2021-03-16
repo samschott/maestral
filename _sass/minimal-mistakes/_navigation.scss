@@ -400,11 +400,11 @@
     label {
       position: relative;
       display: inline-block;
-      padding: 0.5em 2.5em 0.5em 1em;
+      padding: 0.4em 2.2em 0.3em 0.7em;
       color: var(--muted-text-color);
       font-size: 0.825em;
-      border: 1px solid var(--muted-text-color);
-      border-radius: $border-radius;
+      border: 1px solid rgb(160,160,160);
+      border-radius: $border-radius / 2;
       cursor: pointer;
 
       /* plus sign */
@@ -412,8 +412,8 @@
       &:after {
         content: "";
         position: absolute;
-        right: 1em;
-        top: 1.25em;
+        right: 0.8em;
+        top: 1.1em;
         width: 0.75em;
         height: 1px;
         line-height: 1;
