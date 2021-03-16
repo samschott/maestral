@@ -12,89 +12,93 @@ main:
     url: https://github.com/samschott/maestral
 
 docs:
-  - title: "Setup"
-    children:
-      - title: "Installation"
-        url: /docs/installation
-      - title: "Keyring integration"
-        url: /docs/keyring
-      - title: "Notes on Raspberry Pi"
-        url: /docs/raspberry-pi
-  - title: "Syncing"
-    children:
-      - title: "Selective sync"
-        url: /docs/selective-sync
-      - title: "mignore"
-        url: /docs/mignore
-      - title: "Sync issues"
-        url: /docs/sync-issues
-      - title: "Case-sensitive file systems"
-        url: /docs/filesystem
-      - title: "Symlinks"
-        url: /docs/symlinks
-      - title: "Supported folder locations"
-        url: /docs/locations
-  - title: "Configuration"
-    children:
-      - title: "Start on login"
-        url: /docs/autostart
-      - title: "Logging"
-        url: /docs/logging
-      - title: "Configuration file"
-        url: /docs/configfile
+  title: "Topics"
+  children:
+      - title: "Setup"
+        children:
+          - title: "Installation"
+            url: /docs/installation
+          - title: "Keyring integration"
+            url: /docs/keyring
+          - title: "Notes on Raspberry Pi"
+            url: /docs/raspberry-pi
+      - title: "Syncing"
+        children:
+          - title: "Selective sync"
+            url: /docs/selective-sync
+          - title: "mignore"
+            url: /docs/mignore
+          - title: "Sync issues"
+            url: /docs/sync-issues
+          - title: "Case-sensitive file systems"
+            url: /docs/filesystem
+          - title: "Symlinks"
+            url: /docs/symlinks
+          - title: "Supported folder locations"
+            url: /docs/locations
+      - title: "Configuration"
+        children:
+          - title: "Start on login"
+            url: /docs/autostart
+          - title: "Logging"
+            url: /docs/logging
+          - title: "Configuration file"
+            url: /docs/configfile
 
 cli-docs:
-  - title: "Core commands"
-    children:
-      - title: "start"
-        url: /cli/start
-      - title: "stop"
-        url: /cli/stop
-      - title: "gui"
-        url: /cli/gui
-      - title: "pause"
-        url: /cli/pause
-      - title: "resume"
-        url: /cli/resume
-      - title: "auth"
-        url: /cli/auth
-      - title: "sharelink"
-        url: /cli/sharelink
-  - title: "Information"
-    children:
-      - title: "status"
-        url: /cli/status
-      - title: "filestatus"
-        url: /cli/filestatus
-      - title: "activity"
-        url: /cli/activity
-      - title: "history"
-        url: /cli/history
-      - title: "ls"
-        url: /cli/ls
-      - title: "config-files"
-        url: /cli/config-files
-  - title: "Settings"
-    children:
-      - title: "autostart"
-        url: /cli/autostart
-      - title: "excluded"
-        url: /cli/excluded
-      - title: "notify"
-        url: /cli/notify
-  - title: "Maintenance"
-    children:
-      - title: "move-dir"
-        url: /cli/move-dir
-      - title: "rebuild-index"
-        url: /cli/rebuild-index
-      - title: "revs"
-        url: /cli/revs
-      - title: "diff"
-        url: /cli/diff
-      - title: "restore"
-        url: /cli/restore
-      - title: "log"
-        url: /cli/log
-      - title: "config"
-        url: /cli/config
+  title: "Commmands"
+  children:
+      - title: "Core commands"
+        children:
+          - title: "start"
+            url: /cli/start
+          - title: "stop"
+            url: /cli/stop
+          - title: "gui"
+            url: /cli/gui
+          - title: "pause"
+            url: /cli/pause
+          - title: "resume"
+            url: /cli/resume
+          - title: "auth"
+            url: /cli/auth
+          - title: "sharelink"
+            url: /cli/sharelink
+      - title: "Information"
+        children:
+          - title: "status"
+            url: /cli/status
+          - title: "filestatus"
+            url: /cli/filestatus
+          - title: "activity"
+            url: /cli/activity
+          - title: "history"
+            url: /cli/history
+          - title: "ls"
+            url: /cli/ls
+          - title: "config-files"
+            url: /cli/config-files
+      - title: "Settings"
+        children:
+          - title: "autostart"
+            url: /cli/autostart
+          - title: "excluded"
+            url: /cli/excluded
+          - title: "notify"
+            url: /cli/notify
+      - title: "Maintenance"
+        children:
+          - title: "move-dir"
+            url: /cli/move-dir
+          - title: "rebuild-index"
+            url: /cli/rebuild-index
+          - title: "revs"
+            url: /cli/revs
+          - title: "diff"
+            url: /cli/diff
+          - title: "restore"
+            url: /cli/restore
+          - title: "log"
+            url: /cli/log
+          - title: "config"
+            url: /cli/config
