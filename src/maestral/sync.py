@@ -1544,7 +1544,10 @@ class SyncEngine:
 
             try:
                 events, local_cursor = self._get_local_changes_while_inactive()
-                logger.debug("Retrieved local changes:\n%s", pprint.pformat(events))
+
+                if logger.getEffectiveLevel() <= logging.DEBUG:
+                    logger.debug("Retrieved local changes:\n%s", pprint.pformat(events))
+
                 events = self._clean_local_events(events)
                 sync_events = [
                     SyncEvent.from_file_system_event(e, self) for e in events
@@ -1716,7 +1719,8 @@ class SyncEngine:
             except Empty:
                 break
 
-        logger.debug("Retrieved local file events:\n%s", pprint.pformat(events))
+        if logger.getEffectiveLevel() <= logging.DEBUG:
+            logger.debug("Retrieved local file events:\n%s", pprint.pformat(events))
 
         events = self._clean_local_events(events)
         sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
@@ -1817,7 +1821,10 @@ class SyncEngine:
             else:
                 events_filtered.append(event)
 
-        logger.debug("Filtered local file events:\n%s", pprint.pformat(events_filtered))
+        if logger.getEffectiveLevel() <= logging.DEBUG:
+            logger.debug(
+                "Filtered local file events:\n%s", pprint.pformat(events_filtered)
+            )
 
         return events_filtered, events_excluded
 
@@ -2004,9 +2011,10 @@ class SyncEngine:
             for split_events in child_deleted_events.values():
                 cleaned_events.difference_update(split_events)
 
-        logger.debug(
-            "Cleaned up local file events:\n%s", pprint.pformat(cleaned_events)
-        )
+        if logger.getEffectiveLevel() <= logging.DEBUG:
+            logger.debug(
+                "Cleaned up local file events:\n%s", pprint.pformat(cleaned_events)
+            )
 
         del events
         del unique_events
@@ -2781,12 +2789,19 @@ class SyncEngine:
 
         for changes in changes_iter:
 
-            logger.debug("Listed remote changes:\n%s", entries_repr(changes.entries))
+            if logger.getEffectiveLevel() <= logging.DEBUG:
+                # Prevent allocating large strings if log level is larger than debug.
+                logger.debug(
+                    "Listed remote changes:\n%s", entries_repr(changes.entries)
+                )
 
             clean_changes = self._clean_remote_changes(changes)
-            logger.debug(
-                "Cleaned remote changes:\n%s", entries_repr(clean_changes.entries)
-            )
+
+            if logger.getEffectiveLevel() <= logging.DEBUG:
+                # Prevent allocating large strings if log level is larger than debug.
+                logger.debug(
+                    "Cleaned remote changes:\n%s", entries_repr(clean_changes.entries)
+                )
 
             clean_changes.entries.sort(key=lambda x: x.path_lower.count("/"))
             sync_events = [
