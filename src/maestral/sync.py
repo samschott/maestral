@@ -1564,6 +1564,8 @@ class SyncEngine:
 
             self.local_cursor = local_cursor
 
+            self._free_memory()
+
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
         """
         Retrieves all local changes since the last sync by performing a full scan of the
