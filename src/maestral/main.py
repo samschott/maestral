@@ -232,7 +232,7 @@ class Maestral:
         """
 
         self._logger = logging.getLogger("maestral")
-        self._logger.setLevel(logging.DEBUG)
+        self._logger.setLevel(min(self.log_level, logging.INFO))
 
         # clean up any previous handlers
         # TODO: use namespaced handlers for config?
@@ -428,6 +428,7 @@ class Maestral:
     @log_level.setter
     def log_level(self, level_num: int) -> None:
         """Setter: log_level."""
+        self._logger.setLevel(min(level_num, logging.INFO))
         self.log_handler_file.setLevel(level_num)
         if self.log_handler_journal:
             self.log_handler_journal.setLevel(level_num)
