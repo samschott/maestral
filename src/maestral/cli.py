@@ -1103,12 +1103,11 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
         cli.echo("Loading...\r", nl=False)
 
-        entries = m.list_folder(
+        entries_iter = m.list_folder_iterator(
             dropbox_path,
             recursive=False,
             include_deleted=include_deleted,
         )
-        entries.sort(key=lambda x: cast(str, x["name"]).lower())
 
         if long:
 
@@ -1129,37 +1128,39 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
                 ]
             )
 
-            for entry in entries:
+            for entries in entries_iter:
 
-                item_type = to_short_type[cast(str, entry["type"])]
-                name = cast(str, entry["name"])
-                path_lower = cast(str, entry["path_lower"])
+                for entry in entries:
 
-                text = "shared" if "sharing_info" in entry else "private"
-                color = "bright_black" if text == "private" else None
-                shared_field = cli.TextField(text, fg=color)
+                    item_type = to_short_type[cast(str, entry["type"])]
+                    name = cast(str, entry["name"])
+                    path_lower = cast(str, entry["path_lower"])
 
-                excluded_status = m.excluded_status(path_lower)
-                color = "green" if excluded_status == "included" else None
-                text = "✓" if excluded_status == "included" else excluded_status
-                excluded_field = cli.TextField(text, fg=color)
+                    text = "shared" if "sharing_info" in entry else "private"
+                    color = "bright_black" if text == "private" else None
+                    shared_field = cli.TextField(text, fg=color)
 
-                if "size" in entry:
-                    size = natural_size(cast(float, entry["size"]))
-                else:
-                    size = "-"
+                    excluded_status = m.excluded_status(path_lower)
+                    color = "green" if excluded_status == "included" else None
+                    text = "✓" if excluded_status == "included" else excluded_status
+                    excluded_field = cli.TextField(text, fg=color)
 
-                dt_field: cli.Field
+                    if "size" in entry:
+                        size = natural_size(cast(float, entry["size"]))
+                    else:
+                        size = "-"
 
-                if "client_modified" in entry:
-                    cm = cast(str, entry["client_modified"])
-                    dt_field = cli.DateField(_datetime_from_iso_str(cm))
-                else:
-                    dt_field = cli.TextField("-")
+                    dt_field: cli.Field
 
-                table.append(
-                    [name, item_type, size, shared_field, excluded_field, dt_field]
-                )
+                    if "client_modified" in entry:
+                        cm = cast(str, entry["client_modified"])
+                        dt_field = cli.DateField(_datetime_from_iso_str(cm))
+                    else:
+                        dt_field = cli.TextField("-")
+
+                    table.append(
+                        [name, item_type, size, shared_field, excluded_field, dt_field]
+                    )
 
             cli.echo(" " * 15)
             table.echo()
@@ -1169,11 +1170,12 @@ def ls(long: bool, dropbox_path: str, include_deleted: bool, config_name: str) -
 
             grid = cli.Grid()
 
-            for entry in entries:
-                name = cast(str, entry["name"])
-                color = "blue" if entry["type"] == "DeletedMetadata" else None
+            for entries in entries_iter:
+                for entry in entries:
+                    name = cast(str, entry["name"])
+                    color = "blue" if entry["type"] == "DeletedMetadata" else None
 
-                grid.append(cli.TextField(name, fg=color))
+                    grid.append(cli.TextField(name, fg=color))
 
             grid.echo()
 
