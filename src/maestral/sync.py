@@ -1217,10 +1217,8 @@ class SyncEngine:
         """
 
         if is_equal_or_child(local_path, self.dropbox_path):
-            dbx_path = osp.sep + removeprefix(local_path, self.dropbox_path).lstrip(
-                osp.sep
-            )
-            return dbx_path.replace(osp.sep, "/")
+            dbx_path = "/" + removeprefix(local_path, self.dropbox_path).lstrip("/")
+            return dbx_path
         else:
             raise ValueError(
                 f'Specified path "{local_path}" is outside of Dropbox '
@@ -1236,7 +1234,7 @@ class SyncEngine:
         :returns: Corresponding local path on drive.
         """
 
-        dbx_path_cased = dbx_path_cased.replace("/", osp.sep).lstrip(osp.sep)
+        dbx_path_cased = dbx_path_cased.lstrip("/")
 
         return osp.join(self.dropbox_path, dbx_path_cased)
 
@@ -1258,9 +1256,8 @@ class SyncEngine:
         client = client or self.client
 
         dbx_path_cased = self.correct_case(dbx_path, client)
-        dbx_path_cased = dbx_path_cased.replace("/", osp.sep).lstrip(osp.sep)
 
-        return osp.join(self.dropbox_path, dbx_path_cased)
+        return osp.join(self.dropbox_path, dbx_path_cased.lstrip("/"))
 
     def has_sync_errors(self) -> bool:
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
@@ -1318,7 +1315,7 @@ class SyncEngine:
         :param path: Path of item. Can be both a local or Dropbox paths.
         :returns: Whether the path is excluded from syncing.
         """
-        path = path.lower().replace(osp.sep, "/")
+        path = path.lower()
 
         # is root folder?
         if path in ("/", ""):
