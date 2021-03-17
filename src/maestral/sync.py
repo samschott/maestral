@@ -1552,11 +1552,13 @@ class SyncEngine:
                 sync_events = [
                     SyncEvent.from_file_system_event(e, self) for e in events
                 ]
+                del events
+                self._free_memory()
             except (FileNotFoundError, NotADirectoryError):
                 self.ensure_dropbox_folder_present()
                 return
 
-            if len(events) > 0:
+            if len(sync_events) > 0:
                 self.apply_local_changes(sync_events)
                 logger.debug("Uploaded local changes while inactive")
             else:
@@ -1564,6 +1566,7 @@ class SyncEngine:
 
             self.local_cursor = local_cursor
 
+            del sync_events
             self._free_memory()
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
