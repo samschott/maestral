@@ -412,56 +412,8 @@ class SyncMonitor:
                 name="maestral-upload",
             )
 
-            self.local_observer_thread = Observer(timeout=40)
-            self.local_observer_thread.setName("maestral-fsobserver")
-            self._watch = self.local_observer_thread.schedule(
-                self.sync.fs_events, self.sync.dropbox_path, recursive=True
-            )
-            for i, emitter in enumerate(self.local_observer_thread.emitters):
-                emitter.setName(f"maestral-fsemitter-{i}")
-
-            try:
-                self.local_observer_thread.start()
-            except OSError as exc:
-
-                err_cls: Type[MaestralApiError]
-
-                if exc.errno in (errno.ENOSPC, errno.EMFILE):
-                    title = "Inotify limit reached"
-
-                    try:
-                        max_user_watches, max_user_instances, _ = get_inotify_limits()
-                    except OSError:
-                        max_user_watches, max_user_instances = 2 ** 18, 2 ** 9
-
-                    if exc.errno == errno.ENOSPC:
-                        n_new = max(2 ** 19, 2 * max_user_watches)
-                        new_config = f"fs.inotify.max_user_watches={n_new}"
-                    else:
-                        n_new = max(2 ** 10, 2 * max_user_instances)
-                        new_config = f"fs.inotify.max_user_instances={n_new}"
-
-                    msg = (
-                        "Changes to your Dropbox folder cannot be monitored because it "
-                        "contains too many items. Please increase the inotify limit by "
-                        "adding the following line to /etc/sysctl.conf, then apply the "
-                        'settings with "sysctl -p":\n\n' + new_config
-                    )
-                    err_cls = InotifyError
-
-                elif exc.errno in (errno.EPERM, errno.EACCES):
-                    title = "Insufficient permissions to monitor local changes"
-                    msg = "Please check the permissions for your local Dropbox folder"
-                    err_cls = InotifyError
-
-                else:
-                    title = "Could not start watch of local directory"
-                    msg = exc.strerror
-                    err_cls = MaestralApiError
-
-                new_error = err_cls(title, msg)
-                logger.error(title, exc_info=exc_info_tuple(new_error))
-                self.sync.notifier.notify(title, msg, level=notify.ERROR)
+            if not self.local_observer_thread:
+                self.local_observer_thread = self._create_observer()
 
         self.running.set()
         self.autostart.set()
@@ -477,6 +429,61 @@ class SyncMonitor:
         self.startup_thread.start()
 
         self._startup_time = time.time()
+
+    def _create_observer(self) -> Observer:
+
+        local_observer_thread = Observer(timeout=40)
+        local_observer_thread.setName("maestral-fsobserver")
+        local_observer_thread.schedule(
+            self.sync.fs_events, self.sync.dropbox_path, recursive=True
+        )
+        for i, emitter in enumerate(local_observer_thread.emitters):
+            emitter.setName(f"maestral-fsemitter-{i}")
+
+        try:
+            local_observer_thread.start()
+        except OSError as exc:
+
+            err_cls: Type[MaestralApiError]
+
+            if exc.errno in (errno.ENOSPC, errno.EMFILE):
+                title = "Inotify limit reached"
+
+                try:
+                    max_user_watches, max_user_instances, _ = get_inotify_limits()
+                except OSError:
+                    max_user_watches, max_user_instances = 2 ** 18, 2 ** 9
+
+                if exc.errno == errno.ENOSPC:
+                    n_new = max(2 ** 19, 2 * max_user_watches)
+                    new_config = f"fs.inotify.max_user_watches={n_new}"
+                else:
+                    n_new = max(2 ** 10, 2 * max_user_instances)
+                    new_config = f"fs.inotify.max_user_instances={n_new}"
+
+                msg = (
+                    "Changes to your Dropbox folder cannot be monitored because it "
+                    "contains too many items. Please increase the inotify limit by "
+                    "adding the following line to /etc/sysctl.conf, then apply the "
+                    'settings with "sysctl -p":\n\n' + new_config
+                )
+                err_cls = InotifyError
+
+            elif exc.errno in (errno.EPERM, errno.EACCES):
+                title = "Insufficient permissions to monitor local changes"
+                msg = "Please check the permissions for your local Dropbox folder"
+                err_cls = InotifyError
+
+            else:
+                title = "Could not start watch of local directory"
+                msg = exc.strerror
+                err_cls = MaestralApiError
+
+            new_error = err_cls(title, msg)
+            logger.error(title, exc_info=exc_info_tuple(new_error))
+            self.sync.notifier.notify(title, msg, level=notify.ERROR)
+
+        return local_observer_thread
 
     @_with_lock
     def stop(self) -> None:
@@ -494,6 +501,7 @@ class SyncMonitor:
 
         if self.local_observer_thread:
             self.local_observer_thread.stop()
+            self.local_observer_thread = None
 
         logger.info(PAUSED)
 
