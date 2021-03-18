@@ -1379,7 +1379,7 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
-        return self.sync.to_local_path_from_cased(dbx_path)
+        return self.sync.to_local_path(dbx_path)
 
     def check_for_updates(self) -> Dict[str, Union[str, bool, None]]:
         """
