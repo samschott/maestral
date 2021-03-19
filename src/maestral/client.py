@@ -123,7 +123,6 @@ SessionLookupErrorType = Type[
 PaginationResultType = Union[sharing.ListSharedLinksResult, files.ListFolderResult]
 FT = TypeVar("FT", bound=Callable[..., Any])
 
-# create single requests session for all clients
 _major_minor_version = ".".join(__version__.split(".")[:2])
 USER_AGENT = f"Maestral/v{_major_minor_version}"
 
@@ -151,7 +150,7 @@ def convert_api_errors(
         yield
     except exceptions.DropboxException as exc:
         raise dropbox_to_maestral_error(exc, dbx_path, local_path)
-    # catch connection errors first, they may inherit from OSError
+    # Catch connection errors first, they may inherit from OSError.
     except CONNECTION_ERRORS:
         raise DropboxConnectionError(
             "Cannot connect to Dropbox",
@@ -159,7 +158,7 @@ def convert_api_errors(
         )
     except OSError as exc:
         if exc.errno == errno.EPROTOTYPE:
-            # Can occur on macOS, see https://bugs.python.org/issue33450
+            # Can occur on macOS, see https://bugs.python.org/issue33450.
             raise DropboxConnectionError(
                 "Cannot connect to Dropbox",
                 "Please check you internet connection and try again later.",
@@ -395,7 +394,7 @@ class DropboxClient:
                 res = self.dbx.users_get_current_account()
 
         if not dbid:
-            # save our own account info to config
+            # Save our own account info to config.
             if res.account_type.is_basic():
                 account_type = "basic"
             elif res.account_type.is_business():
@@ -419,7 +418,7 @@ class DropboxClient:
         with convert_api_errors():
             res = self.dbx.users_get_space_usage()
 
-        # query space usage type
+        # Query space usage type.
         if res.allocation.is_team():
             usage_type = "team"
         elif res.allocation.is_individual():
@@ -427,7 +426,7 @@ class DropboxClient:
         else:
             usage_type = ""
 
-        # generate space usage string
+        # Generate space usage string.
         if res.allocation.is_team():
             used = res.allocation.get_team().used
             allocated = res.allocation.get_team().allocated
@@ -438,7 +437,7 @@ class DropboxClient:
         percent = used / allocated
         space_usage = f"{percent:.1%} of {natural_size(allocated)} used"
 
-        # save results to config
+        # Save results to config.
         self._state.set("account", "usage", space_usage)
         self._state.set("account", "usage_type", usage_type)
 
@@ -528,13 +527,13 @@ class DropboxClient:
                         if sync_event:
                             sync_event.completed = f.tell()
 
-        # dropbox SDK provides naive datetime in UTC
+        # Dropbox SDK provides naive datetime in UTC.
         client_mod = md.client_modified.replace(tzinfo=timezone.utc)
         server_mod = md.server_modified.replace(tzinfo=timezone.utc)
 
-        # enforce client_modified < server_modified
+        # Enforce client_modified < server_modified.
         timestamp = min(client_mod.timestamp(), server_mod.timestamp(), time.time())
-        # set mtime of downloaded file
+        # Set mtime of downloaded file.
         os.utime(local_path, (time.time(), timestamp))
 
         return md
@@ -566,7 +565,7 @@ class DropboxClient:
 
             size = osp.getsize(local_path)
 
-            # dropbox SDK takes naive datetime in UTC
+            # Dropbox SDK takes naive datetime in UTC/
             mtime = osp.getmtime(local_path)
             mtime_dt = datetime.utcfromtimestamp(mtime)
 
@@ -601,7 +600,7 @@ class DropboxClient:
                         try:
 
                             if size - f.tell() <= chunk_size:
-                                # Wrap up upload session and return metadata.
+                                # Finish upload session and return metadata.
                                 data = f.read(chunk_size)
                                 md = self.dbx.files_upload_session_finish(
                                     data, cursor, commit
@@ -633,7 +632,7 @@ class DropboxClient:
                                 raise exc
 
                             if session_lookup_error.is_incorrect_offset():
-                                # reset position in file
+                                # Reset position in file.
                                 offset = (
                                     session_lookup_error.get_incorrect_offset().correct_offset
                                 )
@@ -675,7 +674,7 @@ class DropboxClient:
         res_entries = []
         result_list = []
 
-        # up two ~ 1,000 entries allowed per batch according to
+        # Up two ~ 1,000 entries allowed per batch:
         # https://www.dropbox.com/developers/reference/data-ingress-guide
         for chunk in chunks(entries, n=batch_size):
 
@@ -785,7 +784,7 @@ class DropboxClient:
 
         with convert_api_errors():
 
-            # up two ~ 1,000 entries allowed per batch according to
+            # Up two ~ 1,000 entries allowed per batch:
             # https://www.dropbox.com/developers/reference/data-ingress-guide
             for chunk in chunks(dbx_paths, n=batch_size):
                 res = self.dbx.files_create_folder_batch(chunk, **kwargs)
@@ -951,14 +950,14 @@ class DropboxClient:
         if not 30 <= timeout <= 480:
             raise ValueError("Timeout must be in range [30, 480]")
 
-        # honour last request to back off
+        # Honour last request to back off.
         time_to_backoff = max(self._backoff_until - time.time(), 0)
         time.sleep(time_to_backoff)
 
         with convert_api_errors():
             res = self.dbx.files_list_folder_longpoll(last_cursor, timeout=timeout)
 
-        # keep track of last longpoll, back off if requested by SDK
+        # Keep track of last longpoll, back off if requested by API.
         if res.backoff:
             logger.debug("Backoff requested for %s sec", res.backoff)
             self._backoff_until = time.time() + res.backoff + 5.0
@@ -1043,7 +1042,7 @@ class DropboxClient:
         if not visibility.is_password():
             password = None
 
-        # convert timestamp to utc time if not naive
+        # Convert timestamp to utc time if not naive.
         if expires is not None:
             has_timezone = expires.tzinfo and expires.tzinfo.utcoffset(expires)
             if has_timezone:
@@ -1316,16 +1315,16 @@ def dropbox_to_maestral_error(
                 write_error = error.get_path().reason  # returns UploadWriteFailed
                 text, err_cls = _get_write_error_msg(write_error)
             elif error.is_properties_error():
-                # this is a programming error in maestral
+                # Occurs only for programming error in maestral.
                 text = "Invalid property group provided."
 
         elif isinstance(error, files.UploadSessionStartError):
             title = "Could not upload file"
             if error.is_concurrent_session_close_not_allowed():
-                # this is a programming error in maestral
+                # Occurs only for programming error in maestral.
                 text = "Can not start a closed concurrent upload session."
             elif error.is_concurrent_session_data_not_allowed():
-                # this is a programming error in maestral
+                # Occurs only for programming error in maestral.
                 text = "Uploading data not allowed when starting concurrent upload session."
 
         elif isinstance(error, files.UploadSessionFinishError):
@@ -1337,7 +1336,7 @@ def dropbox_to_maestral_error(
                 write_error = error.get_path()
                 text, err_cls = _get_write_error_msg(write_error)
             elif error.is_properties_error():
-                # this is a programming error in maestral
+                # Occurs only for programming error in maestral.
                 text = "Invalid property group provided."
             elif error.is_too_many_write_operations():
                 text = (
@@ -1667,14 +1666,14 @@ def _get_session_lookup_error_msg(
     err_cls = SyncError
 
     if session_lookup_error.is_closed():
-        # happens when trying to append data to a closed session
-        # this is caused by internal Maestral errors
+        # Occurs when trying to append data to a closed session.
+        # This is caused by internal Maestral errors.
         pass
     elif session_lookup_error.is_incorrect_offset():
         text = "A network error occurred during the upload session."
     elif session_lookup_error.is_not_closed():
-        # happens when trying to finish an open session
-        # this is caused by internal Maestral errors
+        # Occurs when trying to finish an open session.
+        # This is caused by internal Maestral errors.
         pass
     elif session_lookup_error.is_not_found():
         text = (
