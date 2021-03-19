@@ -290,7 +290,7 @@ class Lock:
                 return os.getpid()
 
             try:
-                # don't close again in case we are the locking process
+                # Don't close again in case we are the locking process.
                 self._external_lock._do_open()
                 lockdata, fmt, pid_index = _get_lockdata()
                 lockdata = fcntl.fcntl(
@@ -442,15 +442,15 @@ def start_maestral_daemon(
     # have significant CPU usage in case of many concurrent downloads.
     os.nice(10)
 
-    # integrate with CFRunLoop in macOS, only works in main thread
+    # Integrate with CFRunLoop in macOS.
     if sys.platform == "darwin":
 
         logger.debug("Cancelling all tasks from asyncio event loop")
 
         from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
 
-        # clean up any pending tasks before we change the event loop policy
-        # this is necessary if previous code has run an asyncio loop
+        # Clean up any pending tasks before we change the event loop policy.
+        # This is necessary if previous code has run an asyncio loop.
 
         loop = asyncio.get_event_loop()
         try:
@@ -469,21 +469,21 @@ def start_maestral_daemon(
 
         logger.debug("Integrating with CFEventLoop")
 
-        # set new event loop policy
+        # Set new event loop policy.
         asyncio.set_event_loop_policy(EventLoopPolicy())
 
-    # get the default event loop
+    # Get the default event loop.
     loop = asyncio.get_event_loop()
 
     sd_notifier = sdnotify.SystemdNotifier()
 
-    # notify systemd that we have started
+    # Notify systemd that we have started.
     if NOTIFY_SOCKET:
         logger.debug("Running as systemd notify service")
         logger.debug("NOTIFY_SOCKET = %s", NOTIFY_SOCKET)
         sd_notifier.notify("READY=1")
 
-    # notify systemd periodically if alive
+    # Notify systemd periodically if alive.
     if IS_WATCHDOG and WATCHDOG_USEC:
 
         async def periodic_watchdog() -> None:
@@ -500,18 +500,18 @@ def start_maestral_daemon(
         logger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
         loop.create_task(periodic_watchdog())
 
-    # get socket for config name
+    # Get socket for config name.
     sockpath = sockpath_for_config(config_name)
     logger.debug(f"Socket path: '{sockpath}'")
 
-    # clean up old socket
+    # Clean up old socket.
     try:
         os.remove(sockpath)
     except FileNotFoundError:
         pass
 
-    # expose maestral as Pyro server
-    # convert management methods to one way calls so that they don't block
+    # Expose maestral as Pyro server. Convert management
+    # methods to one way calls so that they don't block.
 
     logger.debug("Creating Pyro daemon")
 
@@ -540,15 +540,15 @@ def start_maestral_daemon(
         with Daemon(unixsocket=sockpath) as daemon:
             daemon.register(maestral_daemon, f"maestral.{config_name}")
 
-            # reduce Pyro's housekeeping frequency from 2 sec to 20 sec
-            # this avoids constantly waking the CPU when we are idle
+            # Reduce Pyro's housekeeping frequency from 2 sec to 20 sec.
+            # This avoids constantly waking the CPU when we are idle.
             if daemon.transportServer.housekeeper:
                 daemon.transportServer.housekeeper.waittime = 20
 
             for socket in daemon.sockets:
                 loop.add_reader(socket.fileno(), daemon.events, daemon.sockets)
 
-            # handle sigterm gracefully
+            # Handle sigterm gracefully.
             signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
             for s in signals:
                 loop.add_signal_handler(s, maestral_daemon.shutdown_daemon)
@@ -558,7 +558,7 @@ def start_maestral_daemon(
             for socket in daemon.sockets:
                 loop.remove_reader(socket.fileno())
 
-            # prevent housekeeping from blocking shutdown
+            # Prevent Pyro housekeeping from blocking shutdown.
             daemon.transportServer.housekeeper = None
 
     except Exception as exc:
@@ -566,7 +566,7 @@ def start_maestral_daemon(
     finally:
 
         if NOTIFY_SOCKET:
-            # notify systemd that we are shutting down
+            # Notify systemd that we are shutting down.
             sd_notifier.notify("STOPPING=1")
 
 
@@ -593,7 +593,7 @@ def start_maestral_daemon_process(
     if is_running(config_name):
         return Start.AlreadyRunning
 
-    # protect against injection
+    # Protect against injection.
     cc = quote(config_name).strip("'")
     start_sync = bool(start_sync)
 
@@ -617,7 +617,7 @@ def start_maestral_daemon_process(
     except Exception as exc:
         logger.debug("Could not communicate with daemon", exc_info_tuple(exc))
 
-        # let's check what the daemon has been doing
+        # Let's check what the daemon has been doing.
         returncode = process.poll()
         if returncode is None:
             logger.debug("Daemon is running but not responsive, killing now")
@@ -664,7 +664,7 @@ def stop_maestral_daemon_process(
                 time.sleep(0.2)
                 timeout -= 0.2
 
-        # send SIGTERM after timeout and delete PID file
+        # Send SIGTERM after timeout and delete PID file.
         if pid:
             _send_term(pid)
 
