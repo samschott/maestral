@@ -218,6 +218,8 @@ def startup_worker(
 
     with handle_sync_thread_errors(running, autostart, sync.notifier):
 
+        sync.load_mignore_file()
+
         with sync.client.clone_with_new_session() as client:
 
             # Retry failed downloads.
