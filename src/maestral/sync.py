@@ -708,6 +708,19 @@ class SyncEngine:
             self._db_manager_history.create_table()
             self._db_manager_history.clear_cache()
 
+    def reset_sync_state(self) -> None:
+        """Resets all saved sync state. Settings are not affected."""
+
+        if self.busy():
+            raise RuntimeError("Cannot reset sync state while syncing.")
+
+        self.remote_cursor = ""
+        self.local_cursor = 0.0
+        self.clear_index()
+        self.clear_sync_history()
+
+        logger.debug("Sync state reset")
+
     # ==== index management ============================================================
 
     def get_index(self) -> List[IndexEntry]:
