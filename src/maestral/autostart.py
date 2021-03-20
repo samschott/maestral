@@ -31,8 +31,8 @@ except ImportError:  # Python 3.7 and lower
     from importlib_metadata import files, PackageNotFoundError  # type: ignore
 
 # local imports
-from maestral.utils.appdirs import get_home_dir, get_conf_path, get_data_path
-from maestral.constants import BUNDLE_ID
+from .utils.appdirs import get_home_dir, get_conf_path, get_data_path
+from .constants import BUNDLE_ID, ENV
 
 
 class SupportedImplementations(Enum):
@@ -133,9 +133,10 @@ class AutoStartLaunchd(AutoStartBase):
 
     :param bundle_id: Bundle ID for the, e.g., "com.google.calendar".
     :param start_cmd: Absolute path to executable and optional program arguments.
+    :param **kwargs: Additional sections to plist.
     """
 
-    def __init__(self, bundle_id: str, start_cmd: str) -> None:
+    def __init__(self, bundle_id: str, start_cmd: str, **kwargs) -> None:
 
         super().__init__()
         filename = bundle_id + ".plist"
@@ -149,6 +150,7 @@ class AutoStartLaunchd(AutoStartBase):
 
         self.plist_dict["Label"] = str(bundle_id)
         self.plist_dict["ProgramArguments"] = shlex.split(start_cmd)
+        self.plist_dict.update(kwargs)
 
     def enable(self) -> None:
         os.makedirs(self.path, exist_ok=True)
@@ -297,7 +299,11 @@ class AutoStart:
         bundle_id = f"{BUNDLE_ID}-daemon.{config_name}"
 
         if self.implementation == SupportedImplementations.launchd:
-            self._impl = AutoStartLaunchd(bundle_id, start_cmd)
+            self._impl = AutoStartLaunchd(
+                bundle_id,
+                start_cmd,
+                EnvironmentVariables=ENV,
+            )
 
         elif self.implementation == SupportedImplementations.xdg_desktop:
             self._impl = AutoStartXDGDesktop(
@@ -328,6 +334,7 @@ class AutoStart:
                     "WatchdogSec": "30",
                     "ExecStop": f"{self.maestral_path} stop -c %i",
                     "ExecStopPost": f'/usr/bin/env bash -c "{notify_failure}"',
+                    "Environment": " ".join(f"{k}={v}" for k, v in ENV.items()),
                 },
             )
 
