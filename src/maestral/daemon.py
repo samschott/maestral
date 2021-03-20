@@ -35,7 +35,7 @@ from fasteners import InterProcessLock  # type: ignore
 from .errors import SYNC_ERRORS, GENERAL_ERRORS, MaestralApiError
 from .utils import exc_info_tuple
 from .utils.appdirs import get_runtime_path
-from .constants import ENV
+from .constants import IS_MACOS, ENV
 
 
 if TYPE_CHECKING:
@@ -162,10 +162,7 @@ def _get_lockdata() -> Tuple[bytes, str, int]:
     else:
         start_len = "qq"
 
-    if (
-        sys.platform.startswith(("netbsd", "freebsd", "openbsd"))
-        or sys.platform == "darwin"
-    ):
+    if sys.platform.startswith(("netbsd", "freebsd", "openbsd")) or IS_MACOS:
         if struct.calcsize("l") == 8:
             off_t = "l"
             pid_t = "i"
@@ -444,7 +441,7 @@ def start_maestral_daemon(
     os.nice(10)
 
     # Integrate with CFRunLoop in macOS.
-    if sys.platform == "darwin":
+    if IS_MACOS:
 
         logger.debug("Cancelling all tasks from asyncio event loop")
 
