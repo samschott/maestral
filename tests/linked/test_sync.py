@@ -8,14 +8,13 @@ import shutil
 import timeit
 
 import pytest
-
+from watchdog.utils.dirsnapshot import DirectorySnapshot
+from watchdog.events import FileCreatedEvent
 from dropbox.files import WriteMode
-from maestral.sync import FileCreatedEvent
-from maestral.sync import delete, move
-from maestral.sync import is_fs_case_sensitive
-from maestral.sync import DirectorySnapshot, SyncEvent
+from maestral.database import SyncEvent
 from maestral.utils import sanitize_string
 from maestral.utils.appdirs import get_home_dir
+from maestral.utils.path import delete, move, is_fs_case_sensitive
 
 from .conftest import assert_synced, wait_for_idle, resources
 
