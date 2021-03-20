@@ -857,15 +857,12 @@ class SyncEngine:
                 else:
                     pass
 
-            self._db.commit()
-
     def clear_hash_cache(self) -> None:
         """Clears the sync history."""
         with self._database_access():
             self._db.execute("DROP TABLE hash_cache")
             self._db_manager_hash_cache.clear_cache()
             self._db_manager_hash_cache.create_table()
-            self._db.commit()
 
     def update_index_from_sync_event(self, event: SyncEvent) -> None:
         """
@@ -918,8 +915,6 @@ class SyncEngine:
                     )
 
                     self._db_manager_index.save(entry)
-
-            self._db.commit()
 
     def update_index_from_dbx_metadata(
         self, md: Metadata, client: Optional[DropboxClient] = None
@@ -978,8 +973,6 @@ class SyncEngine:
 
                     self._db_manager_index.save(entry)
 
-            self._db.commit()
-
     def remove_node_from_index(self, dbx_path: str) -> None:
         """
         Removes any local index entries for the given path and all its children.
@@ -1003,7 +996,6 @@ class SyncEngine:
                 return
 
             self._db_manager_index.clear_cache()
-            self._db.commit()
 
     def clear_index(self) -> None:
         """Clears the revision index."""
@@ -1011,7 +1003,6 @@ class SyncEngine:
             self._db.execute("DROP TABLE 'index'")
             self._db_manager_index.clear_cache()
             self._db_manager_index.create_table()
-            self._db.commit()
 
     # ==== mignore management ==========================================================
 
@@ -3493,7 +3484,6 @@ class SyncEngine:
             with self._database_access():
                 entry.dbx_path_cased = event.dbx_path
                 self._db_manager_index.update(entry)
-                self._db.commit()
 
             logger.debug('Renamed "%s" to "%s"', local_path_old, event.local_path)
 
@@ -3562,9 +3552,6 @@ class SyncEngine:
 
         with self._database_access():
 
-            # commit previous
-            self._db.commit()
-
             # drop all entries older than keep_history
             now = time.time()
             keep_history = self._conf.get("sync", "keep_history")
@@ -3574,9 +3561,6 @@ class SyncEngine:
                 now - keep_history,
             )
             self._db_manager_history.clear_cache()
-
-            # commit to drive
-            self._db.commit()
 
     def _scandir_with_mignore(self, path: str) -> List:
         return [

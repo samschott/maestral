@@ -305,7 +305,8 @@ class Database:
         :param args: Parameters to substitute for placeholders in SQL statement.
         :returns: The created cursor.
         """
-        return self.connection.execute(sql, args)
+        with self.connection:
+            return self.connection.execute(sql, args)
 
     def executescript(self, script: str) -> None:
         """
@@ -314,8 +315,8 @@ class Database:
         :param script: SQL script to execute.
         :returns: The created cursor.
         """
-        self.connection.cursor().executescript(script)
-        self.commit()
+        with self.connection:
+            self.connection.cursor().executescript(script)
 
 
 class Manager:
