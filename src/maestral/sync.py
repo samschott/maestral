@@ -3116,8 +3116,8 @@ class SyncEngine:
             return False
 
         else:
-            # check our ctime against index
-            return os.stat(local_path).st_ctime > self.get_last_sync(dbx_path)
+            # Check our ctime against index.
+            return stat.st_ctime > self.get_last_sync(dbx_path)
 
     def _get_ctime(self, local_path: str) -> float:
         """
@@ -3145,7 +3145,7 @@ class SyncEngine:
 
                 return ctime
             else:
-                return os.stat(local_path).st_ctime
+                return stat.st_ctime
         except (FileNotFoundError, NotADirectoryError):
             return -1.0
 
