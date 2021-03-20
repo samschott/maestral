@@ -13,7 +13,6 @@ import uuid
 import urllib.parse
 import enum
 import pprint
-import gc
 import sqlite3
 from threading import Event, Condition, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
@@ -1521,15 +1520,13 @@ class SyncEngine:
             else:
                 raise new_exc
 
-    def _free_memory(self) -> None:
+    def _clear_caches(self) -> None:
         """
-        Frees memory by clearing out case-conversion cache, clearing all expired event
-        ignores and running garbage collection.
+        Frees memory by clearing internal caches.
         """
 
         self._case_conversion_cache.clear()
         self.fs_events.expire_ignored_events()
-        gc.collect()
 
     # ==== Upload sync =================================================================
 
@@ -1553,8 +1550,6 @@ class SyncEngine:
                 sync_events = [
                     SyncEvent.from_file_system_event(e, self) for e in events
                 ]
-                del events
-                self._free_memory()
             except (FileNotFoundError, NotADirectoryError):
                 self.ensure_dropbox_folder_present()
                 return
@@ -1567,8 +1562,7 @@ class SyncEngine:
 
             self.local_cursor = local_cursor
 
-            del sync_events
-            self._free_memory()
+            self._clear_caches()
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
         """
@@ -1658,11 +1652,7 @@ class SyncEngine:
                     event = FileDeletedEvent(local_path)
                 changes.append(event)
 
-        # free memory
-        del entries
-        del snapshot
-        del lowercase_snapshot_paths
-        gc.collect()
+        logger.debug("Local indexing completed in %s sec", time.time() - snapshot_time)
 
         return changes, snapshot_time
 
@@ -1697,7 +1687,7 @@ class SyncEngine:
             self.local_cursor = cursor
 
             del changes
-            self._free_memory()
+            self._clear_caches()
 
             if self._cancel_requested.is_set():
                 raise CancelledError("Sync cancelled")
@@ -2019,9 +2009,6 @@ class SyncEngine:
             logger.debug(
                 "Cleaned up local file events:\n%s", pprint.pformat(cleaned_events)
             )
-
-        del events
-        del unique_events
 
         return list(cleaned_events)
 
@@ -2613,7 +2600,7 @@ class SyncEngine:
                 e = self._create_local_entry(event)
                 success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
 
-            self._free_memory()
+            self._clear_caches()
 
             return success
 
@@ -2763,7 +2750,7 @@ class SyncEngine:
             if idx > 0:
                 logger.info(IDLE)
 
-            self._free_memory()
+            self._clear_caches()
 
     def list_remote_changes_iterator(
         self, last_cursor: str, client: Optional[DropboxClient] = None
