@@ -35,6 +35,7 @@ from fasteners import InterProcessLock  # type: ignore
 from .errors import SYNC_ERRORS, GENERAL_ERRORS, MaestralApiError
 from .utils import exc_info_tuple
 from .utils.appdirs import get_runtime_path
+from .constants import ENV
 
 
 if TYPE_CHECKING:
@@ -602,7 +603,10 @@ def start_maestral_daemon_process(
         f'maestral.daemon.start_maestral_daemon("{cc}", start_sync={start_sync})'
     )
 
-    cmd = [sys.executable, "-OO", "-c", script]
+    cmd = [sys.executable, "-c", script]
+
+    subprocess_env = os.environ.copy()
+    subprocess_env.update(ENV)
 
     process = subprocess.Popen(
         cmd,
@@ -610,6 +614,7 @@ def start_maestral_daemon_process(
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env=subprocess_env,
     )
 
     try:
