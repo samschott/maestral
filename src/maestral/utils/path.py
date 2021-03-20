@@ -8,7 +8,9 @@ import os
 import os.path as osp
 import shutil
 import itertools
-from typing import List, Optional, Tuple
+import errno
+from stat import S_ISDIR
+from typing import List, Optional, Tuple, Callable, Iterator, Iterable, Union
 
 # local imports
 from .content_hasher import DropboxContentHasher
@@ -344,6 +346,42 @@ def move(
         raise err
     else:
         return err
+
+
+def walk(
+    root: str, listdir: Callable[[str], Iterable[Union[str, os.DirEntry]]] = os.scandir
+) -> Iterator[Tuple[str, os.stat_result]]:
+    """
+    Iterates recursively over the content of a folder.
+
+    :param root: Root folder to walk.
+    :param listdir: Function to call to get the folder content.
+    :returns: Iterator over (path, stat) results.
+    """
+
+    for entry in listdir(root):
+
+        try:
+            path = os.path.join(root, entry if isinstance(entry, str) else entry.name)
+            stat = os.stat(path)
+        except OSError as e:
+            # Directory may have been deleted between finding it in the directory
+            # list of its parent and trying to list its contents. If this
+            # happens we treat it as empty. Likewise if the directory was replaced
+            # with a file of the same name (less likely, but possible).
+            if e.errno in (errno.ENOENT, errno.ENOTDIR, errno.EINVAL):
+                return
+            else:
+                raise
+
+        yield path, stat
+
+        try:
+            if S_ISDIR(stat.st_mode):
+                for res in walk(path, listdir=listdir):
+                    yield res
+        except PermissionError:
+            pass
 
 
 def content_hash(
