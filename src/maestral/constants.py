@@ -18,6 +18,7 @@ except ImportError:
 APP_NAME = "Maestral"
 BUNDLE_ID = "com.samschott.maestral"
 APP_ICON_PATH = files("maestral") / "resources" / "maestral.png"
+ENV = {"PYTHONOPTIMIZE": "2"}
 
 # sync
 OLD_REV_FILE = ".maestral"
