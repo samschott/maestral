@@ -560,15 +560,10 @@ class SyncMonitor:
     def reset_sync_state(self) -> None:
         """Resets all saved sync state. Settings are not affected."""
 
-        if self.running.is_set() or self.sync.busy():
+        if self.running.is_set():
             raise RuntimeError("Cannot reset sync state while syncing.")
 
-        self.sync.remote_cursor = ""
-        self.sync.local_cursor = 0.0
-        self.sync.clear_index()
-        self.sync.clear_sync_history()
-
-        logger.debug("Sync state reset")
+        self.sync.reset_sync_state()
 
     def rebuild_index(self) -> None:
         """
