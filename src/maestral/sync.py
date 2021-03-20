@@ -29,7 +29,6 @@ from typing import (
     Tuple,
     Union,
     Iterator,
-    Iterable,
     Callable,
     Hashable,
     cast,
@@ -58,7 +57,6 @@ from watchdog.events import (
     FileMovedEvent,
     FileSystemEvent,
 )
-from watchdog.utils.dirsnapshot import DirectorySnapshot  # type: ignore
 
 # local imports
 from . import notify
@@ -111,6 +109,7 @@ from .utils.path import (
     is_child,
     is_equal_or_child,
     content_hash,
+    walk,
 )
 from .utils.orm import Database, Manager
 from .utils.appdirs import get_data_path, get_home_dir
@@ -1591,72 +1590,60 @@ class SyncEngine:
 
         changes = []
         snapshot_time = time.time()
-        snapshot = DirectorySnapshot(
-            self.dropbox_path, listdir=self._scandir_with_mignore
-        )
-        lowercase_snapshot_paths: Set[str] = set()
 
-        # If the number of index entries is not too large, pre-load them now to enable
-        # database queries to use the cache. This results in significant performance
-        # improvements. Otherwise, fetch entries on-demand during iteration.
+        # Get modified or added items.
+        for path, stat in walk(self.dropbox_path, self._scandir_with_mignore):
 
-        entries: Iterable[IndexEntry]
+            is_dir = S_ISDIR(stat.st_mode)
+            dbx_path_lower = self.to_dbx_path(path).lower()
+            index_entry = self.get_index_entry(dbx_path_lower)
 
-        if self.index_count() < 150000:
-            entries = self.get_index()
-        else:
-            entries = self.iter_index()
+            if index_entry:
+                is_new = False
+                last_sync = index_entry.last_sync or 0.0
+            else:
+                is_new = True
+                last_sync = 0.0
 
-        # get modified or added items
-        for path in snapshot.paths:
+            last_sync = max(last_sync, self.local_cursor)
 
-            # generate lower-case snapshot paths for later
-            lowercase_snapshot_paths.add(path.lower())
+            # Check if item was created or modified since last sync
+            # but before we started the FileEventHandler (~snapshot_time).
 
-            if path != self.dropbox_path:
+            ctime_check = snapshot_time > stat.st_ctime > last_sync
 
-                dbx_path_lower = self.to_dbx_path(path).lower()
+            # always upload untracked items, check ctime of tracked items
+            is_modified = ctime_check and not is_new
 
-                # check if item was created or modified since last sync
-                # but before we started the FileEventHandler (~snapshot_time)
-                stats = snapshot.stat_info(path)
-                last_sync = self.get_last_sync(dbx_path_lower)
-                ctime_check = snapshot_time > stats.st_ctime > last_sync
+            if is_new:
+                if is_dir:
+                    event = DirCreatedEvent(path)
+                else:
+                    event = FileCreatedEvent(path)
+                changes.append(event)
 
-                # always upload untracked items, check ctime of tracked items
-                index_entry = self.get_index_entry(dbx_path_lower)
-                is_new = index_entry is None
-                is_modified = ctime_check and not is_new
-
-                if is_new:
-                    if snapshot.isdir(path):
-                        event = DirCreatedEvent(path)
-                    else:
-                        event = FileCreatedEvent(path)
+            elif is_modified:
+                if is_dir and index_entry.is_directory:  # type: ignore
+                    # We don't emit `DirModifiedEvent`s.
+                    pass
+                elif not is_dir and not index_entry.is_directory:  # type: ignore
+                    event = FileModifiedEvent(path)
                     changes.append(event)
+                elif is_dir:
+                    event0 = FileDeletedEvent(path)
+                    event1 = DirCreatedEvent(path)
+                    changes += [event0, event1]
+                elif not is_dir:
+                    event0 = DirDeletedEvent(path)
+                    event1 = FileCreatedEvent(path)
+                    changes += [event0, event1]
 
-                elif is_modified:
-                    if snapshot.isdir(path) and index_entry.is_directory:  # type: ignore
-                        # We don't emit `DirModifiedEvent`s.
-                        pass
-                    elif not snapshot.isdir(path) and not index_entry.is_directory:  # type: ignore
-                        event = FileModifiedEvent(path)
-                        changes.append(event)
-                    elif snapshot.isdir(path):
-                        event0 = FileDeletedEvent(path)
-                        event1 = DirCreatedEvent(path)
-                        changes += [event0, event1]
-                    elif not snapshot.isdir(path):
-                        event0 = DirDeletedEvent(path)
-                        event1 = FileCreatedEvent(path)
-                        changes += [event0, event1]
+        # Get deleted items.
+        for entry in self.iter_index():
+            local_path = self.to_local_path_from_cased(entry.dbx_path_cased)
+            is_mignore = self._is_mignore_path(entry.dbx_path_cased, entry.is_directory)
 
-        # get deleted items
-        dbx_root_lower = self.dropbox_path.lower()
-        for entry in entries:
-            local_path_uncased = f"{dbx_root_lower}{entry.dbx_path_lower}"
-            if local_path_uncased not in lowercase_snapshot_paths:
-                local_path = self.to_local_path_from_cased(entry.dbx_path_cased)
+            if is_mignore or not osp.exists(local_path):
                 if entry.is_directory:
                     event = DirDeletedEvent(local_path)
                 else:
@@ -3508,16 +3495,17 @@ class SyncEngine:
 
         if osp.isfile(local_path):
             self.fs_events.queue_event(FileModifiedEvent(local_path))
+
         elif osp.isdir(local_path):
+            self.fs_events.queue_event(DirCreatedEvent(local_path))
 
             # add created and deleted events of children as appropriate
 
-            snapshot = DirectorySnapshot(local_path, listdir=self._scandir_with_mignore)
-            lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
             local_path_lower = local_path.lower()
 
-            for path in snapshot.paths:
-                if snapshot.isdir(path):
+            for path, stat in walk(local_path, self._scandir_with_mignore):
+
+                if S_ISDIR(stat.st_mode):
                     self.fs_events.queue_event(DirCreatedEvent(path))
                 else:
                     self.fs_events.queue_event(FileModifiedEvent(path))
@@ -3531,17 +3519,14 @@ class SyncEngine:
                     f"{local_path_lower}%",
                 )
 
-            dbx_root_lower = self.dropbox_path.lower()
-
             for entry in entries:
                 entry = cast(IndexEntry, entry)
-                child_path_uncased = f"{dbx_root_lower}{entry.dbx_path_lower}"
-                if child_path_uncased not in lowercase_snapshot_paths:
-                    local_child = self.to_local_path_from_cased(entry.dbx_path_cased)
+                child_path = self.to_local_path_from_cased(entry.dbx_path_cased)
+                if not osp.exists(child_path):
                     if entry.is_directory:
-                        self.fs_events.queue_event(DirDeletedEvent(local_child))
+                        self.fs_events.queue_event(DirDeletedEvent(child_path))
                     else:
-                        self.fs_events.queue_event(FileDeletedEvent(local_child))
+                        self.fs_events.queue_event(FileDeletedEvent(child_path))
 
         elif not osp.exists(local_path):
             dbx_path = self.to_dbx_path(local_path)
