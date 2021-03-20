@@ -38,8 +38,8 @@ from typing import (
 
 # external imports
 import click
-import pathspec  # type: ignore
 import dropbox  # type: ignore
+from pathspec import PathSpec
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
 from watchdog.events import FileSystemEventHandler  # type: ignore
 from watchdog.events import (
@@ -487,6 +487,7 @@ class SyncEngine:
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
+        self._load_cached_config()
 
         self.notifier = notify.MaestralDesktopNotifier(self.config_name)
 
@@ -516,33 +517,37 @@ class SyncEngine:
         # data structures for user information
         self.syncing = []
 
-        # determine file paths
-        self._dropbox_path = self._conf.get("main", "path")
-        self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
-        self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
+        # initialize SQLite database
         self._db_path = get_data_path("maestral", f"{self.config_name}.db")
 
-        # reset sync state if DB is missing
         if not osp.exists(self._db_path):
+            # reset sync state if DB is missing
             self.remote_cursor = ""
+            self.local_cursor = 0.0
 
-        # initialize SQLite database
         self._db = Database(self._db_path, check_same_thread=False)
         self._db_manager_index = Manager(self._db, IndexEntry)
         self._db_manager_history = Manager(self._db, SyncEvent)
         self._db_manager_hash_cache = Manager(self._db, HashCacheEntry)
-
-        # load cached properties
-        self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
-        self._mignore_rules = self._load_mignore_rules_form_file()
-        self._excluded_items = self._conf.get("main", "excluded_items")
-        self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
 
         # caches
         self._case_conversion_cache = LRUCache(capacity=5000)
 
         # clean our file cache
         self.clean_cache_dir()
+
+    def _load_cached_config(self) -> None:
+
+        self._dropbox_path = self._conf.get("main", "path")
+        self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
+        self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
+
+        self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
+        self._excluded_items = self._conf.get("main", "excluded_items")
+        self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
+        self._local_cursor = self._state.get("sync", "lastsync")
+
+        self.load_mignore_file()
 
     # ==== config access ===============================================================
 
@@ -647,20 +652,23 @@ class SyncEngine:
         """Setter: last_cursor"""
         with self.sync_lock:
             self._state.set("sync", "cursor", cursor)
-            logger.debug("Remote cursor saved: %s", cursor)
+
+        logger.debug("Remote cursor saved: %s", cursor)
 
     @property
     def local_cursor(self) -> float:
         """Time stamp from last sync with remote Dropbox. The value is updated and saved
         to the config file on every successful upload of local changes."""
-        return self._state.get("sync", "lastsync")
+        return self._local_cursor
 
     @local_cursor.setter
     def local_cursor(self, last_sync: float) -> None:
         """Setter: local_cursor"""
         with self.sync_lock:
-            logger.debug("Local cursor saved: %s", last_sync)
+            self._local_cursor = last_sync
             self._state.set("sync", "lastsync", last_sync)
+
+        logger.debug("Local cursor saved: %s", last_sync)
 
     @property
     def last_change(self) -> float:
@@ -1012,16 +1020,17 @@ class SyncEngine:
         return self._mignore_path
 
     @property
-    def mignore_rules(self) -> pathspec.PathSpec:
+    def mignore_rules(self) -> PathSpec:
         """List of mignore rules following git wildmatch syntax (read only)."""
-        if self._get_ctime(self.mignore_path) != self._mignore_ctime_loaded:
-            self._mignore_rules = self._load_mignore_rules_form_file()
         return self._mignore_rules
 
-    def _load_mignore_rules_form_file(self) -> pathspec.PathSpec:
-        """Loads rules from mignore file. No rules are loaded if the file does
-        not exist or cannot be read."""
-        self._mignore_ctime_loaded = self._get_ctime(self.mignore_path)
+    def load_mignore_file(self) -> None:
+        """
+        Loads rules from mignore file. No rules are loaded if the file does
+        not exist or cannot be read.
+
+        :returns: PathSpec instance with ignore patterns.
+        """
         try:
             with open(self.mignore_path) as f:
                 spec = f.read()
@@ -1030,7 +1039,8 @@ class SyncEngine:
                 f"Could not load mignore rules from {self.mignore_path}: {err}"
             )
             spec = ""
-        return pathspec.PathSpec.from_lines("gitwildmatch", spec.splitlines())
+
+        self._mignore_rules = PathSpec.from_lines("gitwildmatch", spec.splitlines())
 
     # ==== helper functions ============================================================
 
