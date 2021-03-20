@@ -1727,64 +1727,65 @@ class SyncEngine:
         :param sync_events: List of local file system events.
         """
 
-        results = []
+        results: List[SyncEvent] = []
 
-        if len(sync_events) > 0:
+        if len(sync_events) == 0:
+            return results
 
-            sync_events, _ = self._filter_excluded_changes_local(sync_events)
+        sync_events, _ = self._filter_excluded_changes_local(sync_events)
 
-            deleted: List[SyncEvent] = []
-            dir_moved: List[SyncEvent] = []
-            other: List[SyncEvent] = []  # file created + moved, dir created
+        deleted: List[SyncEvent] = []
+        dir_moved: List[SyncEvent] = []
+        other: List[SyncEvent] = []  # file created + moved, dir created
 
-            for event in sync_events:
-                if event.is_deleted:
-                    deleted.append(event)
-                elif event.is_directory and event.is_moved:
-                    dir_moved.append(event)
-                else:
-                    other.append(event)
+        for event in sync_events:
+            if event.is_deleted:
+                deleted.append(event)
+            elif event.is_directory and event.is_moved:
+                dir_moved.append(event)
+            else:
+                other.append(event)
 
-                # housekeeping
-                self.syncing.append(event)
+            # housekeeping
+            self.syncing.append(event)
 
-            # apply deleted events first, folder moved events second
-            # neither event type requires an actual upload
-            if deleted:
-                logger.info("Uploading deletions...")
+        # apply deleted events first, folder moved events second
+        # neither event type requires an actual upload
+        if deleted:
+            logger.info("Uploading deletions...")
 
-            with ThreadPoolExecutor(
-                max_workers=self._num_threads,
-                thread_name_prefix="maestral-upload-pool",
-            ) as executor:
-                res = executor.map(self._create_remote_entry, deleted)
+        with ThreadPoolExecutor(
+            max_workers=self._num_threads,
+            thread_name_prefix="maestral-upload-pool",
+        ) as executor:
+            res = executor.map(self._create_remote_entry, deleted)
 
-                n_items = len(deleted)
-                for n, r in enumerate(res):
-                    throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
-                    results.append(r)
-
-            if dir_moved:
-                logger.info("Moving folders...")
-
-            for event in dir_moved:
-                logger.info(f"Moving {event.dbx_path_from}...")
-                r = self._create_remote_entry(event)
+            n_items = len(deleted)
+            for n, r in enumerate(res):
+                throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
                 results.append(r)
 
-            # apply other events in parallel since order does not matter
-            with ThreadPoolExecutor(
-                max_workers=self._num_threads,
-                thread_name_prefix="maestral-upload-pool",
-            ) as executor:
-                res = executor.map(self._create_remote_entry, other)
+        if dir_moved:
+            logger.info("Moving folders...")
 
-                n_items = len(other)
-                for n, r in enumerate(res):
-                    throttled_log(logger, f"Syncing ↑ {n + 1}/{n_items}")
-                    results.append(r)
+        for event in dir_moved:
+            logger.info(f"Moving {event.dbx_path_from}...")
+            r = self._create_remote_entry(event)
+            results.append(r)
 
-            self._clean_history()
+        # apply other events in parallel since order does not matter
+        with ThreadPoolExecutor(
+            max_workers=self._num_threads,
+            thread_name_prefix="maestral-upload-pool",
+        ) as executor:
+            res = executor.map(self._create_remote_entry, other)
+
+            n_items = len(other)
+            for n, r in enumerate(res):
+                throttled_log(logger, f"Syncing ↑ {n + 1}/{n_items}")
+                results.append(r)
+
+        self._clean_history()
 
         return results
 
@@ -2029,12 +2030,10 @@ class SyncEngine:
         elif len(self.mignore_rules.patterns) == 0:
             return False
         else:
-            dbx_src_path = self.to_dbx_path(event.src_path)
-            dbx_dest_path = self.to_dbx_path(event.dest_path)
+            src_is_mignore = self._is_mignore_path(dbx_src_path, event.is_directory)
+            dest_is_mignore = self._is_mignore_path(dbx_dest_path, event.is_directory)
 
-            return self._is_mignore_path(
-                dbx_src_path, event.is_directory
-            ) or self._is_mignore_path(dbx_dest_path, event.is_directory)
+            return src_is_mignore or dest_is_mignore
 
     def _handle_case_conflict(self, event: SyncEvent) -> bool:
         """
