@@ -20,6 +20,7 @@ import warnings
 import argparse
 import ast
 import re
+from pprint import pformat
 from shlex import quote
 from typing import Optional, Any, Union, Tuple, Dict, Iterable, Type, TYPE_CHECKING
 from types import TracebackType
@@ -422,11 +423,10 @@ def start_maestral_daemon(
     from . import notify
     from .main import Maestral
 
-    if log_to_stdout:
-        logger.setLevel(logging.DEBUG)
-
     if threading.current_thread() is not threading.main_thread():
         raise RuntimeError("Must run daemon in main thread")
+
+    logger.debug("Environment:\n%s", pformat(os.environ.copy()))
 
     # acquire PID lock file
     lock = maestral_lock(config_name)
