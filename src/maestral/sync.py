@@ -1247,9 +1247,7 @@ class SyncEngine:
         :returns: Corresponding local path on drive.
         """
 
-        dbx_path_cased = dbx_path_cased.lstrip("/")
-
-        return osp.join(self.dropbox_path, dbx_path_cased)
+        return f"{self.dropbox_path}{dbx_path_cased}"
 
     def to_local_path(self, dbx_path: str, client=Optional[DropboxClient]) -> str:
         """
@@ -1270,7 +1268,7 @@ class SyncEngine:
 
         dbx_path_cased = self.correct_case(dbx_path, client)
 
-        return osp.join(self.dropbox_path, dbx_path_cased.lstrip("/"))
+        return f"{self.dropbox_path}{dbx_path_cased}"
 
     def has_sync_errors(self) -> bool:
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
@@ -1387,7 +1385,7 @@ class SyncEngine:
         relative_path = dbx_path.lstrip("/")
 
         if is_dir:
-            relative_path += "/"
+            relative_path = f"{relative_path}/"
 
         return self.mignore_rules.match_file(relative_path)
 
