@@ -28,6 +28,7 @@ __all__ = [
     "CachedHandler",
     "SdNotificationHandler",
     "safe_journal_sender",
+    "scoped_logger",
 ]
 
 
@@ -159,3 +160,30 @@ class SdNotificationHandler(logging.Handler):
         :param record: Log record.
         """
         self.notifier.notify(f"STATUS={record.message}")
+
+
+def scoped_logger_name(module_name: str, config_name: str = "maestral") -> str:
+    """
+    Returns a logger name for the module ``module_name``, scoped to the given config.
+
+    :param module_name: Module name.
+    :param config_name: Config name.
+    :returns: Scoped logger name.
+    """
+
+    if config_name == "maestral":
+        return module_name
+    else:
+        return f"{config_name}-{module_name}"
+
+
+def scoped_logger(module_name: str, config_name: str = "maestral") -> logging.Logger:
+    """
+    Returns a logger for the module ``module_name``, scoped to the given config.
+
+    :param module_name: Module name.
+    :param config_name: Config name.
+    :returns: Logger instances scoped to the config.
+    """
+
+    return logging.getLogger(scoped_logger_name(module_name, config_name))

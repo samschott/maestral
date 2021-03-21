@@ -4,7 +4,6 @@
 # system imports
 import errno
 import time
-import logging
 import gc
 import ctypes
 from contextlib import contextmanager
@@ -34,20 +33,14 @@ from .errors import (
 )
 from .sync import SyncEngine
 from .fsevents import Observer
+from .logging import scoped_logger
 from .utils import exc_info_tuple
 from .utils.integration import check_connection, get_inotify_limits
 
 
-__all__ = [
-    "SyncMonitor",
-    "upload_worker",
-    "download_worker",
-    "download_worker_added_item",
-    "startup_worker",
-]
+__all__ = ["SyncMonitor"]
 
 
-logger = logging.getLogger(__name__)
 FT = TypeVar("FT", bound=Callable[..., Any])
 
 
@@ -63,228 +56,10 @@ except (OSError, AttributeError):
 def _free_memory() -> None:
     """Give back memory"""
 
+    gc.collect()
+
     if malloc_trim:
         malloc_trim(0)
-
-
-# ======================================================================================
-# Workers for upload, download and connection monitoring threads
-# ======================================================================================
-
-
-@contextmanager
-def handle_sync_thread_errors(
-    running: Event,
-    autostart: Event,
-    notifier: notify.MaestralDesktopNotifier,
-) -> Iterator[None]:
-
-    try:
-        yield
-    except CancelledError:
-        running.clear()
-    except DropboxConnectionError:
-        logger.info(DISCONNECTED)
-        logger.debug("Connection error", exc_info=True)
-        running.clear()
-        autostart.set()
-        logger.info(CONNECTING)
-    except Exception as err:
-        running.clear()
-        autostart.clear()
-        title = getattr(err, "title", "Unexpected error")
-        message = getattr(err, "message", "Please restart to continue syncing")
-        logger.error(title, exc_info=True)
-        notifier.notify(title, message, level=notify.ERROR)
-
-
-def download_worker(
-    sync: SyncEngine,
-    running: Event,
-    startup_completed: Event,
-    autostart: Event,
-) -> None:
-    """
-    Worker to sync changes of remote Dropbox with local folder.
-
-    :param sync: Instance of :class:`SyncEngine`.
-    :param running: Event to shutdown local file event handler and worker threads.
-    :param startup_completed: Set when startup sync is completed.
-    :param autostart: Set when syncing should automatically resume on connection.
-    """
-
-    startup_completed.wait()
-
-    while running.is_set():
-
-        with handle_sync_thread_errors(running, autostart, sync.notifier):
-
-            with sync.client.clone_with_new_session() as client:
-
-                has_changes = sync.wait_for_remote_changes(
-                    sync.remote_cursor, client=client
-                )
-
-                if not running.is_set():
-                    return
-
-                sync.ensure_dropbox_folder_present()
-
-                if has_changes:
-                    logger.info(SYNCING)
-                    sync.download_sync_cycle(client)
-                    logger.info(IDLE)
-
-                    client.get_space_usage()  # update space usage
-
-    gc.collect()
-
-
-def download_worker_added_item(
-    sync: SyncEngine,
-    running: Event,
-    startup_completed: Event,
-    autostart: Event,
-    added_item_queue: "Queue[str]",
-) -> None:
-    """
-    Worker to download items which have been newly included in sync.
-
-    :param sync: Instance of :class:`SyncEngine`.
-    :param running: Event to shutdown local file event handler and worker threads.
-    :param startup_completed: Set when startup sync is completed.
-    :param autostart: Set when syncing should automatically resume on connection.
-    :param added_item_queue: Queue with newly added items to download. Entries are
-        Dropbox paths.
-    """
-
-    startup_completed.wait()
-
-    while running.is_set():
-
-        with handle_sync_thread_errors(running, autostart, sync.notifier):
-
-            try:
-                dbx_path = added_item_queue.get(timeout=40)
-            except Empty:
-                pass
-            else:
-                # protect against crashes
-                sync.pending_downloads.add(dbx_path.lower())
-
-                if not running.is_set():
-                    return
-
-                with sync.sync_lock:
-
-                    with sync.client.clone_with_new_session() as client:
-                        sync.get_remote_item(dbx_path, client)
-
-                    sync.pending_downloads.discard(dbx_path)
-
-                    logger.info(IDLE)
-
-    gc.collect()
-
-
-def upload_worker(
-    sync: SyncEngine,
-    running: Event,
-    startup_completed: Event,
-    autostart: Event,
-) -> None:
-    """
-    Worker to sync local changes to remote Dropbox.
-
-    :param sync: Instance of :class:`SyncEngine`.
-    :param running: Event to shutdown local file event handler and worker threads.
-    :param startup_completed: Set when startup sync is completed.
-    :param autostart: Set when syncing should automatically resume on connection.
-    """
-
-    startup_completed.wait()
-
-    while running.is_set():
-
-        with handle_sync_thread_errors(running, autostart, sync.notifier):
-
-            has_changes = sync.wait_for_local_changes()
-
-            if not running.is_set():
-                return
-
-            sync.ensure_dropbox_folder_present()
-
-            if has_changes:
-                logger.info(SYNCING)
-                sync.upload_sync_cycle()
-                logger.info(IDLE)
-
-    gc.collect()
-
-
-def startup_worker(
-    sync: SyncEngine,
-    running: Event,
-    startup_completed: Event,
-    autostart: Event,
-) -> None:
-    """
-    Worker to sync local changes to remote Dropbox.
-
-    :param sync: Instance of :class:`SyncEngine`.
-    :param running: Event to shutdown local file event handler and worker threads.
-    :param startup_completed: Set when startup sync is completed.
-    :param autostart: Set when syncing should automatically resume on connection.
-    """
-
-    conf = MaestralConfig(sync.config_name)
-
-    with handle_sync_thread_errors(running, autostart, sync.notifier):
-
-        sync.load_mignore_file()
-
-        with sync.client.clone_with_new_session() as client:
-
-            # Retry failed downloads.
-            if len(sync.download_errors) > 0:
-                logger.info("Retrying failed syncs...")
-
-            for dbx_path in list(sync.download_errors):
-                sync.get_remote_item(dbx_path, client)
-
-            # Resume interrupted downloads.
-            if len(sync.pending_downloads) > 0:
-                logger.info("Resuming interrupted syncs...")
-
-            for dbx_path in list(sync.pending_downloads):
-                sync.get_remote_item(dbx_path, client)
-                sync.pending_downloads.discard(dbx_path)
-
-            if not running.is_set():
-                startup_completed.set()
-                return
-
-            sync.download_sync_cycle(client)
-
-        if not running.is_set():
-            startup_completed.set()
-            return
-
-        if conf.get("sync", "upload"):
-            sync.upload_local_changes_while_inactive()
-
-        logger.info(IDLE)
-
-    startup_completed.set()
-
-    gc.collect()
-    _free_memory()
-
-
-# ======================================================================================
-# Main Monitor class to start, stop and coordinate threads
-# ======================================================================================
 
 
 class SyncMonitor:
@@ -301,6 +76,7 @@ class SyncMonitor:
         self.client = client
         self.config_name = self.client.config_name
         self._conf = MaestralConfig(self.config_name)
+        self._logger = scoped_logger(__name__, self.config_name)
 
         self._lock = RLock()
 
@@ -333,6 +109,8 @@ class SyncMonitor:
                 return fn(self, *args, **kwargs)
 
         return cast(FT, wrapper)
+
+    # ---- config and state ------------------------------------------------------------
 
     @property
     def reindex_interval(self) -> float:
@@ -371,6 +149,8 @@ class SyncMonitor:
 
         return min(time_since_startup, time_since_last_sync)
 
+    # ---- control methods -------------------------------------------------------------
+
     @_with_lock
     def start(self) -> None:
         """Creates observer threads and starts syncing."""
@@ -381,7 +161,7 @@ class SyncMonitor:
         if not check_connection("www.dropbox.com"):
             # Schedule autostart when connection becomes available.
             self.autostart.set()
-            logger.info(CONNECTING)
+            self._logger.info(CONNECTING)
             return
 
         # create a new set of events to let old threads die down
@@ -389,10 +169,9 @@ class SyncMonitor:
         self.startup_completed = Event()
 
         self.startup_thread = Thread(
-            target=startup_worker,
+            target=self.startup_worker,
             daemon=True,
             args=(
-                self.sync,
                 self.running,
                 self.startup_completed,
                 self.autostart,
@@ -403,10 +182,9 @@ class SyncMonitor:
         if self._conf.get("sync", "download"):
 
             self.download_thread = Thread(
-                target=download_worker,
+                target=self.download_worker,
                 daemon=True,
                 args=(
-                    self.sync,
                     self.running,
                     self.startup_completed,
                     self.autostart,
@@ -415,14 +193,12 @@ class SyncMonitor:
             )
 
             self.download_thread_added_folder = Thread(
-                target=download_worker_added_item,
+                target=self.download_worker_added_item,
                 daemon=True,
                 args=(
-                    self.sync,
                     self.running,
                     self.startup_completed,
                     self.autostart,
-                    self.added_item_queue,
                 ),
                 name="maestral-folder-download",
             )
@@ -430,10 +206,9 @@ class SyncMonitor:
         if self._conf.get("sync", "upload"):
 
             self.upload_thread = Thread(
-                target=upload_worker,
+                target=self.upload_worker,
                 daemon=True,
                 args=(
-                    self.sync,
                     self.running,
                     self.startup_completed,
                     self.autostart,
@@ -509,7 +284,7 @@ class SyncMonitor:
                 err_cls = MaestralApiError
 
             new_error = err_cls(title, msg)
-            logger.error(title, exc_info=exc_info_tuple(new_error))
+            self._logger.error(title, exc_info=exc_info_tuple(new_error))
             self.sync.notifier.notify(title, msg, level=notify.ERROR)
 
         return local_observer_thread
@@ -519,7 +294,7 @@ class SyncMonitor:
         """Stops syncing and destroys worker threads."""
 
         if self.running.is_set():
-            logger.info("Shutting down threads...")
+            self._logger.info("Shutting down threads...")
 
         self.sync.fs_events.disable()
         self.running.clear()
@@ -532,7 +307,7 @@ class SyncMonitor:
             self.local_observer_thread.stop()
             self.local_observer_thread = None
 
-        logger.info(PAUSED)
+        self._logger.info(PAUSED)
 
     def connection_monitor(self) -> None:
         """
@@ -547,7 +322,7 @@ class SyncMonitor:
 
             if connected != self.connected:
                 # Log the status change.
-                logger.info(CONNECTED if connected else CONNECTING)
+                self._logger.info(CONNECTED if connected else CONNECTING)
 
             if connected:
                 if not self.running.is_set() and self.autostart.is_set():
@@ -575,7 +350,7 @@ class SyncMonitor:
         Rebuilding will be performed asynchronously.
         """
 
-        logger.info("Rebuilding index...")
+        self._logger.info("Rebuilding index...")
 
         was_running = self.running.is_set()
 
@@ -586,6 +361,205 @@ class SyncMonitor:
 
         if was_running:
             self.start()
+
+    # ---- thread methods --------------------------------------------------------------
+
+    def download_worker(
+        self,
+        running: Event,
+        startup_completed: Event,
+        autostart: Event,
+    ) -> None:
+        """
+        Worker to sync changes of remote Dropbox with local folder.
+
+        :param running: Event to shutdown local file event handler and worker threads.
+        :param startup_completed: Set when startup sync is completed.
+        :param autostart: Set when syncing should automatically resume on connection.
+        """
+
+        startup_completed.wait()
+
+        while running.is_set():
+
+            with self.handle_sync_thread_errors(running, autostart):
+
+                with self.sync.client.clone_with_new_session() as client:
+
+                    has_changes = self.sync.wait_for_remote_changes(
+                        self.sync.remote_cursor, client=client
+                    )
+
+                    if not running.is_set():
+                        return
+
+                    self.sync.ensure_dropbox_folder_present()
+
+                    if has_changes:
+                        self._logger.info(SYNCING)
+                        self.sync.download_sync_cycle(client)
+                        self._logger.info(IDLE)
+
+                        client.get_space_usage()  # update space usage
+
+        _free_memory()
+
+    def download_worker_added_item(
+        self,
+        running: Event,
+        startup_completed: Event,
+        autostart: Event,
+    ) -> None:
+        """
+        Worker to download items which have been newly included in sync.
+
+        :param running: Event to shutdown local file event handler and worker threads.
+        :param startup_completed: Set when startup sync is completed.
+        :param autostart: Set when syncing should automatically resume on connection.
+        """
+
+        startup_completed.wait()
+
+        while running.is_set():
+
+            with self.handle_sync_thread_errors(running, autostart):
+
+                try:
+                    dbx_path = self.added_item_queue.get(timeout=40)
+                except Empty:
+                    pass
+                else:
+                    # protect against crashes
+                    self.sync.pending_downloads.add(dbx_path.lower())
+
+                    if not running.is_set():
+                        return
+
+                    with self.sync.sync_lock:
+
+                        with self.sync.client.clone_with_new_session() as client:
+                            self.sync.get_remote_item(dbx_path, client)
+
+                        self.sync.pending_downloads.discard(dbx_path)
+
+                        self._logger.info(IDLE)
+
+        _free_memory()
+
+    def upload_worker(
+        self,
+        running: Event,
+        startup_completed: Event,
+        autostart: Event,
+    ) -> None:
+        """
+        Worker to sync local changes to remote Dropbox.
+
+        :param running: Event to shutdown local file event handler and worker threads.
+        :param startup_completed: Set when startup sync is completed.
+        :param autostart: Set when syncing should automatically resume on connection.
+        """
+
+        startup_completed.wait()
+
+        while running.is_set():
+
+            with self.handle_sync_thread_errors(running, autostart):
+
+                has_changes = self.sync.wait_for_local_changes()
+
+                if not running.is_set():
+                    return
+
+                self.sync.ensure_dropbox_folder_present()
+
+                if has_changes:
+                    self._logger.info(SYNCING)
+                    self.sync.upload_sync_cycle()
+                    self._logger.info(IDLE)
+
+        _free_memory()
+
+    def startup_worker(
+        self,
+        running: Event,
+        startup_completed: Event,
+        autostart: Event,
+    ) -> None:
+        """
+        Worker to sync local changes to remote Dropbox.
+
+        :param running: Event to shutdown local file event handler and worker threads.
+        :param startup_completed: Set when startup sync is completed.
+        :param autostart: Set when syncing should automatically resume on connection.
+        """
+
+        with self.handle_sync_thread_errors(running, autostart):
+
+            # Reload mignore rules.
+            self.sync.load_mignore_file()
+
+            with self.sync.client.clone_with_new_session() as client:
+
+                # Retry failed downloads.
+                if len(self.sync.download_errors) > 0:
+                    self._logger.info("Retrying failed syncs...")
+
+                for dbx_path in list(self.sync.download_errors):
+                    self.sync.get_remote_item(dbx_path, client)
+
+                # Resume interrupted downloads.
+                if len(self.sync.pending_downloads) > 0:
+                    self._logger.info("Resuming interrupted syncs...")
+
+                for dbx_path in list(self.sync.pending_downloads):
+                    self.sync.get_remote_item(dbx_path, client)
+                    self.sync.pending_downloads.discard(dbx_path)
+
+                if not running.is_set():
+                    startup_completed.set()
+                    return
+
+                self.sync.download_sync_cycle(client)
+
+            if not running.is_set():
+                startup_completed.set()
+                return
+
+            if self._conf.get("sync", "upload"):
+                self.sync.upload_local_changes_while_inactive()
+
+            self._logger.info(IDLE)
+
+        startup_completed.set()
+        _free_memory()
+
+    # ---- utilities -------------------------------------------------------------------
+
+    @contextmanager
+    def handle_sync_thread_errors(
+        self,
+        running: Event,
+        autostart: Event,
+    ) -> Iterator[None]:
+
+        try:
+            yield
+        except CancelledError:
+            running.clear()
+        except DropboxConnectionError:
+            self._logger.info(DISCONNECTED)
+            self._logger.debug("Connection error", exc_info=True)
+            running.clear()
+            autostart.set()
+            self._logger.info(CONNECTING)
+        except Exception as err:
+            running.clear()
+            autostart.clear()
+            title = getattr(err, "title", "Unexpected error")
+            message = getattr(err, "message", "Please restart to continue syncing")
+            self._logger.error(title, exc_info=True)
+            self.sync.notifier.notify(title, message, level=notify.ERROR)
 
     def __del__(self):
         try:

@@ -10,7 +10,6 @@ import enum
 import resource
 import socket
 import time
-import logging
 from pathlib import Path
 from typing import Union, Tuple
 
@@ -23,8 +22,6 @@ __all__ = [
     "check_connection",
 ]
 
-
-logger = logging.getLogger(__name__)
 
 CPU_COUNT = os.cpu_count() or 1  # os.cpu_count can return None
 LINUX_POWER_SUPPLY_PATH = "/sys/class/power_supply"
@@ -205,5 +202,4 @@ def check_connection(hostname: str, timeout: int = 2) -> bool:
         s.close()
         return True
     except Exception:
-        logger.debug("Connection error", exc_info=True)
         return False

@@ -30,7 +30,6 @@ from .utils import cli, exc_info_tuple
 
 __all__ = ["OAuth2Session"]
 
-logger = logging.getLogger(__name__)
 
 supported_keyring_backends = (
     keyring.backends.macOS.Keyring,
@@ -102,6 +101,8 @@ class OAuth2Session:
         self._app_key = app_key
         self._config_name = config_name
 
+        self._logger = logging.getLogger(__name__)
+
         self._conf = MaestralConfig(config_name)
         self._state = MaestralState(config_name)
 
@@ -162,7 +163,7 @@ class OAuth2Session:
                 new_exc = KeyringAccessError(title, message).with_traceback(
                     exc.__traceback__
                 )
-                logger.error(title, exc_info=exc_info_tuple(new_exc))
+                self._logger.error(title, exc_info=exc_info_tuple(new_exc))
                 raise new_exc
 
             return ring
@@ -282,7 +283,7 @@ class OAuth2Session:
         :raises KeyringAccessError: If the system keyring is locked.
         """
 
-        logger.debug(f"Using keyring: {self.keyring}")
+        self._logger.debug(f"Using keyring: {self.keyring}")
 
         if not self._account_id:
             return
@@ -311,7 +312,7 @@ class OAuth2Session:
                 else:
                     msg = "Invalid token access type in state file."
                     err = RuntimeError("Invalid token access type in state file.")
-                    logger.error(msg, exc_info=exc_info_tuple(err))
+                    self._logger.error(msg, exc_info=exc_info_tuple(err))
                     raise err
 
                 self._token_access_type = access_type
@@ -320,7 +321,7 @@ class OAuth2Session:
             title = "Could not load auth token"
             msg = f"{self.keyring.name} is locked. Please unlock the keyring and try again."
             new_exc = KeyringAccessError(title, msg)
-            logger.error(title, exc_info=exc_info_tuple(new_exc))
+            self._logger.error(title, exc_info=exc_info_tuple(new_exc))
             raise new_exc
 
     def get_auth_url(self) -> str:
@@ -410,11 +411,11 @@ class OAuth2Session:
                 title = "Could not delete auth token"
                 msg = f"{self.keyring.name} is locked. Please unlock the keyring and try again."
                 exc = KeyringAccessError(title, msg)
-                logger.error(title, exc_info=exc_info_tuple(exc))
+                self._logger.error(title, exc_info=exc_info_tuple(exc))
                 raise exc
             except PasswordDeleteError as exc:
                 # password does not exist in keyring
-                logger.info(exc.args[0])
+                self._logger.info(exc.args[0])
 
             self._conf.set("account", "account_id", "")
             self._state.set("account", "token_access_type", "")
