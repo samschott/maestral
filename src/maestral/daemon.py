@@ -416,7 +416,6 @@ def start_maestral_daemon(
     """
 
     import asyncio
-    from . import notify
     from .main import Maestral
     from .logging import scoped_logger, setup_logging
 
@@ -501,13 +500,12 @@ def start_maestral_daemon(
 
     if start_sync:
 
+        dlogger.debug("Starting sync")
+
         try:
             maestral_daemon.start_sync()
-        except Exception as exc:
-            title = getattr(exc, "title", "Failed to start sync")
-            message = getattr(exc, "message", "Please inspect the logs")
-            dlogger.error(title, exc_info=True)
-            maestral_daemon.sync.notify(title, message, level=notify.ERROR)
+        except Exception:
+            dlogger.error("Could not start sync", exc_info=True)
 
     try:
 
