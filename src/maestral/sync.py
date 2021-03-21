@@ -36,9 +36,8 @@ from typing import (
 
 # external imports
 import click
-import dropbox  # type: ignore
 from pathspec import PathSpec
-from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
+from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata, WriteMode, ListFolderResult  # type: ignore
 from watchdog.events import FileSystemEventHandler  # type: ignore
 from watchdog.events import (
     EVENT_TYPE_CREATED,
@@ -2329,10 +2328,10 @@ class SyncEngine:
 
             if not local_entry:
                 # file is new to us, let Dropbox rename it if something is in the way
-                mode = dropbox.files.WriteMode.add
+                mode = WriteMode.add
             elif local_entry.is_directory:
                 # try to overwrite the destination, this will fail...
-                mode = dropbox.files.WriteMode.overwrite
+                mode = WriteMode.overwrite
             else:
                 # file has been modified, update remote if matching rev,
                 # create conflict otherwise
@@ -2341,7 +2340,7 @@ class SyncEngine:
                     "already tracking it",
                     event.dbx_path,
                 )
-                mode = dropbox.files.WriteMode.update(local_entry.rev)
+                mode = WriteMode.update(local_entry.rev)
             try:
                 md_new = client.upload(
                     event.local_path,
@@ -2423,11 +2422,11 @@ class SyncEngine:
                 '"%s" appears to have been modified but cannot ' "find old revision",
                 event.dbx_path,
             )
-            mode = dropbox.files.WriteMode.add
+            mode = WriteMode.add
         elif local_entry.is_directory:
-            mode = dropbox.files.WriteMode.overwrite
+            mode = WriteMode.overwrite
         else:
-            mode = dropbox.files.WriteMode.update(local_entry.rev)
+            mode = WriteMode.update(local_entry.rev)
 
         try:
             md_new = client.upload(
@@ -3155,9 +3154,7 @@ class SyncEngine:
         except (FileNotFoundError, NotADirectoryError):
             return -1.0
 
-    def _clean_remote_changes(
-        self, changes: dropbox.files.ListFolderResult
-    ) -> dropbox.files.ListFolderResult:
+    def _clean_remote_changes(self, changes: ListFolderResult) -> ListFolderResult:
         """
         Takes remote file events since last sync and cleans them up so that there is
         only a single event per path.
