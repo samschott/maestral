@@ -23,6 +23,12 @@ names or folder structures are saved to the log. You can however reduce the log 
 Logging must be configured through the [`maestral log`]({{ site.baseurl }}/cli/log)
 command and any changes will take effect immediately.
 
+<p><b>Warning:</b> Setting the log level to DEBUG will generate detailed logs on sync
+activity including potentially private information such as file names and modification
+times. Some versions of Maestral may also print environment variables to the logs. Use a
+log level of INFO or higher to keep the log free from any private information.
+</p>{: .notice--warning}
+
 ## systemd integration
 
 Maestral plays nicely with systemd. This means that it will notify systemd of its status
