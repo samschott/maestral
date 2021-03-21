@@ -418,8 +418,9 @@ def start_maestral_daemon(
     import asyncio
     from . import notify
     from .main import Maestral
-    from .logging import scoped_logger
+    from .logging import scoped_logger, setup_logging
 
+    setup_logging(config_name, log_to_stderr)
     dlogger = scoped_logger(__name__, config_name)
 
     if threading.current_thread() is not threading.main_thread():
