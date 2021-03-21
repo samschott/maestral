@@ -432,7 +432,7 @@ def start_maestral_daemon(
     lock = maestral_lock(config_name)
 
     if lock.acquire():
-        dlogger.debug("Acquired daemon lock")
+        dlogger.debug("Acquired daemon lock: %s", lock.path)
     else:
         raise RuntimeError("Maestral daemon is already running")
 
