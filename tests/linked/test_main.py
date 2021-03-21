@@ -11,7 +11,6 @@ import pytest
 
 from maestral.errors import NotFoundError, UnsupportedFileTypeForDiff, SharedLinkError
 from maestral.main import FileStatus, IDLE
-from maestral.main import logger as maestral_logger
 from maestral.utils.path import delete
 from maestral.utils.integration import get_inotify_limits
 
@@ -37,7 +36,7 @@ def test_status_properties(m):
     assert not m.sync_errors
     assert not m.fatal_errors
 
-    maestral_logger.info("test message")
+    m._root_logger.info("test message")
     assert m.status == "test message"
 
 

@@ -6,13 +6,13 @@ import sys
 import os
 import os.path as osp
 from stat import S_ISDIR
-import logging
 import time
 import random
 import uuid
 import urllib.parse
 import enum
 import sqlite3
+import logging
 from pprint import pformat
 from threading import Event, Condition, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
@@ -36,9 +36,8 @@ from typing import (
 
 # external imports
 import click
-import dropbox  # type: ignore
 from pathspec import PathSpec
-from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
+from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata, WriteMode, ListFolderResult  # type: ignore
 from watchdog.events import FileSystemEventHandler  # type: ignore
 from watchdog.events import (
     EVENT_TYPE_CREATED,
@@ -94,6 +93,7 @@ from .database import (
     ItemType,
     ChangeType,
 )
+from .logging import scoped_logger
 from .utils import removeprefix, sanitize_string, exc_info_tuple
 from .utils.caches import LRUCache
 from .utils.integration import (
@@ -128,9 +128,6 @@ __all__ = [
     "HashCacheEntry",
     "SyncEngine",
 ]
-
-
-logger = logging.getLogger(__name__)
 
 umask = os.umask(0o22)
 os.umask(umask)
@@ -479,6 +476,7 @@ class SyncEngine:
         self.client = client
         self.config_name = self.client.config_name
         self.fs_events = FSEventHandler()
+        self._logger = scoped_logger(__name__, self.config_name)
 
         self.sync_lock = RLock()
         self._db_lock = RLock()
@@ -651,7 +649,7 @@ class SyncEngine:
         with self.sync_lock:
             self._state.set("sync", "cursor", cursor)
 
-        logger.debug("Remote cursor saved: %s", cursor)
+        self._logger.debug("Remote cursor saved: %s", cursor)
 
     @property
     def local_cursor(self) -> float:
@@ -666,7 +664,7 @@ class SyncEngine:
             self._local_cursor = last_sync
             self._state.set("sync", "lastsync", last_sync)
 
-        logger.debug("Local cursor saved: %s", last_sync)
+        self._logger.debug("Local cursor saved: %s", last_sync)
 
     @property
     def last_change(self) -> float:
@@ -718,7 +716,7 @@ class SyncEngine:
         self.clear_index()
         self.clear_sync_history()
 
-        logger.debug("Sync state reset")
+        self._logger.debug("Sync state reset")
 
     # ==== index management ============================================================
 
@@ -1046,7 +1044,7 @@ class SyncEngine:
             with open(self.mignore_path) as f:
                 spec = f.read()
         except OSError as err:
-            logger.debug(
+            self._logger.debug(
                 f"Could not load mignore rules from {self.mignore_path}: {err}"
             )
             spec = ""
@@ -1134,7 +1132,7 @@ class SyncEngine:
                 except OSError as exc:
                     # Can occur on file system's that don't support POSIX permissions
                     # such as NTFS mounted without the permissions option.
-                    logger.debug("Cannot set permissions: errno %s", exc.errno)
+                    self._logger.debug("Cannot set permissions: errno %s", exc.errno)
                 return f.name
         except OSError as err:
             raise CacheDirError(
@@ -1401,12 +1399,14 @@ class SyncEngine:
         if cpu_usage > self._max_cpu_percent:
 
             thread_name = current_thread().name
-            logger.debug(f"{thread_name}: {cpu_usage}% CPU usage - throttling")
+            self._logger.debug(f"{thread_name}: {cpu_usage}% CPU usage - throttling")
 
             while cpu_usage > self._max_cpu_percent:
                 cpu_usage = cpu_usage_percent(0.5 + 2 * random.random())
 
-            logger.debug(f"{thread_name}: {cpu_usage}% CPU usage - end throttling")
+            self._logger.debug(
+                f"{thread_name}: {cpu_usage}% CPU usage - end throttling"
+            )
 
     def cancel_sync(self) -> None:
         """
@@ -1421,7 +1421,7 @@ class SyncEngine:
 
         self._cancel_requested.clear()
 
-        logger.info("Sync aborted")
+        self._logger.info("Sync aborted")
 
     def busy(self) -> bool:
         """
@@ -1462,7 +1462,7 @@ class SyncEngine:
             # use sanitised path so that the error can be printed to the terminal, etc
             file_name = sanitize_string(osp.basename(err.dbx_path))
 
-            logger.info("Could not sync %s", file_name, exc_info=True)
+            self._logger.info("Could not sync %s", file_name, exc_info=True)
 
             def callback():
                 if err.local_path:
@@ -1525,7 +1525,7 @@ class SyncEngine:
 
         if new_exc:
             if log_errors:
-                logger.error(title, exc_info=exc_info_tuple(new_exc))
+                self._logger.error(title, exc_info=exc_info_tuple(new_exc))
                 self.notifier.notify(title, msg, level=notify.ERROR)
             else:
                 raise new_exc
@@ -1548,13 +1548,10 @@ class SyncEngine:
 
         with self.sync_lock:
 
-            logger.info("Indexing local changes...")
+            self._logger.info("Indexing local changes...")
 
             try:
                 events, local_cursor = self._get_local_changes_while_inactive()
-
-                if logger.getEffectiveLevel() <= logging.DEBUG:
-                    logger.debug("Retrieved local changes:\n%s", pformat(events))
 
                 events = self._clean_local_events(events)
                 sync_events = [
@@ -1566,9 +1563,9 @@ class SyncEngine:
 
             if len(sync_events) > 0:
                 self.apply_local_changes(sync_events)
-                logger.debug("Uploaded local changes while inactive")
+                self._logger.debug("Uploaded local changes while inactive")
             else:
-                logger.debug("No local changes while inactive")
+                self._logger.debug("No local changes while inactive")
 
             self.local_cursor = local_cursor
 
@@ -1650,7 +1647,11 @@ class SyncEngine:
                     event = FileDeletedEvent(local_path)
                 changes.append(event)
 
-        logger.debug("Local indexing completed in %s sec", time.time() - snapshot_time)
+        self._logger.debug(
+            "Local indexing completed in %s sec", time.time() - snapshot_time
+        )
+
+        self._logger.debug("Retrieved local changes:\n%s", pf_repr(changes))
 
         return changes, snapshot_time
 
@@ -1662,7 +1663,9 @@ class SyncEngine:
         :returns: ``True`` if changes are available, ``False`` otherwise.
         """
 
-        logger.debug("Waiting for local changes since cursor: %s", self.local_cursor)
+        self._logger.debug(
+            "Waiting for local changes since cursor: %s", self.local_cursor
+        )
 
         return self.fs_events.wait_for_event(timeout)
 
@@ -1711,8 +1714,7 @@ class SyncEngine:
             except Empty:
                 break
 
-        if logger.getEffectiveLevel() <= logging.DEBUG:
-            logger.debug("Retrieved local file events:\n%s", pformat(events))
+        self._logger.debug("Retrieved local file events:\n%s", pf_repr(events))
 
         events = self._clean_local_events(events)
         sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
@@ -1752,7 +1754,7 @@ class SyncEngine:
         # apply deleted events first, folder moved events second
         # neither event type requires an actual upload
         if deleted:
-            logger.info("Uploading deletions...")
+            self._logger.info("Uploading deletions...")
 
         with ThreadPoolExecutor(
             max_workers=self._num_threads,
@@ -1762,14 +1764,14 @@ class SyncEngine:
 
             n_items = len(deleted)
             for n, r in enumerate(res):
-                throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
+                throttled_log(self._logger, f"Deleting {n + 1}/{n_items}...")
                 results.append(r)
 
         if dir_moved:
-            logger.info("Moving folders...")
+            self._logger.info("Moving folders...")
 
         for event in dir_moved:
-            logger.info(f"Moving {event.dbx_path_from}...")
+            self._logger.info(f"Moving {event.dbx_path_from}...")
             r = self._create_remote_entry(event)
             results.append(r)
 
@@ -1782,7 +1784,7 @@ class SyncEngine:
 
             n_items = len(other)
             for n, r in enumerate(res):
-                throttled_log(logger, f"Syncing ↑ {n + 1}/{n_items}")
+                throttled_log(self._logger, f"Syncing ↑ {n + 1}/{n_items}")
                 results.append(r)
 
         self._clean_history()
@@ -1814,8 +1816,7 @@ class SyncEngine:
             else:
                 events_filtered.append(event)
 
-        if logger.getEffectiveLevel() <= logging.DEBUG:
-            logger.debug("Filtered local file events:\n%s", pformat(events_filtered))
+        self._logger.debug("Filtered fsevents:\n%s", pf_repr(events_filtered))
 
         return events_filtered, events_excluded
 
@@ -2002,9 +2003,6 @@ class SyncEngine:
             for split_events in child_deleted_events.values():
                 cleaned_events.difference_update(split_events)
 
-        if logger.getEffectiveLevel() <= logging.DEBUG:
-            logger.debug("Cleaned up local file events:\n%s", pformat(cleaned_events))
-
         return list(cleaned_events)
 
     def _should_split_excluded(self, event: Union[FileMovedEvent, DirMovedEvent]):
@@ -2064,7 +2062,7 @@ class SyncEngine:
 
                 self.rescan(local_path_cc)
 
-            logger.info(
+            self._logger.info(
                 'Case conflict: renamed "%s" to "%s"', event.local_path, local_path_cc
             )
 
@@ -2098,7 +2096,7 @@ class SyncEngine:
 
                 self.rescan(local_path_cc)
 
-            logger.info(
+            self._logger.info(
                 'Selective sync conflict: renamed "%s" to "%s"',
                 event.local_path,
                 local_path_cc,
@@ -2245,7 +2243,7 @@ class SyncEngine:
             # will force conflict resolution on download in case of intermittent
             # changes.
             self.remove_node_from_index(event.dbx_path)
-            logger.info(
+            self._logger.info(
                 'Upload conflict: renamed "%s" to "%s"',
                 event.dbx_path,
                 md_to_new.path_display,
@@ -2253,7 +2251,9 @@ class SyncEngine:
 
         else:
             self._update_index_recursive(md_to_new, client)
-            logger.debug('Moved "%s" to "%s" on Dropbox', dbx_path_from, event.dbx_path)
+            self._logger.debug(
+                'Moved "%s" to "%s" on Dropbox', dbx_path_from, event.dbx_path
+            )
 
         return md_to_new
 
@@ -2295,7 +2295,7 @@ class SyncEngine:
             try:
                 md_new = client.make_dir(event.dbx_path, autorename=False)
             except FolderConflictError:
-                logger.debug(
+                self._logger.debug(
                     'No conflict for "%s": the folder already exists', event.local_path
                 )
                 try:
@@ -2322,19 +2322,19 @@ class SyncEngine:
 
             if not local_entry:
                 # file is new to us, let Dropbox rename it if something is in the way
-                mode = dropbox.files.WriteMode.add
+                mode = WriteMode.add
             elif local_entry.is_directory:
                 # try to overwrite the destination, this will fail...
-                mode = dropbox.files.WriteMode.overwrite
+                mode = WriteMode.overwrite
             else:
                 # file has been modified, update remote if matching rev,
                 # create conflict otherwise
-                logger.debug(
+                self._logger.debug(
                     '"%s" appears to have been created but we are '
                     "already tracking it",
                     event.dbx_path,
                 )
-                mode = dropbox.files.WriteMode.update(local_entry.rev)
+                mode = WriteMode.update(local_entry.rev)
             try:
                 md_new = client.upload(
                     event.local_path,
@@ -2344,7 +2344,7 @@ class SyncEngine:
                     sync_event=event,
                 )
             except NotFoundError:
-                logger.debug(
+                self._logger.debug(
                     'Could not upload "%s": the item does not exist', event.local_path
                 )
                 return None
@@ -2363,7 +2363,7 @@ class SyncEngine:
             # will force conflict resolution on download in case of intermittent
             # changes.
             self.remove_node_from_index(event.dbx_path)
-            logger.debug(
+            self._logger.debug(
                 'Upload conflict: renamed "%s" to "%s"',
                 event.dbx_path,
                 md_new.path_lower,
@@ -2371,7 +2371,7 @@ class SyncEngine:
         else:
             # everything went well, update index
             self.update_index_from_dbx_metadata(md_new, client)
-            logger.debug('Created "%s" on Dropbox', event.dbx_path)
+            self._logger.debug('Created "%s" on Dropbox', event.dbx_path)
 
         return md_new
 
@@ -2402,7 +2402,7 @@ class SyncEngine:
             if event.content_hash == md_old.content_hash:
                 # file hashes are identical, do not upload
                 self.update_index_from_dbx_metadata(md_old, client)
-                logger.debug(
+                self._logger.debug(
                     'Modification of "%s" detected but file content is '
                     "the same as on Dropbox",
                     event.dbx_path,
@@ -2412,15 +2412,15 @@ class SyncEngine:
         local_entry = self.get_index_entry(event.dbx_path)
 
         if not local_entry:
-            logger.debug(
+            self._logger.debug(
                 '"%s" appears to have been modified but cannot ' "find old revision",
                 event.dbx_path,
             )
-            mode = dropbox.files.WriteMode.add
+            mode = WriteMode.add
         elif local_entry.is_directory:
-            mode = dropbox.files.WriteMode.overwrite
+            mode = WriteMode.overwrite
         else:
-            mode = dropbox.files.WriteMode.update(local_entry.rev)
+            mode = WriteMode.update(local_entry.rev)
 
         try:
             md_new = client.upload(
@@ -2431,7 +2431,7 @@ class SyncEngine:
                 sync_event=event,
             )
         except NotFoundError:
-            logger.debug(
+            self._logger.debug(
                 'Could not upload "%s": the item does not exist', event.dbx_path
             )
             return None
@@ -2449,7 +2449,7 @@ class SyncEngine:
             # Delete revs of old path but don't set revs for new path here. This will
             # force conflict resolution on download in case of intermittent changes.
             self.remove_node_from_index(event.dbx_path)
-            logger.debug(
+            self._logger.debug(
                 'Upload conflict: renamed "%s" to "%s"',
                 event.dbx_path,
                 md_new.path_lower,
@@ -2457,7 +2457,7 @@ class SyncEngine:
         else:
             # everything went well, save new revs
             self.update_index_from_dbx_metadata(md_new, client)
-            logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
+            self._logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
         return md_new
 
@@ -2481,7 +2481,7 @@ class SyncEngine:
             self.ensure_dropbox_folder_present()
 
         if self.is_excluded_by_user(event.dbx_path):
-            logger.debug(
+            self._logger.debug(
                 'Not deleting "%s": is excluded by selective sync', event.dbx_path
             )
             return None
@@ -2491,14 +2491,14 @@ class SyncEngine:
         md = client.get_metadata(event.dbx_path, include_deleted=True)
 
         if event.is_directory and isinstance(md, FileMetadata):
-            logger.debug(
+            self._logger.debug(
                 'Expected folder at "%s" but found a file instead, checking '
                 "which one is newer",
                 md.path_display,
             )
             # don't delete a remote file if it was modified since last sync
             if md.server_modified.timestamp() >= self.get_last_sync(event.dbx_path):
-                logger.debug(
+                self._logger.debug(
                     'Skipping deletion: remote item "%s" has been modified '
                     "since last sync",
                     md.path_display,
@@ -2512,7 +2512,7 @@ class SyncEngine:
             # TODO: Delete the folder if its children did not change since last sync.
             #   Is there a way of achieving this without listing the folder or listing
             #   all changes and checking when they occurred?
-            logger.debug(
+            self._logger.debug(
                 'Skipping deletion: expected file at "%s" but found a '
                 "folder instead",
                 md.path_display,
@@ -2527,13 +2527,13 @@ class SyncEngine:
                 event.dbx_path, parent_rev=local_rev if event.is_file else None
             )
         except NotFoundError:
-            logger.debug(
+            self._logger.debug(
                 'Could not delete "%s": the item no longer exists on Dropbox',
                 event.dbx_path,
             )
             md_deleted = None
         except PathError:
-            logger.debug(
+            self._logger.debug(
                 'Could not delete "%s": the item has been changed ' "since last sync",
                 event.dbx_path,
             )
@@ -2567,7 +2567,7 @@ class SyncEngine:
 
         client = client or self.client
 
-        logger.info(f"Syncing ↓ {dbx_path}")
+        self._logger.info(f"Syncing ↓ {dbx_path}")
 
         with self.sync_lock:
 
@@ -2624,7 +2624,7 @@ class SyncEngine:
                     idx += len(res.entries)
 
                     if idx > 0:
-                        logger.info(f"Indexing {idx}...")
+                        self._logger.info(f"Indexing {idx}...")
 
                     res.entries.sort(key=lambda x: x.path_lower.count("/"))
 
@@ -2667,14 +2667,14 @@ class SyncEngine:
 
         client = client or self.client
 
-        logger.debug("Waiting for remote changes since cursor:\n%s", last_cursor)
+        self._logger.debug("Waiting for remote changes since cursor:\n%s", last_cursor)
         has_changes = client.wait_for_remote_changes(last_cursor, timeout=timeout)
 
         # For for 2 sec. This delay is typically only necessary folders are shared /
         # un-shared with other Dropbox accounts.
         time.sleep(2)
 
-        logger.debug("Detected remote changes: %s", has_changes)
+        self._logger.debug("Detected remote changes: %s", has_changes)
         return has_changes
 
     def download_sync_cycle(self, client: Optional[DropboxClient] = None) -> None:
@@ -2705,11 +2705,11 @@ class SyncEngine:
             is_indexing = not self._state.get("sync", "did_finish_indexing")
 
             if is_indexing and idx == 0:
-                logger.info("Indexing remote Dropbox")
+                self._logger.info("Indexing remote Dropbox")
             elif is_indexing:
-                logger.info("Resuming indexing")
+                self._logger.info("Resuming indexing")
             else:
-                logger.info("Fetching remote changes")
+                self._logger.info("Fetching remote changes")
 
             changes_iter = self.list_remote_changes_iterator(self.remote_cursor, client)
 
@@ -2719,7 +2719,7 @@ class SyncEngine:
                 idx += len(changes)
 
                 if idx > 0:
-                    logger.info(f"Indexing {idx}...")
+                    self._logger.info(f"Indexing {idx}...")
 
                 downloaded = self.apply_remote_changes(changes)
 
@@ -2741,7 +2741,7 @@ class SyncEngine:
             self._state.set("sync", "indexing_counter", 0)
 
             if idx > 0:
-                logger.info(IDLE)
+                self._logger.info(IDLE)
 
             self._clear_caches()
 
@@ -2768,31 +2768,21 @@ class SyncEngine:
         else:
             # Pick up where we left off. This may be an interrupted indexing /
             # pagination through changes or a completely new set of changes.
-            logger.debug("Fetching remote changes since cursor: %s", last_cursor)
+            self._logger.debug("Fetching remote changes since cursor: %s", last_cursor)
             changes_iter = client.list_remote_changes_iterator(last_cursor)
 
         for changes in changes_iter:
 
-            if logger.getEffectiveLevel() <= logging.DEBUG:
-                # Prevent allocating large strings if log level is larger than debug.
-                logger.debug(
-                    "Listed remote changes:\n%s", entries_repr(changes.entries)
-                )
+            changes = self._clean_remote_changes(changes)
 
-            clean_changes = self._clean_remote_changes(changes)
+            self._logger.debug("Remote changes:\n%s", pf_repr(changes.entries))
 
-            if logger.getEffectiveLevel() <= logging.DEBUG:
-                # Prevent allocating large strings if log level is larger than debug.
-                logger.debug(
-                    "Cleaned remote changes:\n%s", entries_repr(clean_changes.entries)
-                )
-
-            clean_changes.entries.sort(key=lambda x: x.path_lower.count("/"))
+            changes.entries.sort(key=lambda x: x.path_lower.count("/"))
             sync_events = [
-                SyncEvent.from_dbx_metadata(md, self) for md in clean_changes.entries
+                SyncEvent.from_dbx_metadata(md, self) for md in changes.entries
             ]
 
-            logger.debug("Converted remote changes to SyncEvents")
+            self._logger.debug("Converted remote changes to SyncEvents")
 
             yield sync_events, changes.cursor
 
@@ -2850,7 +2840,7 @@ class SyncEngine:
 
         # apply deleted items
         if deleted:
-            logger.info("Applying deletions...")
+            self._logger.info("Applying deletions...")
         for level in sorted(deleted):
             items = deleted[level]
             with ThreadPoolExecutor(
@@ -2861,12 +2851,12 @@ class SyncEngine:
 
                 n_items = len(items)
                 for n, r in enumerate(res):
-                    throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
+                    throttled_log(self._logger, f"Deleting {n + 1}/{n_items}...")
                     results.append(r)
 
         # create local folders, start with top-level and work your way down
         if folders:
-            logger.info("Creating folders...")
+            self._logger.info("Creating folders...")
         for level in sorted(folders):
             items = folders[level]
             with ThreadPoolExecutor(
@@ -2877,7 +2867,7 @@ class SyncEngine:
 
                 n_items = len(items)
                 for n, r in enumerate(res):
-                    throttled_log(logger, f"Creating folder {n + 1}/{n_items}...")
+                    throttled_log(self._logger, f"Creating folder {n + 1}/{n_items}...")
                     results.append(r)
 
         # apply created files
@@ -2888,7 +2878,7 @@ class SyncEngine:
 
             n_items = len(files)
             for n, r in enumerate(res):
-                throttled_log(logger, f"Syncing ↓ {n + 1}/{n_items}")
+                throttled_log(self._logger, f"Syncing ↓ {n + 1}/{n_items}")
                 results.append(r)
 
         self._clean_history()
@@ -3024,7 +3014,7 @@ class SyncEngine:
         if event.rev == local_rev:
             # Local change has the same rev. The local item (or deletion) must be newer
             # and not yet synced or identical to the remote state. Don't overwrite.
-            logger.debug(
+            self._logger.debug(
                 'Equal revs for "%s": local item is the same or newer '
                 "than on Dropbox",
                 event.dbx_path,
@@ -3034,26 +3024,30 @@ class SyncEngine:
         elif event.content_hash == self.get_local_hash(event.local_path):
             # Content hashes are equal, therefore items are identical. Folders will
             # have a content hash of 'folder'.
-            logger.debug('Equal content hashes for "%s": no conflict', event.dbx_path)
+            self._logger.debug(
+                'Equal content hashes for "%s": no conflict', event.dbx_path
+            )
             return Conflict.Identical
         elif any(
             is_equal_or_child(p, event.dbx_path.lower()) for p in self.upload_errors
         ):
             # Local version could not be uploaded due to a sync error. Do not over-
             # write unsynced changes but declare a conflict.
-            logger.debug('Unresolved upload error for "%s": conflict', event.dbx_path)
+            self._logger.debug(
+                'Unresolved upload error for "%s": conflict', event.dbx_path
+            )
             return Conflict.Conflict
         elif not self._ctime_newer_than_last_sync(event.local_path):
             # Last change time of local item (recursive for folders) is older than
             # the last time the item was synced. Remote must be newer.
-            logger.debug(
+            self._logger.debug(
                 'Local item "%s" has no unsynced changes: remote item is newer',
                 event.dbx_path,
             )
             return Conflict.RemoteNewer
         elif event.is_deleted:
             # Remote item was deleted but local item has been modified since then.
-            logger.debug(
+            self._logger.debug(
                 'Local item "%s" has unsynced changes and remote was '
                 "deleted: local item is newer",
                 event.dbx_path,
@@ -3061,7 +3055,7 @@ class SyncEngine:
             return Conflict.LocalNewerOrIdentical
         else:
             # Both remote and local items have unsynced changes: conflict.
-            logger.debug(
+            self._logger.debug(
                 'Local item "%s" has unsynced local changes: conflict',
                 event.dbx_path,
             )
@@ -3144,9 +3138,7 @@ class SyncEngine:
         except (FileNotFoundError, NotADirectoryError):
             return -1.0
 
-    def _clean_remote_changes(
-        self, changes: dropbox.files.ListFolderResult
-    ) -> dropbox.files.ListFolderResult:
+    def _clean_remote_changes(self, changes: ListFolderResult) -> ListFolderResult:
         """
         Takes remote file events since last sync and cleans them up so that there is
         only a single event per path.
@@ -3305,7 +3297,7 @@ class SyncEngine:
                 with convert_api_errors(local_path=new_local_path):
                     move(local_path, new_local_path, raise_error=True)
 
-            logger.debug(
+            self._logger.debug(
                 'Download conflict: renamed "%s" to "%s"', local_path, new_local_path
             )
             self.rescan(new_local_path)
@@ -3345,7 +3337,7 @@ class SyncEngine:
         self.update_index_from_sync_event(event)
         self._save_local_hash(event.local_path, event.content_hash, mtime)
 
-        logger.debug('Created local file "%s"', event.dbx_path)
+        self._logger.debug('Created local file "%s"', event.dbx_path)
 
         return event
 
@@ -3381,7 +3373,7 @@ class SyncEngine:
                 with convert_api_errors(local_path=new_local_path):
                     move(event.local_path, new_local_path, raise_error=True)
 
-            logger.debug(
+            self._logger.debug(
                 'Download conflict: renamed "%s" to "%s"',
                 event.local_path,
                 new_local_path,
@@ -3409,7 +3401,7 @@ class SyncEngine:
 
         self.update_index_from_sync_event(event)
 
-        logger.debug('Created local folder "%s"', event.dbx_path)
+        self._logger.debug('Created local folder "%s"', event.dbx_path)
 
         return event
 
@@ -3441,11 +3433,11 @@ class SyncEngine:
 
         if not exc:
             self.update_index_from_sync_event(event)
-            logger.debug('Deleted local item "%s"', event.dbx_path)
+            self._logger.debug('Deleted local item "%s"', event.dbx_path)
             return event
         elif isinstance(exc, (FileNotFoundError, NotADirectoryError)):
             self.update_index_from_sync_event(event)
-            logger.debug('Deletion failed: "%s" not found', event.dbx_path)
+            self._logger.debug('Deletion failed: "%s" not found', event.dbx_path)
             return None
         else:
             raise os_to_maestral_error(exc)
@@ -3475,7 +3467,7 @@ class SyncEngine:
                 entry.dbx_path_cased = event.dbx_path
                 self._db_manager_index.update(entry)
 
-            logger.debug('Renamed "%s" to "%s"', local_path_old, event.local_path)
+            self._logger.debug('Renamed "%s" to "%s"', local_path_old, event.local_path)
 
     def rescan(self, local_path: str) -> None:
         """
@@ -3486,7 +3478,7 @@ class SyncEngine:
         :param local_path: Path to rescan.
         """
 
-        logger.debug('Rescanning "%s"', local_path)
+        self._logger.debug('Rescanning "%s"', local_path)
 
         if osp.isfile(local_path):
             self.fs_events.queue_event(FileModifiedEvent(local_path))
@@ -3611,17 +3603,20 @@ def split_moved_event(
     return deleted_event, created_event
 
 
-def entries_repr(entries: List[Metadata]) -> str:
+class pf_repr:
     """
-    Generates a nicely formatted string repr from a list of Dropbox metadata.
+    Class that wraps an object and creates a pretty formatted representation for it.
+    This can be used to get pretty formatting in log messages while deferring the actual
+    formatting until the message is created.
 
-    :param entries: List of Dropbox metadata.
-    :returns: String representation of the list.
+    :param obj: Object to wrap.
     """
-    str_reps = [
-        f"<{e.__class__.__name__}(path_display={e.path_display})>" for e in entries
-    ]
-    return "[" + ",\n ".join(str_reps) + "]"
+
+    def __init__(self, obj: Any) -> None:
+        self.obj = obj
+
+    def __repr__(self) -> str:
+        return pformat(self.obj)
 
 
 _last_emit = time.time()

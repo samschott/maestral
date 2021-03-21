@@ -87,8 +87,6 @@ __all__ = [
 ]
 
 
-logger = logging.getLogger(__name__)
-
 # type definitions
 LocalError = Union[MaestralApiError, OSError]
 WriteErrorType = Type[
@@ -198,6 +196,8 @@ class DropboxClient:
 
         self.config_name = config_name
         self.auth = OAuth2Session(config_name)
+
+        self._logger = logging.getLogger(__name__)
 
         self._timeout = timeout
         self._session = session or create_session()
@@ -959,7 +959,7 @@ class DropboxClient:
 
         # Keep track of last longpoll, back off if requested by API.
         if res.backoff:
-            logger.debug("Backoff requested for %s sec", res.backoff)
+            self._logger.debug("Backoff requested for %s sec", res.backoff)
             self._backoff_until = time.time() + res.backoff + 5.0
         else:
             self._backoff_until = 0

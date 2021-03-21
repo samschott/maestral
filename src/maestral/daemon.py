@@ -14,7 +14,6 @@ import subprocess
 import threading
 import fcntl
 import struct
-import tempfile
 import logging
 import warnings
 import argparse
@@ -51,6 +50,7 @@ __all__ = [
     "get_maestral_pid",
     "sockpath_for_config",
     "lockpath_for_config",
+    "wait_for_startup",
     "is_running",
     "freeze_support",
     "start_maestral_daemon",
@@ -204,33 +204,29 @@ class Lock:
     _singleton_lock = threading.Lock()
 
     @classmethod
-    def singleton(cls, name: str, lock_path: Optional[str] = None) -> "Lock":
+    def singleton(cls, path: str) -> "Lock":
         """
         Retrieve an existing lock object with a given 'name' or create a new one. Use
         this method for thread-safe locks.
 
-        :param name: Name of lock file.
-        :param lock_path: Directory for lock files. Defaults to the temporary directory
-            returned by :func:`tempfile.gettempdir()` if not given.
+        :param path: Path of lock file.
         """
 
         with cls._singleton_lock:
             try:
-                instance = cls._instances[name]
+                instance = cls._instances[path]
             except KeyError:
-                instance = cls(name, lock_path)
-                cls._instances[name] = instance
+                instance = cls(path)
+                cls._instances[path] = instance
 
             return instance
 
-    def __init__(self, name: str, lock_path: Optional[str] = None) -> None:
+    def __init__(self, path: str) -> None:
 
-        self.name = name
-        dirname = lock_path or tempfile.gettempdir()
-        lock_path = os.path.join(dirname, name)
+        self.path = path
 
         self._internal_lock = threading.Semaphore()
-        self._external_lock = InterProcessLock(lock_path)
+        self._external_lock = InterProcessLock(self.path)
 
         self._lock = threading.RLock()
 
@@ -326,7 +322,7 @@ def maestral_lock(config_name: str) -> Lock:
     """
     name = f"{config_name}.lock"
     path = get_runtime_path("maestral")
-    return Lock.singleton(name, path)
+    return Lock.singleton(os.path.join(path, name))
 
 
 def sockpath_for_config(config_name: str) -> str:
@@ -367,7 +363,7 @@ def is_running(config_name: str) -> bool:
     return maestral_lock(config_name).locked()
 
 
-def _wait_for_startup(config_name: str, timeout: float) -> None:
+def wait_for_startup(config_name: str, timeout: float = 5) -> None:
     """
     Waits until we can communicate with the maestral daemon for ``config_name``.
 
@@ -399,7 +395,7 @@ def _wait_for_startup(config_name: str, timeout: float) -> None:
 
 
 def start_maestral_daemon(
-    config_name: str = "maestral", log_to_stdout: bool = False, start_sync: bool = False
+    config_name: str = "maestral", log_to_stderr: bool = False, start_sync: bool = False
 ) -> None:
     """
     Starts the Maestral daemon with event loop in the current thread. Startup is race
@@ -413,15 +409,18 @@ def start_maestral_daemon(
     use input such as clicked notifications, etc, and potentially allows showing a GUI.
 
     :param config_name: The name of the Maestral configuration to use.
-    :param log_to_stdout: If ``True``, write logs to stdout.
+    :param log_to_stderr: If ``True``, write logs to stderr.
     :param start_sync: If ``True``, start syncing once the daemon has started. If the
         ``start_sync`` call fails, an error will be logged but not raised.
     :raises RuntimeError: if a daemon for the given ``config_name`` is already running.
     """
 
     import asyncio
-    from . import notify
     from .main import Maestral
+    from .logging import scoped_logger, setup_logging
+
+    setup_logging(config_name, log_to_stderr)
+    dlogger = scoped_logger(__name__, config_name)
 
     if threading.current_thread() is not threading.main_thread():
         raise RuntimeError("Must run daemon in main thread")
@@ -432,42 +431,20 @@ def start_maestral_daemon(
     lock = maestral_lock(config_name)
 
     if lock.acquire():
-        logger.debug("Acquired daemon lock")
+        dlogger.debug("Acquired daemon lock: %s", lock.path)
     else:
         raise RuntimeError("Maestral daemon is already running")
 
-    # Nice ourselves to give other processes priority. We will likely only
-    # have significant CPU usage in case of many concurrent downloads.
+    # Nice ourselves to give other processes priority.
     os.nice(10)
 
     # Integrate with CFRunLoop in macOS.
     if IS_MACOS:
 
-        logger.debug("Cancelling all tasks from asyncio event loop")
+        dlogger.debug("Integrating with CFEventLoop")
 
         from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
 
-        # Clean up any pending tasks before we change the event loop policy.
-        # This is necessary if previous code has run an asyncio loop.
-
-        loop = asyncio.get_event_loop()
-        try:
-            # Python 3.7 and higher
-            all_tasks = asyncio.all_tasks(loop)
-        except AttributeError:
-            # Python 3.6
-            all_tasks = asyncio.Task.all_tasks(loop)
-        pending_tasks = [t for t in all_tasks if not t.done()]
-
-        for task in pending_tasks:
-            task.cancel()
-
-        loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
-        loop.close()
-
-        logger.debug("Integrating with CFEventLoop")
-
-        # Set new event loop policy.
         asyncio.set_event_loop_policy(EventLoopPolicy())
 
     # Get the default event loop.
@@ -477,8 +454,8 @@ def start_maestral_daemon(
 
     # Notify systemd that we have started.
     if NOTIFY_SOCKET:
-        logger.debug("Running as systemd notify service")
-        logger.debug("NOTIFY_SOCKET = %s", NOTIFY_SOCKET)
+        dlogger.debug("Running as systemd notify service")
+        dlogger.debug("NOTIFY_SOCKET = %s", NOTIFY_SOCKET)
         sd_notifier.notify("READY=1")
 
     # Notify systemd periodically if alive.
@@ -493,14 +470,14 @@ def start_maestral_daemon(
                     sd_notifier.notify("WATCHDOG=1")
                     await asyncio.sleep(sleep / (2 * 10 ** 6))
 
-        logger.debug("Running as systemd watchdog service")
-        logger.debug("WATCHDOG_USEC = %s", WATCHDOG_USEC)
-        logger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
+        dlogger.debug("Running as systemd watchdog service")
+        dlogger.debug("WATCHDOG_USEC = %s", WATCHDOG_USEC)
+        dlogger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
         loop.create_task(periodic_watchdog())
 
     # Get socket for config name.
     sockpath = sockpath_for_config(config_name)
-    logger.debug(f"Socket path: '{sockpath}'")
+    dlogger.debug(f"Socket path: '{sockpath}'")
 
     # Clean up old socket.
     try:
@@ -511,7 +488,7 @@ def start_maestral_daemon(
     # Expose maestral as Pyro server. Convert management
     # methods to one way calls so that they don't block.
 
-    logger.debug("Creating Pyro daemon")
+    dlogger.debug("Creating Pyro daemon")
 
     ExposedMaestral = expose(Maestral)
 
@@ -519,21 +496,20 @@ def start_maestral_daemon(
     ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
     ExposedMaestral.shutdown_daemon = oneway(ExposedMaestral.shutdown_daemon)
 
-    maestral_daemon = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
+    maestral_daemon = ExposedMaestral(config_name, log_to_stderr=log_to_stderr)
 
     if start_sync:
 
+        dlogger.debug("Starting sync")
+
         try:
             maestral_daemon.start_sync()
-        except Exception as exc:
-            title = getattr(exc, "title", "Failed to start sync")
-            message = getattr(exc, "message", "Please inspect the logs")
-            logger.error(title, exc_info=True)
-            maestral_daemon.sync.notify(title, message, level=notify.ERROR)
+        except Exception:
+            dlogger.error("Could not start sync", exc_info=True)
 
     try:
 
-        logger.debug("Starting event loop")
+        dlogger.debug("Starting event loop")
 
         with Daemon(unixsocket=sockpath) as daemon:
             daemon.register(maestral_daemon, f"maestral.{config_name}")
@@ -560,7 +536,7 @@ def start_maestral_daemon(
             daemon.transportServer.housekeeper = None
 
     except Exception as exc:
-        logger.error(exc.args[0], exc_info=True)
+        dlogger.error(exc.args[0], exc_info=True)
     finally:
 
         if NOTIFY_SOCKET:
@@ -615,7 +591,7 @@ def start_maestral_daemon_process(
     )
 
     try:
-        _wait_for_startup(config_name, timeout=timeout)
+        wait_for_startup(config_name)
     except Exception as exc:
         logger.debug("Could not communicate with daemon", exc_info_tuple(exc))
 

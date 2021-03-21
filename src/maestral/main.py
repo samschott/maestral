@@ -2,7 +2,6 @@
 """This module defines the main API which is exposed to the CLI or GUI."""
 
 # system imports
-import sys
 import os
 import os.path as osp
 import shutil
@@ -36,11 +35,6 @@ from datetime import datetime, timezone
 from dropbox.files import FileMetadata
 from dropbox.sharing import RequestedVisibility
 
-try:
-    from systemd import journal  # type: ignore
-except ImportError:
-    journal = None
-
 # local imports
 from . import __version__
 from .client import CONNECTION_ERRORS, DropboxClient, convert_api_errors
@@ -56,7 +50,7 @@ from .errors import (
     UnsupportedFileTypeForDiff,
 )
 from .config import MaestralConfig, MaestralState, validate_config_name
-from .logging import CachedHandler, SdNotificationHandler, safe_journal_sender
+from .logging import CachedHandler, setup_logging, scoped_logger
 from .utils import get_newer_version
 from .utils.path import (
     is_child,
@@ -71,15 +65,12 @@ from .utils.serializer import (
     StoneType,
     ErrorType,
 )
-from .utils.appdirs import get_log_path, get_cache_path
+from .utils.appdirs import get_cache_path
 from .utils.integration import get_ac_state, ACState
 from .constants import IDLE, PAUSED, CONNECTING, FileStatus, GITHUB_RELEASES_API
 
 
 __all__ = ["Maestral"]
-
-
-logger = logging.getLogger(__name__)
 
 
 # ======================================================================================
@@ -117,16 +108,13 @@ class Maestral:
 
     :param config_name: Name of maestral configuration to run. Must not contain any
         whitespace. If the given config file does exist, it will be created.
-    :param log_to_stdout: If ``True``, Maestral will print log messages to stdout.
-        When started as a systemd services, this can result in duplicate log messages.
-        Defaults to ``False``.
+    :param log_to_stderr: If ``True``, Maestral will print log messages to stderr.
+        When started as a systemd services, this can result in duplicate log messages
+        in the systemd journal. Defaults to ``False``.
     """
 
-    log_handler_sd: Optional[SdNotificationHandler]
-    log_handler_journal: Optional["journal.JournalHandler"]
-
     def __init__(
-        self, config_name: str = "maestral", log_to_stdout: bool = False
+        self, config_name: str = "maestral", log_to_stderr: bool = False
     ) -> None:
 
         self._config_name = validate_config_name(config_name)
@@ -134,7 +122,8 @@ class Maestral:
         self._state = MaestralState(self._config_name)
 
         # set up logging
-        self._log_to_stdout = log_to_stdout
+        self._logger = scoped_logger(__name__, config_name)
+        self._log_to_stderr = log_to_stderr
         self._setup_logging()
 
         # set up sync infrastructure
@@ -209,12 +198,12 @@ class Maestral:
         try:
             self.client.dbx.auth_token_revoke()
         except (ConnectionError, MaestralApiError):
-            logger.debug("Could not invalidate token with Dropbox", exc_info=True)
+            self._logger.debug("Could not invalidate token with Dropbox", exc_info=True)
 
         try:
             self.client.auth.delete_creds()
         except KeyringAccessError:
-            logger.debug("Could not remove token from keyring", exc_info=True)
+            self._logger.debug("Could not remove token from keyring", exc_info=True)
 
         # clean up config + state
         self.sync.clear_index()
@@ -224,76 +213,33 @@ class Maestral:
         self.sync._load_cached_config()  # reload cached config values
         delete(self.sync.database_path)
 
-        logger.info("Unlinked Dropbox account.")
+        self._logger.info("Unlinked Dropbox account.")
 
     def _setup_logging(self) -> None:
         """
         Sets up logging to log files, status and error properties, desktop notifications,
-        the systemd journal if available, and to stdout if requested.
+        the systemd journal if available, and to stderr if requested.
         """
+        self._root_logger = scoped_logger("maestral", self.config_name)
+        (
+            self._log_handler_file,
+            self._log_handler_stream,
+            self._log_handler_sd,
+            self._log_handler_journal,
+        ) = setup_logging(self.config_name, self._log_to_stderr)
 
-        self._logger = logging.getLogger("maestral")
-        self._logger.setLevel(min(self.log_level, logging.INFO))
-
-        # clean up any previous handlers
-        # TODO: use namespaced handlers for config?
-        self._logger.handlers = []
-
-        log_fmt_long = logging.Formatter(
-            fmt="%(asctime)s %(name)s %(levelname)s: %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
         log_fmt_short = logging.Formatter(fmt="%(message)s")
-
-        # log to file
-        log_file_path = get_log_path("maestral", f"{self._config_name }.log")
-        self.log_handler_file = logging.handlers.RotatingFileHandler(
-            log_file_path,
-            maxBytes=10 ** 7,
-            backupCount=1,
-        )
-        self.log_handler_file.setFormatter(log_fmt_long)
-        self.log_handler_file.setLevel(self.log_level)
-        self._logger.addHandler(self.log_handler_file)
-
-        # log to journal when launched from systemd
-        if journal and os.getenv("INVOCATION_ID"):
-            # noinspection PyUnresolvedReferences
-            self.log_handler_journal = journal.JournalHandler(
-                SYSLOG_IDENTIFIER="maestral", sender_function=safe_journal_sender
-            )
-            self.log_handler_journal.setFormatter(log_fmt_short)
-            self.log_handler_journal.setLevel(self.log_level)
-            self._logger.addHandler(self.log_handler_journal)
-        else:
-            self.log_handler_journal = None
-
-        # log to NOTIFY_SOCKET when launched as systemd notify service
-        if os.getenv("NOTIFY_SOCKET"):
-            self.log_handler_sd = SdNotificationHandler()
-            self.log_handler_sd.setFormatter(log_fmt_short)
-            self.log_handler_sd.setLevel(logging.INFO)
-            self._logger.addHandler(self.log_handler_sd)
-        else:
-            self.log_handler_sd = None
-
-        # log to stderr (disabled by default)
-        level = self.log_level if self._log_to_stdout else 100
-        self.log_handler_stream = logging.StreamHandler(sys.stderr)
-        self.log_handler_stream.setFormatter(log_fmt_long)
-        self.log_handler_stream.setLevel(level)
-        self._logger.addHandler(self.log_handler_stream)
 
         # log to cached handlers for status and error APIs
         self._log_handler_info_cache = CachedHandler(maxlen=1)
         self._log_handler_info_cache.setFormatter(log_fmt_short)
         self._log_handler_info_cache.setLevel(logging.INFO)
-        self._logger.addHandler(self._log_handler_info_cache)
+        self._root_logger.addHandler(self._log_handler_info_cache)
 
         self._log_handler_error_cache = CachedHandler()
         self._log_handler_error_cache.setFormatter(log_fmt_short)
         self._log_handler_error_cache.setLevel(logging.ERROR)
-        self._logger.addHandler(self._log_handler_error_cache)
+        self._root_logger.addHandler(self._log_handler_error_cache)
 
     # ==== methods to access config and saved state ====================================
 
@@ -403,15 +349,15 @@ class Maestral:
 
                     # apply changes
                     for path in added_excluded_items:
-                        logger.info("Excluded %s", path)
+                        self._logger.info("Excluded %s", path)
                         self._remove_after_excluded(path)
 
                     for path in added_included_items:
                         if not self.sync.is_excluded_by_user(path):
-                            logger.info("Included %s", path)
+                            self._logger.info("Included %s", path)
                             self.monitor.added_item_queue.put(path)
 
-                    logger.info(IDLE)
+                    self._logger.info(IDLE)
 
                 finally:
                     self.sync.sync_lock.release()
@@ -423,31 +369,17 @@ class Maestral:
 
     @property
     def log_level(self) -> int:
-        """Log level for log files, stdout and the systemd journal."""
+        """Log level for log files, stderr and the systemd journal."""
         return self._conf.get("app", "log_level")
 
     @log_level.setter
     def log_level(self, level_num: int) -> None:
         """Setter: log_level."""
-        self._logger.setLevel(min(level_num, logging.INFO))
-        self.log_handler_file.setLevel(level_num)
-        if self.log_handler_journal:
-            self.log_handler_journal.setLevel(level_num)
-        if self.log_to_stdout:
-            self.log_handler_stream.setLevel(level_num)
+        self._root_logger.setLevel(min(level_num, logging.INFO))
+        self._log_handler_file.setLevel(level_num)
+        self._log_handler_stream.setLevel(level_num)
+        self._log_handler_journal.setLevel(level_num)
         self._conf.set("app", "log_level", level_num)
-
-    @property
-    def log_to_stdout(self) -> bool:
-        """Enables or disables logging to stdout."""
-        return self._log_to_stdout
-
-    @log_to_stdout.setter
-    def log_to_stdout(self, enabled: bool) -> None:
-        """Setter: log_to_stdout."""
-        self._log_to_stdout = enabled
-        level = self.log_level if enabled else 100
-        self.log_handler_stream.setLevel(level)
 
     @property
     def notification_snooze(self) -> float:
@@ -941,7 +873,7 @@ class Maestral:
 
         self._check_linked()
 
-        logger.info(f"Restoring '{dbx_path} to {rev}'")
+        self._logger.info(f"Restoring '{dbx_path} to {rev}'")
 
         res = self.client.restore(dbx_path, rev)
         return dropbox_stone_to_dict(res)
@@ -1042,8 +974,8 @@ class Maestral:
             )
 
         if self.sync.is_excluded_by_user(dbx_path):
-            logger.info("%s was already excluded", dbx_path)
-            logger.info(IDLE)
+            self._logger.info("%s was already excluded", dbx_path)
+            self._logger.info(IDLE)
             return
 
         if self.sync.sync_lock.acquire(blocking=False):
@@ -1061,8 +993,8 @@ class Maestral:
 
                 self._remove_after_excluded(dbx_path)
 
-                logger.info("Excluded %s", dbx_path)
-                logger.info(IDLE)
+                self._logger.info("Excluded %s", dbx_path)
+                self._logger.info(IDLE)
             finally:
                 self.sync.sync_lock.release()
 
@@ -1126,8 +1058,8 @@ class Maestral:
             )
 
         if not self.sync.is_excluded_by_user(dbx_path):
-            logger.info("'%s' is already included, nothing to do", dbx_path)
-            logger.info(IDLE)
+            self._logger.info("'%s' is already included, nothing to do", dbx_path)
+            self._logger.info(IDLE)
             return
 
         # ---- update excluded items list ----------------------------------------------
@@ -1169,10 +1101,10 @@ class Maestral:
                 # ---- download item from Dropbox --------------------------------------
 
                 if excluded_parent:
-                    logger.info("Included '%s' and parent directories", dbx_path)
+                    self._logger.info("Included '%s' and parent directories", dbx_path)
                     self.monitor.added_item_queue.put(excluded_parent)
                 else:
-                    logger.info("Included '%s'", dbx_path)
+                    self._logger.info("Included '%s'", dbx_path)
                     self.monitor.added_item_queue.put(dbx_path)
             finally:
                 self.sync.sync_lock.release()
@@ -1216,7 +1148,7 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
-        logger.info("Moving Dropbox folder...")
+        self._logger.info("Moving Dropbox folder...")
 
         # input checks
         old_path = self.sync.dropbox_path
@@ -1224,7 +1156,7 @@ class Maestral:
 
         try:
             if osp.samefile(old_path, new_path):
-                logger.info(f'Dropbox folder moved to "{new_path}"')
+                self._logger.info(f'Dropbox folder moved to "{new_path}"')
                 return
         except FileNotFoundError:
             pass
@@ -1245,7 +1177,7 @@ class Maestral:
         # update config file and client
         self.sync.dropbox_path = new_path
 
-        logger.info(f'Dropbox folder moved to "{new_path}"')
+        self._logger.info(f'Dropbox folder moved to "{new_path}"')
 
         # resume syncing
         if was_syncing:
@@ -1493,7 +1425,7 @@ class Maestral:
     def _update_from_pre_v1_3_2(self) -> None:
 
         if self._conf.get("app", "keyring") == "keyring.backends.OS_X.Keyring":
-            logger.info("Migrating keyring after update from pre v1.3.2")
+            self._logger.info("Migrating keyring after update from pre v1.3.2")
             self._conf.set("app", "keyring", "keyring.backends.macOS.Keyring")
 
     # ==== period async jobs ===========================================================

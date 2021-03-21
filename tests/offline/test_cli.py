@@ -5,10 +5,10 @@ import logging
 from click.testing import CliRunner
 
 from maestral.cli import main
-from maestral.main import logger
 from maestral.autostart import AutoStart
 from maestral.notify import level_number_to_name, level_name_to_number
 from maestral.daemon import MaestralProxy, start_maestral_daemon_process, Start
+from maestral.logging import scoped_logger
 
 
 def test_help():
@@ -206,6 +206,7 @@ def test_log_level(m):
 
 def test_log_show(m):
     # log a message
+    logger = scoped_logger("maestral", m.config_name)
     logger.info("Hello from pytest!")
     runner = CliRunner()
     result = runner.invoke(main, ["log", "show", "-c", m.config_name])
@@ -216,6 +217,7 @@ def test_log_show(m):
 
 def test_log_clear(m):
     # log a message
+    logger = scoped_logger("maestral", m.config_name)
     logger.info("Hello from pytest!")
     runner = CliRunner()
     result = runner.invoke(main, ["log", "show", "-c", m.config_name])
@@ -227,7 +229,7 @@ def test_log_clear(m):
     result = runner.invoke(main, ["log", "clear", "-c", m.config_name])
     assert result.exit_code == 0, result.output
 
-    with open(m.log_handler_file.stream.name) as f:
+    with open(m._log_handler_file.stream.name) as f:
         log_content = f.read()
 
     assert log_content == ""
