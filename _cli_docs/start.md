@@ -28,9 +28,18 @@ $ maestral start -f -v
 
 ### Options
 
+The daemon can be optionally started in the foreground with the `-f, --foreground ` flag
+instead of spawning a new process. This can be useful for instance when running it as a
+systemd service.
+
+If the `--verbose | -v` flag is set, all log messages will be printed to stderr. When used
+together with the foreground option, this means that logs will be printed directly to the
+console. When the daemon is started in the background, this will not have any effect
+because stdout and stderr will be redirected to `/dev/null`.
+
 ```
 -f, --foreground          Start Maestral in the foreground.
--v, --verbose             Print log messages to stdout when used together with '-f'.
+-v, --verbose             Print log messages to stderr.
 -c, --config-name CONFIG  Run command with the given configuration.
 --help                    Show help for this command and exit.
 ```
