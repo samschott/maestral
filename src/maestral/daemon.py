@@ -449,27 +449,6 @@ def start_maestral_daemon(
 
         from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
 
-        # Clean up any pending tasks before we change the event loop policy.
-        # This is necessary if previous code has run an asyncio loop.
-
-        loop = asyncio.get_event_loop()
-        try:
-            # Python 3.7 and higher
-            all_tasks = asyncio.all_tasks(loop)
-        except AttributeError:
-            # Python 3.6
-            all_tasks = asyncio.Task.all_tasks(loop)
-        pending_tasks = [t for t in all_tasks if not t.done()]
-
-        for task in pending_tasks:
-            task.cancel()
-
-        loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
-        loop.close()
-
-        logger.debug("Integrating with CFEventLoop")
-
-        # Set new event loop policy.
         asyncio.set_event_loop_policy(EventLoopPolicy())
 
     # Get the default event loop.
