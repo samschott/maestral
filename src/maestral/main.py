@@ -221,6 +221,7 @@ class Maestral:
         self.sync.clear_sync_history()
         self._conf.cleanup()
         self._state.cleanup()
+        self.sync._load_cached_config()  # reload cached config values
         delete(self.sync.database_path)
 
         logger.info("Unlinked Dropbox account.")

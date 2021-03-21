@@ -4,10 +4,12 @@
 # system imports
 import errno
 import time
+import logging
+import gc
+import ctypes
 from contextlib import contextmanager
 from functools import wraps
 from queue import Empty, Queue
-import logging
 from threading import Event, RLock, Thread
 from typing import Iterator, Optional, cast, List, Type, TypeVar, Callable, Any
 
@@ -47,6 +49,22 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 FT = TypeVar("FT", bound=Callable[..., Any])
+
+
+malloc_trim: Optional[Callable]
+
+try:
+    libc = ctypes.CDLL("libc.so.6")
+    malloc_trim = libc.malloc_trim
+except (OSError, AttributeError):
+    malloc_trim = None
+
+
+def _free_memory() -> None:
+    """Give back memory"""
+
+    if malloc_trim:
+        malloc_trim(0)
 
 
 # ======================================================================================
@@ -119,6 +137,8 @@ def download_worker(
 
                     client.get_space_usage()  # update space usage
 
+    gc.collect()
+
 
 def download_worker_added_item(
     sync: SyncEngine,
@@ -164,6 +184,8 @@ def download_worker_added_item(
 
                     logger.info(IDLE)
 
+    gc.collect()
+
 
 def upload_worker(
     sync: SyncEngine,
@@ -198,6 +220,8 @@ def upload_worker(
                 sync.upload_sync_cycle()
                 logger.info(IDLE)
 
+    gc.collect()
+
 
 def startup_worker(
     sync: SyncEngine,
@@ -217,6 +241,8 @@ def startup_worker(
     conf = MaestralConfig(sync.config_name)
 
     with handle_sync_thread_errors(running, autostart, sync.notifier):
+
+        sync.load_mignore_file()
 
         with sync.client.clone_with_new_session() as client:
 
@@ -251,6 +277,9 @@ def startup_worker(
         logger.info(IDLE)
 
     startup_completed.set()
+
+    gc.collect()
+    _free_memory()
 
 
 # ======================================================================================
@@ -531,15 +560,10 @@ class SyncMonitor:
     def reset_sync_state(self) -> None:
         """Resets all saved sync state. Settings are not affected."""
 
-        if self.running.is_set() or self.sync.busy():
+        if self.running.is_set():
             raise RuntimeError("Cannot reset sync state while syncing.")
 
-        self.sync.remote_cursor = ""
-        self.sync.local_cursor = 0.0
-        self.sync.clear_index()
-        self.sync.clear_sync_history()
-
-        logger.debug("Sync state reset")
+        self.sync.reset_sync_state()
 
     def rebuild_index(self) -> None:
         """

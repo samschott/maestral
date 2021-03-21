@@ -12,9 +12,8 @@ import random
 import uuid
 import urllib.parse
 import enum
-import pprint
-import gc
 import sqlite3
+from pprint import pformat
 from threading import Event, Condition, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
@@ -30,7 +29,6 @@ from typing import (
     Tuple,
     Union,
     Iterator,
-    Iterable,
     Callable,
     Hashable,
     cast,
@@ -38,8 +36,8 @@ from typing import (
 
 # external imports
 import click
-import pathspec  # type: ignore
 import dropbox  # type: ignore
+from pathspec import PathSpec
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
 from watchdog.events import FileSystemEventHandler  # type: ignore
 from watchdog.events import (
@@ -59,7 +57,6 @@ from watchdog.events import (
     FileMovedEvent,
     FileSystemEvent,
 )
-from watchdog.utils.dirsnapshot import DirectorySnapshot  # type: ignore
 
 # local imports
 from . import notify
@@ -112,6 +109,7 @@ from .utils.path import (
     is_child,
     is_equal_or_child,
     content_hash,
+    walk,
 )
 from .utils.orm import Database, Manager
 from .utils.appdirs import get_data_path, get_home_dir
@@ -487,6 +485,7 @@ class SyncEngine:
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
+        self._load_cached_config()
 
         self.notifier = notify.MaestralDesktopNotifier(self.config_name)
 
@@ -516,33 +515,37 @@ class SyncEngine:
         # data structures for user information
         self.syncing = []
 
-        # determine file paths
-        self._dropbox_path = self._conf.get("main", "path")
-        self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
-        self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
+        # initialize SQLite database
         self._db_path = get_data_path("maestral", f"{self.config_name}.db")
 
-        # reset sync state if DB is missing
         if not osp.exists(self._db_path):
+            # reset sync state if DB is missing
             self.remote_cursor = ""
+            self.local_cursor = 0.0
 
-        # initialize SQLite database
         self._db = Database(self._db_path, check_same_thread=False)
         self._db_manager_index = Manager(self._db, IndexEntry)
         self._db_manager_history = Manager(self._db, SyncEvent)
         self._db_manager_hash_cache = Manager(self._db, HashCacheEntry)
-
-        # load cached properties
-        self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
-        self._mignore_rules = self._load_mignore_rules_form_file()
-        self._excluded_items = self._conf.get("main", "excluded_items")
-        self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
 
         # caches
         self._case_conversion_cache = LRUCache(capacity=5000)
 
         # clean our file cache
         self.clean_cache_dir()
+
+    def _load_cached_config(self) -> None:
+
+        self._dropbox_path = self._conf.get("main", "path")
+        self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
+        self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
+
+        self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
+        self._excluded_items = self._conf.get("main", "excluded_items")
+        self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
+        self._local_cursor = self._state.get("sync", "lastsync")
+
+        self.load_mignore_file()
 
     # ==== config access ===============================================================
 
@@ -647,20 +650,23 @@ class SyncEngine:
         """Setter: last_cursor"""
         with self.sync_lock:
             self._state.set("sync", "cursor", cursor)
-            logger.debug("Remote cursor saved: %s", cursor)
+
+        logger.debug("Remote cursor saved: %s", cursor)
 
     @property
     def local_cursor(self) -> float:
         """Time stamp from last sync with remote Dropbox. The value is updated and saved
         to the config file on every successful upload of local changes."""
-        return self._state.get("sync", "lastsync")
+        return self._local_cursor
 
     @local_cursor.setter
     def local_cursor(self, last_sync: float) -> None:
         """Setter: local_cursor"""
         with self.sync_lock:
-            logger.debug("Local cursor saved: %s", last_sync)
+            self._local_cursor = last_sync
             self._state.set("sync", "lastsync", last_sync)
+
+        logger.debug("Local cursor saved: %s", last_sync)
 
     @property
     def last_change(self) -> float:
@@ -700,6 +706,19 @@ class SyncEngine:
             self._db.execute("DROP TABLE history")
             self._db_manager_history.create_table()
             self._db_manager_history.clear_cache()
+
+    def reset_sync_state(self) -> None:
+        """Resets all saved sync state. Settings are not affected."""
+
+        if self.busy():
+            raise RuntimeError("Cannot reset sync state while syncing.")
+
+        self.remote_cursor = ""
+        self.local_cursor = 0.0
+        self.clear_index()
+        self.clear_sync_history()
+
+        logger.debug("Sync state reset")
 
     # ==== index management ============================================================
 
@@ -857,15 +876,12 @@ class SyncEngine:
                 else:
                     pass
 
-            self._db.commit()
-
     def clear_hash_cache(self) -> None:
         """Clears the sync history."""
         with self._database_access():
             self._db.execute("DROP TABLE hash_cache")
             self._db_manager_hash_cache.clear_cache()
             self._db_manager_hash_cache.create_table()
-            self._db.commit()
 
     def update_index_from_sync_event(self, event: SyncEvent) -> None:
         """
@@ -918,8 +934,6 @@ class SyncEngine:
                     )
 
                     self._db_manager_index.save(entry)
-
-            self._db.commit()
 
     def update_index_from_dbx_metadata(
         self, md: Metadata, client: Optional[DropboxClient] = None
@@ -978,8 +992,6 @@ class SyncEngine:
 
                     self._db_manager_index.save(entry)
 
-            self._db.commit()
-
     def remove_node_from_index(self, dbx_path: str) -> None:
         """
         Removes any local index entries for the given path and all its children.
@@ -1003,7 +1015,6 @@ class SyncEngine:
                 return
 
             self._db_manager_index.clear_cache()
-            self._db.commit()
 
     def clear_index(self) -> None:
         """Clears the revision index."""
@@ -1011,7 +1022,6 @@ class SyncEngine:
             self._db.execute("DROP TABLE 'index'")
             self._db_manager_index.clear_cache()
             self._db_manager_index.create_table()
-            self._db.commit()
 
     # ==== mignore management ==========================================================
 
@@ -1021,16 +1031,17 @@ class SyncEngine:
         return self._mignore_path
 
     @property
-    def mignore_rules(self) -> pathspec.PathSpec:
+    def mignore_rules(self) -> PathSpec:
         """List of mignore rules following git wildmatch syntax (read only)."""
-        if self._get_ctime(self.mignore_path) != self._mignore_ctime_loaded:
-            self._mignore_rules = self._load_mignore_rules_form_file()
         return self._mignore_rules
 
-    def _load_mignore_rules_form_file(self) -> pathspec.PathSpec:
-        """Loads rules from mignore file. No rules are loaded if the file does
-        not exist or cannot be read."""
-        self._mignore_ctime_loaded = self._get_ctime(self.mignore_path)
+    def load_mignore_file(self) -> None:
+        """
+        Loads rules from mignore file. No rules are loaded if the file does
+        not exist or cannot be read.
+
+        :returns: PathSpec instance with ignore patterns.
+        """
         try:
             with open(self.mignore_path) as f:
                 spec = f.read()
@@ -1039,7 +1050,8 @@ class SyncEngine:
                 f"Could not load mignore rules from {self.mignore_path}: {err}"
             )
             spec = ""
-        return pathspec.PathSpec.from_lines("gitwildmatch", spec.splitlines())
+
+        self._mignore_rules = PathSpec.from_lines("gitwildmatch", spec.splitlines())
 
     # ==== helper functions ============================================================
 
@@ -1234,9 +1246,7 @@ class SyncEngine:
         :returns: Corresponding local path on drive.
         """
 
-        dbx_path_cased = dbx_path_cased.lstrip("/")
-
-        return osp.join(self.dropbox_path, dbx_path_cased)
+        return f"{self.dropbox_path}{dbx_path_cased}"
 
     def to_local_path(self, dbx_path: str, client=Optional[DropboxClient]) -> str:
         """
@@ -1257,7 +1267,7 @@ class SyncEngine:
 
         dbx_path_cased = self.correct_case(dbx_path, client)
 
-        return osp.join(self.dropbox_path, dbx_path_cased.lstrip("/"))
+        return f"{self.dropbox_path}{dbx_path_cased}"
 
     def has_sync_errors(self) -> bool:
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
@@ -1374,7 +1384,7 @@ class SyncEngine:
         relative_path = dbx_path.lstrip("/")
 
         if is_dir:
-            relative_path += "/"
+            relative_path = f"{relative_path}/"
 
         return self.mignore_rules.match_file(relative_path)
 
@@ -1520,15 +1530,13 @@ class SyncEngine:
             else:
                 raise new_exc
 
-    def _free_memory(self) -> None:
+    def _clear_caches(self) -> None:
         """
-        Frees memory by clearing out case-conversion cache, clearing all expired event
-        ignores and running garbage collection.
+        Frees memory by clearing internal caches.
         """
 
         self._case_conversion_cache.clear()
         self.fs_events.expire_ignored_events()
-        gc.collect()
 
     # ==== Upload sync =================================================================
 
@@ -1546,14 +1554,12 @@ class SyncEngine:
                 events, local_cursor = self._get_local_changes_while_inactive()
 
                 if logger.getEffectiveLevel() <= logging.DEBUG:
-                    logger.debug("Retrieved local changes:\n%s", pprint.pformat(events))
+                    logger.debug("Retrieved local changes:\n%s", pformat(events))
 
                 events = self._clean_local_events(events)
                 sync_events = [
                     SyncEvent.from_file_system_event(e, self) for e in events
                 ]
-                del events
-                self._free_memory()
             except (FileNotFoundError, NotADirectoryError):
                 self.ensure_dropbox_folder_present()
                 return
@@ -1566,8 +1572,7 @@ class SyncEngine:
 
             self.local_cursor = local_cursor
 
-            del sync_events
-            self._free_memory()
+            self._clear_caches()
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
         """
@@ -1585,83 +1590,67 @@ class SyncEngine:
 
         changes = []
         snapshot_time = time.time()
-        snapshot = DirectorySnapshot(
-            self.dropbox_path, listdir=self._scandir_with_mignore
-        )
-        lowercase_snapshot_paths: Set[str] = set()
 
-        # If the number of index entries is not too large, pre-load them now to enable
-        # database queries to use the cache. This results in significant performance
-        # improvements. Otherwise, fetch entries on-demand during iteration.
+        # Get modified or added items.
+        for path, stat in walk(self.dropbox_path, self._scandir_with_mignore):
 
-        entries: Iterable[IndexEntry]
+            is_dir = S_ISDIR(stat.st_mode)
+            dbx_path_lower = self.to_dbx_path(path).lower()
+            index_entry = self.get_index_entry(dbx_path_lower)
 
-        if self.index_count() < 150000:
-            entries = self.get_index()
-        else:
-            entries = self.iter_index()
+            if index_entry:
+                is_new = False
+                last_sync = index_entry.last_sync or 0.0
+            else:
+                is_new = True
+                last_sync = 0.0
 
-        # get modified or added items
-        for path in snapshot.paths:
+            last_sync = max(last_sync, self.local_cursor)
 
-            # generate lower-case snapshot paths for later
-            lowercase_snapshot_paths.add(path.lower())
+            # Check if item was created or modified since last sync
+            # but before we started the FileEventHandler (~snapshot_time).
 
-            if path != self.dropbox_path:
+            ctime_check = snapshot_time > stat.st_ctime > last_sync
 
-                dbx_path_lower = self.to_dbx_path(path).lower()
+            # always upload untracked items, check ctime of tracked items
+            is_modified = ctime_check and not is_new
 
-                # check if item was created or modified since last sync
-                # but before we started the FileEventHandler (~snapshot_time)
-                stats = snapshot.stat_info(path)
-                last_sync = self.get_last_sync(dbx_path_lower)
-                ctime_check = snapshot_time > stats.st_ctime > last_sync
+            if is_new:
+                if is_dir:
+                    event = DirCreatedEvent(path)
+                else:
+                    event = FileCreatedEvent(path)
+                changes.append(event)
 
-                # always upload untracked items, check ctime of tracked items
-                index_entry = self.get_index_entry(dbx_path_lower)
-                is_new = index_entry is None
-                is_modified = ctime_check and not is_new
-
-                if is_new:
-                    if snapshot.isdir(path):
-                        event = DirCreatedEvent(path)
-                    else:
-                        event = FileCreatedEvent(path)
+            elif is_modified:
+                if is_dir and index_entry.is_directory:  # type: ignore
+                    # We don't emit `DirModifiedEvent`s.
+                    pass
+                elif not is_dir and not index_entry.is_directory:  # type: ignore
+                    event = FileModifiedEvent(path)
                     changes.append(event)
+                elif is_dir:
+                    event0 = FileDeletedEvent(path)
+                    event1 = DirCreatedEvent(path)
+                    changes += [event0, event1]
+                elif not is_dir:
+                    event0 = DirDeletedEvent(path)
+                    event1 = FileCreatedEvent(path)
+                    changes += [event0, event1]
 
-                elif is_modified:
-                    if snapshot.isdir(path) and index_entry.is_directory:  # type: ignore
-                        # We don't emit `DirModifiedEvent`s.
-                        pass
-                    elif not snapshot.isdir(path) and not index_entry.is_directory:  # type: ignore
-                        event = FileModifiedEvent(path)
-                        changes.append(event)
-                    elif snapshot.isdir(path):
-                        event0 = FileDeletedEvent(path)
-                        event1 = DirCreatedEvent(path)
-                        changes += [event0, event1]
-                    elif not snapshot.isdir(path):
-                        event0 = DirDeletedEvent(path)
-                        event1 = FileCreatedEvent(path)
-                        changes += [event0, event1]
+        # Get deleted items.
+        for entry in self.iter_index():
+            local_path = self.to_local_path_from_cased(entry.dbx_path_cased)
+            is_mignore = self._is_mignore_path(entry.dbx_path_cased, entry.is_directory)
 
-        # get deleted items
-        dbx_root_lower = self.dropbox_path.lower()
-        for entry in entries:
-            local_path_uncased = f"{dbx_root_lower}{entry.dbx_path_lower}"
-            if local_path_uncased not in lowercase_snapshot_paths:
-                local_path = self.to_local_path_from_cased(entry.dbx_path_cased)
+            if is_mignore or not osp.exists(local_path):
                 if entry.is_directory:
                     event = DirDeletedEvent(local_path)
                 else:
                     event = FileDeletedEvent(local_path)
                 changes.append(event)
 
-        # free memory
-        del entries
-        del snapshot
-        del lowercase_snapshot_paths
-        gc.collect()
+        logger.debug("Local indexing completed in %s sec", time.time() - snapshot_time)
 
         return changes, snapshot_time
 
@@ -1696,7 +1685,7 @@ class SyncEngine:
             self.local_cursor = cursor
 
             del changes
-            self._free_memory()
+            self._clear_caches()
 
             if self._cancel_requested.is_set():
                 raise CancelledError("Sync cancelled")
@@ -1723,7 +1712,7 @@ class SyncEngine:
                 break
 
         if logger.getEffectiveLevel() <= logging.DEBUG:
-            logger.debug("Retrieved local file events:\n%s", pprint.pformat(events))
+            logger.debug("Retrieved local file events:\n%s", pformat(events))
 
         events = self._clean_local_events(events)
         sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
@@ -1738,64 +1727,65 @@ class SyncEngine:
         :param sync_events: List of local file system events.
         """
 
-        results = []
+        results: List[SyncEvent] = []
 
-        if len(sync_events) > 0:
+        if len(sync_events) == 0:
+            return results
 
-            sync_events, _ = self._filter_excluded_changes_local(sync_events)
+        sync_events, _ = self._filter_excluded_changes_local(sync_events)
 
-            deleted: List[SyncEvent] = []
-            dir_moved: List[SyncEvent] = []
-            other: List[SyncEvent] = []  # file created + moved, dir created
+        deleted: List[SyncEvent] = []
+        dir_moved: List[SyncEvent] = []
+        other: List[SyncEvent] = []  # file created + moved, dir created
 
-            for event in sync_events:
-                if event.is_deleted:
-                    deleted.append(event)
-                elif event.is_directory and event.is_moved:
-                    dir_moved.append(event)
-                else:
-                    other.append(event)
+        for event in sync_events:
+            if event.is_deleted:
+                deleted.append(event)
+            elif event.is_directory and event.is_moved:
+                dir_moved.append(event)
+            else:
+                other.append(event)
 
-                # housekeeping
-                self.syncing.append(event)
+            # housekeeping
+            self.syncing.append(event)
 
-            # apply deleted events first, folder moved events second
-            # neither event type requires an actual upload
-            if deleted:
-                logger.info("Uploading deletions...")
+        # apply deleted events first, folder moved events second
+        # neither event type requires an actual upload
+        if deleted:
+            logger.info("Uploading deletions...")
 
-            with ThreadPoolExecutor(
-                max_workers=self._num_threads,
-                thread_name_prefix="maestral-upload-pool",
-            ) as executor:
-                res = executor.map(self._create_remote_entry, deleted)
+        with ThreadPoolExecutor(
+            max_workers=self._num_threads,
+            thread_name_prefix="maestral-upload-pool",
+        ) as executor:
+            res = executor.map(self._create_remote_entry, deleted)
 
-                n_items = len(deleted)
-                for n, r in enumerate(res):
-                    throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
-                    results.append(r)
-
-            if dir_moved:
-                logger.info("Moving folders...")
-
-            for event in dir_moved:
-                logger.info(f"Moving {event.dbx_path_from}...")
-                r = self._create_remote_entry(event)
+            n_items = len(deleted)
+            for n, r in enumerate(res):
+                throttled_log(logger, f"Deleting {n + 1}/{n_items}...")
                 results.append(r)
 
-            # apply other events in parallel since order does not matter
-            with ThreadPoolExecutor(
-                max_workers=self._num_threads,
-                thread_name_prefix="maestral-upload-pool",
-            ) as executor:
-                res = executor.map(self._create_remote_entry, other)
+        if dir_moved:
+            logger.info("Moving folders...")
 
-                n_items = len(other)
-                for n, r in enumerate(res):
-                    throttled_log(logger, f"Syncing ↑ {n + 1}/{n_items}")
-                    results.append(r)
+        for event in dir_moved:
+            logger.info(f"Moving {event.dbx_path_from}...")
+            r = self._create_remote_entry(event)
+            results.append(r)
 
-            self._clean_history()
+        # apply other events in parallel since order does not matter
+        with ThreadPoolExecutor(
+            max_workers=self._num_threads,
+            thread_name_prefix="maestral-upload-pool",
+        ) as executor:
+            res = executor.map(self._create_remote_entry, other)
+
+            n_items = len(other)
+            for n, r in enumerate(res):
+                throttled_log(logger, f"Syncing ↑ {n + 1}/{n_items}")
+                results.append(r)
+
+        self._clean_history()
 
         return results
 
@@ -1825,9 +1815,7 @@ class SyncEngine:
                 events_filtered.append(event)
 
         if logger.getEffectiveLevel() <= logging.DEBUG:
-            logger.debug(
-                "Filtered local file events:\n%s", pprint.pformat(events_filtered)
-            )
+            logger.debug("Filtered local file events:\n%s", pformat(events_filtered))
 
         return events_filtered, events_excluded
 
@@ -2015,12 +2003,7 @@ class SyncEngine:
                 cleaned_events.difference_update(split_events)
 
         if logger.getEffectiveLevel() <= logging.DEBUG:
-            logger.debug(
-                "Cleaned up local file events:\n%s", pprint.pformat(cleaned_events)
-            )
-
-        del events
-        del unique_events
+            logger.debug("Cleaned up local file events:\n%s", pformat(cleaned_events))
 
         return list(cleaned_events)
 
@@ -2043,12 +2026,10 @@ class SyncEngine:
         elif len(self.mignore_rules.patterns) == 0:
             return False
         else:
-            dbx_src_path = self.to_dbx_path(event.src_path)
-            dbx_dest_path = self.to_dbx_path(event.dest_path)
+            src_is_mignore = self._is_mignore_path(dbx_src_path, event.is_directory)
+            dest_is_mignore = self._is_mignore_path(dbx_dest_path, event.is_directory)
 
-            return self._is_mignore_path(
-                dbx_src_path, event.is_directory
-            ) or self._is_mignore_path(dbx_dest_path, event.is_directory)
+            return src_is_mignore or dest_is_mignore
 
     def _handle_case_conflict(self, event: SyncEvent) -> bool:
         """
@@ -2612,7 +2593,7 @@ class SyncEngine:
                 e = self._create_local_entry(event)
                 success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
 
-            self._free_memory()
+            self._clear_caches()
 
             return success
 
@@ -2762,7 +2743,7 @@ class SyncEngine:
             if idx > 0:
                 logger.info(IDLE)
 
-            self._free_memory()
+            self._clear_caches()
 
     def list_remote_changes_iterator(
         self, last_cursor: str, client: Optional[DropboxClient] = None
@@ -3130,8 +3111,8 @@ class SyncEngine:
             return False
 
         else:
-            # check our ctime against index
-            return os.stat(local_path).st_ctime > self.get_last_sync(dbx_path)
+            # Check our ctime against index.
+            return stat.st_ctime > self.get_last_sync(dbx_path)
 
     def _get_ctime(self, local_path: str) -> float:
         """
@@ -3159,7 +3140,7 @@ class SyncEngine:
 
                 return ctime
             else:
-                return os.stat(local_path).st_ctime
+                return stat.st_ctime
         except (FileNotFoundError, NotADirectoryError):
             return -1.0
 
@@ -3493,7 +3474,6 @@ class SyncEngine:
             with self._database_access():
                 entry.dbx_path_cased = event.dbx_path
                 self._db_manager_index.update(entry)
-                self._db.commit()
 
             logger.debug('Renamed "%s" to "%s"', local_path_old, event.local_path)
 
@@ -3510,16 +3490,17 @@ class SyncEngine:
 
         if osp.isfile(local_path):
             self.fs_events.queue_event(FileModifiedEvent(local_path))
+
         elif osp.isdir(local_path):
+            self.fs_events.queue_event(DirCreatedEvent(local_path))
 
             # add created and deleted events of children as appropriate
 
-            snapshot = DirectorySnapshot(local_path, listdir=self._scandir_with_mignore)
-            lowercase_snapshot_paths = {x.lower() for x in snapshot.paths}
             local_path_lower = local_path.lower()
 
-            for path in snapshot.paths:
-                if snapshot.isdir(path):
+            for path, stat in walk(local_path, self._scandir_with_mignore):
+
+                if S_ISDIR(stat.st_mode):
                     self.fs_events.queue_event(DirCreatedEvent(path))
                 else:
                     self.fs_events.queue_event(FileModifiedEvent(path))
@@ -3533,17 +3514,14 @@ class SyncEngine:
                     f"{local_path_lower}%",
                 )
 
-            dbx_root_lower = self.dropbox_path.lower()
-
             for entry in entries:
                 entry = cast(IndexEntry, entry)
-                child_path_uncased = f"{dbx_root_lower}{entry.dbx_path_lower}"
-                if child_path_uncased not in lowercase_snapshot_paths:
-                    local_child = self.to_local_path_from_cased(entry.dbx_path_cased)
+                child_path = self.to_local_path_from_cased(entry.dbx_path_cased)
+                if not osp.exists(child_path):
                     if entry.is_directory:
-                        self.fs_events.queue_event(DirDeletedEvent(local_child))
+                        self.fs_events.queue_event(DirDeletedEvent(child_path))
                     else:
-                        self.fs_events.queue_event(FileDeletedEvent(local_child))
+                        self.fs_events.queue_event(FileDeletedEvent(child_path))
 
         elif not osp.exists(local_path):
             dbx_path = self.to_dbx_path(local_path)
@@ -3562,9 +3540,6 @@ class SyncEngine:
 
         with self._database_access():
 
-            # commit previous
-            self._db.commit()
-
             # drop all entries older than keep_history
             now = time.time()
             keep_history = self._conf.get("sync", "keep_history")
@@ -3574,9 +3549,6 @@ class SyncEngine:
                 now - keep_history,
             )
             self._db_manager_history.clear_cache()
-
-            # commit to drive
-            self._db.commit()
 
     def _scandir_with_mignore(self, path: str) -> List:
         return [

@@ -49,13 +49,15 @@ class SqlType:
     sql_type = "TEXT"
     py_type: Type[ColumnValueType] = str
 
-    def sql_to_py(self, value):
+    @staticmethod
+    def sql_to_py(value):
         """Converts the return value from sqlite3 to the target Python type."""
-        raise NotImplementedError()
+        return value
 
-    def py_to_sql(self, value):
+    @staticmethod
+    def py_to_sql(value):
         """Converts a Python value to a type accepted by sqlite3."""
-        raise NotImplementedError()
+        return value
 
 
 class SqlString(SqlType):
@@ -64,12 +66,6 @@ class SqlString(SqlType):
     sql_type = "TEXT"
     py_type = str
 
-    def sql_to_py(self, value: Optional[str]) -> Optional[str]:
-        return value
-
-    def py_to_sql(self, value: Optional[str]) -> Optional[str]:
-        return value
-
 
 class SqlInt(SqlType):
     """Class to represent Python integers in SQLite table"""
@@ -77,24 +73,12 @@ class SqlInt(SqlType):
     sql_type = "INTEGER"
     py_type = int
 
-    def sql_to_py(self, value: Optional[int]) -> Optional[int]:
-        return value
-
-    def py_to_sql(self, value: Optional[int]) -> Optional[int]:
-        return value
-
 
 class SqlFloat(SqlType):
     """Class to represent Python floats in SQLite table"""
 
     sql_type = "REAL"
     py_type = float
-
-    def sql_to_py(self, value: Optional[float]) -> Optional[float]:
-        return value
-
-    def py_to_sql(self, value: Optional[float]) -> Optional[float]:
-        return value
 
 
 class SqlPath(SqlType):
@@ -108,12 +92,6 @@ class SqlPath(SqlType):
     sql_type = "TEXT"
     py_type = str
 
-    def sql_to_py(self, value: Optional[str]) -> Optional[str]:
-        return value
-
-    def py_to_sql(self, value: Optional[str]) -> Optional[str]:
-        return value
-
 
 class SqlEnum(SqlType):
     """Class to represent Python enums in SQLite table"""
@@ -124,13 +102,14 @@ class SqlEnum(SqlType):
     def __init__(self, enum: Iterable[Enum]) -> None:
         self.enum_type = enum
 
-    def sql_to_py(self, value: Optional[str]) -> Optional[Enum]:
+    def sql_to_py(self, value: Optional[str]) -> Optional[Enum]:  # type: ignore
         if value is None:
             return None
         else:
             return getattr(self.enum_type, value)
 
-    def py_to_sql(self, value: Optional[Enum]) -> Optional[str]:
+    @staticmethod
+    def py_to_sql(value: Optional[Enum]) -> Optional[str]:
         if value is None:
             return None
         else:
@@ -305,7 +284,8 @@ class Database:
         :param args: Parameters to substitute for placeholders in SQL statement.
         :returns: The created cursor.
         """
-        return self.connection.execute(sql, args)
+        with self.connection:
+            return self.connection.execute(sql, args)
 
     def executescript(self, script: str) -> None:
         """
@@ -314,8 +294,8 @@ class Database:
         :param script: SQL script to execute.
         :returns: The created cursor.
         """
-        self.connection.cursor().executescript(script)
-        self.commit()
+        with self.connection:
+            self.connection.cursor().executescript(script)
 
 
 class Manager:
@@ -590,18 +570,8 @@ class Model:
         ``kwargs``.
         """
 
-        cls_ = type(self)
-
-        for col in columns(cls_):
-
-            if isinstance(col, Column):
-                if col.default is NoDefault:
-                    try:
-                        setattr(self, col.name, kwargs[col.name])
-                    except KeyError:
-                        raise TypeError(f"Column value for '{col.name}' must be given")
-                else:
-                    setattr(self, col.name, kwargs.get(col.name, col.default))
+        for name, value in kwargs.items():
+            setattr(self, name, value)
 
     def __repr__(self) -> str:
         attributes = ", ".join(f"{k}={v}" for k, v in column_value_dict(self).items())
