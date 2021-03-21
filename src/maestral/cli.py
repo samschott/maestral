@@ -214,8 +214,8 @@ def check_for_fatal_errors(m: Union["MaestralProxy", "Maestral"]) -> bool:
 
 def convert_py_errors(func: Callable) -> Callable:
     """
-    Decorator that catches a MaestralApiError and prints it as a useful message to the
-    command line instead of printing the full stacktrace.
+    Decorator that catches a MaestralApiError and prints a formatted error message to
+    stdout before exiting.
     """
 
     from .errors import MaestralApiError
@@ -225,7 +225,8 @@ def convert_py_errors(func: Callable) -> Callable:
         try:
             return func(*args, **kwargs)
         except MaestralApiError as exc:
-            raise cli.CliException(f"{exc.title}. {exc.message}")
+            cli.warn(f"{exc.title}. {exc.message}")
+            sys.exit(1)
 
     return wrapper
 
@@ -550,6 +551,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         click.echo("Daemon is already running.")
         return
 
+    @convert_py_errors
     def startup_dialog():
 
         if wait_for_startup(config_name) is Start.Failed:
