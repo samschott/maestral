@@ -539,7 +539,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         MaestralProxy,
         start_maestral_daemon,
         start_maestral_daemon_process,
-        _wait_for_startup,
+        wait_for_startup,
         is_running,
         Start,
     )
@@ -552,7 +552,8 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
     def startup_dialog():
 
-        _wait_for_startup(config_name, timeout=5)
+        if wait_for_startup(config_name) is Start.Failed:
+            return
 
         m = MaestralProxy(config_name)
 

@@ -51,6 +51,7 @@ __all__ = [
     "get_maestral_pid",
     "sockpath_for_config",
     "lockpath_for_config",
+    "wait_for_startup",
     "is_running",
     "freeze_support",
     "start_maestral_daemon",
@@ -367,7 +368,7 @@ def is_running(config_name: str) -> bool:
     return maestral_lock(config_name).locked()
 
 
-def _wait_for_startup(config_name: str, timeout: float) -> None:
+def wait_for_startup(config_name: str, timeout: float = 5) -> None:
     """
     Waits until we can communicate with the maestral daemon for ``config_name``.
 
@@ -596,7 +597,7 @@ def start_maestral_daemon_process(
     )
 
     try:
-        _wait_for_startup(config_name, timeout=timeout)
+        wait_for_startup(config_name)
     except Exception as exc:
         logger.debug("Could not communicate with daemon", exc_info_tuple(exc))
 
