@@ -528,7 +528,7 @@ existing_config_option = click.option(
     "-v",
     is_flag=True,
     default=False,
-    help="Print log messages to stdout when started with '-f, --foreground' flag.",
+    help="Print log messages to stderr.",
 )
 @config_option
 @convert_py_errors
@@ -605,7 +605,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
     t.start()
 
     if foreground:
-        start_maestral_daemon(config_name, log_to_stdout=verbose, start_sync=True)
+        start_maestral_daemon(config_name, log_to_stderr=verbose, start_sync=True)
     else:
         cli.echo("Starting Maestral...", nl=False)
 

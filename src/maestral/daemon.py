@@ -400,7 +400,7 @@ def wait_for_startup(config_name: str, timeout: float = 5) -> None:
 
 
 def start_maestral_daemon(
-    config_name: str = "maestral", log_to_stdout: bool = False, start_sync: bool = False
+    config_name: str = "maestral", log_to_stderr: bool = False, start_sync: bool = False
 ) -> None:
     """
     Starts the Maestral daemon with event loop in the current thread. Startup is race
@@ -414,7 +414,7 @@ def start_maestral_daemon(
     use input such as clicked notifications, etc, and potentially allows showing a GUI.
 
     :param config_name: The name of the Maestral configuration to use.
-    :param log_to_stdout: If ``True``, write logs to stdout.
+    :param log_to_stderr: If ``True``, write logs to stderr.
     :param start_sync: If ``True``, start syncing once the daemon has started. If the
         ``start_sync`` call fails, an error will be logged but not raised.
     :raises RuntimeError: if a daemon for the given ``config_name`` is already running.
@@ -501,7 +501,7 @@ def start_maestral_daemon(
     ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
     ExposedMaestral.shutdown_daemon = oneway(ExposedMaestral.shutdown_daemon)
 
-    maestral_daemon = ExposedMaestral(config_name, log_to_stdout=log_to_stdout)
+    maestral_daemon = ExposedMaestral(config_name, log_to_stderr=log_to_stderr)
 
     if start_sync:
 

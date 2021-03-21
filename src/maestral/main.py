@@ -108,13 +108,13 @@ class Maestral:
 
     :param config_name: Name of maestral configuration to run. Must not contain any
         whitespace. If the given config file does exist, it will be created.
-    :param log_to_stdout: If ``True``, Maestral will print log messages to stdout.
-        When started as a systemd services, this can result in duplicate log messages.
-        Defaults to ``False``.
+    :param log_to_stderr: If ``True``, Maestral will print log messages to stderr.
+        When started as a systemd services, this can result in duplicate log messages
+        in the systemd journal. Defaults to ``False``.
     """
 
     def __init__(
-        self, config_name: str = "maestral", log_to_stdout: bool = False
+        self, config_name: str = "maestral", log_to_stderr: bool = False
     ) -> None:
 
         self._config_name = validate_config_name(config_name)
@@ -123,7 +123,7 @@ class Maestral:
 
         # set up logging
         self._logger = scoped_logger(__name__, config_name)
-        self._log_to_stdout = log_to_stdout
+        self._log_to_stderr = log_to_stderr
         self._setup_logging()
 
         # set up sync infrastructure
@@ -218,7 +218,7 @@ class Maestral:
     def _setup_logging(self) -> None:
         """
         Sets up logging to log files, status and error properties, desktop notifications,
-        the systemd journal if available, and to stdout if requested.
+        the systemd journal if available, and to stderr if requested.
         """
         self._root_logger = scoped_logger("maestral", self.config_name)
         (
@@ -226,7 +226,7 @@ class Maestral:
             self._log_handler_stream,
             self._log_handler_sd,
             self._log_handler_journal,
-        ) = setup_logging(self.config_name, log_to_stderr=self._log_to_stdout)
+        ) = setup_logging(self.config_name, self._log_to_stderr)
 
         log_fmt_short = logging.Formatter(fmt="%(message)s")
 
@@ -369,7 +369,7 @@ class Maestral:
 
     @property
     def log_level(self) -> int:
-        """Log level for log files, stdout and the systemd journal."""
+        """Log level for log files, stderr and the systemd journal."""
         return self._conf.get("app", "log_level")
 
     @log_level.setter
