@@ -1553,8 +1553,7 @@ class SyncEngine:
             try:
                 events, local_cursor = self._get_local_changes_while_inactive()
 
-                if self._logger.isEnabledFor(logging.DEBUG):
-                    self._logger.debug("Retrieved fsevents:\n%s", pformat(events))
+                self._logger.debug("Retrieved fsevents:\n%s", pf_repr(events))
 
                 events = self._clean_local_events(events)
                 sync_events = [
@@ -1715,8 +1714,7 @@ class SyncEngine:
             except Empty:
                 break
 
-        if self._logger.isEnabledFor(logging.DEBUG):
-            self._logger.debug("Retrieved fsevents:\n%s", pformat(events))
+        self._logger.debug("Retrieved fsevents:\n%s", pf_repr(events))
 
         events = self._clean_local_events(events)
         sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
@@ -1818,8 +1816,7 @@ class SyncEngine:
             else:
                 events_filtered.append(event)
 
-        if self._logger.isEnabledFor(logging.DEBUG):
-            self._logger.debug("Filtered fsevents:\n%s", pformat(events_filtered))
+        self._logger.debug("Filtered fsevents:\n%s", pf_repr(events_filtered))
 
         return events_filtered, events_excluded
 
@@ -2006,8 +2003,7 @@ class SyncEngine:
             for split_events in child_deleted_events.values():
                 cleaned_events.difference_update(split_events)
 
-        if self._logger.isEnabledFor(logging.DEBUG):
-            self._logger.debug("Cleaned up fsevents:\n%s", pformat(cleaned_events))
+        self._logger.debug("Cleaned up fsevents:\n%s", pf_repr(cleaned_events))
 
         return list(cleaned_events)
 
@@ -2779,23 +2775,13 @@ class SyncEngine:
 
         for changes in changes_iter:
 
-            if self._logger.isEnabledFor(logging.DEBUG):
-                # Prevent allocating large strings if log level is larger than debug.
-                self._logger.debug(
-                    "Listed remote changes:\n%s", entries_repr(changes.entries)
-                )
+            changes = self._clean_remote_changes(changes)
 
-            clean_changes = self._clean_remote_changes(changes)
+            self._logger.debug("Remote changes:\n%s", pf_repr(changes.entries))
 
-            if self._logger.isEnabledFor(logging.DEBUG):
-                # Prevent allocating large strings if log level is larger than debug.
-                self._logger.debug(
-                    "Cleaned remote changes:\n%s", entries_repr(clean_changes.entries)
-                )
-
-            clean_changes.entries.sort(key=lambda x: x.path_lower.count("/"))
+            changes.entries.sort(key=lambda x: x.path_lower.count("/"))
             sync_events = [
-                SyncEvent.from_dbx_metadata(md, self) for md in clean_changes.entries
+                SyncEvent.from_dbx_metadata(md, self) for md in changes.entries
             ]
 
             self._logger.debug("Converted remote changes to SyncEvents")
@@ -3619,17 +3605,20 @@ def split_moved_event(
     return deleted_event, created_event
 
 
-def entries_repr(entries: List[Metadata]) -> str:
+class pf_repr:
     """
-    Generates a nicely formatted string repr from a list of Dropbox metadata.
+    Class that wraps an object and creates a pretty formatted representation for it.
+    This can be used to get pretty formatting in log messages while deferring the actual
+    formatting until the message is created.
 
-    :param entries: List of Dropbox metadata.
-    :returns: String representation of the list.
+    :param obj: Object to wrap.
     """
-    str_reps = [
-        f"<{e.__class__.__name__}(path_display={e.path_display})>" for e in entries
-    ]
-    return "[" + ",\n ".join(str_reps) + "]"
+
+    def __init__(self, obj: Any) -> None:
+        self.obj = obj
+
+    def __repr__(self) -> str:
+        return pformat(self.obj)
 
 
 _last_emit = time.time()
