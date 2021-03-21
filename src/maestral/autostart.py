@@ -305,18 +305,6 @@ class AutoStart:
                 EnvironmentVariables=ENV,
             )
 
-        elif self.implementation == SupportedImplementations.xdg_desktop:
-            self._impl = AutoStartXDGDesktop(
-                filename=f"maestral-{config_name}.desktop",
-                app_name="Maestral",
-                start_cmd=start_cmd,
-                TryExec=self.maestral_path,
-                Icon="maestral",
-                Terminal="false",
-                GenericName="File Synchronizer",
-                Comment="Sync your files with Dropbox",
-            )
-
         elif self.implementation == SupportedImplementations.systemd:
 
             notify_failure = (
