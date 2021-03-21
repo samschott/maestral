@@ -2,7 +2,6 @@
 """This module defines the main API which is exposed to the CLI or GUI."""
 
 # system imports
-import sys
 import os
 import os.path as osp
 import shutil
@@ -36,11 +35,6 @@ from datetime import datetime, timezone
 from dropbox.files import FileMetadata
 from dropbox.sharing import RequestedVisibility
 
-try:
-    from systemd import journal  # type: ignore
-except ImportError:
-    journal = None
-
 # local imports
 from . import __version__
 from .client import CONNECTION_ERRORS, DropboxClient, convert_api_errors
@@ -56,12 +50,7 @@ from .errors import (
     UnsupportedFileTypeForDiff,
 )
 from .config import MaestralConfig, MaestralState, validate_config_name
-from .logging import (
-    CachedHandler,
-    SdNotificationHandler,
-    safe_journal_sender,
-    scoped_logger,
-)
+from .logging import CachedHandler, setup_logging, scoped_logger
 from .utils import get_newer_version
 from .utils.path import (
     is_child,
@@ -76,7 +65,7 @@ from .utils.serializer import (
     StoneType,
     ErrorType,
 )
-from .utils.appdirs import get_log_path, get_cache_path
+from .utils.appdirs import get_cache_path
 from .utils.integration import get_ac_state, ACState
 from .constants import IDLE, PAUSED, CONNECTING, FileStatus, GITHUB_RELEASES_API
 
@@ -123,9 +112,6 @@ class Maestral:
         When started as a systemd services, this can result in duplicate log messages.
         Defaults to ``False``.
     """
-
-    log_handler_sd: Optional[SdNotificationHandler]
-    log_handler_journal: Optional["journal.JournalHandler"]
 
     def __init__(
         self, config_name: str = "maestral", log_to_stdout: bool = False
@@ -234,55 +220,15 @@ class Maestral:
         Sets up logging to log files, status and error properties, desktop notifications,
         the systemd journal if available, and to stdout if requested.
         """
-
         self._root_logger = scoped_logger("maestral", self.config_name)
-        self._root_logger.setLevel(min(self.log_level, logging.INFO))
+        (
+            self._log_handler_file,
+            self._log_handler_stream,
+            self._log_handler_sd,
+            self._log_handler_journal,
+        ) = setup_logging(self.config_name, log_to_stderr=self._log_to_stdout)
 
-        # clean up any previous handlers
-        self._root_logger.handlers = []
-
-        log_fmt_long = logging.Formatter(
-            fmt="%(asctime)s %(module)s %(levelname)s: %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
         log_fmt_short = logging.Formatter(fmt="%(message)s")
-
-        # log to file
-        log_file_path = get_log_path("maestral", f"{self._config_name }.log")
-        self.log_handler_file = logging.handlers.RotatingFileHandler(
-            log_file_path, maxBytes=10 ** 7, backupCount=1
-        )
-        self.log_handler_file.setFormatter(log_fmt_long)
-        self.log_handler_file.setLevel(self.log_level)
-        self._root_logger.addHandler(self.log_handler_file)
-
-        # log to journal when launched from systemd
-        if journal and os.getenv("INVOCATION_ID"):
-            # noinspection PyUnresolvedReferences
-            self.log_handler_journal = journal.JournalHandler(
-                SYSLOG_IDENTIFIER="maestral", sender_function=safe_journal_sender
-            )
-            self.log_handler_journal.setFormatter(log_fmt_short)
-            self.log_handler_journal.setLevel(self.log_level)
-            self._root_logger.addHandler(self.log_handler_journal)
-        else:
-            self.log_handler_journal = None
-
-        # log to NOTIFY_SOCKET when launched as systemd notify service
-        if os.getenv("NOTIFY_SOCKET"):
-            self.log_handler_sd = SdNotificationHandler()
-            self.log_handler_sd.setFormatter(log_fmt_short)
-            self.log_handler_sd.setLevel(logging.INFO)
-            self._root_logger.addHandler(self.log_handler_sd)
-        else:
-            self.log_handler_sd = None
-
-        # log to stderr (disabled by default)
-        level = self.log_level if self._log_to_stdout else 100
-        self.log_handler_stream = logging.StreamHandler(sys.stderr)
-        self.log_handler_stream.setFormatter(log_fmt_long)
-        self.log_handler_stream.setLevel(level)
-        self._root_logger.addHandler(self.log_handler_stream)
 
         # log to cached handlers for status and error APIs
         self._log_handler_info_cache = CachedHandler(maxlen=1)
@@ -430,24 +376,10 @@ class Maestral:
     def log_level(self, level_num: int) -> None:
         """Setter: log_level."""
         self._root_logger.setLevel(min(level_num, logging.INFO))
-        self.log_handler_file.setLevel(level_num)
-        if self.log_handler_journal:
-            self.log_handler_journal.setLevel(level_num)
-        if self.log_to_stdout:
-            self.log_handler_stream.setLevel(level_num)
+        self._log_handler_file.setLevel(level_num)
+        self._log_handler_stream.setLevel(level_num)
+        self._log_handler_journal.setLevel(level_num)
         self._conf.set("app", "log_level", level_num)
-
-    @property
-    def log_to_stdout(self) -> bool:
-        """Enables or disables logging to stdout."""
-        return self._log_to_stdout
-
-    @log_to_stdout.setter
-    def log_to_stdout(self, enabled: bool) -> None:
-        """Setter: log_to_stdout."""
-        self._log_to_stdout = enabled
-        level = self.log_level if enabled else 100
-        self.log_handler_stream.setLevel(level)
 
     @property
     def notification_snooze(self) -> float:

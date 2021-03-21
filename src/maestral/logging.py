@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """This module defines custom logging records and handlers."""
 
-import logging
-from collections import deque
+import os
 import concurrent.futures
+import logging
+from logging.handlers import RotatingFileHandler
+from collections import deque
 from concurrent.futures import Future
-from typing import Deque, Optional, List
+from typing import Deque, Optional, List, Tuple, Union
 
 try:
     from concurrent.futures import InvalidStateError  # type: ignore
@@ -20,21 +22,21 @@ try:
 except ImportError:
     journal = None
 
+from .config import MaestralConfig
 from .utils import sanitize_string
+from .utils.appdirs import get_log_path
 
 
 __all__ = [
-    "EncodingSafeLogRecord",
     "CachedHandler",
-    "SdNotificationHandler",
-    "safe_journal_sender",
+    "setup_logging",
     "scoped_logger",
 ]
 
 
-if journal:
+def safe_journal_sender(MESSAGE: str, **kwargs) -> None:
 
-    def safe_journal_sender(MESSAGE: str, **kwargs) -> None:
+    if journal:
 
         MESSAGE = sanitize_string(MESSAGE)
 
@@ -43,12 +45,6 @@ if journal:
                 kwargs[key] = sanitize_string(value)
 
         journal.send(MESSAGE, **kwargs)
-
-
-else:
-
-    def safe_journal_sender(MESSAGE: str, **kwargs) -> None:
-        pass
 
 
 class EncodingSafeLogRecord(logging.LogRecord):
@@ -187,3 +183,93 @@ def scoped_logger(module_name: str, config_name: str = "maestral") -> logging.Lo
     """
 
     return logging.getLogger(scoped_logger_name(module_name, config_name))
+
+
+def setup_logging(
+    config_name: str, log_to_stderr: bool = True
+) -> Tuple[
+    RotatingFileHandler,
+    Union[logging.StreamHandler, logging.NullHandler],
+    SdNotificationHandler,
+    Union["journal.JournalHandler", logging.NullHandler],
+]:
+    """
+    Sets up logging handlers for the given config name. The following handlers are
+    installed for the root logger:
+
+    * RotatingFileHandler: Writes logs to the appropriate log file for the config. Log
+      level is determined by the config value.
+    * StreamHandler: Writes logs to stderr. Log level is determined by the config value.
+      This will be replaced by a null handler if ``log_to_stderr`` is ``False``.
+    * SdNotificationHandler: Sends all log messages of level INFO and higher to the
+      NOTIFY_SOCKET if provided as an environment variable. The log level is fixed.
+    * JournalHandler: Writes logs to the systemd journal. Log level is determined by the
+      config value. Will be replaced by a null handler if not started as a systemd
+      service or if python-systemd is not installed.
+
+    Any previous loggers are cleared.
+
+    :param config_name: The config name.
+    :param log_to_stderr: Whether to log to stderr.
+    :returns: (log_handler_file, log_handler_stream, log_handler_sd, log_handler_journal)
+    """
+
+    conf = MaestralConfig(config_name)
+
+    # Get log level from config or fallback to DEBUG level if config file is corrupt.
+    log_level = conf.get("app", "log_level", logging.DEBUG)
+
+    root_logger = scoped_logger("maestral", config_name)
+    root_logger.setLevel(min(log_level, logging.INFO))
+
+    root_logger.handlers = []  # clean up any previous handlers
+
+    log_fmt_long = logging.Formatter(
+        fmt="%(asctime)s %(module)s %(levelname)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    log_fmt_short = logging.Formatter(fmt="%(message)s")
+
+    # Log to file.
+    log_file_path = get_log_path("maestral", f"{config_name}.log")
+    log_handler_file = RotatingFileHandler(
+        log_file_path, maxBytes=10 ** 7, backupCount=1
+    )
+    log_handler_file.setFormatter(log_fmt_long)
+    log_handler_file.setLevel(log_level)
+    root_logger.addHandler(log_handler_file)
+
+    # Log to systemd journal when running as systemd service.
+    log_handler_journal: Union["journal.JournalHandler", logging.NullHandler]
+
+    if journal and os.getenv("INVOCATION_ID"):
+        log_handler_journal = journal.JournalHandler(
+            SYSLOG_IDENTIFIER="maestral",
+            sender_function=safe_journal_sender,
+        )
+    else:
+        log_handler_journal = logging.NullHandler()
+
+    log_handler_journal.setFormatter(log_fmt_short)
+    log_handler_journal.setLevel(log_level)
+    root_logger.addHandler(log_handler_journal)
+
+    # Log to NOTIFY_SOCKET when launched as systemd notify service.
+    log_handler_sd = SdNotificationHandler()
+    log_handler_sd.setFormatter(log_fmt_short)
+    log_handler_sd.setLevel(logging.INFO)
+    root_logger.addHandler(log_handler_sd)
+
+    # Log to stderr if requested.
+
+    log_handler_stream: Union[logging.StreamHandler, logging.NullHandler]
+
+    if log_to_stderr:
+        log_handler_stream = logging.StreamHandler()
+    else:
+        log_handler_stream = logging.NullHandler()
+    log_handler_stream.setFormatter(log_fmt_long)
+    log_handler_stream.setLevel(log_level)
+    root_logger.addHandler(log_handler_stream)
+
+    return log_handler_file, log_handler_stream, log_handler_sd, log_handler_journal
