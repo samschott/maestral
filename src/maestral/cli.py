@@ -534,16 +534,12 @@ existing_config_option = click.option(
 @convert_py_errors
 def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
-    # ---- run setup if necessary ------------------------------------------------------
-
-    # We run the setup in the current process. This avoids starting a subprocess despite
-    # running with the --foreground flag, prevents leaving a zombie process if the setup
-    # fails with an exception and does not confuse systemd.
-
+    import threading
     from .daemon import (
         MaestralProxy,
         start_maestral_daemon,
         start_maestral_daemon_process,
+        _wait_for_startup,
         is_running,
         Start,
     )
@@ -554,8 +550,62 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         click.echo("Daemon is already running.")
         return
 
-    if not foreground:
-        # start daemon process
+    def startup_dialog():
+
+        _wait_for_startup(config_name, timeout=5)
+
+        m = MaestralProxy(config_name)
+
+        if m.pending_link:
+            link_dialog(m)
+
+        if m.pending_dropbox_folder:
+            path = select_dbx_path_dialog(config_name, allow_merge=True)
+
+            while True:
+                try:
+                    m.create_dropbox_directory(path)
+                    break
+                except OSError:
+                    cli.warn(
+                        "Could not create folder. Please make sure that you have "
+                        "permissions to write to the selected location or choose a "
+                        "different location."
+                    )
+
+            include_all = cli.confirm("Would you like sync all folders?")
+
+            if not include_all:
+                # get all top-level Dropbox folders
+                cli.info("Loading...")
+                entries = m.list_folder("/", recursive=False)
+
+                names = [
+                    cast(str, e["name"])
+                    for e in entries
+                    if e["type"] == "FolderMetadata"
+                ]
+
+                choices = cli.select_multiple(
+                    "Choose which folders to include", options=names
+                )
+
+                excluded_paths = [
+                    f"/{name}"
+                    for index, name in enumerate(names)
+                    if index not in choices
+                ]
+
+                m.excluded_items = excluded_paths
+
+            cli.ok("Setup completed. Starting sync.")
+
+    t = threading.Thread(target=startup_dialog)
+    t.start()
+
+    if foreground:
+        start_maestral_daemon(config_name, log_to_stdout=verbose, start_sync=True)
+    else:
         cli.echo("Starting Maestral...", nl=False)
 
         res = start_maestral_daemon_process(config_name)
@@ -568,54 +618,6 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
             cli.echo("\rStarting Maestral...        " + FAILED)
             cli.echo("Please check logs for more information.")
             return
-
-    m = MaestralProxy(config_name, fallback=True)
-
-    if m.pending_link:  # this may raise KeyringAccessError
-        link_dialog(m)
-
-    if m.pending_dropbox_folder:
-        path = select_dbx_path_dialog(config_name, allow_merge=True)
-
-        while True:
-            try:
-                m.create_dropbox_directory(path)
-                break
-            except OSError:
-                cli.warn(
-                    "Could not create folder. Please make sure that you have "
-                    "permissions to write to the selected location or choose a "
-                    "different location."
-                )
-
-        include_all = cli.confirm("Would you like sync all folders?")
-
-        if not include_all:
-            # get all top-level Dropbox folders
-            cli.info("Loading...")
-            entries = m.list_folder("/", recursive=False)
-
-            names = [
-                cast(str, e["name"]) for e in entries if e["type"] == "FolderMetadata"
-            ]
-
-            choices = cli.select_multiple(
-                "Choose which folders to include", options=names
-            )
-
-            excluded_paths = [
-                f"/{name}" for index, name in enumerate(names) if index not in choices
-            ]
-
-            m.excluded_items = excluded_paths
-
-        cli.ok("Setup completed. Starting sync.")
-
-    if foreground:
-        del m
-        start_maestral_daemon(config_name, log_to_stdout=verbose, start_sync=True)
-    else:
-        m.start_sync()
 
 
 @main.command(section="Core Commands", help="Stop the sync daemon.")
