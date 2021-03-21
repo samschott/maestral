@@ -14,7 +14,6 @@ import subprocess
 import threading
 import fcntl
 import struct
-import tempfile
 import logging
 import warnings
 import argparse
@@ -205,33 +204,29 @@ class Lock:
     _singleton_lock = threading.Lock()
 
     @classmethod
-    def singleton(cls, name: str, lock_path: Optional[str] = None) -> "Lock":
+    def singleton(cls, path: str) -> "Lock":
         """
         Retrieve an existing lock object with a given 'name' or create a new one. Use
         this method for thread-safe locks.
 
-        :param name: Name of lock file.
-        :param lock_path: Directory for lock files. Defaults to the temporary directory
-            returned by :func:`tempfile.gettempdir()` if not given.
+        :param path: Path of lock file.
         """
 
         with cls._singleton_lock:
             try:
-                instance = cls._instances[name]
+                instance = cls._instances[path]
             except KeyError:
-                instance = cls(name, lock_path)
-                cls._instances[name] = instance
+                instance = cls(path)
+                cls._instances[path] = instance
 
             return instance
 
-    def __init__(self, name: str, lock_path: Optional[str] = None) -> None:
+    def __init__(self, path: str) -> None:
 
-        self.name = name
-        dirname = lock_path or tempfile.gettempdir()
-        lock_path = os.path.join(dirname, name)
+        self.path = path
 
         self._internal_lock = threading.Semaphore()
-        self._external_lock = InterProcessLock(lock_path)
+        self._external_lock = InterProcessLock(self.path)
 
         self._lock = threading.RLock()
 
@@ -327,7 +322,7 @@ def maestral_lock(config_name: str) -> Lock:
     """
     name = f"{config_name}.lock"
     path = get_runtime_path("maestral")
-    return Lock.singleton(name, path)
+    return Lock.singleton(os.path.join(path, name))
 
 
 def sockpath_for_config(config_name: str) -> str:
