@@ -1553,8 +1553,6 @@ class SyncEngine:
             try:
                 events, local_cursor = self._get_local_changes_while_inactive()
 
-                self._logger.debug("Retrieved fsevents:\n%s", pf_repr(events))
-
                 events = self._clean_local_events(events)
                 sync_events = [
                     SyncEvent.from_file_system_event(e, self) for e in events
@@ -1653,6 +1651,8 @@ class SyncEngine:
             "Local indexing completed in %s sec", time.time() - snapshot_time
         )
 
+        self._logger.debug("Retrieved local changes:\n%s", pf_repr(changes))
+
         return changes, snapshot_time
 
     def wait_for_local_changes(self, timeout: float = 40) -> bool:
@@ -1714,7 +1714,7 @@ class SyncEngine:
             except Empty:
                 break
 
-        self._logger.debug("Retrieved fsevents:\n%s", pf_repr(events))
+        self._logger.debug("Retrieved local file events:\n%s", pf_repr(events))
 
         events = self._clean_local_events(events)
         sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
@@ -2002,8 +2002,6 @@ class SyncEngine:
 
             for split_events in child_deleted_events.values():
                 cleaned_events.difference_update(split_events)
-
-        self._logger.debug("Cleaned up fsevents:\n%s", pf_repr(cleaned_events))
 
         return list(cleaned_events)
 
