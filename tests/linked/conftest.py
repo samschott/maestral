@@ -10,7 +10,7 @@ import pytest
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 from dropbox.files import WriteMode, FileMetadata
 
-from maestral.main import Maestral, logger
+from maestral.main import Maestral
 from maestral.errors import NotFoundError, FileConflictError
 from maestral.client import convert_api_errors
 from maestral.config import remove_configuration
@@ -29,7 +29,6 @@ resources = os.path.dirname(__file__) + "/resources"
 
 fsevents_logger = logging.getLogger("fsevents")
 fsevents_logger.setLevel(logging.DEBUG)
-logger.setLevel(logging.DEBUG)
 
 
 @pytest.fixture

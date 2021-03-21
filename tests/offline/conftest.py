@@ -6,7 +6,7 @@ import logging
 
 import pytest
 
-from maestral.main import Maestral, logger
+from maestral.main import Maestral
 from maestral.sync import SyncEngine
 from maestral.fsevents import Observer
 from maestral.client import DropboxClient
@@ -16,12 +16,10 @@ from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import delete
 
 
-logger.setLevel(logging.DEBUG)
-
-
 @pytest.fixture
 def m():
     m = Maestral("test-config")
+    m.log_level = logging.DEBUG
     m._conf.save()
     yield m
     remove_configuration(m.config_name)
