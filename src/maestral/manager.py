@@ -309,29 +309,6 @@ class SyncMonitor:
 
         self._logger.info(PAUSED)
 
-    def connection_monitor(self) -> None:
-        """
-        Monitors the connection to Dropbox servers. Pauses syncing when the connection
-        is lost and resumes syncing when reconnected and syncing has not been paused by
-        the user.
-        """
-
-        while self._connection_helper_running:
-
-            connected = check_connection("www.dropbox.com")
-
-            if connected != self.connected:
-                # Log the status change.
-                self._logger.info(CONNECTED if connected else CONNECTING)
-
-            if connected:
-                if not self.running.is_set() and self.autostart.is_set():
-                    self.start()
-
-            self.connected = connected
-
-            time.sleep(self.connection_check_interval)
-
     def reset_sync_state(self) -> None:
         """Resets all saved sync state. Settings are not affected."""
 
@@ -363,6 +340,29 @@ class SyncMonitor:
             self.start()
 
     # ---- thread methods --------------------------------------------------------------
+
+    def connection_monitor(self) -> None:
+        """
+        Monitors the connection to Dropbox servers. Pauses syncing when the connection
+        is lost and resumes syncing when reconnected and syncing has not been paused by
+        the user.
+        """
+
+        while self._connection_helper_running:
+
+            connected = check_connection("www.dropbox.com")
+
+            if connected != self.connected:
+                # Log the status change.
+                self._logger.info(CONNECTED if connected else CONNECTING)
+
+            if connected:
+                if not self.running.is_set() and self.autostart.is_set():
+                    self.start()
+
+            self.connected = connected
+
+            time.sleep(self.connection_check_interval)
 
     def download_worker(
         self,
