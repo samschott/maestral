@@ -637,9 +637,10 @@ def test_case_change_remote(m):
 def test_mignore(m):
     """Tests the exclusion of local items by an mignore file."""
 
-    # 1) test that tracked items are unaffected
+    # 1) test changes have no effect when sync is running
 
     os.mkdir(m.test_folder_local + "/bar")
+    os.mkdir(m.test_folder_local + "/folder")
     wait_for_idle(m)
 
     with open(m.sync.mignore_path, "w") as f:
@@ -652,16 +653,21 @@ def test_mignore(m):
     assert_synced(m)
     assert_exists(m, "/sync_tests", "bar")
 
-    # 2) test that new items are excluded
+    # 2) test that items are removed after restart
+
+    m.stop_sync()
+    wait_for_idle(m)
+    m.start_sync()
 
     os.mkdir(m.test_folder_local + "/foo")
     wait_for_idle(m)
 
     assert not m.client.get_metadata("/sync_tests/foo")
+    assert not m.client.get_metadata("/sync_tests/bar")
 
     # 3) test that renaming an item excludes it
 
-    move(m.test_folder_local + "/bar", m.test_folder_local + "/build")
+    move(m.test_folder_local + "/folder", m.test_folder_local + "/build")
     wait_for_idle(m)
 
     assert not m.client.get_metadata("/sync_tests/build")
