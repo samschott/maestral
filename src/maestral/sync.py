@@ -12,8 +12,8 @@ import random
 import uuid
 import urllib.parse
 import enum
-import pprint
 import sqlite3
+from pprint import pformat
 from threading import Event, Condition, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
@@ -1554,7 +1554,7 @@ class SyncEngine:
                 events, local_cursor = self._get_local_changes_while_inactive()
 
                 if logger.getEffectiveLevel() <= logging.DEBUG:
-                    logger.debug("Retrieved local changes:\n%s", pprint.pformat(events))
+                    logger.debug("Retrieved local changes:\n%s", pformat(events))
 
                 events = self._clean_local_events(events)
                 sync_events = [
@@ -1712,7 +1712,7 @@ class SyncEngine:
                 break
 
         if logger.getEffectiveLevel() <= logging.DEBUG:
-            logger.debug("Retrieved local file events:\n%s", pprint.pformat(events))
+            logger.debug("Retrieved local file events:\n%s", pformat(events))
 
         events = self._clean_local_events(events)
         sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
@@ -1815,9 +1815,7 @@ class SyncEngine:
                 events_filtered.append(event)
 
         if logger.getEffectiveLevel() <= logging.DEBUG:
-            logger.debug(
-                "Filtered local file events:\n%s", pprint.pformat(events_filtered)
-            )
+            logger.debug("Filtered local file events:\n%s", pformat(events_filtered))
 
         return events_filtered, events_excluded
 
@@ -2005,9 +2003,7 @@ class SyncEngine:
                 cleaned_events.difference_update(split_events)
 
         if logger.getEffectiveLevel() <= logging.DEBUG:
-            logger.debug(
-                "Cleaned up local file events:\n%s", pprint.pformat(cleaned_events)
-            )
+            logger.debug("Cleaned up local file events:\n%s", pformat(cleaned_events))
 
         return list(cleaned_events)
 
