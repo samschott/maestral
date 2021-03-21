@@ -601,11 +601,13 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
             cli.ok("Setup completed. Starting sync.")
 
+        m.start_sync()
+
     t = threading.Thread(target=startup_dialog)
     t.start()
 
     if foreground:
-        start_maestral_daemon(config_name, log_to_stderr=verbose, start_sync=True)
+        start_maestral_daemon(config_name, log_to_stderr=verbose)
     else:
         cli.echo("Starting Maestral...", nl=False)
 
