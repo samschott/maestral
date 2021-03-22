@@ -1,0 +1,34 @@
+
+.flex-container, .flex-container-break{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-evenly;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 1em;
+    margin-bottom: 1em;
+}
+
+.flex-container-break {
+    flex-direction: column;
+    align-items: center;
+
+    @include breakpoint($large) {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+}
+
+.flex-child {
+    flex: 1;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.info-box {
+    flex: none;
+    width: 270px;
+    margin: 0 0.6em;
+}

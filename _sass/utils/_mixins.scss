@@ -58,8 +58,8 @@
 
 /*
   * Increases the given padding to the margin of a devices safe screen area.
-  * This is useful for devices which have non-rectangular screens such as an iPhone with
-  * a notch. Should be used for top-level containers.
+  * This is useful for devices which have non-rectangular screens such as an
+  * iPhone with a notch. Should be used for top-level containers.
 */
 
 @mixin safe-padding($padding-name, $padding-value) {
