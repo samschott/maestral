@@ -1328,8 +1328,10 @@ class Maestral:
         error_msg = None
 
         try:
-            r = requests.get(GITHUB_RELEASES_API)
-            data = r.json()
+            resp = requests.get(GITHUB_RELEASES_API)
+            resp.raise_for_status()
+
+            data = resp.json()
 
             releases = []
             release_notes = []
