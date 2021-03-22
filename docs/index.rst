@@ -49,7 +49,7 @@ configuration "private" which is not yet linked to a Dropbox account:
     >>> m = Maestral(config_name="private")
 
 Config files will be created on-demand for the new configuration, as described in
-:doc:`config_files` and :doc:`state_files`.
+:doc:`background/config_files` and :doc:`background/state_files`.
 
 We now link the instance to an existing Dropbox account. This is done by generating a
 Dropbox URL for the user to visit and authorize Maestral. Using the :meth:`link` method,
