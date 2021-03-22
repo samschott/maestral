@@ -33,6 +33,7 @@ refer to the `website <https://samschott.github.io/maestral>`_.
    autoapi/maestral/fsevents/index
    autoapi/maestral/logging/index
    autoapi/maestral/main/index
+   autoapi/maestral/manager/index
    autoapi/maestral/notify/index
    autoapi/maestral/oauth/index
    autoapi/maestral/sync/index
