@@ -123,7 +123,7 @@ class Start(enum.Enum):
 
 def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
     """
-    Deserializes a :class:`errors.MaestralApiError`.
+    Deserializes a MaestralApiError.
 
     :param class_name: Name of class to deserialize.
     :param d: Dictionary of serialized class.
@@ -401,12 +401,13 @@ def start_maestral_daemon(
     Starts the Maestral daemon with event loop in the current thread. Startup is race
     free: there will never be two daemons running for the same config.
 
-    Wraps :class:`main.Maestral` as Pyro daemon object, creates a new instance and
-    starts an asyncio event loop to listen for requests on a unix domain socket. This
-    call will block until the event loop shuts down. When this function is called from
-    the main thread on macOS, the asyncio event loop uses Cocoa's CFRunLoop to process
-    event. This allows integration with Cocoa frameworks which use callbacks to process
-    use input such as clicked notifications, etc, and potentially allows showing a GUI.
+    Wraps :class:`maestral.main.Maestral` as Pyro daemon object, creates a new instance
+    and starts an asyncio event loop to listen for requests on a unix domain socket.
+    This call will block until the event loop shuts down. When this function is called
+    from the main thread on macOS, the asyncio event loop uses Cocoa's CFRunLoop to
+    process event. This allows integration with Cocoa frameworks which use callbacks to
+    process use input such as clicked notifications, etc, and potentially allows showing
+    a GUI.
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stderr: If ``True``, write logs to stderr.
@@ -553,7 +554,7 @@ def start_maestral_daemon_process(
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
     Startup is race free: there will never be two daemons running for the same config.
     This function will use :obj:`sys.executable` as a Python executable to start the
-    daemon. Use :func:`set_executable` to use a custom executable instead.
+    daemon.
 
     :param config_name: The name of the Maestral configuration to use.
     :param start_sync: If ``True``, start syncing once the daemon has started.
@@ -591,7 +592,7 @@ def start_maestral_daemon_process(
     )
 
     try:
-        wait_for_startup(config_name)
+        wait_for_startup(config_name, timeout)
     except Exception as exc:
         logger.debug("Could not communicate with daemon", exc_info_tuple(exc))
 

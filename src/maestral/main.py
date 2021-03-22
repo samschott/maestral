@@ -83,8 +83,8 @@ class Maestral:
 
     All methods and properties return objects or raise exceptions which can safely be
     serialized, i.e., pure Python types. The only exception are instances of
-    :class:`errors.MaestralApiError`: they need to be registered explicitly with the
-    serpent serializer which is used for communication to frontends.
+    :class:`maestral.errors.MaestralApiError`: they need to be registered explicitly
+    with the serpent serializer which is used for communication to frontends.
 
     Sync errors and fatal errors which occur in the sync threads can be read with the
     properties :attr:`sync_errors` and :attr:`fatal_errors`, respectively.

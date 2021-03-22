@@ -140,8 +140,8 @@ def convert_api_errors(
 ) -> Iterator[None]:
     """
     A context manager that catches and re-raises instances of :class:`OSError` and
-    :class:`exceptions.DropboxException` as :class:`errors.MaestralApiError` or
-    :class:`ConnectionError`.
+    :class:`dropbox.exceptions.DropboxException` as
+    :class:`maestral.errors.MaestralApiError` or :class:`ConnectionError`.
     """
 
     try:
@@ -174,13 +174,13 @@ class DropboxClient:
 
     All Dropbox SDK exceptions and :class:`OSError` instances if related to accessing or
     saving local files will be caught and reraised as a
-    :class:`errors.MaestralApiError`. Connection errors from requests will be caught and
-    reraised as :class:`ConnectionError`.
+    :class:`maestral.errors.MaestralApiError`. Connection errors from requests will be
+    caught and reraised as :class:`ConnectionError`.
 
     :param config_name: Name of config file and state file to use.
     :param timeout: Timeout for individual requests. Defaults to 100 sec if not given.
     :param session: Optional requests session to use. If not given, a new session will
-        be created with :function:`dropbox.create_session`.
+        be created with :func:`dropbox.dropbox_client.create_session`.
     """
 
     SDK_VERSION: str = "2.0"
@@ -209,7 +209,7 @@ class DropboxClient:
 
     @property
     def dbx(self) -> Dropbox:
-        """The actual Python Dropbox SDK"""
+        """The Dropbox SDK instance which is used."""
         if not self.linked:
             raise NotLinkedError(
                 "No auth token set", "Please link a Dropbox account first."
@@ -665,8 +665,8 @@ class DropboxClient:
             is not supported when deleting a folder.
         :param batch_size: Number of items to delete in each batch. Dropbox allows
             batches of up to 1,000 items. Larger values will be capped automatically.
-        :returns: List of Metadata for deleted items or :class:`errors.SyncError` for
-            failures. Results will be in the same order as the original input.
+        :returns: List of Metadata for deleted items or SyncErrors for failures. Results
+            will be in the same order as the original input.
         """
 
         batch_size = clamp(batch_size, 1, 1000)
@@ -865,7 +865,7 @@ class DropboxClient:
         """
         Lists the contents of a folder on Dropbox. Similar to
         :meth:`list_folder_iterator` but returns all entries in a single
-        :class:`files.ListFolderResult` instance.
+        :class:`dropbox.files.ListFolderResult` instance.
 
         :param dbx_path: Path of folder on Dropbox.
         :param max_retries_on_timeout: Number of times to try again if Dropbox servers
@@ -895,9 +895,9 @@ class DropboxClient:
     ) -> Iterator[files.ListFolderResult]:
         """
         Lists the contents of a folder on Dropbox. Returns an iterator yielding
-        :class:`files.ListFolderResult` instances. The number of entries returned in
-        each iteration corresponds to the number of entries returned by a single Dropbox
-        API call and will be typically around 500.
+        :class:`dropbox.files.ListFolderResult` instances. The number of entries
+        returned in each iteration corresponds to the number of entries returned by a
+        single Dropbox API call and will be typically around 500.
 
         :param dbx_path: Path of folder on Dropbox.
         :param max_retries_on_timeout: Number of times to try again if Dropbox servers
@@ -970,8 +970,8 @@ class DropboxClient:
         """
         Lists changes to remote Dropbox since ``last_cursor``. Same as
         :meth:`list_remote_changes_iterator` but fetches all changes first and returns
-        a single :class:`files.ListFolderResult`. This may be useful if you want to
-        fetch all changes before starting to process them.
+        a single :class:`dropbox.files.ListFolderResult`. This may be useful if you want
+        to fetch all changes before starting to process them.
 
         :param last_cursor: Last to cursor to compare for changes.
         :returns: Remote changes since given cursor.
@@ -985,9 +985,9 @@ class DropboxClient:
     ) -> Iterator[files.ListFolderResult]:
         """
         Lists changes to the remote Dropbox since ``last_cursor``. Returns an iterator
-        yielding :class:`files.ListFolderResult` instances. The number of entries
-        returned in each iteration corresponds to the number of entries returned by a
-        single Dropbox API call and will be typically around 500.
+        yielding :class:`dropbox.files.ListFolderResult` instances. The number of
+        entries returned in each iteration corresponds to the number of entries returned
+        by a single Dropbox API call and will be typically around 500.
 
         Call this after :meth:`wait_for_remote_changes` returns ``True``.
 
@@ -1130,8 +1130,8 @@ def os_to_maestral_error(
     exc: OSError, dbx_path: Optional[str] = None, local_path: Optional[str] = None
 ) -> LocalError:
     """
-    Converts a :class:`OSError` to a :class:`MaestralApiError` and tries to add a
-    reasonably informative error title and message.
+    Converts a :class:`OSError` to a :class:`maestral.errors.MaestralApiError` and tries
+    to add a reasonably informative error title and message.
 
     .. note::
         The following exception types should not typically be raised during syncing:
@@ -1144,7 +1144,7 @@ def os_to_maestral_error(
     :param exc: Python Exception.
     :param dbx_path: Dropbox path of file which triggered the error.
     :param local_path: Local path of file which triggered the error.
-    :returns: :class:`MaestralApiError` instance or :class:`OSError` instance.
+    :returns: Converted exception.
     """
 
     title = "Could not sync file or folder"
@@ -1209,13 +1209,13 @@ def dropbox_to_maestral_error(
     local_path: Optional[str] = None,
 ) -> MaestralApiError:
     """
-    Converts a Dropbox SDK exception to a :class:`MaestralApiError` and tries to add a
-    reasonably informative error title and message.
+    Converts a Dropbox SDK exception to a :class:`maestral.errors.MaestralApiError` and
+    tries to add a reasonably informative error title and message.
 
-    :param exc: :class:`dropbox.exceptions.DropboxException` instance.
+    :param exc: Dropbox SDK exception..
     :param dbx_path: Dropbox path of file which triggered the error.
     :param local_path: Local path of file which triggered the error.
-    :returns: :class:`MaestralApiError` instance.
+    :returns: Converted exception.
     """
 
     title = "An unexpected error occurred"

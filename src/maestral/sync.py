@@ -2108,8 +2108,8 @@ class SyncEngine:
     def _create_remote_entry(self, event: SyncEvent) -> SyncEvent:
         """
         Applies a local file system event to the remote Dropbox and clears any existing
-        sync errors belonging to that path. Any :class:`errors.SyncError` will be caught
-        and logged as appropriate.
+        sync errors belonging to that path. Any :class:`maestral.errors.SyncError` will
+        be caught and logged as appropriate.
 
         This method always uses a new copy of client and closes the network session
         afterwards.
@@ -3198,13 +3198,13 @@ class SyncEngine:
     def _create_local_entry(self, event: SyncEvent) -> SyncEvent:
         """
         Applies a file / folder change from Dropbox servers to the local Dropbox folder.
-        Any :class:`errors.MaestralApiError` will be caught and logged as appropriate.
-        Entries in the local index are created after successful completion.
+        Any :class:`maestral.errors.MaestralApiError` will be caught and logged as
+        appropriate. Entries in the local index are created after successful completion.
 
         :param event: Dropbox metadata.
         :returns: Copy of the Dropbox metadata if the change was applied successfully,
-            ``True`` if the change already existed, ``False`` in case of a
-            :class:`errors.SyncError` and ``None`` if cancelled.
+            ``True`` if the change already existed, ``False`` in case of a sync error
+            and ``None`` if cancelled.
         """
 
         if self._cancel_requested.is_set():
