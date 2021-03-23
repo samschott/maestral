@@ -178,9 +178,9 @@ class AutoStartXDGDesktop(AutoStartBase):
 
     https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
 
-    :param Name: Name of application.
-    :param Exec: Executable on $PATH or absolute path to executable and optional program
-        arguments.
+    :param app_name: Name of application.
+    :param start_cmd: Executable on $PATH or absolute path to executable and optional
+        program arguments.
     :param filename: Name of desktop entry file. If not given, the application name will
         be used.
     :param kwargs: Additional key, value pairs to be used in the desktop entries. Values
@@ -331,11 +331,12 @@ class AutoStart:
 
     @property
     def enabled(self) -> bool:
-        """True if autostart is enabled."""
+        """True if autostart is enabled, False otherwise."""
         return self._impl.enabled
 
     @enabled.setter
     def enabled(self, value: bool) -> None:
+        """Setter: enabled."""
         if value:
             self.enable()
         else:
@@ -343,13 +344,10 @@ class AutoStart:
 
     def toggle(self) -> None:
         """Toggles autostart on or off."""
-        if self.enabled:
-            self.disable()
-        else:
-            self.enable()
+        self.enabled = not self.enabled
 
     def enable(self) -> None:
-        """Setter: True if autostart is enabled."""
+        """Enable autostart."""
 
         if self.enabled:
             return
@@ -360,7 +358,7 @@ class AutoStart:
             raise OSError("Could not find path of maestral executable")
 
     def disable(self) -> None:
-        """Setter: True if autostart is enabled."""
+        """Disable autostart."""
 
         if not self.enabled:
             return
