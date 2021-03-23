@@ -29,6 +29,7 @@ from .utils.appdirs import get_log_path
 
 __all__ = [
     "CachedHandler",
+    "SdNotificationHandler",
     "setup_logging",
     "scoped_logger",
 ]
