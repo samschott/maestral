@@ -25,7 +25,6 @@ extensions = [
     "sphinx.ext.todo",
     "sphinx.ext.intersphinx",
     "sphinx.ext.autodoc",
-    "autoapi.extension",
     "m2r2",
 ]
 source_suffix = [".rst", ".md"]
@@ -48,15 +47,9 @@ latex_documents = [
 
 # sphinx.ext.autodoc
 autodoc_typehints = "description"
-
-# autoapi.extension
-autoapi_type = "python"
-autoapi_dirs = ["../src/maestral"]
-autoapi_options = [
-    "members",
-    "show-inheritance",
-]
-autoapi_add_toctree_entry = False
+autoclass_content = "both"
+autodoc_member_order = "bysource"
+autodoc_inherit_docstrings = False
 
 # sphinx.ext.todo
 todo_include_todos = True
@@ -72,15 +65,3 @@ intersphinx_mapping = {
     "sqlalchemy": ("https://docs.sqlalchemy.org/en/latest/", None),
     "watchdog": ("https://python-watchdog.readthedocs.io/en/latest/", None),
 }
-
-
-def skip_member_override(app, what, name, obj, skip, options):
-    if what == "attribute" and not (obj.is_private_member or obj.is_special_member):
-        # document all public attributes
-        return False
-    else:
-        return None
-
-
-def setup(app):
-    app.connect("autoapi-skip-member", skip_member_override)

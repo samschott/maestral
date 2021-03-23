@@ -23,21 +23,22 @@ refer to the `website <https://samschott.github.io/maestral>`_.
    :caption: Reference
    :maxdepth: 2
 
-   autoapi/maestral/cli/index
-   autoapi/maestral/client/index
-   autoapi/maestral/config/index
-   autoapi/maestral/constants/index
-   autoapi/maestral/daemon/index
-   autoapi/maestral/database/index
-   autoapi/maestral/errors/index
-   autoapi/maestral/fsevents/index
-   autoapi/maestral/logging/index
-   autoapi/maestral/main/index
-   autoapi/maestral/manager/index
-   autoapi/maestral/notify/index
-   autoapi/maestral/oauth/index
-   autoapi/maestral/sync/index
-   autoapi/maestral/utils/index
+   api/maestral.autostart
+   api/maestral.cli
+   api/maestral.client
+   api/maestral.config
+   api/maestral.constants
+   api/maestral.daemon
+   api/maestral.database
+   api/maestral.errors
+   api/maestral.fsevents
+   api/maestral.logging
+   api/maestral.main
+   api/maestral.manager
+   api/maestral.notify
+   api/maestral.oauth
+   api/maestral.sync
+   api/maestral.utils
 
 Getting started
 ***************
