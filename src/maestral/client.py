@@ -349,10 +349,11 @@ class DropboxClient:
     ) -> "DropboxClient":
         """
         Creates a new copy of the Dropbox client with the same defaults unless modified
-        by arguments to clone().
+        by arguments to :meth:`clone`.
 
-        See constructor for original parameter descriptions.
-
+        :param config_name: Name of config file and state file to use.
+        :param timeout: Timeout for individual requests.
+        :param session: Requests session to use.
         :returns: A new instance of DropboxClient.
         """
 

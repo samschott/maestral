@@ -132,7 +132,7 @@ class SyncMonitor:
     @property
     def history(self) -> List[SyncEvent]:
         """A list of the last SyncEvents in our history. History will be kept for the
-        interval specified by the config value``keep_history`` (defaults to two weeks)
+        interval specified by the config value ``keep_history`` (defaults to two weeks)
         but at most 1,000 events will kept."""
         return self.sync.history
 
