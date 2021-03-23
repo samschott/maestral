@@ -75,7 +75,7 @@ from .constants import DROPBOX_APP_KEY
 from .utils import natural_size, chunks, clamp
 
 if TYPE_CHECKING:
-    from .sync import SyncEvent
+    from .database import SyncEvent
 
 
 __all__ = [
