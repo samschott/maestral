@@ -699,8 +699,8 @@ class MaestralProxy:
     :param config_name: The name of the Maestral configuration to use.
     :param fallback: If ``True``, a new instance of Maestral will created in the current
         process when the daemon is not running.
-    :raises CommunicationError: if the daemon is running but cannot be reached or if the
-        daemon is not running and ``fallback`` is ``False``.
+    :raises Pyro5.errors.CommunicationError: if the daemon is running but cannot be
+        reached or if the daemon is not running and ``fallback`` is ``False``.
     """
 
     _m: Union["Maestral", Proxy]
