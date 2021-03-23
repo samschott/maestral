@@ -142,6 +142,9 @@ def convert_api_errors(
     A context manager that catches and re-raises instances of :class:`OSError` and
     :class:`dropbox.exceptions.DropboxException` as
     :class:`maestral.errors.MaestralApiError` or :class:`ConnectionError`.
+
+    :param dbx_path: Dropbox path associated with the exception, if any.
+    :param local_path: Local path associated with the exception, if any.
     """
 
     try:

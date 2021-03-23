@@ -198,6 +198,8 @@ class Lock:
     This internally uses :class:`fasteners.InterProcessLock` but provides non-blocking
     acquire. It also guarantees thread-safety when using the :meth:`singleton` class
     method to create / retrieve a lock instance.
+
+    :param path: Path of the lock file to use / create.
     """
 
     _instances: Dict[str, "Lock"] = {}
@@ -209,7 +211,7 @@ class Lock:
         Retrieve an existing lock object with a given 'name' or create a new one. Use
         this method for thread-safe locks.
 
-        :param path: Path of lock file.
+        :param path: Path of the lock file to use / create.
         """
 
         with cls._singleton_lock:
@@ -263,7 +265,11 @@ class Lock:
             self._internal_lock.release()
 
     def locked(self) -> bool:
-        """Checks if the lock is currently held by any thread or process."""
+        """
+        Checks if the lock is currently held by any thread or process.
+
+        :returns: Whether the lock is acquired.
+        """
         with self._lock:
             gotten = self.acquire()
             if gotten:
@@ -319,6 +325,9 @@ def maestral_lock(config_name: str) -> Lock:
     Returns an inter-process and inter-thread lock for Maestral. This is a wrapper
     around :class:`Lock` which fills out the appropriate lockfile name and directory for
     the given config name.
+
+    :param config_name: The name of the Maestral configuration.
+    :returns: Lock instance for the config name
     """
     name = f"{config_name}.lock"
     path = get_runtime_path("maestral")
@@ -329,6 +338,9 @@ def sockpath_for_config(config_name: str) -> str:
     """
     Returns the unix socket location to be used for the config. This should default to
     the apps runtime directory + 'CONFIG_NAME.sock'.
+
+    :param config_name: The name of the Maestral configuration.
+    :returns: Socket path.
     """
     return get_runtime_path("maestral", f"{config_name}.sock")
 
@@ -337,6 +349,9 @@ def lockpath_for_config(config_name: str) -> str:
     """
     Returns the lock file location to be used for the config. This should default to
     the apps runtime directory + 'CONFIG_NAME.lock'.
+
+    :param config_name: The name of the Maestral configuration.
+    :returns: Path of lock file to use.
     """
     return get_runtime_path("maestral", f"{config_name}.lock")
 
