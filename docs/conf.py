@@ -74,8 +74,8 @@ intersphinx_mapping = {
 }
 
 
-def maybe_skip_member(app, what, name, obj, skip, options):
-    if what == "attribute" and not obj.is_private_member:
+def skip_member_override(app, what, name, obj, skip, options):
+    if what == "attribute" and not (obj.is_private_member or obj.is_special_member):
         # document all public attributes
         return False
     else:
@@ -83,4 +83,4 @@ def maybe_skip_member(app, what, name, obj, skip, options):
 
 
 def setup(app):
-    app.connect("autoapi-skip-member", maybe_skip_member)
+    app.connect("autoapi-skip-member", skip_member_override)
