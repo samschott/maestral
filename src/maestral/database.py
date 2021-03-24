@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 This module contains the definitions of our data base tables which store the index, sync
-history and cache of content hashes.
+history and cache of content hashes. Each table is defined by a subclass of
+:class:`maestral.utils.orm.Model` with properties representing database columns. Class
+instances then represent table rows.
 """
 
 # system imports
