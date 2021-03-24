@@ -419,9 +419,9 @@ def test_inotify_error(m):
         last_error = m.fatal_errors[-1]
 
         assert last_error["type"] == "InotifyError"
-        assert not m.monitor.local_observer_thread.is_alive()
-        assert m.monitor.upload_thread.is_alive()
-        assert m.monitor.download_thread.is_alive()
+        assert not m.manager.local_observer_thread.is_alive()
+        assert m.manager.upload_thread.is_alive()
+        assert m.manager.download_thread.is_alive()
 
     finally:
         subprocess.check_call(

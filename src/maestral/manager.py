@@ -38,7 +38,7 @@ from .utils import exc_info_tuple
 from .utils.integration import check_connection, get_inotify_limits
 
 
-__all__ = ["SyncMonitor"]
+__all__ = ["SyncManager"]
 
 
 FT = TypeVar("FT", bound=Callable[..., Any])
@@ -62,7 +62,7 @@ def _free_memory() -> None:
         malloc_trim(0)
 
 
-class SyncMonitor:
+class SyncManager:
     """Class to manage sync threads
 
     :param client: The Dropbox API client, a wrapper around the Dropbox Python SDK.

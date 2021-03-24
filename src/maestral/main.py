@@ -39,7 +39,7 @@ from dropbox.sharing import RequestedVisibility
 from . import __version__
 from .client import CONNECTION_ERRORS, DropboxClient, convert_api_errors
 from .sync import SyncDirection
-from .manager import SyncMonitor
+from .manager import SyncManager
 from .errors import (
     MaestralApiError,
     NotLinkedError,
@@ -128,8 +128,8 @@ class Maestral:
 
         # set up sync infrastructure
         self.client = DropboxClient(config_name=self.config_name)
-        self.monitor = SyncMonitor(self.client)
-        self.sync = self.monitor.sync
+        self.manager = SyncManager(self.client)
+        self.sync = self.manager.sync
 
         self._check_and_run_post_update_scripts()
 
@@ -355,7 +355,7 @@ class Maestral:
                     for path in added_included_items:
                         if not self.sync.is_excluded_by_user(path):
                             self._logger.info("Included %s", path)
-                            self.monitor.added_item_queue.put(path)
+                            self.manager.added_item_queue.put(path)
 
                     self._logger.info(IDLE)
 
@@ -438,14 +438,14 @@ class Maestral:
     def paused(self) -> bool:
         """Indicates if syncing is paused by the user (read only). This is set by
         calling :meth:`pause`."""
-        return not self.monitor.autostart.is_set() and not self.sync.busy()
+        return not self.manager.autostart.is_set() and not self.sync.busy()
 
     @property
     def running(self) -> bool:
         """Indicates if sync threads are running (read only). They will be stopped
         before :meth:`start_sync` is called, when shutting down or because of an
         exception."""
-        return self.monitor.running.is_set() or self.sync.busy()
+        return self.manager.running.is_set() or self.sync.busy()
 
     @property
     def connected(self) -> bool:
@@ -454,7 +454,7 @@ class Maestral:
         if self.pending_link:
             return False
         else:
-            return self.monitor.connected
+            return self.manager.connected
 
     @property
     def status(self) -> str:
@@ -543,7 +543,7 @@ class Maestral:
             return FileStatus.Unwatched.value
 
         sync_event = next(
-            iter(e for e in self.monitor.activity if e.local_path == local_path), None
+            iter(e for e in self.manager.activity if e.local_path == local_path), None
         )
 
         if sync_event and sync_event.direction == SyncDirection.Up:
@@ -570,9 +570,9 @@ class Maestral:
 
         self._check_linked()
         if limit:
-            activity = [sync_event_to_dict(e) for e in self.monitor.activity[:limit]]
+            activity = [sync_event_to_dict(e) for e in self.manager.activity[:limit]]
         else:
-            activity = [sync_event_to_dict(e) for e in self.monitor.activity]
+            activity = [sync_event_to_dict(e) for e in self.manager.activity]
         return activity
 
     def get_history(self, limit: Optional[int] = 100) -> List[StoneType]:
@@ -590,9 +590,9 @@ class Maestral:
 
         self._check_linked()
         if limit:
-            history = [sync_event_to_dict(e) for e in self.monitor.history[-limit:]]
+            history = [sync_event_to_dict(e) for e in self.manager.history[-limit:]]
         else:
-            history = [sync_event_to_dict(e) for e in self.monitor.history]
+            history = [sync_event_to_dict(e) for e in self.manager.history]
 
         return history
 
@@ -903,7 +903,7 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
-        self.monitor.rebuild_index()
+        self.manager.rebuild_index()
 
     def start_sync(self) -> None:
         """
@@ -916,14 +916,14 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
-        self.monitor.start()
+        self.manager.start()
 
     def stop_sync(self) -> None:
         """
         Stops all syncing threads if running. Call :meth:`start_sync` to restart
         syncing.
         """
-        self.monitor.stop()
+        self.manager.stop()
 
     def reset_sync_state(self) -> None:
         """
@@ -935,7 +935,7 @@ class Maestral:
         """
 
         self._check_linked()
-        self.monitor.reset_sync_state()
+        self.manager.reset_sync_state()
 
     def set_excluded_items(self, items: List[str]) -> None:
         warnings.warn(
@@ -1016,7 +1016,7 @@ class Maestral:
             pass
         else:
             event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
-            with self.monitor.sync.fs_events.ignore(event_cls(local_path)):
+            with self.manager.sync.fs_events.ignore(event_cls(local_path)):
                 delete(local_path)
 
     def include_item(self, dbx_path: str) -> None:
@@ -1102,10 +1102,10 @@ class Maestral:
 
                 if excluded_parent:
                     self._logger.info("Included '%s' and parent directories", dbx_path)
-                    self.monitor.added_item_queue.put(excluded_parent)
+                    self.manager.added_item_queue.put(excluded_parent)
                 else:
                     self._logger.info("Included '%s'", dbx_path)
-                    self.monitor.added_item_queue.put(dbx_path)
+                    self.manager.added_item_queue.put(dbx_path)
             finally:
                 self.sync.sync_lock.release()
 
@@ -1203,7 +1203,7 @@ class Maestral:
 
         # housekeeping
         path = osp.realpath(osp.expanduser(path))
-        self.monitor.reset_sync_state()
+        self.manager.reset_sync_state()
 
         # create new folder
         os.makedirs(path, exist_ok=True)
@@ -1479,16 +1479,16 @@ class Maestral:
 
         while True:
 
-            if self.monitor.running.is_set():
+            if self.manager.running.is_set():
                 elapsed = time.time() - self.sync.last_reindex
                 ac_state = get_ac_state()
 
-                reindexing_due = elapsed > self.monitor.reindex_interval
-                is_idle = self.monitor.idle_time > 20 * 60
+                reindexing_due = elapsed > self.manager.reindex_interval
+                is_idle = self.manager.idle_time > 20 * 60
                 has_ac_power = ac_state in (ACState.Connected, ACState.Undetermined)
 
                 if reindexing_due and is_idle and has_ac_power:
-                    self.monitor.rebuild_index()
+                    self.manager.rebuild_index()
 
             await sleep_rand(60 * 5)
 

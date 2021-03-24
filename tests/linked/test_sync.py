@@ -190,7 +190,7 @@ def test_local_deletion_during_upload(m):
 
     # we mimic a deletion during upload by queueing a fake FileCreatedEvent
     fake_created_event = FileCreatedEvent(m.test_folder_local + "/file.txt")
-    m.monitor.sync.fs_events.queue_event(fake_created_event)
+    m.manager.sync.fs_events.queue_event(fake_created_event)
 
     wait_for_idle(m)
 
