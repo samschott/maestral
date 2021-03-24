@@ -9,21 +9,26 @@ class DropboxContentHasher:
     """
     Computes a hash using the same algorithm that the Dropbox API uses for the
     the "content_hash" metadata field.
-    The digest() method returns a raw binary representation of the hash.  The
-    hexdigest() convenience method returns a hexadecimal-encoded version, which
-    is what the "content_hash" metadata field uses.
-    This class has the same interface as the hashers in the standard 'hashlib'
-    package.
 
-    Example:
-        hasher = DropboxContentHasher()
-        with open('some-file', 'rb') as f:
-            while True:
-                chunk = f.read(1024)  # or whatever chunk size you want
-                if len(chunk) == 0:
-                    break
-                hasher.update(chunk)
-        print(hasher.hexdigest())
+    The :meth:`digest` method returns a raw binary representation of the hash.  The
+    :meth:`hexdigest` convenience method returns a hexadecimal-encoded version, which
+    is what the "content_hash" metadata field uses.
+
+    This class has the same interface as the hashers in the standard 'hashlib' package.
+
+    :Example:
+
+        Read a file in chunks of 1024 bytes and compute its content hash:
+
+        >>> hasher = DropboxContentHasher()
+        >>> with open('some-file', 'rb') as f:
+        ...     while True:
+        ...         chunk = f.read(1024)
+        ...         if len(chunk) == 0:
+        ...             break
+        ...         hasher.update(chunk)
+        ... print(hasher.hexdigest())
+
     """
 
     BLOCK_SIZE = 4 * 1024 * 1024
@@ -88,15 +93,17 @@ class DropboxContentHasher:
 class StreamHasher:
     """
     A wrapper around a file-like object (either for reading or writing)
-    that hashes everything that passes through it.  Can be used with
-    DropboxContentHasher or any 'hashlib' hasher.
-    Example:
-        hasher = DropboxContentHasher()
-        with open('some-file', 'rb') as f:
-            wrapped_f = StreamHasher(f, hasher)
-            response = some_api_client.upload(wrapped_f)
-        locally_computed = hasher.hexdigest()
-        assert response.content_hash == locally_computed
+    that hashes everything that passes through it. Can be used with
+    :class:`DropboxContentHasher` or any 'hashlib' hasher.
+
+    :Example:
+
+        >>> hasher = DropboxContentHasher()
+        >>> with open('some-file', 'rb') as f:
+        ...     wrapped_f = StreamHasher(f, hasher)
+        ...     response = some_api_client.upload(wrapped_f)
+        >>> locally_computed = hasher.hexdigest()
+        >>> assert response.content_hash == locally_computed
     """
 
     def __init__(self, f, hasher):

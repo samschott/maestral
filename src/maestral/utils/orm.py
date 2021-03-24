@@ -557,17 +557,15 @@ class Model:
 
     To define a table, subclass this Model and define :class:`Column`s as class
     properties. Override the ``__tablename__`` attribute with the actual table name.
-
-    :param kwargs: Keyword arguments assigning values to table columns.
     """
 
     __tablename__ = ""
 
     def __init__(self, **kwargs) -> None:
-        """Allows initialization from kwargs.
+        """
+        Initialise with keyword arguments corresponding to column names and values.
 
-        Sets attributes on the constructed instance using the names and values in
-        ``kwargs``.
+        :param kwargs: Keyword arguments assigning values to table columns.
         """
 
         for name, value in kwargs.items():

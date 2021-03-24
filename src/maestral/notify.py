@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-This module handles desktop notifications and supports multiple backends, depending on
-the platform.
+This module handles desktop notifications It uses the
+`desktop-notifier <https://desktop-notifier.readthedocs.io/en/latest/>`_ package as a
+backend for cross-platform desktop notifications.
 """
 
 # system imports
@@ -34,10 +35,13 @@ _desktop_notifier = DesktopNotifier(
 
 
 NONE = 100
+"""No desktop notifications"""
 ERROR = 40
+"""Notify only on fatal errors"""
 SYNCISSUE = 30
+"""Notify for sync issues and higher"""
 FILECHANGE = 15
-
+"""Notify for all remote file changes"""
 
 _level_to_name = {
     NONE: "NONE",

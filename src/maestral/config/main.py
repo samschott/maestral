@@ -125,7 +125,7 @@ _config_lock = threading.Lock()
 
 def MaestralConfig(config_name: str) -> UserConfig:
     """
-    Returns existing config instance or creates a new one.
+    Returns an existing config instance or creates a new one.
 
     :param config_name: Name of maestral configuration to run. A new config file will
         be created if none exists for the given config_name.
@@ -145,7 +145,7 @@ _state_lock = threading.Lock()
 
 def MaestralState(config_name: str) -> UserConfig:
     """
-    Returns existing state instance or creates a new one.
+    Returns an existing state instance or creates a new one.
 
     :param config_name: Name of maestral configuration to run. A new state file will
         be created if none exists for the given config_name.

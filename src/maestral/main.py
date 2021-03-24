@@ -383,7 +383,7 @@ class Maestral:
 
     @property
     def notification_snooze(self) -> float:
-        """Snooze time for desktop notifications in minutes. Defaults to 0.0 if
+        """Snooze time for desktop notifications in minutes. Defaults to 0 if
         notifications are not snoozed."""
         return self.sync.notifier.snoozed
 

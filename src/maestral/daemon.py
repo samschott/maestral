@@ -323,8 +323,8 @@ def _send_term(pid: int) -> None:
 def maestral_lock(config_name: str) -> Lock:
     """
     Returns an inter-process and inter-thread lock for Maestral. This is a wrapper
-    around :class:`Lock` which fills out the appropriate lockfile name and directory for
-    the given config name.
+    around :class:`Lock` which fills out the appropriate lockfile path for he given
+    config name.
 
     :param config_name: The name of the Maestral configuration.
     :returns: Lock instance for the config name
@@ -347,8 +347,8 @@ def sockpath_for_config(config_name: str) -> str:
 
 def lockpath_for_config(config_name: str) -> str:
     """
-    Returns the lock file location to be used for the config. This should default to
-    the apps runtime directory + 'CONFIG_NAME.lock'.
+    Returns the lock file location to be used for the config. This will be the apps
+    runtime directory + 'CONFIG_NAME.lock'.
 
     :param config_name: The name of the Maestral configuration.
     :returns: Path of lock file to use.
@@ -358,7 +358,7 @@ def lockpath_for_config(config_name: str) -> str:
 
 def get_maestral_pid(config_name: str) -> Optional[int]:
     """
-    Returns Maestral's PID if the daemon is running, ``None`` otherwise.
+    Returns the PID of the daemon if it is running, ``None`` otherwise.
 
     :param config_name: The name of the Maestral configuration.
     :returns: The daemon's PID.
@@ -413,16 +413,15 @@ def start_maestral_daemon(
     config_name: str = "maestral", log_to_stderr: bool = False, start_sync: bool = False
 ) -> None:
     """
-    Starts the Maestral daemon with event loop in the current thread. Startup is race
-    free: there will never be two daemons running for the same config.
+    Starts the Maestral daemon with event loop in the current thread.
 
-    Wraps :class:`maestral.main.Maestral` as Pyro daemon object, creates a new instance
-    and starts an asyncio event loop to listen for requests on a unix domain socket.
-    This call will block until the event loop shuts down. When this function is called
-    from the main thread on macOS, the asyncio event loop uses Cocoa's CFRunLoop to
-    process event. This allows integration with Cocoa frameworks which use callbacks to
-    process use input such as clicked notifications, etc, and potentially allows showing
-    a GUI.
+    Startup is race free: there will never be more than one daemon running with the same
+    config name. The daemon is a :class:`maestral.main.Maestral` instance which is
+    exposed as Pyro daemon object and listens for requests on a unix domain socket. This
+    call starts an asyncio event loop to process client requests and blocks until the
+    event loop shuts down. On macOS, the event loop is integrated with Cocoa's
+    CFRunLoop. This allows processing Cocoa events and callbacks, for instance for
+    desktop notifications.
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stderr: If ``True``, write logs to stderr.
@@ -567,9 +566,10 @@ def start_maestral_daemon_process(
 ) -> Start:
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
-    Startup is race free: there will never be two daemons running for the same config.
-    This function will use :obj:`sys.executable` as a Python executable to start the
-    daemon.
+
+    Startup is race free: there will never be more than one daemon running for the same
+    config name. This function will use :obj:`sys.executable` as a Python executable to
+    start the daemon.
 
     :param config_name: The name of the Maestral configuration to use.
     :param start_sync: If ``True``, start syncing once the daemon has started.
@@ -699,8 +699,8 @@ class MaestralProxy:
     :param config_name: The name of the Maestral configuration to use.
     :param fallback: If ``True``, a new instance of Maestral will created in the current
         process when the daemon is not running.
-    :raises Pyro5.errors.CommunicationError: if the daemon is running but cannot be
-        reached or if the daemon is not running and ``fallback`` is ``False``.
+    :raises CommunicationError: if the daemon is running but cannot be reached or if the
+        daemon is not running and ``fallback`` is ``False``.
     """
 
     _m: Union["Maestral", Proxy]

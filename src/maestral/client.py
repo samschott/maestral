@@ -143,8 +143,8 @@ def convert_api_errors(
     :class:`dropbox.exceptions.DropboxException` as
     :class:`maestral.errors.MaestralApiError` or :class:`ConnectionError`.
 
-    :param dbx_path: Dropbox path associated with the exception, if any.
-    :param local_path: Local path associated with the exception, if any.
+    :param dbx_path: Dropbox path associated with the error.
+    :param local_path: Local path associated with the error.
     """
 
     try:
@@ -175,10 +175,19 @@ class DropboxClient:
     creating, moving, modifying and deleting files and folders on Dropbox and
     downloading files from Dropbox.
 
-    All Dropbox SDK exceptions and :class:`OSError` instances if related to accessing or
-    saving local files will be caught and reraised as a
-    :class:`maestral.errors.MaestralApiError`. Connection errors from requests will be
-    caught and reraised as :class:`ConnectionError`.
+    All Dropbox SDK exceptions, OSErrors from the local file system API and connection
+    errors will be caught and reraised as a subclass of
+    :class:`maestral.errors.MaestralApiError`.
+
+    This class can be used as a context manager to clean up any network resources from
+    the API requests.
+
+    :Example:
+
+        >>> from maestral.client import DropboxClient
+        >>> with DropboxClient("maestral") as client:
+        ...     res = client.list_folder("/")
+        >>> print(res.entries)
 
     :param config_name: Name of config file and state file to use.
     :param timeout: Timeout for individual requests. Defaults to 100 sec if not given.
@@ -212,7 +221,7 @@ class DropboxClient:
 
     @property
     def dbx(self) -> Dropbox:
-        """The Dropbox SDK instance which is used."""
+        """The underlying Dropbox SDK instance."""
         if not self.linked:
             raise NotLinkedError(
                 "No auth token set", "Please link a Dropbox account first."
@@ -373,8 +382,7 @@ class DropboxClient:
     def clone_with_new_session(self) -> "DropboxClient":
         """
         Creates a new copy of the Dropbox client with the same defaults but a new
-        requests session. Use :meth:`close()` to clean up any resources from the network
-        session when done using the copy.
+        requests session.
 
         :returns: A new instance of DropboxClient.
         """
@@ -473,7 +481,7 @@ class DropboxClient:
         :param dbx_path: Path to file on Dropbox.
         :param mode: Must be 'path' or 'id'. If 'id', specify the Dropbox file ID
             instead of the file path to get revisions across move and rename events.
-        :param limit: Maximum number of revisions to list. Defaults to 10.
+        :param limit: Maximum number of revisions to list.
         :returns: File revision history.
         """
 
@@ -502,13 +510,13 @@ class DropboxClient:
         **kwargs,
     ) -> files.FileMetadata:
         """
-        Downloads file from Dropbox to our local folder.
+        Downloads a file from Dropbox to given local path.
 
         :param dbx_path: Path to file on Dropbox or rev number.
         :param local_path: Path to local download destination.
         :param sync_event: If given, the sync event will be updated with the number of
             downloaded bytes.
-        :param kwargs: Keyword arguments for Dropbox SDK files_download.
+        :param kwargs: Keyword arguments for the Dropbox API files_download endpoint.
         :returns: Metadata of downloaded item.
         """
 
@@ -650,7 +658,7 @@ class DropboxClient:
         Removes a file / folder from Dropbox.
 
         :param dbx_path: Path to file on Dropbox.
-        :param kwargs: Keyword arguments for Dropbox SDK files_delete_v2.
+        :param kwargs: Keyword arguments for the Dropbox API files_delete_v2 endpoint.
         :returns: Metadata of deleted item.
         """
 
@@ -662,7 +670,7 @@ class DropboxClient:
         self, entries: List[Tuple[str, str]], batch_size: int = 900
     ) -> List[Union[files.Metadata, MaestralApiError]]:
         """
-        Delete multiple items on Dropbox in a batch job.
+        Deletes multiple items on Dropbox in a batch job.
 
         :param entries: List of Dropbox paths and "rev"s to delete. If a "rev" is not
             None, the file will only be deleted if it matches the rev on Dropbox. This
@@ -741,7 +749,7 @@ class DropboxClient:
 
         :param dbx_path: Path to file/folder on Dropbox.
         :param new_path: New path on Dropbox to move to.
-        :param kwargs: Keyword arguments for Dropbox SDK files_move_v2.
+        :param kwargs: Keyword arguments for the Dropbox API files_move_v2 endpoint.
         :returns: Metadata of moved item.
         """
 
@@ -760,7 +768,8 @@ class DropboxClient:
         Creates a folder on Dropbox.
 
         :param dbx_path: Path of Dropbox folder.
-        :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_v2.
+        :param kwargs: Keyword arguments for the Dropbox API files_create_folder_v2
+            endpoint.
         :returns: Metadata of created folder.
         """
 
@@ -777,7 +786,8 @@ class DropboxClient:
         :param dbx_paths: List of dropbox folder paths.
         :param batch_size: Number of folders to create in each batch. Dropbox allows
             batches of up to 1,000 folders. Larger values will be capped automatically.
-        :param kwargs: Keyword arguments for Dropbox SDK files_create_folder_batch.
+        :param kwargs: Keyword arguments for the Dropbox API files/create_folder_batch
+            endpoint.
         :returns: List of Metadata for created folders or SyncError for failures.
             Entries will be in the same order as given paths.
         """
@@ -843,7 +853,8 @@ class DropboxClient:
         :param dbx_path: Path of folder on Dropbox.
         :param include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
-        :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
+        :param kwargs: Additional keyword arguments for Dropbox API
+            files/list_folder/get_latest_cursor endpoint.
         :returns: The latest cursor representing a state of a folder and its subfolders.
         """
 
@@ -877,7 +888,8 @@ class DropboxClient:
             large Dropbox folders.
         :param include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
-        :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
+        :param kwargs: Additional keyword arguments for Dropbox API files/list_folder
+            endpoint.
         :returns: Content of given folder.
         """
 
@@ -909,7 +921,8 @@ class DropboxClient:
             large Dropbox folders.
         :param include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
-        :param kwargs: Other keyword arguments for Dropbox SDK files_list_folder.
+        :param kwargs: Additional keyword arguments for the Dropbox API
+            files/list_folder endpoint.
         :returns: Iterator over content of given folder.
         """
 
@@ -947,7 +960,8 @@ class DropboxClient:
         starting the Dropbox client and periodically to get the latest updates.
 
         :param last_cursor: Last to cursor to compare for changes.
-        :param timeout: Seconds to wait until timeout. Must be between 30 and 480.
+        :param timeout: Seconds to wait until timeout. Must be between 30 and 480. The
+            Dropbox API will add a random jitter of up to 60 sec to this value.
         :returns: ``True`` if changes are available, ``False`` otherwise.
         """
 
@@ -975,7 +989,7 @@ class DropboxClient:
         Lists changes to remote Dropbox since ``last_cursor``. Same as
         :meth:`list_remote_changes_iterator` but fetches all changes first and returns
         a single :class:`dropbox.files.ListFolderResult`. This may be useful if you want
-        to fetch all changes before starting to process them.
+        to fetch all changes in advance before starting to process them.
 
         :param last_cursor: Last to cursor to compare for changes.
         :returns: Remote changes since given cursor.
@@ -1032,8 +1046,8 @@ class DropboxClient:
             is set to password protected and will be ignored otherwise
         :param expires: Expiry time for shared link. Only available for Professional and
             Business accounts.
-        :param kwargs: Additional keyword arguments for the
-            :class:`dropbox.sharing.SharedLinkSettings`.
+        :param kwargs: Additional keyword arguments to create the
+            :class:`dropbox.sharing.SharedLinkSettings` instance.
         :returns: Metadata for shared link.
         """
 
@@ -1103,7 +1117,7 @@ class DropboxClient:
     ) -> PaginationResultType:
         """
         Flattens a list of Dropbox API results from a pagination to a single result with
-        the cursor of the last entry in the list.
+        the cursor of the last result in the list.
 
         :param results: List of :results to flatten.
         :param attribute_name: Name of attribute to flatten.
@@ -1140,14 +1154,14 @@ def os_to_maestral_error(
     .. note::
         The following exception types should not typically be raised during syncing:
 
-        * InterruptedError: The client will automatically retry on interrupted
-          connections.
-        * NotADirectoryError: If raised, this is likely a bug.
-        * IsADirectoryError: If raised, this is likely a bug.
+        * :class:`maestral.errors.InterruptedError`: The client will automatically retry
+          on interrupted connections.
+        * :class:`maestral.errors.NotADirectoryError`: If raised, this is likely a bug.
+        * :class:`maestral.errors.IsADirectoryError`: If raised, this is likely a bug.
 
     :param exc: Python Exception.
-    :param dbx_path: Dropbox path of file which triggered the error.
-    :param local_path: Local path of file which triggered the error.
+    :param dbx_path: Dropbox path associated with the error.
+    :param local_path: Local path associated with the error.
     :returns: Converted exception.
     """
 
@@ -1217,8 +1231,8 @@ def dropbox_to_maestral_error(
     tries to add a reasonably informative error title and message.
 
     :param exc: Dropbox SDK exception..
-    :param dbx_path: Dropbox path of file which triggered the error.
-    :param local_path: Local path of file which triggered the error.
+    :param dbx_path: Dropbox path associated with the error.
+    :param local_path: Local path associated with the error.
     :returns: Converted exception.
     """
 

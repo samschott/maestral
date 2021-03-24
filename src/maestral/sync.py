@@ -117,15 +117,7 @@ from .utils.appdirs import get_data_path, get_home_dir
 
 __all__ = [
     "Conflict",
-    "SyncDirection",
-    "SyncStatus",
-    "ItemType",
-    "ChangeType",
     "FSEventHandler",
-    "PersistentStateMutableSet",
-    "SyncEvent",
-    "IndexEntry",
-    "HashCacheEntry",
     "SyncEngine",
 ]
 
@@ -181,8 +173,8 @@ class FSEventHandler(FileSystemEventHandler):
     :param file_event_types: Types of file events to handle. This acts as a whitelist.
     :param dir_event_types: Types of folder events to handle. This acts as a whitelist.
 
-    :cvar float ignore_timeout: Timeout in seconds after which ignored paths will be
-        discarded.
+    :cvar float ignore_timeout: Timeout in seconds after which filters for ignored
+        events will expire.
     """
 
     _ignored_events: List[_Ignore]
@@ -249,6 +241,16 @@ class FSEventHandler(FileSystemEventHandler):
 
         This context manager is used to filter out file system events caused by maestral
         itself, for instance during a download or when moving a conflict.
+
+        :Example:
+
+            Prevent triggereing a sync event when creating a local file:
+
+            >>> from watchdog.events import FileCreatedEvent
+            >>> from maestral.main import Maestral
+            >>> m = Maestral()
+            >>> with m.sync.fs_events.ignore(FileCreatedEvent('path')):
+            ...     open('path').close()
 
         :param events: Local events to ignore.
         :param recursive: If ``True``, all child events of a directory event will be
@@ -371,9 +373,9 @@ class FSEventHandler(FileSystemEventHandler):
 
         .. note:: If there are multiple threads waiting for events, all of them will be
             notified. If one of those threads starts getting events from
-            :attr:`local_file_event_queue`, other threads may find that queue empty. You
-            should therefore always be prepared to handle an empty queue, if if this
-            method returns ``True``.
+            :attr:`local_file_event_queue`, other threads may find that the queue is
+            empty despite being woken. You should therefore be prepared to handle an
+            empty queue even if this method returns ``True``.
 
         :param timeout: Maximum time to block in seconds.
         :returns: ``True`` if an event is available, ``False`` if the call returns due
@@ -1063,7 +1065,7 @@ class SyncEngine:
         """
         Checks if the Dropbox folder still exists where we expect it to be.
 
-        :raises DropboxDeletedError: When local Dropbox directory does not exist.
+        :raises NoDropboxDirError: When local Dropbox directory does not exist.
         """
 
         if not osp.isdir(self.dropbox_path):
@@ -1146,16 +1148,17 @@ class SyncEngine:
     ) -> str:
         """
         Converts a Dropbox path with correctly cased basename to a fully cased path.
-        This is because Dropbox metadata guarantees the correct casing for the basename
-        only. In practice, casing of parent directories is often incorrect.
-        This is done by retrieving the correct casing of the dirname, either from our
-        cache, our database or from Dropbox servers.
+        This is useful because the Dropbox API guarantees the correct casing for the
+        basename only. In practice, casing of parent directories is often incorrect.
+        This method retrieves the correct casing of of all ancestors in the path, either
+        from our cache, our database, or from Dropbox servers.
 
-        Performance may vary significantly with the number of parent folders:
+        Performance may vary significantly with the number of parent folders and the
+        method used to resolve the casing of all parent directory names:
 
         1) If the parent directory is already in our cache, performance is O(1).
-        2) If the parent directory is already in our sync index, performance is O(1) but
-           slower than the first case because it requires a SQLAlchemy query.
+        2) If the parent directory is already in our sync index, performance is slower
+           because it requires a sqlite query but still O(1).
         3) If the parent directory is unknown to us, its metadata (including the correct
            casing of directory's basename) is queried from Dropbox. This is used to
            construct a correctly cased path by calling :meth:`correct_case` again. At
@@ -1163,14 +1166,14 @@ class SyncEngine:
            worst if will be of order O(n) involving queries to Dropbox servers for each
            parent directory.
 
-        When running :meth:`correct_case` on a large tree of paths, it is therefore best
-        to do so in hierarchical order.
+        When calling :meth:`correct_case` repeatedly for paths from the same tree, it is
+        therefore best to do so in hierarchical order.
 
         :param dbx_path: Dropbox path with correctly cased basename, as provided by
             :attr:`dropbox.files.Metadata.path_display` or
             :attr:`dropbox.files.Metadata.name`.
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         :returns: Correctly cased Dropbox path.
         """
 
@@ -1256,8 +1259,8 @@ class SyncEngine:
 
         :param dbx_path: Path relative to Dropbox folder, must be correctly cased in its
             basename.
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         :returns: Corresponding local path on drive.
         """
 
@@ -1410,7 +1413,8 @@ class SyncEngine:
 
     def cancel_sync(self) -> None:
         """
-        Raises a CancelledError in all sync threads and waits for them to shut down.
+        Raises a :class:`maestral.errors.CancelledError` in all sync threads and waits
+        for them to shut down.
         """
 
         self._cancel_requested.set()
@@ -1488,9 +1492,9 @@ class SyncEngine:
     @contextmanager
     def _database_access(self, log_errors: bool = False) -> Iterator[None]:
         """
-        Synchronises access to the SQLite database. Catches exceptions raised by
-        SQLAlchemy and converts them to a MaestralApiError if we know how to handle
-        them.
+        A context manager to synchronises access to the SQLite database. Catches
+        exceptions raised by sqlite3 and converts them to a MaestralApiError if we know
+        how to handle them.
 
         :param log_errors: If ``True``, any resulting MaestralApiError is not raised but
             only logged.
@@ -2190,8 +2194,8 @@ class SyncEngine:
         remained the same.
 
         :param event: SyncEvent for local moved event.
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         :returns: Metadata for created remote item at destination.
         :raises MaestralApiError: For any issues when syncing the item.
         """
@@ -2273,8 +2277,8 @@ class SyncEngine:
         Call when a local item is created.
 
         :param event: SyncEvent corresponding to local created event.
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         :returns: Metadata for created item or None if no remote item is created.
         :raises MaestralApiError: For any issues when syncing the item.
         """
@@ -2382,8 +2386,8 @@ class SyncEngine:
         Call when local item is modified.
 
         :param event: SyncEvent for local modified event.
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         :returns: Metadata corresponding to modified remote item or None if no remote
             item is modified.
         :raises MaestralApiError: For any issues when syncing the item.
@@ -2469,8 +2473,8 @@ class SyncEngine:
         been modified since the last sync.
 
         :param event: SyncEvent for local deletion.
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         :returns: Metadata for deleted item or None if no remote item is deleted.
         :raises MaestralApiError: For any issues when syncing the item.
         """
@@ -2560,8 +2564,8 @@ class SyncEngine:
         cycle, for instance when including a previously excluded file or folder.
 
         :param dbx_path: Path relative to Dropbox folder.
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         :returns: Whether download was successful.
         """
 
@@ -2603,8 +2607,8 @@ class SyncEngine:
         :attr:`dropbox_path`.
 
         :param dbx_path: Path relative to Dropbox folder.
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         :returns: Whether download was successful.
         """
 
@@ -2660,8 +2664,8 @@ class SyncEngine:
         :param last_cursor: Cursor form last sync.
         :param timeout: Timeout in seconds before returning even if there are no
             changes. Dropbox adds random jitter of up to 90 sec to this value.
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         :returns: ``True`` if changes are available, ``False`` otherwise.
         """
 
@@ -2687,8 +2691,8 @@ class SyncEngine:
         Handles updating the remote cursor and resuming interrupted syncs for you.
         Calling this method will perform a full indexing if this is the first download.
 
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         """
 
         client = client or self.client
@@ -2755,8 +2759,8 @@ class SyncEngine:
         string, tart a full indexing of the Dropbox folder.
 
         :param last_cursor: Cursor from last download sync.
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         :returns: Iterator yielding tuples with remote changes and corresponding cursor.
         """
 
@@ -2892,8 +2896,8 @@ class SyncEngine:
         Shows a desktop notification for the given file changes.
 
         :param sync_events: List of SyncEvents from download sync.
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         """
 
         client = client or self.client
@@ -3251,8 +3255,8 @@ class SyncEngine:
         Applies a remote file change or creation locally.
 
         :param event: SyncEvent for file download.
-        :param client: DropboxClient instance to use. If not given, use the global
-            instance.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         :returns: SyncEvent corresponding to local item or None if no local changes
             are made.
         """
