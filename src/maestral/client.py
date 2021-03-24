@@ -1151,15 +1151,7 @@ def os_to_maestral_error(
     Converts a :class:`OSError` to a :class:`maestral.errors.MaestralApiError` and tries
     to add a reasonably informative error title and message.
 
-    .. note::
-        The following exception types should not typically be raised during syncing:
-
-        * :class:`maestral.errors.InterruptedError`: The client will automatically retry
-          on interrupted connections.
-        * :class:`maestral.errors.NotADirectoryError`: If raised, this is likely a bug.
-        * :class:`maestral.errors.IsADirectoryError`: If raised, this is likely a bug.
-
-    :param exc: Python Exception.
+    :param exc: Original OSError.
     :param dbx_path: Dropbox path associated with the error.
     :param local_path: Local path associated with the error.
     :returns: Converted exception.
