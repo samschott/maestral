@@ -382,7 +382,7 @@ class SyncManager:
 
         while running.is_set():
 
-            with self.handle_sync_thread_errors(running, autostart):
+            with self._handle_sync_thread_errors(running, autostart):
 
                 with self.sync.client.clone_with_new_session() as client:
 
@@ -422,7 +422,7 @@ class SyncManager:
 
         while running.is_set():
 
-            with self.handle_sync_thread_errors(running, autostart):
+            with self._handle_sync_thread_errors(running, autostart):
 
                 try:
                     dbx_path = self.added_item_queue.get(timeout=40)
@@ -464,7 +464,7 @@ class SyncManager:
 
         while running.is_set():
 
-            with self.handle_sync_thread_errors(running, autostart):
+            with self._handle_sync_thread_errors(running, autostart):
 
                 has_changes = self.sync.wait_for_local_changes()
 
@@ -494,7 +494,7 @@ class SyncManager:
         :param autostart: Set when syncing should automatically resume on connection.
         """
 
-        with self.handle_sync_thread_errors(running, autostart):
+        with self._handle_sync_thread_errors(running, autostart):
 
             # Reload mignore rules.
             self.sync.load_mignore_file()
@@ -537,10 +537,8 @@ class SyncManager:
     # ---- utilities -------------------------------------------------------------------
 
     @contextmanager
-    def handle_sync_thread_errors(
-        self,
-        running: Event,
-        autostart: Event,
+    def _handle_sync_thread_errors(
+        self, running: Event, autostart: Event
     ) -> Iterator[None]:
 
         try:
