@@ -24,7 +24,6 @@ refer to the `website <https://samschott.github.io/maestral>`_.
    :maxdepth: 2
 
    api/maestral.autostart
-   api/maestral.cli
    api/maestral.client
    api/maestral.config
    api/maestral.constants
