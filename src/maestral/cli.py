@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-This file defines the functions to configure and interact with Maestral from the command
-line. Some imports are deferred to the functions that required them in order to reduce
-the startup time of individual CLI commands.
+This module defines the functions to configure and interact with Maestral from the
+command line. Some imports are deferred to the functions that required them in order to
+reduce the startup time of individual CLI commands.
 """
 
 # system imports
@@ -215,7 +215,7 @@ def check_for_fatal_errors(m: Union["MaestralProxy", "Maestral"]) -> bool:
 def convert_py_errors(func: Callable) -> Callable:
     """
     Decorator that catches a MaestralApiError and prints a formatted error message to
-    stdout before exiting.
+    stdout before exiting. Calls ``sys.exit(1)`` after printing the error to stdout.
     """
 
     from .errors import MaestralApiError

@@ -133,7 +133,8 @@ class AutoStartLaunchd(AutoStartBase):
 
     :param bundle_id: Bundle ID for the, e.g., "com.google.calendar".
     :param start_cmd: Absolute path to executable and optional program arguments.
-    :param **kwargs: Additional sections to plist.
+    :param kwargs: Additional key, value pairs to add to plist. Values may be strings,
+        booleans, lists or dictionaries.
     """
 
     def __init__(self, bundle_id: str, start_cmd: str, **kwargs) -> None:
