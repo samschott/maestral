@@ -12,9 +12,10 @@ RUN set -eux ; \
     libffi-dev \
     openssl-dev \
     cargo ; \
+  pip install -U pip ; \
   pip install maestral==${VERSION} ; \
-  rm -rf /root/.cargo; \
-  rm -rf /root/.cache; \
+  rm -rf /root/.cargo ; \
+  rm -rf /root/.cache ; \
   apk del --no-network .build-deps
 
 USER dropbox
