@@ -533,7 +533,7 @@ class SyncEngine:
         self._case_conversion_cache = LRUCache(capacity=5000)
 
         # clean our file cache
-        self.clean_cache_dir()
+        self.clean_cache_dir(raise_error=False)
 
     def _load_cached_config(self) -> None:
 
@@ -1110,8 +1110,12 @@ class SyncEngine:
 
             retries += 1
 
-    def clean_cache_dir(self) -> None:
-        """Removes all items in the cache directory."""
+    def clean_cache_dir(self, raise_error: bool = True) -> None:
+        """
+        Removes all items in the cache directory.
+
+        :param raise_error: Whether errors should raised or only logged.
+        """
 
         with self.sync_lock:
             try:
@@ -1119,11 +1123,17 @@ class SyncEngine:
             except (FileNotFoundError, IsADirectoryError):
                 pass
             except OSError as err:
-                raise CacheDirError(
+                exc = CacheDirError(
                     f"Cannot create cache directory: {os.strerror(err.errno)}",
                     "Please check if you have write permissions for "
                     f"{self._file_cache_path}.",
                 )
+
+                if raise_error:
+                    raise exc
+                else:
+                    self._logger.error(exc.title, exc_info=exc_info_tuple(exc))
+                    self.notifier.notify(exc.title, exc.message, level=notify.ERROR)
 
     def _new_tmp_file(self) -> str:
         """Returns a new temporary file name in our cache directory."""
