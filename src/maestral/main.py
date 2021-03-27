@@ -908,14 +908,7 @@ class Maestral:
     def start_sync(self) -> None:
         """
         Creates syncing threads and starts syncing.
-
-        :raises NotLinkedError: if no Dropbox account is linked.
-        :raises NoDropboxDirError: if local Dropbox folder is not set up.
         """
-
-        self._check_linked()
-        self._check_dropbox_dir()
-
         self.manager.start()
 
     def stop_sync(self) -> None:
