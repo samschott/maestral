@@ -13,6 +13,7 @@ import urllib.parse
 import enum
 import sqlite3
 import logging
+import gc
 from pprint import pformat
 from threading import Event, Condition, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
@@ -1561,6 +1562,7 @@ class SyncEngine:
                 sync_events = [
                     SyncEvent.from_file_system_event(e, self) for e in events
                 ]
+                del events
             except (FileNotFoundError, NotADirectoryError):
                 self.ensure_dropbox_folder_present()
                 return
@@ -1570,6 +1572,9 @@ class SyncEngine:
                 self._logger.debug("Uploaded local changes while inactive")
             else:
                 self._logger.debug("No local changes while inactive")
+
+            del sync_events
+            gc.collect()
 
             self.local_cursor = local_cursor
 
@@ -1691,8 +1696,10 @@ class SyncEngine:
 
             self.local_cursor = cursor
 
+            # Free memory early to prevent fragmentation.
             del changes
             self._clear_caches()
+            gc.collect()
 
             if self._cancel_requested.is_set():
                 raise CancelledError("Sync cancelled")
@@ -1722,6 +1729,10 @@ class SyncEngine:
 
         events = self._clean_local_events(events)
         sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
+
+        # Free memory early to prevent fragmentation.
+        del events
+        gc.collect()
 
         return sync_events, local_cursor
 
@@ -2006,6 +2017,12 @@ class SyncEngine:
 
             for split_events in child_deleted_events.values():
                 cleaned_events.difference_update(split_events)
+
+        # Free memory early to prevent fragmentation.
+        del histories
+        del unique_events
+        del moved_events
+        gc.collect()
 
         return list(cleaned_events)
 
@@ -2738,8 +2755,10 @@ class SyncEngine:
                 if self._cancel_requested.is_set():
                     raise CancelledError("Sync cancelled")
 
+                # Free memory early to prevent fragmentation.
                 del changes
                 del downloaded
+                gc.collect()
 
             self._state.set("sync", "did_finish_indexing", True)
             self._state.set("sync", "indexing_counter", 0)
