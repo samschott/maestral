@@ -1070,7 +1070,7 @@ class SyncEngine:
         """
 
         if not osp.isdir(self.dropbox_path):
-            title = "Dropbox folder has been moved or deleted"
+            title = "Dropbox folder missing"
             msg = (
                 "Please move the Dropbox folder back to its original location "
                 "or restart Maestral to set up a new folder."
