@@ -349,7 +349,8 @@ def move(
 
 
 def walk(
-    root: str, listdir: Callable[[str], Iterable[Union[str, os.DirEntry]]] = os.scandir
+    root: Union[str, os.PathLike],
+    listdir: Callable[[Union[str, os.PathLike]], Iterable[os.DirEntry]] = os.scandir,
 ) -> Iterator[Tuple[str, os.stat_result]]:
     """
     Iterates recursively over the content of a folder.
