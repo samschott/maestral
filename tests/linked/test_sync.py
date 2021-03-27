@@ -251,7 +251,7 @@ def test_rapid_remote_changes(m):
     assert not m.fatal_errors
 
 
-def test_folder_tree_created_local(m):
+def test_folder_tree_local(m):
     """Tests the upload sync of a nested local folder structure."""
 
     # test creating tree
@@ -278,7 +278,30 @@ def test_folder_tree_created_local(m):
     assert not m.fatal_errors
 
 
-def test_folder_tree_created_remote(m):
+def test_local_indexing(m):
+    """Tests the upload sync of a nested local folder structure."""
+
+    m.stop_sync()
+    wait_for_idle(m, 1)
+
+    # create local tree
+
+    shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
+
+    snap = DirectorySnapshot(resources + "/test_folder")
+    num_items = len([p for p in snap.paths if not m.sync.is_excluded(p)])
+
+    m.start_sync()
+    wait_for_idle(m, 10)
+
+    assert_synced(m)
+    assert_child_count(m, "/sync_tests", num_items)
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+def test_folder_tree_remote(m):
     """Tests the download sync of a nested remote folder structure."""
 
     # test creating remote tree
