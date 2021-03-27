@@ -6,9 +6,9 @@ This module contains functions for common path operations.
 # system imports
 import os
 import os.path as osp
+import errno
 import shutil
 import itertools
-import errno
 from stat import S_ISDIR
 from typing import List, Optional, Tuple, Callable, Iterator, Iterable, Union
 
@@ -363,26 +363,24 @@ def walk(
     for entry in listdir(root):
 
         try:
-            path = os.path.join(root, entry if isinstance(entry, str) else entry.name)
-            stat = os.stat(path)
-        except OSError as e:
+            path = entry.path
+            stat = entry.stat()
+
+            yield path, stat
+
+            if S_ISDIR(stat.st_mode):
+                for res in walk(entry.path, listdir=listdir):
+                    yield res
+
+        except OSError as exc:
             # Directory may have been deleted between finding it in the directory
             # list of its parent and trying to list its contents. If this
             # happens we treat it as empty. Likewise if the directory was replaced
             # with a file of the same name (less likely, but possible).
-            if e.errno in (errno.ENOENT, errno.ENOTDIR, errno.EINVAL):
+            if exc.errno in (errno.ENOENT, errno.ENOTDIR, errno.EINVAL):
                 return
             else:
                 raise
-
-        yield path, stat
-
-        try:
-            if S_ISDIR(stat.st_mode):
-                for res in walk(path, listdir=listdir):
-                    yield res
-        except PermissionError:
-            pass
 
 
 def content_hash(
