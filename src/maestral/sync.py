@@ -3575,12 +3575,15 @@ class SyncEngine:
             )
             self._db_manager_history.clear_cache()
 
-    def _scandir_with_mignore(self, path: str) -> List:
-        return [
-            f
-            for f in os.scandir(path)
-            if not self._is_mignore_path(self.to_dbx_path(f.path), f.is_dir())
-        ]
+    def _scandir_with_mignore(
+        self, path: Union[str, os.PathLike]
+    ) -> Iterator[os.DirEntry]:
+
+        with os.scandir(path) as it:
+            for entry in it:
+                dbx_path = self.to_dbx_path(entry.path)
+                if not self._is_mignore_path(dbx_path, entry.is_dir()):
+                    yield entry
 
 
 # ======================================================================================
