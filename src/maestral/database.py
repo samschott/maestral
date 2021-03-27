@@ -24,6 +24,7 @@ from watchdog.events import (
 )
 
 # local imports
+from .errors import SyncError
 from .utils.orm import Model, Column, SqlEnum, SqlInt, SqlString, SqlFloat, SqlPath
 
 if TYPE_CHECKING:
@@ -375,6 +376,11 @@ class SyncEvent(Model):
         except OSError:
             stat = None
 
+        try:
+            content_hash = sync_engine.get_local_hash(to_path)
+        except SyncError:
+            content_hash = None
+
         if event.is_directory:
             item_type = ItemType.Folder
             size = 0
@@ -401,7 +407,7 @@ class SyncEvent(Model):
             local_path=to_path,
             dbx_path_from=sync_engine.to_dbx_path(from_path) if from_path else None,
             local_path_from=from_path,
-            content_hash=sync_engine.get_local_hash(to_path),
+            content_hash=content_hash,
             change_type=change_type,
             change_time=change_time,
             change_dbid=change_dbid,
