@@ -514,13 +514,8 @@ def start_maestral_daemon(
     maestral_daemon = ExposedMaestral(config_name, log_to_stderr=log_to_stderr)
 
     if start_sync:
-
         dlogger.debug("Starting sync")
-
-        try:
-            maestral_daemon.start_sync()
-        except Exception:
-            dlogger.error("Could not start sync", exc_info=True)
+        maestral_daemon.start_sync()
 
     try:
 
