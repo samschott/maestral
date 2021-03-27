@@ -317,8 +317,6 @@ def test_local_indexing_error(m):
     m.start_sync()
     wait_for_idle(m)
 
-    breakpoint()
-
     # check for fatal errors
     assert len(m.fatal_errors) == 1
     assert m.fatal_errors[0]["local_path"] == subfolder
