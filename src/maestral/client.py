@@ -1207,6 +1207,8 @@ def os_to_maestral_error(
     else:
         return exc
 
+    local_path = local_path or exc.filename
+
     maestral_exc = err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
     maestral_exc.__cause__ = exc
 
