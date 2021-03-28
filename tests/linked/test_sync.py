@@ -301,6 +301,27 @@ def test_local_indexing(m):
     assert not m.fatal_errors
 
 
+def test_local_indexing_error(m):
+    """Tests handling of PermissionError during local indexing."""
+
+    shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
+    wait_for_idle(m)
+
+    m.stop_sync()
+    wait_for_idle(m, 1)
+
+    # change permissions of local folder
+    subfolder = m.test_folder_local + "/test_folder/sub_folder_2"
+    os.chmod(subfolder, 0o000)
+
+    m.start_sync()
+    wait_for_idle(m)
+
+    # check for fatal errors
+    assert len(m.fatal_errors) == 1
+    assert m.fatal_errors[0]["local_path"] == subfolder
+
+
 def test_folder_tree_remote(m):
     """Tests the download sync of a nested remote folder structure."""
 
@@ -709,11 +730,8 @@ def test_mignore(m):
     assert not m.fatal_errors
 
 
-def test_upload_sync_issues(m):
-    """
-    Tests error handling for issues during upload sync. This is done by creating a local
-    folder with a name that ends with a backslash (not allowed by Dropbox).
-    """
+def test_local_path_error(m):
+    """Tests error handling for forbidden file names."""
 
     # paths with backslash are not allowed on Dropbox
     # we create such a local folder and assert that it triggers a sync issue
@@ -733,6 +751,38 @@ def test_upload_sync_issues(m):
     # remove folder with invalid name and assert that sync issue is cleared
 
     delete(test_path_local)
+    wait_for_idle(m)
+
+    assert len(m.sync_errors) == 0
+    assert test_path_dbx not in m.sync.upload_errors
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+def test_local_permission_error(m):
+    """Tests error handling on local PermissionError."""
+
+    test_path_local = m.test_folder_local + "/file"
+    test_path_dbx = "/sync_tests/file"
+
+    m.stop_sync()
+
+    open(test_path_local, "w").close()
+    os.chmod(test_path_local, 0o000)
+
+    m.start_sync()
+    wait_for_idle(m)
+
+    assert len(m.sync_errors) == 1
+    assert m.sync_errors[-1]["local_path"] == test_path_local
+    assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
+    assert m.sync_errors[-1]["type"] == "InsufficientPermissionsError"
+    assert test_path_dbx in m.sync.upload_errors
+
+    # reset file permission
+
+    os.chmod(test_path_local, 0o666)
     wait_for_idle(m)
 
     assert len(m.sync_errors) == 0
@@ -955,7 +1005,7 @@ def test_unknown_path_encoding(m, capsys):
     assert test_path_dbx not in m.sync.upload_errors
 
 
-def test_indexing_performance(m):
+def test_sync_event_conversion_performance(m):
     """
     Tests the performance of converting remote file changes to SyncEvents.
     """
