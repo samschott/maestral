@@ -274,8 +274,7 @@ def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
     Deletes a file or folder at ``path``.
 
     :param path: Path of item to delete.
-    :param raise_error: If ``True``, raise any OSErrors. If ``False``, catch OSErrors
-        and return them.
+    :param raise_error: Whether to raise errors or return them.
     :returns: Any caught exception during the deletion.
     """
     err = None
@@ -309,11 +308,9 @@ def move(
     :param dest_path: Destination path. Any existing file at this path will be replaced
         by the move. Any existing **empty** folder will be replaced if the source is
         also a folder.
-    :param raise_error: If ``True``, raise any OSErrors. If ``False``, catch OSErrors
-        and return them.
-    :param preserve_dest_permissions: If ``True``, attempt to preserve the permissions
-        of any file at the destination. If ``False``, the permissions of src_path will
-        be used.
+    :param raise_error: Whether to raise errors or return them.
+    :param preserve_dest_permissions: Whether to apply the permissions of the source
+        path to the destination path. Permissions will not be set recursively.
     :returns: Any caught exception during the move.
     """
 
