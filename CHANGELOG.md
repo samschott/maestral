@@ -1,5 +1,13 @@
 ## v1.4.4.dev
 
+#### Changed:
+
+* Local indexing on startup is now carried out without loading the entire folder tree
+  into memory. This further reduces peak memory usage and fragmentation.
+* Permission errors during local indexing are now treated as fatal errors instead of
+  skipping the local files. This prevents items from being deleted on the server when
+  they are still present in the local folder but inaccessible.
+
 #### Fixed:
 
 * Fixes a rare issue where throttling of sync threads would be disabled if the 
