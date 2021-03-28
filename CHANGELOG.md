@@ -7,6 +7,11 @@
 * Permission errors during local indexing are now treated as fatal errors instead of
   skipping the local files. This prevents items from being deleted on the server when
   they are still present in the local folder but inaccessible.
+* Improved logging during daemon startup: Logging is now initialised immediately after
+  the main imports and therefore captures potential errors early during the startup
+  process.
+* Loggers are scoped per configuration instead of globally. This enables separating logs
+  for Maestral instances for different configs which are running in the same process.
 
 #### Fixed:
 
