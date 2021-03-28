@@ -5,7 +5,6 @@
 import sys
 import os
 import os.path as osp
-from stat import S_ISDIR
 import time
 import random
 import uuid
@@ -14,6 +13,7 @@ import enum
 import sqlite3
 import logging
 import gc
+from stat import S_ISDIR
 from pprint import pformat
 from threading import Event, Condition, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
@@ -818,7 +818,7 @@ class SyncEngine:
                     self._db_manager_hash_cache.delete(cache_entry)
             return None
         except OSError as err:
-            raise os_to_maestral_error(err, local_path=local_path)
+            raise os_to_maestral_error(err)
 
         if S_ISDIR(stat.st_mode):
             # take shortcut: return 'folder'
@@ -1131,9 +1131,9 @@ class SyncEngine:
 
                 if raise_error:
                     raise exc
-                else:
-                    self._logger.error(exc.title, exc_info=exc_info_tuple(exc))
-                    self.notifier.notify(exc.title, exc.message, level=notify.ERROR)
+
+                self._logger.error(exc.title, exc_info=exc_info_tuple(exc))
+                self.notifier.notify(exc.title, exc.message, level=notify.ERROR)
 
     def _new_tmp_file(self) -> str:
         """Returns a new temporary file name in our cache directory."""
@@ -1240,14 +1240,9 @@ class SyncEngine:
         :raises ValueError: When the path lies outside of the local Dropbox folder.
         """
 
-        if is_equal_or_child(local_path, self.dropbox_path):
-            dbx_path = "/" + removeprefix(local_path, self.dropbox_path).lstrip("/")
-            return dbx_path
-        else:
-            raise ValueError(
-                f'Specified path "{local_path}" is outside of Dropbox '
-                f'directory "{self.dropbox_path}"'
-            )
+        if not is_equal_or_child(local_path, self.dropbox_path):
+            raise ValueError(f'"{local_path}" is not in "{self.dropbox_path}"')
+        return "/" + removeprefix(local_path, self.dropbox_path).lstrip("/")
 
     def to_local_path_from_cased(self, dbx_path_cased: str) -> str:
         """
@@ -1501,14 +1496,13 @@ class SyncEngine:
                 self.upload_errors.add(err.dbx_path.lower())
 
     @contextmanager
-    def _database_access(self, log_errors: bool = False) -> Iterator[None]:
+    def _database_access(self, raise_error: bool = True) -> Iterator[None]:
         """
         A context manager to synchronises access to the SQLite database. Catches
         exceptions raised by sqlite3 and converts them to a MaestralApiError if we know
         how to handle them.
 
-        :param log_errors: If ``True``, any resulting MaestralApiError is not raised but
-            only logged.
+        :param raise_error: Whether errors should be raised or logged.
         """
 
         title = ""
@@ -1539,11 +1533,10 @@ class SyncEngine:
             new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
 
         if new_exc:
-            if log_errors:
-                self._logger.error(title, exc_info=exc_info_tuple(new_exc))
-                self.notifier.notify(title, msg, level=notify.ERROR)
-            else:
+            if raise_error:
                 raise new_exc
+            self._logger.error(title, exc_info=exc_info_tuple(new_exc))
+            self.notifier.notify(title, msg, level=notify.ERROR)
 
     def _clear_caches(self) -> None:
         """
@@ -1567,15 +1560,15 @@ class SyncEngine:
 
             try:
                 events, local_cursor = self._get_local_changes_while_inactive()
+            except OSError as err:
+                if err.filename == self.dropbox_path:
+                    self.ensure_dropbox_folder_present()
 
-                events = self._clean_local_events(events)
-                sync_events = [
-                    SyncEvent.from_file_system_event(e, self) for e in events
-                ]
-                del events
-            except (FileNotFoundError, NotADirectoryError):
-                self.ensure_dropbox_folder_present()
-                return
+                raise os_to_maestral_error(err)
+
+            events = self._clean_local_events(events)
+            sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
+            del events
 
             if len(sync_events) > 0:
                 self.apply_local_changes(sync_events)
@@ -3428,9 +3421,7 @@ class SyncEngine:
         except FileExistsError:
             pass
         except OSError as err:
-            raise os_to_maestral_error(
-                err, dbx_path=event.dbx_path, local_path=event.local_path
-            )
+            raise os_to_maestral_error(err, dbx_path=event.dbx_path)
 
         self.update_index_from_sync_event(event)
 
@@ -3473,7 +3464,7 @@ class SyncEngine:
             self._logger.debug('Deletion failed: "%s" not found', event.dbx_path)
             return None
         else:
-            raise os_to_maestral_error(exc)
+            raise os_to_maestral_error(exc, dbx_path=event.dbx_path)
 
     def _apply_case_change(self, event: SyncEvent) -> None:
         """
