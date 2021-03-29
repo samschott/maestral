@@ -1047,9 +1047,7 @@ class SyncEngine:
             with open(self.mignore_path) as f:
                 spec = f.read()
         except OSError as err:
-            self._logger.debug(
-                f"Could not load mignore rules from {self.mignore_path}: {err}"
-            )
+            self._logger.debug("Could not load mignore rules: %s", err.strerror)
             spec = ""
 
         self._mignore_rules = PathSpec.from_lines("gitwildmatch", spec.splitlines())
@@ -1097,7 +1095,7 @@ class SyncEngine:
                 self.clean_cache_dir()
             except OSError as err:
                 raise CacheDirError(
-                    f"Cannot create cache directory: {os.strerror(err.errno)}",
+                    f"Cannot create cache directory: {err.strerror}",
                     "Please check if you have write permissions for "
                     f"{self._file_cache_path}.",
                 )
@@ -1124,7 +1122,7 @@ class SyncEngine:
                 pass
             except OSError as err:
                 exc = CacheDirError(
-                    f"Cannot create cache directory: {os.strerror(err.errno)}",
+                    f"Cannot create cache directory: {err.strerror}",
                     "Please check if you have write permissions for "
                     f"{self._file_cache_path}.",
                 )
@@ -1142,14 +1140,14 @@ class SyncEngine:
             with NamedTemporaryFile(dir=self.file_cache_path, delete=False) as f:
                 try:
                     os.chmod(f.fileno(), 0o666 & ~umask)
-                except OSError as exc:
+                except OSError as err:
                     # Can occur on file system's that don't support POSIX permissions
                     # such as NTFS mounted without the permissions option.
-                    self._logger.debug("Cannot set permissions: errno %s", exc.errno)
+                    self._logger.debug("Cannot set permissions: %s", err.strerror)
                 return f.name
         except OSError as err:
             raise CacheDirError(
-                f"Cannot create cache directory: {os.strerror(err.errno)}",
+                f"Cannot create cache directory: {err.strerror}",
                 "Please check if you have write permissions for "
                 f"{self._file_cache_path}.",
             )
@@ -1659,10 +1657,8 @@ class SyncEngine:
                     event = FileDeletedEvent(local_path)
                 changes.append(event)
 
-        self._logger.debug(
-            "Local indexing completed in %s sec", time.time() - snapshot_time
-        )
-
+        duration = time.time() - snapshot_time
+        self._logger.debug("Local indexing completed in %s sec", duration)
         self._logger.debug("Retrieved local changes:\n%s", pf_repr(changes))
 
         return changes, snapshot_time
