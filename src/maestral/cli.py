@@ -1882,3 +1882,21 @@ def config_set(key: str, value: str, config_name: str) -> None:
             m.set_conf(section, key, py_value)
     except CommunicationError:
         MaestralConfig(config_name).set(section, key, py_value)
+
+
+@config.command(name="show", help="Show all config keys and values")
+@click.option("--no-pager", help="Don't use a pager for output.", is_flag=True)
+@config_option
+def config_show(no_pager: bool, config_name: str) -> None:
+
+    import io
+    from .config import MaestralConfig
+
+    conf = MaestralConfig(config_name)
+
+    with io.StringIO() as fp:
+        conf.write(fp)
+        if no_pager:
+            click.echo(fp.getvalue())
+        else:
+            click.echo_via_pager(fp.getvalue())
