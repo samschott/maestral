@@ -438,6 +438,7 @@ def start_maestral_daemon(
     dlogger = scoped_logger(__name__, config_name)
 
     if threading.current_thread() is not threading.main_thread():
+        dlogger.error("Must run daemon in main thread")
         raise RuntimeError("Must run daemon in main thread")
 
     logger.debug("Environment:\n%s", pformat(os.environ.copy()))
@@ -448,7 +449,8 @@ def start_maestral_daemon(
     if lock.acquire():
         dlogger.debug("Acquired daemon lock: %s", lock.path)
     else:
-        raise RuntimeError("Maestral daemon is already running")
+        dlogger.error("Could not acquire lock, daemon is already running")
+        raise RuntimeError("Daemon is already running")
 
     # Nice ourselves to give other processes priority.
     os.nice(10)
