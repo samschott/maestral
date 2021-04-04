@@ -1599,7 +1599,7 @@ class SyncEngine:
         snapshot_time = time.time()
 
         # Get modified or added items.
-        for path, stat in walk(self.dropbox_path, self._scandir_with_mignore):
+        for path, stat in walk(self.dropbox_path, self._scandir_with_ignore):
 
             is_dir = S_ISDIR(stat.st_mode)
             dbx_path_lower = self.to_dbx_path(path).lower()
@@ -1838,7 +1838,7 @@ class SyncEngine:
         self, events: List[FileSystemEvent]
     ) -> List[FileSystemEvent]:
         """
-        Takes local file events within and cleans them up so that there is only a single
+        Takes local file events and cleans them up so that there is only a single
         event per path. Collapses moved and deleted events of folders with those of
         their children. Called by :meth:`wait_for_local_changes`.
 
@@ -3510,7 +3510,7 @@ class SyncEngine:
 
             local_path_lower = local_path.lower()
 
-            for path, stat in walk(local_path, self._scandir_with_mignore):
+            for path, stat in walk(local_path, self._scandir_with_ignore):
 
                 if S_ISDIR(stat.st_mode):
                     self.fs_events.queue_event(DirCreatedEvent(path))
@@ -3562,14 +3562,16 @@ class SyncEngine:
             )
             self._db_manager_history.clear_cache()
 
-    def _scandir_with_mignore(
+    def _scandir_with_ignore(
         self, path: Union[str, os.PathLike]
     ) -> Iterator[os.DirEntry]:
 
         with os.scandir(path) as it:
             for entry in it:
                 dbx_path = self.to_dbx_path(entry.path)
-                if not self._is_mignore_path(dbx_path, entry.is_dir()):
+                if not self.is_excluded(entry.path) and not self._is_mignore_path(
+                    dbx_path, entry.is_dir()
+                ):
                     yield entry
 
 
