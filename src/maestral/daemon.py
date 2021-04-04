@@ -14,7 +14,6 @@ import subprocess
 import threading
 import fcntl
 import struct
-import logging
 import warnings
 import argparse
 import ast
@@ -59,9 +58,6 @@ __all__ = [
     "MaestralProxy",
     "CommunicationError",
 ]
-
-
-logger = logging.getLogger(__name__)
 
 
 # systemd environment
@@ -437,11 +433,13 @@ def start_maestral_daemon(
     setup_logging(config_name, log_to_stderr)
     dlogger = scoped_logger(__name__, config_name)
 
+    dlogger.info("Starting daemon")
+
     if threading.current_thread() is not threading.main_thread():
         dlogger.error("Must run daemon in main thread")
         raise RuntimeError("Must run daemon in main thread")
 
-    logger.debug("Environment:\n%s", pformat(os.environ.copy()))
+    dlogger.debug("Environment:\n%s", pformat(os.environ.copy()))
 
     # acquire PID lock file
     lock = maestral_lock(config_name)
@@ -606,15 +604,21 @@ def start_maestral_daemon_process(
     try:
         wait_for_startup(config_name, timeout)
     except Exception as exc:
-        logger.debug("Could not communicate with daemon", exc_info_tuple(exc))
+
+        from .logging import scoped_logger, setup_logging
+
+        setup_logging(config_name)
+        clogger = scoped_logger("maestral.client", config_name)
+
+        clogger.error("Could not communicate with daemon", exc_info=exc_info_tuple(exc))
 
         # Let's check what the daemon has been doing.
         returncode = process.poll()
         if returncode is None:
-            logger.debug("Daemon is running but not responsive, killing now")
+            clogger.error("Daemon is running but not responsive, killing now")
             process.terminate()  # make sure we don't leave a stray process
         else:
-            logger.debug("Daemon stopped with return code %s", returncode)
+            clogger.error("Daemon stopped with return code %s", returncode)
         return Start.Failed
     else:
         return Start.Ok
