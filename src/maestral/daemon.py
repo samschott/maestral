@@ -604,11 +604,10 @@ def start_maestral_daemon_process(
     try:
         wait_for_startup(config_name, timeout)
     except Exception as exc:
-
         from .logging import scoped_logger, setup_logging
 
-        setup_logging(config_name)
-        clogger = scoped_logger("maestral.client", config_name)
+        setup_logging(config_name, log_to_stderr=False)
+        clogger = scoped_logger(__name__, config_name)
 
         clogger.error("Could not communicate with daemon", exc_info=exc_info_tuple(exc))
 
@@ -616,7 +615,7 @@ def start_maestral_daemon_process(
         returncode = process.poll()
         if returncode is None:
             clogger.error("Daemon is running but not responsive, killing now")
-            process.terminate()  # make sure we don't leave a stray process
+            process.terminate()
         else:
             clogger.error("Daemon stopped with return code %s", returncode)
         return Start.Failed
