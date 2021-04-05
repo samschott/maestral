@@ -9,13 +9,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout prohect
-        uses: actions/checkout@v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.8
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
 
       - name: Install dependencies
         run: |
