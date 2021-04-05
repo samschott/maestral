@@ -543,6 +543,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         wait_for_startup,
         is_running,
         Start,
+        CommunicationError,
     )
 
     check_for_updates()
@@ -554,7 +555,9 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
     @convert_py_errors
     def startup_dialog():
 
-        if wait_for_startup(config_name) is Start.Failed:
+        try:
+            wait_for_startup(config_name)
+        except CommunicationError:
             return
 
         m = MaestralProxy(config_name)
