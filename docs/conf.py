@@ -20,6 +20,7 @@ copyright = "{}, {}".format(time.localtime().tm_year, author)
 # -- General configuration -------------------------------------------------------------
 
 extensions = [
+    "sphinxext.opengraph",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
