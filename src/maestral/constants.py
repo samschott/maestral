@@ -9,15 +9,15 @@ import platform
 from enum import Enum
 
 try:
-    from importlib.resources import files  # type: ignore
+    from importlib.resources import path  # type: ignore
 except ImportError:
-    from importlib_resources import files  # type: ignore
+    from importlib_resources import path  # type: ignore
 
 
 # app
 APP_NAME = "Maestral"
 BUNDLE_ID = "com.samschott.maestral"
-APP_ICON_PATH = files("maestral") / "resources" / "maestral.png"
+APP_ICON_PATH = path("maestral.resources", "maestral.png").__enter__()
 ENV = {"PYTHONOPTIMIZE": "2"}
 
 # sync
