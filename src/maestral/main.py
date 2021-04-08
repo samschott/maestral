@@ -385,23 +385,23 @@ class Maestral:
     def notification_snooze(self) -> float:
         """Snooze time for desktop notifications in minutes. Defaults to 0 if
         notifications are not snoozed."""
-        return self.sync.notifier.snoozed
+        return self.sync.desktop_notifier.snoozed
 
     @notification_snooze.setter
     def notification_snooze(self, minutes: float) -> None:
         """Setter: notification_snooze."""
-        self.sync.notifier.snoozed = minutes
+        self.sync.desktop_notifier.snoozed = minutes
 
     @property
     def notification_level(self) -> int:
         """Level for desktop notifications. See :mod:`utils.notify` for level
         definitions."""
-        return self.sync.notifier.notify_level
+        return self.sync.desktop_notifier.notify_level
 
     @notification_level.setter
     def notification_level(self, level: int) -> None:
         """Setter: notification_level."""
-        self.sync.notifier.notify_level = level
+        self.sync.desktop_notifier.notify_level = level
 
     # ==== state information  ==========================================================
 

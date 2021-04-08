@@ -285,7 +285,7 @@ class SyncManager:
 
             new_error = err_cls(title, msg)
             self._logger.error(title, exc_info=exc_info_tuple(new_error))
-            self.sync.notifier.notify(title, msg, level=notify.ERROR)
+            self.sync.desktop_notifier.notify(title, msg, level=notify.ERROR)
 
         return local_observer_thread
 
@@ -557,7 +557,7 @@ class SyncManager:
             title = getattr(err, "title", "Unexpected error")
             message = getattr(err, "message", "Please restart to continue syncing")
             self._logger.error(title, exc_info=True)
-            self.sync.notifier.notify(title, message, level=notify.ERROR)
+            self.sync.desktop_notifier.notify(title, message, level=notify.ERROR)
 
     def __del__(self):
         try:

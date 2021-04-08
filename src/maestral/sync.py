@@ -488,7 +488,7 @@ class SyncEngine:
         self._state = MaestralState(self.config_name)
         self._load_cached_config()
 
-        self.notifier = notify.MaestralDesktopNotifier(self.config_name)
+        self.desktop_notifier = notify.MaestralDesktopNotifier(self.config_name)
 
         # upload_errors / download_errors: contains failed uploads / downloads
         # (from sync errors) to retry later
@@ -1131,7 +1131,7 @@ class SyncEngine:
                     raise exc
 
                 self._logger.error(exc.title, exc_info=exc_info_tuple(exc))
-                self.notifier.notify(exc.title, exc.message, level=notify.ERROR)
+                self.desktop_notifier.notify(exc.title, exc.message, level=notify.ERROR)
 
     def _new_tmp_file(self) -> str:
         """Returns a new temporary file name in our cache directory."""
@@ -1479,7 +1479,7 @@ class SyncEngine:
                     url_path = urllib.parse.quote(err.dbx_path)
                     click.launch(f"https://www.dropbox.com/preview{url_path}")
 
-            self.notifier.notify(
+            self.desktop_notifier.notify(
                 "Sync error",
                 f"Could not sync {file_name}",
                 level=notify.SYNCISSUE,
@@ -1534,7 +1534,7 @@ class SyncEngine:
             if raise_error:
                 raise new_exc
             self._logger.error(title, exc_info=exc_info_tuple(new_exc))
-            self.notifier.notify(title, msg, level=notify.ERROR)
+            self.desktop_notifier.notify(title, msg, level=notify.ERROR)
 
     def _clear_caches(self) -> None:
         """
@@ -2988,7 +2988,7 @@ class SyncEngine:
         else:
             msg = f"{file_name} {change_type}"
 
-        self.notifier.notify("Items synced", msg, actions=buttons)
+        self.desktop_notifier.notify("Items synced", msg, actions=buttons)
 
     def _filter_excluded_changes_remote(
         self, changes: List[SyncEvent]
