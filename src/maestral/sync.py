@@ -1589,7 +1589,12 @@ class SyncEngine:
 
         Added items: Are present in the snapshot but not in our index.
         Deleted items: Are present in our index but not in the snapshot.
-        Modified items: Are present in both but have a ctime newer than the last sync.
+        Modified items: Are present in both but have a mtime newer than the last sync.
+
+        Note that the client sets mtimes for files explicitly but never to a value in
+        the future. mtime > last_sync therefore indicates a recent content change. We do
+        not use the ctime here to avoid resyncing the entire folder after it has been
+        moved (moving between partitions and on some file systems can change the ctime).
 
         :returns: Tuple containing local file system events and a cursor / timestamp
             for the changes.
@@ -1617,10 +1622,10 @@ class SyncEngine:
             # Check if item was created or modified since last sync
             # but before we started the FileEventHandler (~snapshot_time).
 
-            ctime_check = snapshot_time > stat.st_ctime > last_sync
+            mtime_check = snapshot_time > stat.st_mtime > last_sync
 
             # always upload untracked items, check ctime of tracked items
-            is_modified = ctime_check and not is_new
+            is_modified = mtime_check and not is_new
 
             if is_new:
                 if is_dir:
