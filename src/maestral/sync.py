@@ -834,7 +834,7 @@ class SyncEngine:
             if cache_entry and cache_entry.mtime == mtime:
                 return cache_entry.hash_str
 
-        with convert_api_errors(local_path=local_path):
+        with convert_api_errors():
             hash_str, mtime = content_hash(local_path)
 
         self._save_local_hash(local_path, hash_str, mtime)
@@ -2082,7 +2082,7 @@ class SyncEngine:
 
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
-                with convert_api_errors(local_path=local_path_cc):
+                with convert_api_errors():
                     move(event.local_path, local_path_cc, raise_error=True)
 
                 self.rescan(local_path_cc)
@@ -2116,7 +2116,7 @@ class SyncEngine:
 
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
-                with convert_api_errors(local_path=local_path_cc):
+                with convert_api_errors():
                     move(event.local_path, local_path_cc, raise_error=True)
 
                 self.rescan(local_path_cc)
@@ -2259,9 +2259,7 @@ class SyncEngine:
             local_path_cc = self.to_local_path(md_to_new.path_display)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
-                with convert_api_errors(
-                    local_path=local_path_cc, dbx_path=md_to_new.path_display
-                ):
+                with convert_api_errors():
                     move(event.local_path, local_path_cc, raise_error=True)
 
             # Delete entry of old path but don't update entry for new path here. This
@@ -2379,9 +2377,7 @@ class SyncEngine:
             local_path_cc = self.to_local_path(md_new.path_display)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
-                with convert_api_errors(
-                    local_path=local_path_cc, dbx_path=md_new.path_display
-                ):
+                with convert_api_errors():
                     move(event.local_path, local_path_cc, raise_error=True)
 
             # Delete entry of old path but don't update entry for new path here. This
@@ -3321,7 +3317,7 @@ class SyncEngine:
             )
             event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path, new_local_path)):
-                with convert_api_errors(local_path=new_local_path):
+                with convert_api_errors():
                     move(local_path, new_local_path, raise_error=True)
 
             self._logger.debug(
@@ -3397,7 +3393,7 @@ class SyncEngine:
             )
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, new_local_path)):
-                with convert_api_errors(local_path=new_local_path):
+                with convert_api_errors():
                     move(event.local_path, new_local_path, raise_error=True)
 
             self._logger.debug(
