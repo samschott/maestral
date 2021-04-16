@@ -3101,35 +3101,38 @@ class SyncEngine:
         dbx_path = self.to_dbx_path(local_path)
         index_entry = self.get_index_entry(dbx_path)
 
-        try:
-            stat = os.stat(local_path)
-        except (FileNotFoundError, NotADirectoryError):
-            # don't check ctime for deleted items (os won't give stat info)
-            # but confirm absence from index
-            return index_entry is not None
+        with convert_api_errors():  # catch OSErrors
 
-        if S_ISDIR(stat.st_mode):
+            try:
+                stat = os.stat(local_path)
+            except (FileNotFoundError, NotADirectoryError):
+                # don't check ctime for deleted items (os won't give stat info)
+                # but confirm absence from index
+                return index_entry is not None
 
-            # don't check ctime for folders but to index entry type
-            if index_entry is None or index_entry.is_file:
-                return True
+            if S_ISDIR(stat.st_mode):
 
-            # recurse over children
-            with os.scandir(local_path) as it:
-                for entry in it:
-                    if entry.is_dir():
-                        if self._ctime_newer_than_last_sync(entry.path):
-                            return True
-                    elif not self.is_excluded(entry.name):
-                        child_dbx_path = self.to_dbx_path(entry.path)
-                        if entry.stat().st_ctime > self.get_last_sync(child_dbx_path):
-                            return True
+                # don't check ctime for folders but compare to index entry type
+                if index_entry is None or index_entry.is_file:
+                    return True
 
-            return False
+                # recurse over children
+                with os.scandir(local_path) as it:
+                    for entry in it:
+                        if entry.is_dir():
+                            if self._ctime_newer_than_last_sync(entry.path):
+                                return True
+                        elif not self.is_excluded(entry.name):
+                            child_dbx_path = self.to_dbx_path(entry.path)
+                            ctime = entry.stat().st_ctime
+                            if ctime > self.get_last_sync(child_dbx_path):
+                                return True
 
-        else:
-            # Check our ctime against index.
-            return stat.st_ctime > self.get_last_sync(dbx_path)
+                return False
+
+            else:
+                # Check our ctime against index.
+                return stat.st_ctime > self.get_last_sync(dbx_path)
 
     def _get_ctime(self, local_path: str) -> float:
         """
