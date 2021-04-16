@@ -2,11 +2,13 @@
 
 #### Changed:
 
+* GUI dialogs to select a local Dropbox folder now ask for the actual folder name
+  instead of the location only.
 * Local indexing on startup is now carried out without loading the entire folder tree
   into memory. This further reduces peak memory usage and fragmentation.
-* Permission errors during local indexing are now treated as fatal errors instead of
-  skipping the local files. This prevents items from being deleted on the server when
-  they are still present in the local folder but inaccessible.
+* Permission errors when scanning the contents of a local folder during startup indexing
+  are now treated as fatal errors instead of skipping its content. This prevents items
+  from being deleted on the server when they are still present locally but inaccessible.
 * Improved logging during daemon startup: Logging is now initialised immediately after
   the main imports and therefore captures potential errors early during the startup
   process.
@@ -15,9 +17,11 @@
 
 #### Fixed:
 
-* Fixes a rare issue where throttling of sync threads would be disabled if the 
+* Fixes a rare issue where throttling of sync threads would be disabled if the
   "max_cpu_percent" config value would be set to 100% divided by the number of CPU cores
   (e.g, 25% on a 4-core CPU).
+* Fixes an issue where a local permission error would be treated as a fatal error
+  instead of as a sync issue.
 
 ## v1.4.3
 
