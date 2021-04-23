@@ -801,13 +801,14 @@ class Maestral:
 
             return content, md
 
-        md_new = self.client.get_metadata(f"rev:{new_rev}", include_deleted=True)
+        # Get the metadata for old_rev before attempting to download. This is used
+        # to guess the file type and fail early for unsupported files.
+
         md_old = self.client.get_metadata(f"rev:{old_rev}", include_deleted=True)
 
-        if md_new is None or md_old is None:
-            missing_rev = new_rev if md_new is None else old_rev
+        if md_old is None:
             raise NotFoundError(
-                f"Could not a file with revision {missing_rev}",
+                f"Could not a file with revision {md_old}",
                 "Use 'list_revisions' to list past revisions of a file.",
             )
 
@@ -823,8 +824,11 @@ class Maestral:
                 f"Bad file type: '{mime}'", "Only files of type 'text/*' are supported."
             )
 
-        # If new_rev is None, the local file is used, even if it isn't synced
-        if new_rev is None:
+        if new_rev:
+            content_new, md_new = download_rev(new_rev)
+            date_str_new = str_from_date(md_new.client_modified)
+        else:
+            # Use the local file if new_rev is None.
             new_rev = "local version"
             try:
                 with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
@@ -839,9 +843,6 @@ class Maestral:
                     "Failed to decode the file",
                     "Only UTF-8 plain text files are currently supported.",
                 )
-        else:
-            content_new, md_new = download_rev(new_rev)
-            date_str_new = str_from_date(md_new.client_modified)
 
         content_old, md_old = download_rev(old_rev)
         date_str_old = str_from_date(md_old.client_modified)
