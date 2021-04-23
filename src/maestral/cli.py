@@ -1900,3 +1900,28 @@ def config_show(no_pager: bool, config_name: str) -> None:
             click.echo(fp.getvalue())
         else:
             click.echo_via_pager(fp.getvalue())
+
+
+@main.command(
+    section="Maintenance",
+    help="""
+Generate completion script for your shell.
+
+This command can generate shell completion scripts for bash, zsh or fish. For bash or
+zsh, save the returned script in a location of you choice and source it in '~/.bashrc'
+or '~/.zshrc', respectively. For fish, save the returned script at
+'~/.config/fish/completions/maestral.fish'.
+""",
+)
+@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
+def completion(shell: str) -> None:
+
+    from click.shell_completion import get_completion_class
+
+    comp_cls = get_completion_class(shell)
+    comp = comp_cls(main, [], "maestral", "_MAESTRAL_COMPLETE")
+
+    try:
+        click.echo(comp.source())
+    except RuntimeError as exc:
+        cli.warn(exc.args[0])
