@@ -38,6 +38,7 @@ from dropbox import (  # type: ignore
     auth,
     oauth,
 )
+from dropbox.stone_validators import ValidationError
 
 # local imports
 from . import __version__
@@ -149,7 +150,7 @@ def convert_api_errors(
 
     try:
         yield
-    except exceptions.DropboxException as exc:
+    except (exceptions.DropboxException, ValidationError) as exc:
         raise dropbox_to_maestral_error(exc, dbx_path, local_path)
     # Catch connection errors first, they may inherit from OSError.
     except CONNECTION_ERRORS:
@@ -1557,7 +1558,7 @@ def dropbox_to_maestral_error(
 
     # ---- Bad input errors ------------------------------------------------------------
     # should only occur due to user input from console scripts
-    elif isinstance(exc, exceptions.BadInputError):
+    elif isinstance(exc, (exceptions.BadInputError, ValidationError)):
         err_cls = BadInputError
         title = "Bad input to API call"
         text = exc.message
