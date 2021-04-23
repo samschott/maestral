@@ -189,12 +189,13 @@ def check_for_fatal_errors(m: Union["MaestralProxy", "Maestral"]) -> bool:
     """
 
     import textwrap
+    import shutil
 
     maestral_err_list = m.fatal_errors
 
     if len(maestral_err_list) > 0:
 
-        width, height = click.get_terminal_size()
+        width, height = shutil.get_terminal_size()
 
         err = maestral_err_list[0]
         err_title = cast(str, err["title"])
