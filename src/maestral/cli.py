@@ -21,6 +21,7 @@ from . import __version__
 from .utils import cli
 
 if TYPE_CHECKING:
+    from click.shell_completion import CompletionItem
     from datetime import datetime
     from .main import Maestral
     from .daemon import MaestralProxy
@@ -287,56 +288,53 @@ class DropboxPath(click.ParamType):
 
         return value
 
-    #
-    # def shell_complete(
-    #     self,
-    #     ctx: Optional[click.Context],
-    #     param: Optional[click.Parameter],
-    #     incomplete: str,
-    # ) -> List["CompletionItem"]:
-    #
-    #     from click.shell_completion import CompletionItem
-    #     from .utils import removeprefix
-    #
-    #     matches: List[str] = []
-    #
-    #     # check if we have been given an absolute path
-    #     incomplete = incomplete.lstrip("/")
-    #
-    #     # get the Maestral config for which to complete paths
-    #     try:
-    #         config_name = ctx.params["config_name"]
-    #     except (KeyError, AttributeError):
-    #         # attribute error occurs when ctx = None
-    #         config_name = "maestral"
-    #
-    #     # get all matching paths in our local Dropbox folder
-    #     # TODO: query from server if not too slow
-    #
-    #     config = MaestralConfig(config_name)
-    #     dropbox_dir = config.get("main", "path")
-    #     local_incomplete = osp.join(dropbox_dir, incomplete)
-    #     local_dirname = osp.dirname(local_incomplete)
-    #
-    #     if osp.isdir(local_dirname):
-    #
-    #         with os.scandir(local_dirname) as it:
-    #             for entry in it:
-    #                 if entry.path.startswith(local_incomplete):
-    #                     if entry.is_dir() and self.dir_okay:
-    #                         dbx_path = removeprefix(entry.path, dropbox_dir)
-    #                         matches.append(dbx_path + "/")
-    #                     elif entry.is_file() and self.file_okay:
-    #                         dbx_path = removeprefix(entry.path, dropbox_dir)
-    #                         matches.append(dbx_path)
-    #
-    #     # get all matching excluded items
-    #
-    #     for dbx_path in config.get("main", "excluded_items"):
-    #         if dbx_path.startswith("/" + incomplete):
-    #             matches.append(dbx_path)
-    #
-    #     return [CompletionItem(m.lstrip("/")) for m in matches]
+    def shell_complete(
+        self,
+        ctx: Optional[click.Context],
+        param: Optional[click.Parameter],
+        incomplete: str,
+    ) -> List["CompletionItem"]:
+
+        from click.shell_completion import CompletionItem
+        from .utils import removeprefix
+        from .config import MaestralConfig
+
+        matches: List[str] = []
+
+        # check if we have been given an absolute path
+        incomplete = incomplete.lstrip("/")
+
+        # get the Maestral config for which to complete paths
+        config_name = ctx.params.get("config_name", "maestral") if ctx else "maestral"
+
+        # get all matching paths in our local Dropbox folder
+        # TODO: query from server if not too slow
+
+        config = MaestralConfig(config_name)
+        dropbox_dir = config.get("main", "path")
+        local_incomplete = osp.join(dropbox_dir, incomplete)
+        local_dirname = osp.dirname(local_incomplete)
+
+        try:
+            with os.scandir(local_dirname) as it:
+                for entry in it:
+                    if entry.path.startswith(local_incomplete):
+                        if self.file_okay and entry.is_file():
+                            dbx_path = removeprefix(entry.path, dropbox_dir)
+                            matches.append(dbx_path)
+                        if self.dir_okay and entry.is_dir():
+                            dbx_path = removeprefix(entry.path, dropbox_dir)
+                            matches.append(dbx_path)
+        except OSError:
+            pass
+
+        # get all matching excluded items
+
+        for dbx_path in config.get("main", "excluded_items"):
+            if dbx_path.startswith("/" + incomplete):
+                matches.append(dbx_path)
+
+        return [CompletionItem(m.lstrip("/")) for m in matches]
 
 
 class ConfigName(click.ParamType):
@@ -384,17 +382,18 @@ class ConfigName(click.ParamType):
                     f"Use 'maestral configs' to list all configurations."
                 )
 
-    #
-    # def shell_complete(
-    #     self,
-    #     ctx: Optional[click.Context],
-    #     param: Optional[click.Parameter],
-    #     incomplete: str,
-    # ) -> List["CompletionItem"]:
-    #
-    #     matches = [conf for conf in list_configs() if conf.startswith(incomplete)]
-    #     return [CompletionItem(m) for m in matches]
-    #
+    def shell_complete(
+        self,
+        ctx: Optional[click.Context],
+        param: Optional[click.Parameter],
+        incomplete: str,
+    ) -> List["CompletionItem"]:
+
+        from click.shell_completion import CompletionItem
+        from .config import list_configs
+
+        matches = [conf for conf in list_configs() if conf.startswith(incomplete)]
+        return [CompletionItem(m) for m in matches]
 
 
 # ======================================================================================
