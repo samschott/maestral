@@ -1592,7 +1592,7 @@ def diff(
                 hint="(↓ to see more)" if len(comparable_versions) > 6 else "",
             )
 
-            old_rev = entries[index_new + index_base]["rev"]
+            old_rev = entries[index_new + index_base + 1]["rev"]
             new_rev = entries[index_base]["rev"]
         elif len(rev) == 1:
             old_rev = rev[0]
