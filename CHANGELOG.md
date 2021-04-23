@@ -22,6 +22,8 @@
   (e.g, 25% on a 4-core CPU).
 * Fixes an issue where a local permission error would be treated as a fatal error
   instead of as a sync issue.
+* Fixes an error when running the `diff` CLI command and selecting the local file as the
+  base version.  
 
 ## v1.4.3
 
