@@ -1555,51 +1555,9 @@ def diff(
 
     from .daemon import MaestralProxy
 
-    def download_and_compare(
-        m: MaestralProxy, old_rev: str, new_rev: Optional[str] = None
-    ) -> None:
-        """
-        Download up to two revisions to a local temporary folder
-        and compare them with a 'diff'. Only text files are supported.
-        If an unknown file type was found, everything that doesn't match
-        'text/*', an error message gets printed.
-        """
-
-        diff = m.get_file_diff(old_rev, new_rev)
-
-        if len(diff) == 0:
-            click.echo("There are no changes between the two revisions.")
-            return
-
-        def color(ind: int, line: str) -> str:
-            """
-            Color diff lines.
-            Inspiration for colors was taken from the
-            well known command 'git diff'.
-            """
-
-            if ind < 2:
-                line = click.style(line, bold=True)
-            elif line.startswith("+"):
-                line = click.style(line, fg="green")
-            elif line.startswith("-"):
-                line = click.style(line, fg="red")
-            # Don't highlight these in the intro
-            elif line.startswith("@@ "):
-                line = click.style(line, fg="cyan")
-            return line
-
-        # Color the lines
-        if not no_color:
-            diff = [color(i, l) for i, l in enumerate(diff)]
-
-        # Enter pager if diff is too long
-        if len(diff) > 30 and not no_pager:
-            click.echo_via_pager("".join(diff))
-        else:
-            click.echo("".join(diff))
-
     with MaestralProxy(config_name, fallback=True) as m:
+
+        # Ask for user input if revs are not provided as CLI arguments.
         if len(rev) == 0:
             entries = m.list_revisions(dropbox_path, limit=limit)
 
@@ -1646,10 +1604,46 @@ def diff(
             cli.warn("You can only compare two revisions at a time.")
             return
 
-        # '\r' will put the cursor to the beginning of the line
-        # so the next characters will overwrite it
+        # Download up to two revisions to a local temporary folder
+        # and compare them with a 'diff'. Only text files are supported.
+        # If an unknown file type was found, everything that doesn't match
+        # 'text/*', an error message gets printed.
+
         click.echo("Loading ...\r", nl=False)
-        download_and_compare(m, old_rev, new_rev)
+
+        diff_output = m.get_file_diff(old_rev, new_rev)
+
+        if len(diff_output) == 0:
+            click.echo("There are no changes between the two revisions.")
+            return
+
+        def color(ind: int, line: str) -> str:
+            """
+            Color diff lines.
+            Inspiration for colors was taken from the
+            well known command 'git diff'.
+            """
+
+            if ind < 2:
+                line = click.style(line, bold=True)
+            elif line.startswith("+"):
+                line = click.style(line, fg="green")
+            elif line.startswith("-"):
+                line = click.style(line, fg="red")
+            # Don't highlight these in the intro.
+            elif line.startswith("@@ "):
+                line = click.style(line, fg="cyan")
+            return line
+
+        # Color the lines.
+        if not no_color:
+            diff_output = [color(i, l) for i, l in enumerate(diff_output)]
+
+        # Enter pager if diff is too long
+        if len(diff_output) > 30 and not no_pager:
+            click.echo_via_pager("".join(diff_output))
+        else:
+            click.echo("".join(diff_output))
 
 
 @main.command(
