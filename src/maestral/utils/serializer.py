@@ -80,7 +80,7 @@ def sync_event_to_dict(event: SyncEvent) -> StoneType:
 
     attributes = [x for x in dir(event) if not x.startswith("_") and x != "metadata"]
 
-    serialized = dict()
+    serialized = {}
     keep_types = (int, float, type(None))
 
     for attr_name in attributes:
