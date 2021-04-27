@@ -670,15 +670,6 @@ def select_path(
 
         return not failed
 
-    @track.call("insert")
-    @track.call("delete")
-    def handle(result: str, *args) -> None:
-        nonlocal failed
-
-        if failed:
-            survey.update("")
-            failed = False
-
     res = survey.input(
         styled_message,
         default=default,
