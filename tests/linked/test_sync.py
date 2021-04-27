@@ -783,6 +783,7 @@ def test_local_permission_error(m):
     # reset file permission
 
     os.chmod(test_path_local, 0o666)
+    os.utime(test_path_local, times=None)  # touch
     wait_for_idle(m)
 
     assert len(m.sync_errors) == 0
