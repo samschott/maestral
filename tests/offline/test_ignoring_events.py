@@ -10,7 +10,7 @@ from maestral.utils.path import move
 
 
 def ipath(i):
-    """Returns path names '/test 1', '/test 2', ... """
+    """Returns path names '/test 1', '/test 2', ..."""
     return f"/test {i}"
 
 
