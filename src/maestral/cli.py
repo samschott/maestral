@@ -993,12 +993,14 @@ def activity(config_name: str) -> None:
                     height, width = screen.getmaxyx()
 
                     # create header
-                    lines = [f"Status: {m.status}, Sync errors: {len(m.sync_errors)}"]
-                    lines.append("")
+                    lines = [
+                        f"Status: {m.status}, Sync errors: {len(m.sync_errors)}",
+                        "",
+                    ]
 
                     # create table
-                    filenames = ["Path"]
-                    states = ["Status"]
+                    filenames = []
+                    states = []
                     col_len = 4
 
                     for event in m.get_activity(limit=height - 3):
