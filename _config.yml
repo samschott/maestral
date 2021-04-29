@@ -16,7 +16,7 @@ title                    : "Maestral"
 title_separator          : "-"
 subtitle                 : # site tagline that appears below site title in masthead
 name                     : "Sam Schott"
-description              : "An open source Dropbox client for macOS and Linux."
+description              : "Open source Dropbox client for macOS and Linux."
 url                      : "https://www.maestral.app"
 baseurl                  : ""
 repository               : samschott/maestral
