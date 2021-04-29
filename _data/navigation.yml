@@ -6,6 +6,8 @@ main:
     url: /docs
   - title: "Command line"
     url: /cli
+  - title: "Blog"
+    url: /blog
   - title: "Download"
     url: /download
   - title: "GitHub"

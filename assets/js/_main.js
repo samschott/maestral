@@ -38,19 +38,25 @@ onready = function() {
 
   // Add anchors for all headings with id
 
-  var page__content = document.getElementsByClassName("page__content").item(0);
-  var headings = page__content.querySelectorAll("h1, h2, h3, h4, h5, h6");
-  headings.forEach($heading => {
-    var id = $heading.getAttribute("id");
-    if (id) {
-      var anchor = document.createElement("a");
-      anchor.className = "header-link";
-      anchor.href = "#" + id;
-      anchor.innerHTML = "<span class=\"sr-only\">Permalink</span><i class=\"fas fa-link\"></i>";
-      anchor.title = "Permalink";
-      $heading.append(anchor);
-    }
-  });
+  var page_content = document.getElementsByClassName("page__content").item(0);
+
+  if (page_content) {
+
+    var headings = page_content.querySelectorAll("h1, h2, h3, h4, h5, h6");
+
+    headings.forEach($heading => {
+      var id = $heading.getAttribute("id");
+      if (id) {
+        var anchor = document.createElement("a");
+        anchor.className = "header-link";
+        anchor.href = "#" + id;
+        anchor.innerHTML = "<span class=\"sr-only\">Permalink</span><i class=\"fas fa-link\"></i>";
+        anchor.title = "Permalink";
+        $heading.append(anchor);
+      }
+    });
+
+  }
 };
 
 document.addEventListener("DOMContentLoaded", onready);
