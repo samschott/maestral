@@ -47,7 +47,7 @@ with Dropbox servers and the Dropbox privacy policy of course applies.
 Maestral directly uses code from the following projects:
 
 - The config module uses code from the [Spyder IDE](https://github.com/spyder-ide)
-- The DropboxClient module is inspired by work from [Orphilia](https://github.com/ksiazkowicz/orphilia-dropbox)
+- The `client` module is inspired by work from [Orphilia](https://github.com/ksiazkowicz/orphilia-dropbox)
 
 It also would not be possible without the following excellent Python packages:
 
@@ -60,5 +60,5 @@ It also would not be possible without the following excellent Python packages:
 - Credential storage uses system keychains via [keyring](https://github.com/jaraco/keyring).
 - [watchdog](https://github.com/gorakhargosh/watchdog) allows us to receive local file
   system events.
-- Many more well known libraries that have become the backbone of Python projects
-  such as requests, sqlalchemy, etc.
+- Many more well known libraries that are staples of the Python ecosystem such as
+  requests, sqlalchemy, etc.
