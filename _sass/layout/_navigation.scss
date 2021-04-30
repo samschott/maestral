@@ -68,16 +68,13 @@
     a {
       display: block;
       margin-bottom: 0.25em;
-      padding: 0.5em 1em;
+      padding-right: 2em;
       font-family: $sans-serif;
       font-size: $type-size-8;
-      font-weight: bold;
       line-height: 1.5;
       text-align: center;
       text-decoration: none;
       color: var(--muted-text-color);
-      border: 1px solid var(--border-color);
-      border-radius: 0;
 
       &:hover {
         color: var(--link-color-hover);
@@ -85,8 +82,8 @@
 
       &.current,
       &.current.disabled {
-        color: #fff;
-        background: var(--primary-color);
+        font-weight: bold;
+        color: var(--text-color);
       }
 
       &.disabled {
