@@ -1,9 +1,6 @@
 ---
-layout: single
 title: maestral pause
 permalink: /cli/pause
-sidebar:
-  nav: "cli-docs"
 ---
 
 Pause syncing.

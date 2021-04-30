@@ -1,9 +1,6 @@
 ---
-layout: single
 title: Sync issues
 permalink: /docs/sync-issues
-sidebar:
-  nav: "docs"
 ---
 
 Generally, the same limitations as outlined in this Dropbox [support

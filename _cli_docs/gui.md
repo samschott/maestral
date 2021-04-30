@@ -1,9 +1,6 @@
 ---
-layout: single
 title: maestral gui
 permalink: /cli/gui
-sidebar:
-  nav: "cli-docs"
 ---
 
 Run the GUI if installed. If Maestral is installed as a Python package, this will require

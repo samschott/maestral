@@ -1,9 +1,6 @@
 ---
-layout: single
 title: Selective sync
 permalink: /docs/selective-sync
-sidebar:
-  nav: "docs"
 ---
 
 With selective sync, you can select files and folders to remove from your hard drive but

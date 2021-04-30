@@ -1,9 +1,6 @@
 ---
-layout: single
 title: Logging
 permalink: /docs/logging
-sidebar:
-  nav: "docs"
 ---
 
 Maestral will log its activity for debugging purposes. Those logs are not uploaded or

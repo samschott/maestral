@@ -1,9 +1,7 @@
 ---
-layout: single
 title: Command line interface
 permalink: /cli
-sidebar:
-  nav: "cli-docs"
+breadcrumbs: false
 ---
 
 The `maestral` command will be automatically added to your PATH when installing the

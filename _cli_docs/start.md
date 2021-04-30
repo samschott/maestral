@@ -1,9 +1,6 @@
 ---
-layout: single
 title: maestral start
 permalink: /cli/start
-sidebar:
-  nav: "cli-docs"
 ---
 
 Start the sync daemon. This will also run an interactive setup dialog if a Dropbox account

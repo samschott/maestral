@@ -1,9 +1,7 @@
 ---
-layout: single
 title: Documentation
 permalink: /docs
-sidebar:
-  nav: "docs"
+breadcrumbs: false
 ---
 
 Welcome to the user documentation. The following pages provide support for installing

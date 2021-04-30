@@ -1,9 +1,6 @@
 ---
-layout: single
 title: maestral activity
 permalink: /cli/activity
-sidebar:
-  nav: "cli-docs"
 ---
 
 Start a live view of all items being synced.

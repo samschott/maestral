@@ -1,9 +1,6 @@
 ---
-layout: single
 title: Supported folder locations
 permalink: /docs/locations
-sidebar:
-  nav: "docs"
 ---
 
 Network drives and some external hard drives are not fully supported as locations for

@@ -1,9 +1,6 @@
 ---
-layout: single
 title: maestral sharelink
 permalink: /cli/sharelink
-sidebar:
-  nav: "cli-docs"
 ---
 
 A command group to create and manage shared links.

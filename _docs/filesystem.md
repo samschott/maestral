@@ -1,9 +1,6 @@
 ---
-layout: single
 title: Case-sensitive file systems
 permalink: /docs/filesystem
-sidebar:
-  nav: "docs"
 ---
 
 Dropbox is case-insensitive: it does not allow files "Readme.txt" and "readme.txt" to

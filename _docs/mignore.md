@@ -1,9 +1,6 @@
 ---
-layout: single
 title: Mignore
 permalink: /docs/mignore
-sidebar:
-  nav: "docs"
 ---
 
 When excluding files or folders with selective sync (`maestral exclude` in the CLI),

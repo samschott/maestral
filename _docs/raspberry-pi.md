@@ -1,9 +1,6 @@
 ---
-layout: single
 title: Notes on Raspberry Pi
 permalink: /docs/raspberry-pi
-sidebar:
-  nav: "docs"
 ---
 
 Maestral has been shown to run on Raspberry Pi but requires at least Python 3.6 while,

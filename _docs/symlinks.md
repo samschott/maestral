@@ -1,9 +1,6 @@
 ---
-layout: single
 title: Symlinks
 permalink: /docs/symlinks
-sidebar:
-  nav: "docs"
 ---
 
 Maestral will follow local symlinks, even if they point to locations outside of your

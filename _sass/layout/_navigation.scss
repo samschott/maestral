@@ -8,23 +8,17 @@
 
 .breadcrumbs {
   @include clearfix;
-  margin: 0 auto;
-  max-width: 100%;
-  padding-left: 1em;
-  padding-right: 1em;
   font-family: $sans-serif;
-
-  @include breakpoint($x-large) {
-    max-width: $x-large;
-  }
+  margin-top: 2em;
 
   ol {
     padding: 0;
     list-style: none;
+    margin-bottom: 0;
     font-size: $type-size-6;
 
     @include breakpoint($large) {
-      float: right;
+      float: left;
       width: calc(100% - #{$right-sidebar-width-narrow});
     }
 
@@ -37,9 +31,6 @@
     display: inline;
   }
 
-  .current {
-    font-weight: bold;
-  }
 }
 
 /*

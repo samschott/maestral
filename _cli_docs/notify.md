@@ -1,9 +1,6 @@
 ---
-layout: single
 title: maestral notify
 permalink: /cli/notify
-sidebar:
-  nav: "cli-docs"
 ---
 
 A command group to manage desktop notifications.

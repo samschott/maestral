@@ -1,9 +1,6 @@
 ---
-layout: single
 title: Installation
 permalink: /docs/installation
-sidebar:
-  nav: "docs"
 ---
 
 An app bundle is currently provided only for macOS. On other platforms, you can either

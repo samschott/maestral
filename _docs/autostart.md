@@ -1,9 +1,6 @@
 ---
-layout: single
 title: Start on login
 permalink: /docs/autostart
-sidebar:
-  nav: "docs"
 ---
 
 File syncing should happen in the background and should require as little user

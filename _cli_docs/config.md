@@ -1,9 +1,6 @@
 ---
-layout: single
 title: maestral config
 permalink: /cli/config
-sidebar:
-  nav: "cli-docs"
 ---
 
 A command group for direct access to config values.

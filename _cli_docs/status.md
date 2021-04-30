@@ -1,9 +1,6 @@
 ---
-layout: single
 title: maestral status
 permalink: /cli/status
-sidebar:
-  nav: "cli-docs"
 ---
 
 Show the status of the daemon.

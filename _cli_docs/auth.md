@@ -1,9 +1,6 @@
 ---
-layout: single
 title: maestral auth
 permalink: /cli/auth
-sidebar:
-  nav: "cli-docs"
 ---
 
 A command group to link, unlink and view the linked Dropbox account.

@@ -1,9 +1,6 @@
 ---
-layout: single
 title: maestral log
 permalink: /cli/log
-sidebar:
-  nav: "cli-docs"
 ---
 
 A command group to view and manage the log.

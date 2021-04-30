@@ -1,9 +1,6 @@
 ---
-layout: single
 title: Keyring integration
 permalink: /docs/keyring
-sidebar:
-  nav: "docs"
 ---
 
 The Dropbox authentication token will be saved in your system's keyring where available.

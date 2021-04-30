@@ -23,7 +23,6 @@ repository               : samschott/maestral
 teaser                   : # path of fallback teaser image, e.g. "/assets/images/500x300.png"
 logo                     : "/assets/images/icon_32x32@2x.png"
 masthead_title           : # overrides the website title displayed in the masthead, use " " for no title
-# breadcrumbs            : false # true, false (default)
 words_per_minute         : 200
 comments:
   provider               : # false (default), "disqus", "discourse", "facebook", "staticman", "staticman_v2", "utterances", "custom"
@@ -277,7 +276,21 @@ defaults:
       author_profile: false
       read_time: true
       show_date: true
-
       comments: # true
       share: true
       related: true
+      breadcrumbs: true
+  - scope:
+      path: "_docs"
+    values:
+      layout: single
+      breadcrumbs: true
+      sidebar:
+          nav: "docs"
+  - scope:
+      path: "_cli_docs"
+    values:
+      layout: single
+      breadcrumbs: true
+      sidebar:
+          nav: "cli-docs"
