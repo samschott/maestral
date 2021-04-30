@@ -70,6 +70,14 @@ DEFAULTS_STATE: DefaultsType = {
     },
 }
 
+
+KEY_SECTION_MAP = {"version": "main"}
+
+for section_name, section_values in DEFAULTS_CONFIG.items():
+    for key in section_values.keys():
+        KEY_SECTION_MAP[key] = section_name
+
+
 # IMPORTANT NOTES:
 # 1. If you want to *change* the default value of a current option, you need to
 #    do a MINOR update in config version, e.g. from 3.0.0 to 3.1.0
