@@ -337,6 +337,24 @@ class DropboxPath(click.ParamType):
         return [CompletionItem(m.lstrip("/")) for m in matches]
 
 
+class ConfigKey(click.ParamType):
+    """A command line parameter representing a config key"""
+
+    name = "key"
+
+    def shell_complete(
+        self,
+        ctx: Optional[click.Context],
+        param: Optional[click.Parameter],
+        incomplete: str,
+    ) -> List["CompletionItem"]:
+
+        from click.shell_completion import CompletionItem
+        from .config.main import KEY_SECTION_MAP as KEYS
+
+        return [CompletionItem(key) for key in KEYS if key.startswith(incomplete)]
+
+
 class ConfigName(click.ParamType):
     """A command line parameter representing a Dropbox path
 
@@ -1811,7 +1829,7 @@ def config():
 
 
 @config.command(name="get", help="Print the value of a given configuration key.")
-@click.argument("key")
+@click.argument("key", type=ConfigKey())
 @config_option
 def config_get(key: str, config_name: str) -> None:
 
@@ -1843,7 +1861,7 @@ Values will be cast to the proper type, raising an error where this is not possi
 instance, setting a boolean config value to 1 will actually set it to True.
 """,
 )
-@click.argument("key")
+@click.argument("key", type=ConfigKey())
 @click.argument("value")
 @config_option
 @convert_py_errors
