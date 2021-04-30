@@ -1816,13 +1816,11 @@ def config():
 def config_get(key: str, config_name: str) -> None:
 
     from .config import MaestralConfig
-    from .config.main import DEFAULTS_CONFIG
+    from .config.main import KEY_SECTION_MAP
     from .daemon import MaestralProxy, CommunicationError
 
     # Check if the config key exists in any section.
-    section = next(
-        iter(sec for sec, secdict in DEFAULTS_CONFIG.items() if key in secdict), None
-    )
+    section = KEY_SECTION_MAP.get(key, "")
 
     if not section:
         raise cli.CliException(f"'{key}' is not a valid configuration key.")
@@ -1853,20 +1851,15 @@ def config_set(key: str, value: str, config_name: str) -> None:
 
     import ast
     from .config import MaestralConfig
-    from .config.main import DEFAULTS_CONFIG
+    from .config.main import KEY_SECTION_MAP, DEFAULTS_CONFIG
     from .daemon import MaestralProxy, CommunicationError
 
-    section, defaults = next(
-        iter(
-            (sec, secdict) for sec, secdict in DEFAULTS_CONFIG.items() if key in secdict
-        ),
-        (None, None),
-    )
+    section = KEY_SECTION_MAP.get(key, "")
 
-    if not section or not defaults:
+    if not section:
         raise cli.CliException(f"'{key}' is not a valid configuration key.")
 
-    default_value = defaults[key]
+    default_value = DEFAULTS_CONFIG[section][key]
 
     if isinstance(default_value, str):
         py_value = value
