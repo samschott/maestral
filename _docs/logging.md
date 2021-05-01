@@ -23,7 +23,7 @@ command and any changes will take effect immediately.
 <p><b>Note:</b> Setting the log level to DEBUG will generate detailed logs on sync
 activity including potentially private information such as file names and modification
 times. Some versions of Maestral may also print environment variables to the logs. Use a
-log level of INFO or higher to keep the log free from any private information.
+log level of INFO or higher to keep the log free of any private information.
 </p>{: .notice--info}
 
 ## systemd integration
