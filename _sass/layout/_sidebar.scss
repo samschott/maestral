@@ -65,21 +65,25 @@
 
 .sidebar__right {
   margin-bottom: 1em;
+  display: none;
+  visibility: hidden;
 
   @include breakpoint($large) {
     position: absolute;
+    display: block;
+    visibility: visible;
     top: 0;
     right: 0;
     width: $right-sidebar-width-narrow;
     margin-right: -1 * $right-sidebar-width-narrow;
-    padding-left: 1em;
+    padding-left: 2em;
     z-index: 10;
 
     &.sticky {
       @include clearfix();
       position: -webkit-sticky;
       position: sticky;
-      top: 2em;
+      top: calc(2em + #{$effective-navbar-height});
       float: right;
     }
   }

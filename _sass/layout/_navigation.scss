@@ -496,42 +496,19 @@
      Table of contents navigation
      ========================================================================== */
 
-.toc {
-  font-family: $sans-serif-narrow;
-  color: var(--gray);
-  background-color: var(--background-color);
-  border: 1px solid var(--border-color);
-  border-radius: $border-radius;
-  -webkit-box-shadow: $box-shadow;
-  box-shadow: $box-shadow;
-
-  .nav__title {
-    color: #fff;
-    font-size: $type-size-6;
-    background: var(--primary-color);
-    border-top-left-radius: $border-radius;
-    border-top-right-radius: $border-radius;
-  }
-}
-
 .toc__menu {
   margin: 0;
   padding: 0;
   width: 100%;
   list-style: none;
-  font-size: $type-size-6;
-
-  @include breakpoint($large) {
-    font-size: $type-size-7;
-  }
 
   a {
     display: block;
     padding: 0.25rem 0.75rem;
     color: var(--muted-text-color);
-    font-weight: bold;
     line-height: 1.5;
-    border-bottom: 1px solid var(--border-color);
+    font-family: $monospace;
+    font-size: 0.9em;
 
     &:hover {
       color: var(--text-color);
