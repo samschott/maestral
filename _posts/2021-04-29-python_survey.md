@@ -31,7 +31,8 @@ include or exclude them from syncing:
 {% include figure
 image_path="/assets/images/selective-sync.png"
 image_path_dark="/assets/images/selective-sync-dark.png"
-alt="Selective sync" %}
+alt="Selective sync"
+%}
 
 This dialog is shown both when setting up a new account and on-demand from the
 settings pane.
@@ -61,7 +62,7 @@ turns out that there are already a number of Python libraries which do exactly t
 give a brief overview over the main choices here and explain why I decided to use
 [survey](https://github.com/Exahilosys/survey), an arguably lesser known option.
 
-### Prompt Toolkit
+## Prompt Toolkit
 
 [Prompt Toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit) is the Python
 standard for interactive command line tools. It is battle-tested, powerful, versatile
@@ -74,14 +75,14 @@ Because Prompt Toolkit is a general purpose library, it would still require a lo
 work to write the actual prompts needed for our CLI. Furthermore, despite its small size
 for the provided feature set, it does require at least 10 MB of memory at runtime.
 
-### PyInquirer
+## PyInquirer
 
 [PyInquirer](https://github.com/CITGuru/PyInquirer) is based on Prompt Toolkit and
 provides common prompts needed for Maestral out-of-the-box. It makes a few questionable
 style choices by default but those are a matter of taste and can be customised. Its
 major downside for adoption by Maestral is again the "large" Prompt Toolkit dependency.
 
-### Bullet
+## Bullet
 
 With 0.7 MB of memory usage at runtime, [bullet](https://github.com/bchao1/bullet) is
 properly lightweight for our purposes. Its claim of providing "beautiful" prompts is
@@ -89,7 +90,7 @@ questionable but this can again be customised. However, at the time of writing, 
 accepts ASCII input. This blocks its adaption by Maestral which regularly deals with
 file names that contain non-ASCII characters.
 
-### Survey
+## Survey
 
 After almost giving up on the convenience of interactive dialogs, I came across
 [survey](https://github.com/Exahilosys/survey). Survey is closely modelled after the
