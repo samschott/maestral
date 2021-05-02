@@ -3,13 +3,20 @@ layout: splash
 permalink: /
 ---
 
-<div class="wide wide__light" style="padding: 5em">
-    <figure class="figure">
-        <img src="{{ site.baseurl }}/assets/images/maestral.png" alt="Maestral" style="width: 200px; left: 0; right: 0; margin: auto">
-    </figure>
-    <h1> {{ site.description }} </h1>
-    <a href="about" class="large-link">About Maestral</a>
+<div class="header--overlay">
+    <div class="wrapper">
+      <h1 id="header-title" class="header__title" itemprop="headline">
+      Open source Dropbox client
+      </h1>
+      <p class="header__lead">
+      Maestral is a lightweight Dropbox client with powerful command line tools. Written for
+      tech-enthusiasts, it allows excluding local files from syncing via gitignore patterns,
+      syncing multiple Dropbox accounts, and much more.
+      </p>
+      <div><a href="/about" class="header__action">About Maestral</a></div>
+    </div>
 </div>
+
 
 <div class="wide wide__dark">
 
@@ -75,7 +82,7 @@ Starting Maestral...        <span class="green-text">[OK]</span>
 </div>
 
 <div class="wide wide__light">
-    <h2>Light-weight gui</h2>
+    <h2>Lightweight GUI</h2>
     <p>
     Native Cocoa interface for macOS<br>
     Qt based interface for Linux.<br>

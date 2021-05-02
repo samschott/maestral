@@ -1,4 +1,106 @@
 
+
+.header {
+  position: relative;
+  @include clearfix;
+
+  &--overlay {
+    position: relative;
+    color: rgb(17,17,17);
+    padding-top: calc(#{$effective-navbar-height} + 10em);
+    padding-bottom: 18em;
+    @include clearfix;
+    background-size: $small;
+    background-color: #fff;
+    background-image: url('/assets/images/splash_small.png');
+    background-repeat: no-repeat;
+    background-position: center;
+
+    @include breakpoint($medium) {
+      background-size: $medium;
+      background-image: url('/assets/images/splash_medium.png');
+    }
+
+    @include breakpoint($large) {
+      background-size: $large;
+      background-image: url('/assets/images/splash_large.png');
+    }
+
+    p {
+      text-align: center;
+    }
+
+    .wrapper {
+      padding-left: 1em;
+      padding-right: 1em;
+
+      @include breakpoint($medium) {
+        max-width: $medium;
+      }
+    }
+
+    .header__title,
+    .header__lead {
+      text-align: center;
+      margin: 1em auto;
+      font-family: $sans-serif-narrow;
+    }
+
+    .header__action {
+        color: rgb(12,100,200);
+        font-size: $type-size-4;
+        margin-top: 1em;
+        padding: 5px;
+
+    }
+    .header__action:hover {
+        color: rgb(12,100,200);
+        font-size: $type-size-4;
+        text-decoration: underline;
+    }
+
+    .header__lead {
+      max-width: $medium;
+      font-size: $type-size-5;
+      padding: 5px;
+    }
+
+    .header__title {
+      font-size: $type-size-2;
+      font-weight: bold;
+
+      @include breakpoint($small) {
+        font-size: $type-size-1;
+      }
+    }
+  }
+}
+
+.page__hero-image {
+  width: 100%;
+  height: auto;
+  -ms-interpolation-mode: bicubic;
+}
+
+.page__hero-caption {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  margin: 0 auto;
+  padding: 2px 5px;
+  color: #fff;
+  font-size: $type-size-8;
+  background: #000;
+  text-align: right;
+  z-index: 5;
+  opacity: 0.5;
+
+  a {
+    color: #fff;
+    text-decoration: none;
+  }
+}
+
 .splash {
     width: 100vw;
     text-align: center;
@@ -14,9 +116,13 @@
     margin: auto;
 
     h1, h2 {
-        margin-top: 1.5em !important;
+        margin-top: 2em !important;
         margin-bottom: 1em !important;
         border-style: none !important;
+    }
+
+    figure {
+        margin-top: 3em;
     }
 
     .large-link {
