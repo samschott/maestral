@@ -5,10 +5,3 @@ updates:
   schedule:
     interval: daily
   open-pull-requests-limit: 10
-  ignore:
-  - dependency-name: survey
-    versions:
-    - ">= 3.a, < 4"
-  - dependency-name: watchdog
-    versions:
-    - 2.0.0
