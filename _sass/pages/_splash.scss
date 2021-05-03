@@ -6,12 +6,12 @@
 
   &--overlay {
     position: relative;
-    color: rgb(17,17,17);
+    background-color: var(--splash-background-color-light);
+    color: var(--text-color);
     padding-top: calc(#{$effective-navbar-height} + 10em);
     padding-bottom: 18em;
     @include clearfix;
     background-size: $small;
-    background-color: #fff;
     background-image: url('/assets/images/splash_small.png');
     background-repeat: no-repeat;
     background-position: center;
@@ -47,14 +47,13 @@
     }
 
     .header__action {
-        color: rgb(12,100,200);
+        color: var(--link-color);
         font-size: $type-size-4;
         margin-top: 1em;
         padding: 5px;
 
     }
     .header__action:hover {
-        color: rgb(12,100,200);
         font-size: $type-size-4;
         text-decoration: underline;
     }
@@ -133,10 +132,10 @@
 .wide__light{
 
     background-color: var(--splash-background-color-light);
-    color: rgb(17,17,17);
+    color: var(--text-color);
 
     a {
-        color: rgb(12,100,200);
+        color: var(--link-color);
     }
 }
 
