@@ -279,6 +279,7 @@ defaults:
       comments: # true
       share: true
       related: true
+      pagination: false
       breadcrumbs: true
       toc: true
       toc_sticky: true

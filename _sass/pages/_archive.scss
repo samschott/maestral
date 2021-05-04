@@ -199,14 +199,6 @@
     font-size: 0.8em;
   }
 
-  .page__meta-sep {
-    display: block;
-
-    &::before {
-      display: none;
-    }
-  }
-
   .archive__item-title {
     margin-top: 0.5em;
     font-size: $type-size-5;

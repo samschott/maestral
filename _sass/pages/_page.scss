@@ -500,11 +500,13 @@ body {
 
   @include breakpoint($large) {
     float: right;
-    width: calc(100% - #{$right-sidebar-width-narrow});
+    margin-right: $right-sidebar-width-narrow;
+    width: calc(100% - 2 * #{$right-sidebar-width-narrow});
   }
 
   @include breakpoint($x-large) {
-    width: calc(100% - #{$right-sidebar-width});
+    margin-right: $right-sidebar-width;
+    width: calc(100% - 2 * #{$right-sidebar-width});
   }
 
   a {
