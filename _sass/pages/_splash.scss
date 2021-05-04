@@ -8,7 +8,7 @@
     position: relative;
     background-color: var(--splash-background-color-light);
     color: var(--text-color);
-    padding-top: calc(#{$effective-navbar-height} + 10em);
+    padding-top: calc(#{$effective-navbar-height} + 9em);
     padding-bottom: 18em;
     @include clearfix;
     background-size: $small;
