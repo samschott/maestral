@@ -5,10 +5,8 @@ tags: development dependencies
 excerpt: >
   Interactive command line prompts in Python: Which packages are available? How do they
   compare? How do they perform? This post explains why I choose a relatively niche
-  package called 'survey'."
-header:
-  teaser: /assets/images/survey-teaser.gif
-related: false
+  package called "survey".
+related: true
 ---
 
 Maestral has a large number of dependencies, both direct and indirect. Those range from
