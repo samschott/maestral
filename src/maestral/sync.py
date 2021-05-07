@@ -1186,47 +1186,59 @@ class SyncEngine:
         :returns: Correctly cased Dropbox path.
         """
 
-        client = client or self.client
-
         dirname, basename = osp.split(dbx_path)
 
-        dbx_path_lower = dbx_path.lower()
-        dirname_lower = dirname.lower()
-
-        if dirname == "/":
-            path_cased = dbx_path
-
-        else:
-
-            # check in our conversion cache
-            parent_path_cased = self._case_conversion_cache.get(dirname_lower)
-
-            if not parent_path_cased:
-                # try to get dirname casing from our index, this is slower
-                with self._database_access():
-                    parent_entry = self.get_index_entry(dirname_lower)
-
-                if parent_entry:
-                    parent_path_cased = parent_entry.dbx_path_cased
-
-                else:
-                    # fall back to querying from server
-                    md_parent = client.get_metadata(dirname_lower)
-                    if md_parent:
-                        # recurse over parent directories
-                        parent_path_cased = self.correct_case(
-                            md_parent.path_display, client
-                        )
-                    else:
-                        # give up
-                        parent_path_cased = dirname
-
-            path_cased = f"{parent_path_cased}/{basename}"
+        dirname_cased = self._correct_case_helper(dirname, client)
+        path_cased = osp.join(dirname_cased, basename)
 
         # add our result to the cache
-        self._case_conversion_cache.put(dbx_path_lower, path_cased)
+        self._case_conversion_cache.put(dbx_path.lower(), path_cased)
 
         return path_cased
+
+    def _correct_case_helper(
+        self, dbx_path: str, client: Optional[DropboxClient] = None
+    ) -> str:
+        """
+        :param dbx_path: Uncased or randomly cased Dropbox path.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
+        :returns: Correctly cased Dropbox path.
+        """
+
+        client = client or self.client
+
+        # check for root folder
+        if dbx_path == "/":
+            return dbx_path
+
+        # check in our conversion cache
+        dbx_path_lower = dbx_path.lower()
+        dbx_path_cased = self._case_conversion_cache.get(dbx_path_lower)
+
+        if dbx_path_cased:
+            return dbx_path_cased
+
+        # try to get casing from our index, this is slower
+        with self._database_access():
+            entry = self.get_index_entry(dbx_path_lower)
+
+        if entry:
+            dbx_path_cased = entry.dbx_path_cased
+        else:
+            # fall back to querying from server
+            md = client.get_metadata(dbx_path_lower)
+            if md:
+                # recurse over parent directories
+                dbx_path_cased = self.correct_case(md.path_display, client)
+            else:
+                # give up
+                dbx_path_cased = dbx_path
+
+        # add our result to the cache
+        self._case_conversion_cache.put(dbx_path_lower, dbx_path_cased)
+
+        return dbx_path_cased
 
     def to_dbx_path(self, local_path: str) -> str:
         """
