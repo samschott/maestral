@@ -241,8 +241,10 @@ class SyncManager:
         local_observer_thread.schedule(
             self.sync.fs_events, self.sync.dropbox_path, recursive=True
         )
-        for i, emitter in enumerate(local_observer_thread.emitters):
-            emitter.setName(f"maestral-fsemitter-{i}")
+
+        for emitter in local_observer_thread.emitters:
+            # there should be only a single emitter thread
+            emitter.name = "maestral-fsemitter"
 
         try:
             local_observer_thread.start()
