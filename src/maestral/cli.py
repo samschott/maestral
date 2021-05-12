@@ -1929,7 +1929,12 @@ def completion(shell: str) -> None:
     from click.shell_completion import get_completion_class
 
     comp_cls = get_completion_class(shell)
-    comp = comp_cls(main, [], "maestral", "_MAESTRAL_COMPLETE")
+
+    if comp_cls is None:
+        cli.warn(f"{shell} shell is currently not supported")
+        return
+
+    comp = comp_cls(main, {}, "maestral", "_MAESTRAL_COMPLETE")
 
     try:
         click.echo(comp.source())
