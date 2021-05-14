@@ -36,6 +36,8 @@ docs:
             url: /docs/filesystem
           - title: "Symlinks"
             url: /docs/symlinks
+          - title: "Inotify limits"
+            url: /docs/inotify-limits
           - title: "Supported folder locations"
             url: /docs/locations
       - title: "Configuration"
