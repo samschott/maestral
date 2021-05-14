@@ -22,7 +22,7 @@ There are in fact two limits which are important to us:
     depending on the available RAM. Linux 5.11 was released in February 2021 and at the
     time of writing, most distributions still use an older kernel version.
 
-2.  **max_user_instance**: This is the maximum number of inotify instances allowed for
+2.  **max_user_instances**: This is the maximum number of inotify instances allowed for
     each user. Most processes will only create a single instance but some may create
     multiple. This value defaults to 128 for most distributions.
 
