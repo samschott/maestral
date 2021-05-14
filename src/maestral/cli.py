@@ -1477,11 +1477,12 @@ Rebuilding may take several minutes, depending on the size of your Dropbox.
 def rebuild_index(yes: bool, config_name: str) -> None:
 
     import textwrap
+    import shutil
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
 
-        width, height = click.get_terminal_size()
+        width, height = shutil.get_terminal_size()
 
         msg = textwrap.fill(
             "Rebuilding the index may take several minutes, depending on the size of "
