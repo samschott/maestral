@@ -300,8 +300,10 @@ class DropboxPath(click.ParamType):
         from .config import MaestralConfig
 
         matches: List[str] = []
+        completions: List[CompletionItem] = []
 
         # check if we have been given an absolute path
+        absolute = incomplete.startswith("/")
         incomplete = incomplete.lstrip("/")
 
         # get the Maestral config for which to complete paths
@@ -334,7 +336,12 @@ class DropboxPath(click.ParamType):
             if dbx_path.startswith("/" + incomplete):
                 matches.append(dbx_path)
 
-        return [CompletionItem(m.lstrip("/")) for m in matches]
+        for match in matches:
+            if not absolute:
+                match = match.lstrip("/")
+            completions.append(CompletionItem(match))
+
+        return completions
 
 
 class ConfigKey(click.ParamType):
