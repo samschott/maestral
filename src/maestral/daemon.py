@@ -566,6 +566,9 @@ def start_maestral_daemon_process(
     config name. This function will use :obj:`sys.executable` as a Python executable to
     start the daemon.
 
+    Environment variables from the current process will be preserved and updated with
+    the environment variables defined in :const:`constants.ENV`.
+
     :param config_name: The name of the Maestral configuration to use.
     :param start_sync: If ``True``, start syncing once the daemon has started.
     :param timeout: Time in sec to wait for daemon to start.
