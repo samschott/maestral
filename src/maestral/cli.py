@@ -21,6 +21,7 @@ from . import __version__
 from .utils import cli
 
 if TYPE_CHECKING:
+    from click.shell_completion import CompletionItem
     from datetime import datetime
     from .main import Maestral
     from .daemon import MaestralProxy
@@ -189,12 +190,13 @@ def check_for_fatal_errors(m: Union["MaestralProxy", "Maestral"]) -> bool:
     """
 
     import textwrap
+    import shutil
 
     maestral_err_list = m.fatal_errors
 
     if len(maestral_err_list) > 0:
 
-        width, height = click.get_terminal_size()
+        width, height = shutil.get_terminal_size()
 
         err = maestral_err_list[0]
         err_title = cast(str, err["title"])
@@ -286,56 +288,78 @@ class DropboxPath(click.ParamType):
 
         return value
 
-    #
-    # def shell_complete(
-    #     self,
-    #     ctx: Optional[click.Context],
-    #     param: Optional[click.Parameter],
-    #     incomplete: str,
-    # ) -> List["CompletionItem"]:
-    #
-    #     from click.shell_completion import CompletionItem
-    #     from .utils import removeprefix
-    #
-    #     matches: List[str] = []
-    #
-    #     # check if we have been given an absolute path
-    #     incomplete = incomplete.lstrip("/")
-    #
-    #     # get the Maestral config for which to complete paths
-    #     try:
-    #         config_name = ctx.params["config_name"]
-    #     except (KeyError, AttributeError):
-    #         # attribute error occurs when ctx = None
-    #         config_name = "maestral"
-    #
-    #     # get all matching paths in our local Dropbox folder
-    #     # TODO: query from server if not too slow
-    #
-    #     config = MaestralConfig(config_name)
-    #     dropbox_dir = config.get("main", "path")
-    #     local_incomplete = osp.join(dropbox_dir, incomplete)
-    #     local_dirname = osp.dirname(local_incomplete)
-    #
-    #     if osp.isdir(local_dirname):
-    #
-    #         with os.scandir(local_dirname) as it:
-    #             for entry in it:
-    #                 if entry.path.startswith(local_incomplete):
-    #                     if entry.is_dir() and self.dir_okay:
-    #                         dbx_path = removeprefix(entry.path, dropbox_dir)
-    #                         matches.append(dbx_path + "/")
-    #                     elif entry.is_file() and self.file_okay:
-    #                         dbx_path = removeprefix(entry.path, dropbox_dir)
-    #                         matches.append(dbx_path)
-    #
-    #     # get all matching excluded items
-    #
-    #     for dbx_path in config.get("main", "excluded_items"):
-    #         if dbx_path.startswith("/" + incomplete):
-    #             matches.append(dbx_path)
-    #
-    #     return [CompletionItem(m.lstrip("/")) for m in matches]
+    def shell_complete(
+        self,
+        ctx: Optional[click.Context],
+        param: Optional[click.Parameter],
+        incomplete: str,
+    ) -> List["CompletionItem"]:
+
+        from click.shell_completion import CompletionItem
+        from .utils import removeprefix
+        from .config import MaestralConfig
+
+        matches: List[str] = []
+        completions: List[CompletionItem] = []
+
+        # check if we have been given an absolute path
+        absolute = incomplete.startswith("/")
+        incomplete = incomplete.lstrip("/")
+
+        # get the Maestral config for which to complete paths
+        config_name = ctx.params.get("config_name", "maestral") if ctx else "maestral"
+
+        # get all matching paths in our local Dropbox folder
+        # TODO: query from server if not too slow
+
+        config = MaestralConfig(config_name)
+        dropbox_dir = config.get("main", "path")
+        local_incomplete = osp.join(dropbox_dir, incomplete)
+        local_dirname = osp.dirname(local_incomplete)
+
+        try:
+            with os.scandir(local_dirname) as it:
+                for entry in it:
+                    if entry.path.startswith(local_incomplete):
+                        if self.file_okay and entry.is_file():
+                            dbx_path = removeprefix(entry.path, dropbox_dir)
+                            matches.append(dbx_path)
+                        if self.dir_okay and entry.is_dir():
+                            dbx_path = removeprefix(entry.path, dropbox_dir)
+                            matches.append(dbx_path)
+        except OSError:
+            pass
+
+        # get all matching excluded items
+
+        for dbx_path in config.get("main", "excluded_items"):
+            if dbx_path.startswith("/" + incomplete):
+                matches.append(dbx_path)
+
+        for match in matches:
+            if not absolute:
+                match = match.lstrip("/")
+            completions.append(CompletionItem(match))
+
+        return completions
+
+
+class ConfigKey(click.ParamType):
+    """A command line parameter representing a config key"""
+
+    name = "key"
+
+    def shell_complete(
+        self,
+        ctx: Optional[click.Context],
+        param: Optional[click.Parameter],
+        incomplete: str,
+    ) -> List["CompletionItem"]:
+
+        from click.shell_completion import CompletionItem
+        from .config.main import KEY_SECTION_MAP as KEYS
+
+        return [CompletionItem(key) for key in KEYS if key.startswith(incomplete)]
 
 
 class ConfigName(click.ParamType):
@@ -383,17 +407,18 @@ class ConfigName(click.ParamType):
                     f"Use 'maestral configs' to list all configurations."
                 )
 
-    #
-    # def shell_complete(
-    #     self,
-    #     ctx: Optional[click.Context],
-    #     param: Optional[click.Parameter],
-    #     incomplete: str,
-    # ) -> List["CompletionItem"]:
-    #
-    #     matches = [conf for conf in list_configs() if conf.startswith(incomplete)]
-    #     return [CompletionItem(m) for m in matches]
-    #
+    def shell_complete(
+        self,
+        ctx: Optional[click.Context],
+        param: Optional[click.Parameter],
+        incomplete: str,
+    ) -> List["CompletionItem"]:
+
+        from click.shell_completion import CompletionItem
+        from .config import list_configs
+
+        matches = [conf for conf in list_configs() if conf.startswith(incomplete)]
+        return [CompletionItem(m) for m in matches]
 
 
 # ======================================================================================
@@ -1452,11 +1477,12 @@ Rebuilding may take several minutes, depending on the size of your Dropbox.
 def rebuild_index(yes: bool, config_name: str) -> None:
 
     import textwrap
+    import shutil
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
 
-        width, height = click.get_terminal_size()
+        width, height = shutil.get_terminal_size()
 
         msg = textwrap.fill(
             "Rebuilding the index may take several minutes, depending on the size of "
@@ -1811,18 +1837,16 @@ def config():
 
 
 @config.command(name="get", help="Print the value of a given configuration key.")
-@click.argument("key")
+@click.argument("key", type=ConfigKey())
 @config_option
 def config_get(key: str, config_name: str) -> None:
 
     from .config import MaestralConfig
-    from .config.main import DEFAULTS_CONFIG
+    from .config.main import KEY_SECTION_MAP
     from .daemon import MaestralProxy, CommunicationError
 
     # Check if the config key exists in any section.
-    section = next(
-        iter(sec for sec, secdict in DEFAULTS_CONFIG.items() if key in secdict), None
-    )
+    section = KEY_SECTION_MAP.get(key, "")
 
     if not section:
         raise cli.CliException(f"'{key}' is not a valid configuration key.")
@@ -1845,7 +1869,7 @@ Values will be cast to the proper type, raising an error where this is not possi
 instance, setting a boolean config value to 1 will actually set it to True.
 """,
 )
-@click.argument("key")
+@click.argument("key", type=ConfigKey())
 @click.argument("value")
 @config_option
 @convert_py_errors
@@ -1853,20 +1877,15 @@ def config_set(key: str, value: str, config_name: str) -> None:
 
     import ast
     from .config import MaestralConfig
-    from .config.main import DEFAULTS_CONFIG
+    from .config.main import KEY_SECTION_MAP, DEFAULTS_CONFIG
     from .daemon import MaestralProxy, CommunicationError
 
-    section, defaults = next(
-        iter(
-            (sec, secdict) for sec, secdict in DEFAULTS_CONFIG.items() if key in secdict
-        ),
-        (None, None),
-    )
+    section = KEY_SECTION_MAP.get(key, "")
 
-    if not section or not defaults:
+    if not section:
         raise cli.CliException(f"'{key}' is not a valid configuration key.")
 
-    default_value = defaults[key]
+    default_value = DEFAULTS_CONFIG[section][key]
 
     if isinstance(default_value, str):
         py_value = value
@@ -1899,3 +1918,33 @@ def config_show(no_pager: bool, config_name: str) -> None:
             click.echo(fp.getvalue())
         else:
             click.echo_via_pager(fp.getvalue())
+
+
+@main.command(
+    section="Maintenance",
+    help="""
+Generate completion script for your shell.
+
+This command can generate shell completion scripts for bash, zsh or fish. For bash or
+zsh, save the returned script in a location of you choice and source it in '~/.bashrc'
+or '~/.zshrc', respectively. For fish, save the returned script at
+'~/.config/fish/completions/maestral.fish'.
+""",
+)
+@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
+def completion(shell: str) -> None:
+
+    from click.shell_completion import get_completion_class
+
+    comp_cls = get_completion_class(shell)
+
+    if comp_cls is None:
+        cli.warn(f"{shell} shell is currently not supported")
+        return
+
+    comp = comp_cls(main, {}, "maestral", "_MAESTRAL_COMPLETE")
+
+    try:
+        click.echo(comp.source())
+    except RuntimeError as exc:
+        cli.warn(exc.args[0])
