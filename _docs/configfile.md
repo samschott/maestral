@@ -12,7 +12,7 @@ site.baseurl }}/cli/config) directly but some will only take effect once you res
 Maestral. Any manual changes to the config file may be overwritten if the daemon is
 still running.
 
-**You should not change the config values in the sections "main" and "account"
+**You must not change the config values in the sections "main" and "account"
 directly** but rather use the corresponding CLI commands or GUI options, for instance
 [`maestral move-dir`]({{ site.baseurl }}/cli/move-dir) or
 [`maestral excluded add`]({{site.baseurl }}/cli/excluded). This is because changes of

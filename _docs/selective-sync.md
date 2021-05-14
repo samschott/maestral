@@ -11,7 +11,7 @@ CLI with the `maestral excluded` command group. If you want to keep files or fol
 inside the Dropbox directory on your hard drive but not sync them to the cloud, you can
 use an [mignore]({{ site.baseurl }}/docs/mignore) file instead.
 
-### Example GUI usage
+## Example GUI usage
 
 Selective sync settings are accessible through the settings pane:
 
@@ -20,7 +20,7 @@ image_path="/assets/images/selective-sync.png"
 image_path_dark="/assets/images/selective-sync-dark.png"
 alt="Selective sync" %}
 
-### Example CLI usage
+## Example CLI usage
 
 To exclude a folder `Pictures` in your Dropbox from syncing, you can run:
 
