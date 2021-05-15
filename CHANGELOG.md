@@ -15,9 +15,9 @@ welcome.
   themselves and for several arguments, notably paths relative to the Dropbox folder and
   choices from a set of fixed options. Use the command `maestral completion` to generate
   shell completion scripts for bash, zsh or fish. For bash or zsh, save the returned
-  script in a location of you choice and source it in '~/.bashrc' or '~/.zshrc',
+  script in a location of you choice and source it in '\~/.bashrc' or '\~/.zshrc',
   respectively. For fish, save the returned script at
-  '~/.config/fish/completions/maestral.fish'. Completion is available for the base
+  '\~/.config/fish/completions/maestral.fish'. Completion is available for the base
   commands themselves and several arguments, notably paths relative to the Dropbox
   folder and choices from a set of fixed options.
 
