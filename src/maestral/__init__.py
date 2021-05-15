@@ -4,7 +4,7 @@ import warnings
 
 __version__ = "1.4.4.dev1"
 __author__ = "Sam Schott"
-__url__ = "https://www.maestral.app"
+__url__ = "https://maestral.app"
 
 
 # suppress Python 3.9 warning from rubicon-objc
