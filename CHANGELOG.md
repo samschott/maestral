@@ -36,6 +36,8 @@ welcome.
   process.
 * Loggers are scoped per configuration instead of globally. This enables separating logs
   for Maestral instances for different configs which are running in the same process.
+* Improved performance and appearance of the selective sync dialog. Folder content is
+  no longer pre-fetched but will be loaded on-demand when expanding a folder.
 
 #### Fixed:
 
@@ -44,6 +46,7 @@ welcome.
   (e.g, 25% on a 4-core CPU).
 * Fixes an issue where a local permission error would be treated as a fatal error
   instead of as a sync issue.
+* Moving the Dropbox folder between partitions no longer triggers a full resync.
 * Fixes an error when running the `diff` CLI command and selecting the local file as the
   base version.  
 * Fixes download links in the update dialog.
