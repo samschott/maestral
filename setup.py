@@ -20,7 +20,7 @@ install_requires = [
     "rubicon-objc>=0.4.0;sys_platform=='darwin'",
     "sdnotify>=0.3.2",
     "setuptools",
-    "survey>=3.2.2,<4.0",
+    "survey>=3.4.3,<4.0",
     "watchdog>=2.0.1",
 ]
 
