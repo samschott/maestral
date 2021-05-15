@@ -1,5 +1,14 @@
 ## v1.4.4.dev
 
+This release introduces support for tab-completion in the shell, allows you to choose
+the actual Dropbox folder instead of its parent folder / location from the GUI, and
+further reduces memory usage during startup indexing. As usual, several bugs have
+been squashed.
+
+The website has also moved to its own domain at [maestral.app](https://maestral.app).
+The source still lives in the `website` branch of the GitHub repo and contributions are
+welcome.
+
 #### Added:
 
 * Added support for shell completion. Completion is available for the commands
@@ -14,6 +23,7 @@
 
 #### Changed:
 
+* Improved error messages when inotify limits are reached on Linux.
 * GUI dialogs to select a local Dropbox folder now ask for the actual folder name
   instead of the location only.
 * Local indexing on startup is now carried out without loading the entire folder tree
@@ -36,6 +46,12 @@
   instead of as a sync issue.
 * Fixes an error when running the `diff` CLI command and selecting the local file as the
   base version.  
+* Fixes download links in the update dialog.
+
+#### Dependencies:
+
+* Bumped click to >= v8.0.0 to support shell completion.
+* Bumped survey to >= v3.4.3 for Python 3.6 support.
 
 ## v1.4.3
 
