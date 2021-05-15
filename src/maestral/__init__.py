@@ -2,7 +2,7 @@
 
 import warnings
 
-__version__ = "1.4.4.dev1"
+__version__ = "1.4.4.dev2"
 __author__ = "Sam Schott"
 __url__ = "https://maestral.app"
 
