@@ -13,6 +13,7 @@ from threading import Event, RLock, Thread
 from typing import Iterator, Optional, cast, List, Type, TypeVar, Callable, Any
 
 # local imports
+from . import __url__
 from . import notify
 from .client import DropboxClient
 from .config import MaestralConfig
@@ -260,19 +261,28 @@ class SyncManager:
                 except OSError:
                     max_user_watches, max_user_instances = 2 ** 18, 2 ** 9
 
+                url = f"{__url__}/docs/inotify-limits"
+
                 if exc.errno == errno.ENOSPC:
                     n_new = max(2 ** 19, 2 * max_user_watches)
-                    new_config = f"fs.inotify.max_user_watches={n_new}"
+
+                    msg = (
+                        "Changes to your Dropbox folder cannot be monitored because it "
+                        "contains too many items. Please increase "
+                        f"fs.inotify.max_user_watches to {n_new}. See {url} for more "
+                        "information."
+                    )
+
                 else:
                     n_new = max(2 ** 10, 2 * max_user_instances)
-                    new_config = f"fs.inotify.max_user_instances={n_new}"
 
-                msg = (
-                    "Changes to your Dropbox folder cannot be monitored because it "
-                    "contains too many items. Please increase the inotify limit by "
-                    "adding the following line to /etc/sysctl.conf, then apply the "
-                    'settings with "sysctl -p":\n\n' + new_config
-                )
+                    msg = (
+                        "Changes to your Dropbox folder cannot be monitored because "
+                        "there are too many activity inotify instances. Please "
+                        f"increase fs.inotify.max_user_instances to {n_new}. See "
+                        f"{url} for more information."
+                    )
+
                 err_cls = InotifyError
 
             elif exc.errno in (errno.EPERM, errno.EACCES):
