@@ -10,7 +10,7 @@ Macs and Apple Silicon. On other platforms, you can install the Python package o
 Docker image based on Alpine Linux.
 
 <p>
-<a href="https://github.com/SamSchott/maestral/releases" class="btn btn--small btn--warning"><i class="icon fab fa-apple"></i>App Bundle</a>
+<a href="https://github.com/SamSchott/maestral/releases/latest" class="btn btn--small btn--warning"><i class="icon fab fa-apple"></i>App Bundle</a>
 <a href="https://pypi.org/project/maestral/" class="btn btn--small btn--primary"><i class="icon fas fa-cubes"></i>PyPI</a>
 <a href="https://hub.docker.com/r/maestraldbx/maestral" class="btn btn--small btn--info"><i class="icon fab fa-docker"></i>Docker</a>
 </p>
