@@ -102,7 +102,7 @@ Richer features such as image previews, interactive buttons, etc, are currently 
 available through the Windows Runtime APIs which can only be access using pre-compiled
 Python packages such as [Python/WinRT](https://github.com/Microsoft/xlang/tree/master/src/package/pywinrt/projection).
 
-## The Python implementation
+## Python implementation
 
 Dealing with those very different native APIs, I was faced with a number of choices for
 the abstraction layer:
