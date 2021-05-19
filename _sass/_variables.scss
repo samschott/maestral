@@ -65,9 +65,10 @@ $h-size-6: 1.1em; // 17.6px
     --background-color: #fff;
     --saturated-background-color: white;
     --code-background-color: var(--lighter-gray);
-    --header-background-color: rgba(255,255,255,0.9);
-    --header-border-color: var(--lighter-gray);
+    --header-background-color: rgba(255,255,255,0.75);
+    --header-border-color: rgba(0,0,0,0.16);
     --text-color: rgb(29,29,31);
+    --title-color: rgb(29,29,31);
     --muted-text-color: var(--light-gray);
     --border-color: var(--lighter-gray);
     --form-background-color: var(--lighter-gray);
@@ -149,18 +150,19 @@ $h-size-6: 1.1em; // 17.6px
     --light-gray: rgb(10,10,10);
     --lighter-gray: rgb(17,17,17);
 
-    --background-color: rgb(30,32,35);
+    --background-color: rgb(14,17,22);
     --saturated-background-color: black;
     --code-background-color: rgb(40,50,55);
-    --header-background-color: rgba(20,20,20,.9);
-    --header-border-color: rgba(20,20,20,.9);
-    --text-color: rgb(222,222,222);
+    --header-background-color: rgba(23,27,33,.87);
+    --header-border-color: rgba(23,27,33,.87);
+    --title-color: rgb(220,220,220);
+    --text-color: rgb(200,200,200);
     --muted-text-color: rgb(180,180,180);
     --border-color: rgb(100,100,100);
     --form-background-color: rgb(25,25,25);
-    --footer-background-color: rgb(25,25,25);
-    --splash-background-color-light: #413e45;
-    --splash-background-color-dark: rgb(40,40,50);
+    --footer-background-color: #161b22;
+    --splash-background-color-light: rgb(14,17,22);
+    --splash-background-color-dark: rgb(30,30,40);
 
     --primary-color: #6f777d;
     --success-color: rgb(3, 70, 29);
