@@ -524,7 +524,8 @@ class Maestral:
 
     def get_file_status(self, local_path: str) -> str:
         """
-        Returns the sync status of an individual file.
+        Returns the sync status of a file or folder. The returned status is not
+        recursive: a folder
 
         :param local_path: Path to file on the local drive. May be relative to the
             current working directory.
@@ -542,9 +543,7 @@ class Maestral:
         except ValueError:
             return FileStatus.Unwatched.value
 
-        sync_event = next(
-            iter(e for e in self.manager.activity if e.local_path == local_path), None
-        )
+        sync_event = self.manager.activity.get(local_path)
 
         if sync_event and sync_event.direction == SyncDirection.Up:
             return FileStatus.Uploading.value
@@ -569,11 +568,11 @@ class Maestral:
         """
 
         self._check_linked()
-        if limit:
-            activity = [sync_event_to_dict(e) for e in self.manager.activity[:limit]]
-        else:
-            activity = [sync_event_to_dict(e) for e in self.manager.activity]
-        return activity
+
+        activity = list(self.manager.activity.values())[:limit]
+        serialized_activity = [sync_event_to_dict(event) for event in activity]
+
+        return serialized_activity
 
     def get_history(self, limit: Optional[int] = 100) -> List[StoneType]:
         """

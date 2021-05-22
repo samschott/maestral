@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from functools import wraps
 from queue import Empty, Queue
 from threading import Event, RLock, Thread
-from typing import Iterator, Optional, cast, List, Type, TypeVar, Callable, Any
+from typing import Iterator, Optional, cast, Dict, List, Type, TypeVar, Callable, Any
 
 # local imports
 from . import __url__
@@ -126,9 +126,9 @@ class SyncManager:
         self._conf.set("sync", "reindex_interval", interval)
 
     @property
-    def activity(self) -> List[SyncEvent]:
+    def activity(self) -> Dict[str, SyncEvent]:
         """Returns a list all items queued for or currently syncing."""
-        return list(self.sync.syncing)
+        return self.sync.syncing
 
     @property
     def history(self) -> List[SyncEvent]:
