@@ -543,6 +543,9 @@ class Maestral:
         except ValueError:
             return FileStatus.Unwatched.value
 
+        if dbx_path == "/":
+            return FileStatus.Synced.value
+
         sync_event = self.manager.activity.get(local_path)
 
         if sync_event and sync_event.direction == SyncDirection.Up:
