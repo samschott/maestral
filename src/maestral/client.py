@@ -150,7 +150,7 @@ def convert_api_errors(
 
     try:
         yield
-    except (exceptions.DropboxException, ValidationError) as exc:
+    except (exceptions.DropboxException, ValidationError, requests.HTTPError) as exc:
         raise dropbox_to_maestral_error(exc, dbx_path, local_path)
     # Catch connection errors first, they may inherit from OSError.
     except CONNECTION_ERRORS:
@@ -1217,7 +1217,7 @@ def os_to_maestral_error(
 
 
 def dropbox_to_maestral_error(
-    exc: exceptions.DropboxException,
+    exc: Union[exceptions.DropboxException, ValidationError, requests.HTTPError],
     dbx_path: Optional[str] = None,
     local_path: Optional[str] = None,
 ) -> MaestralApiError:
@@ -1542,9 +1542,23 @@ def dropbox_to_maestral_error(
 
     # ---- OAuth2 flow errors ----------------------------------------------------------
     elif isinstance(exc, requests.HTTPError):
-        err_cls = DropboxAuthError
-        title = "Authentication failed"
-        text = "Please make sure that you entered the correct authentication code."
+        # HTTPErrors are converted to a DropboxException by the SDK unless they occur
+        # when refreshing the access token. We therefore handle those manually.
+        # See https://github.com/dropbox/dropbox-sdk-python/issues/360
+        # and https://github.com/SamSchott/maestral/issues/388.
+
+        if exc.request.status_code >= 500:
+            err_cls = DropboxServerError
+            title = "Dropbox server error"
+            text = (
+                "Something went wrong on Dropbox’s end. Please check on "
+                "status.dropbox.com if their services are up and running and try again "
+                "later."
+            )
+        else:
+            err_cls = DropboxAuthError
+            title = "Authentication failed"
+            text = "Please make sure that you entered the correct authentication code."
 
     elif isinstance(exc, oauth.BadStateException):
         err_cls = DropboxAuthError
