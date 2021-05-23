@@ -62,7 +62,7 @@ $h-size-6: 1.1em; // 17.6px
     --light-gray: rgb(120,120,120);
     --lighter-gray: rgb(240,240,240);
 
-    --background-color: #fff;
+    --background-color: rgb(251,251,251);
     --saturated-background-color: white;
     --code-background-color: var(--lighter-gray);
     --header-background-color: rgba(255,255,255,0.75);
@@ -72,7 +72,7 @@ $h-size-6: 1.1em; // 17.6px
     --muted-text-color: var(--light-gray);
     --border-color: var(--lighter-gray);
     --form-background-color: var(--lighter-gray);
-    --footer-background-color: rgb(242,242,242);
+    --footer-background-color: rgb(245,245,247);
     --splash-background-color-light: rgb(251,251,251);
     --splash-background-color-dark: rgb(40,40,50);
 
@@ -94,7 +94,7 @@ $h-size-6: 1.1em; // 17.6px
     --link-color-hover: var(--link-color);
     --link-color-visited: var(--link-color);
     --masthead-link-color: rgb(60,60,60);
-    --masthead-link-color-hover: rgb(0,80,200);
+    --masthead-link-color-hover: rgb(60,60,60);
     --navicon-link-color-hover: #115B5F;
 
     /* brands */
@@ -145,16 +145,16 @@ $h-size-6: 1.1em; // 17.6px
 @media (prefers-color-scheme: dark) {
     :root {
     --gray: #7a8288;
-    --dark-gray: rgb(240,240,240);
-    --darker-gray: rgb(60,60,60);
-    --light-gray: rgb(10,10,10);
-    --lighter-gray: rgb(17,17,17);
+    --dark-gray: rgb(200,200,200);
+    --darker-gray: rgb(120,120,120);
+    --light-gray: rgb(90,90,90);
+    --lighter-gray: rgb(50,50,50);
 
     --background-color: rgb(14,17,22);
     --saturated-background-color: black;
     --code-background-color: rgb(40,50,55);
-    --header-background-color: rgba(23,27,33,.87);
-    --header-border-color: rgba(23,27,33,.87);
+    --header-background-color: rgba(29,29,31,0.72);
+    --header-border-color: rgba(255,255,255,0.24);
     --title-color: rgb(220,220,220);
     --text-color: rgb(200,200,200);
     --muted-text-color: rgb(180,180,180);
@@ -182,7 +182,7 @@ $h-size-6: 1.1em; // 17.6px
     --link-color-hover: var(--link-color);
     --link-color-visited: var(--link-color);
     --masthead-link-color: rgb(220,220,220);
-    --masthead-link-color-hover: rgb(250,250,250);
+    --masthead-link-color-hover: rgb(220,220,220);
     --navicon-link-color-hover: #115B5F;
 
     /* brands */
@@ -208,7 +208,7 @@ $x-large: 1280px;
 $max-width: $x-large;
 $global-padding: 22px;
 $right-sidebar-width: 280px;
-$right-sidebar-width-narrow: 200px;
+$right-sidebar-width-narrow: 280px;
 
 /*
    Other
@@ -216,6 +216,7 @@ $right-sidebar-width-narrow: 200px;
 
 $border-radius: 10px;
 $box-shadow: 0 1px 1px rgba(0, 0, 0, 0.125);
+
 $nav-height: 25px;
 $nav-padding: 15px;
 $effective-navbar-height: calc(#{$nav-height + 2 * $nav-padding} + env(safe-area-inset-top, 0px));
@@ -227,4 +228,7 @@ $nav-transition:
     margin .56s cubic-bezier(0.32, 0.08, 0.24, 1);
 $navicon-spacing: 8px;
 $navicon-width: 17px;
+
+$page-margin-top: 50px;
+
 $global-transition: all 0.2s ease-in-out;

@@ -433,19 +433,23 @@
 
 .nav__items {
   color: var(--masthead-link-color);
-  font-size: $type-size-7;
+  font-size: $type-size-8;
+  font-weight: 300;
 
   li {
-    margin-bottom: 0.1em;
+    margin-bottom: 0.4em;
   }
   a {
     color: var(--masthead-link-color);
+    padding: 0.2em 0.5em;
   }
   a:hover {
     color: var(--masthead-link-color-hover);
+    background-color: var(--lighter-gray);
+    border-radius: 4px;
   }
   .active {
-    font-weight: 600;
+    font-weight: 500;
   }
 }
 
@@ -484,12 +488,11 @@
 
 .nav__sub-title {
   display: block;
-  margin: 0.5rem 0;
+  margin-top: 1rem;
   padding: 0.25rem 0;
   font-family: $sans-serif-narrow;
   font-size: $type-size-6;
-  font-weight: bold;
-  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
 }
 
 /*
