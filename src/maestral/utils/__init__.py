@@ -4,7 +4,7 @@ import os
 from types import TracebackType
 
 from packaging.version import Version
-from typing import List, Iterator, TypeVar, Optional, Iterable, Tuple, Type
+from typing import Iterator, TypeVar, Optional, Iterable, Tuple, Type
 
 
 # type definitions
@@ -32,7 +32,7 @@ def natural_size(num: float, unit: str = "B", sep: bool = True) -> str:
     return f"{num:.1f}{sep_char}{prefix}{unit}"
 
 
-def chunks(lst: List, n: int, consume: bool = False) -> Iterator[List]:
+def chunks(lst: list, n: int, consume: bool = False) -> Iterator[list]:
     """
     Partitions an iterable into chunks of length ``n``.
 

@@ -59,7 +59,12 @@ _name_to_level = {
 
 
 def level_number_to_name(number: int) -> str:
-    """Converts a Maestral notification level number to name."""
+    """
+    Converts a Maestral notification level number to name.
+
+    :param number: Level number.
+    :returns: Level name.
+    """
 
     try:
         return _level_to_name[number]
@@ -68,7 +73,12 @@ def level_number_to_name(number: int) -> str:
 
 
 def level_name_to_number(name: str) -> int:
-    """Converts a Maestral notification level name to number."""
+    """
+    Converts a Maestral notification level name to number.
+
+    :param name: Level name.
+    :returns: Level number.
+    """
 
     try:
         return _name_to_level[name]
@@ -80,6 +90,9 @@ class MaestralDesktopNotifier:
     """Desktop notification emitter for Maestral
 
     Desktop notifier with snooze functionality and variable notification levels.
+
+    :param config_name: Config name. This is used to access notification settings for
+        the daemon.
     """
 
     def __init__(self, config_name: str) -> None:
