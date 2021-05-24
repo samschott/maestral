@@ -1547,7 +1547,7 @@ def dropbox_to_maestral_error(
         # See https://github.com/dropbox/dropbox-sdk-python/issues/360
         # and https://github.com/SamSchott/maestral/issues/388.
 
-        if exc.request.status_code >= 500:
+        if exc.request is not None and exc.request.status_code >= 500:
             err_cls = DropboxServerError
             title = "Dropbox server error"
             text = (
