@@ -17,13 +17,13 @@
     margin-bottom: 0;
     font-size: $type-size-6;
 
-    @include breakpoint($large) {
+    @include breakpoint($medium-wide) {
       float: left;
-      width: calc(100% - #{$right-sidebar-width-narrow});
+      width: calc(100% - #{$sidebar-width-narrow});
     }
 
     @include breakpoint($x-large) {
-      width: calc(100% - #{$right-sidebar-width});
+      width: calc(100% - #{$sidebar-width});
     }
   }
 
@@ -382,7 +382,7 @@
   }
 
   /* appearance for narrow window (hidden nav list) */
-  @include breakpoint(max-width $large - 1px) {
+  @include breakpoint(max-width $medium-wide - 1px) {
 
     /* label to toggle nav list visibility */
     label {
@@ -453,7 +453,7 @@
   }
 }
 
-@include breakpoint(max-width $large - 1px) {
+@include breakpoint(max-width $medium-wide - 1px) {
 
   /* animate appearance of nav list */
   .nav__list input:checked ~ .nav__items {

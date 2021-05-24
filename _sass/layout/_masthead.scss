@@ -31,6 +31,10 @@
     justify-content: space-between;
     font-family: $sans-serif-narrow;
 
+    @include breakpoint($large) {
+      max-width: $max-width;
+    }
+
     @include breakpoint($x-large) {
       max-width: $max-width;
     }

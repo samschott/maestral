@@ -22,8 +22,12 @@
     margin-top: 44px;
     max-width: 100%;
 
+    @include breakpoint($large) {
+      max-width: $max-width;
+    }
+
     @include breakpoint($x-large) {
-      max-width: $x-large;
+      max-width: $max-width;
     }
   }
 

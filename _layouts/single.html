@@ -8,10 +8,16 @@ layout: default
   {% include page__hero_video.html %}
 {% endif %}
 
+{% if page.author_profile or layout.author_profile or page.sidebar or page.toc %}
+  {% assign style = "float: left;" %}
+{% else %}
+  {% assign style = "" %}
+{% endif %}
+
 <div id="main" role="main">
   {% include sidebar.html %}
 
-  <article class="page" itemscope itemtype="https://schema.org/CreativeWork">
+  <article class="page" itemscope itemtype="https://schema.org/CreativeWork" style="{{ style }}">
 
     {% if page.url != "/" and page.breadcrumbs %}
     {% unless paginator %}

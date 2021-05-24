@@ -11,7 +11,7 @@
   margin-right: auto;
   max-width: 100%;
 
-  @include breakpoint($x-large) {
+  @include breakpoint($medium) {
     max-width: $max-width;
   }
 }
@@ -38,15 +38,18 @@ body {
 }
 
 .page {
-  @include breakpoint($large) {
-    float: right;
-    width: calc(100% - #{$right-sidebar-width-narrow});
-    padding-right: $right-sidebar-width-narrow;
+
+  width: 100%;
+
+  @include breakpoint($medium-wide) {
+    margin: auto;
+    width: calc(100% - #{$sidebar-width-narrow});
+    padding-left: 2em;
+    padding-right: 2em;
   }
 
-  @include breakpoint($x-large) {
-    width: calc(100% - #{$right-sidebar-width});
-    padding-right: $right-sidebar-width;
+  @include breakpoint($large) {
+    width: calc(100% - #{$sidebar-width});
   }
 
   .page__inner-wrap {
@@ -222,7 +225,7 @@ body {
   opacity: 0.5;
   border-radius: $border-radius 0 0 0;
 
-  @include breakpoint($large) {
+  @include breakpoint($medium-wide) {
     padding: 5px 10px;
   }
 
@@ -352,7 +355,7 @@ body {
   font-size: 0.9em;
   list-style: none;
 
-  @include breakpoint($large) {
+  @include breakpoint($medium-wide) {
     grid-template-columns: repeat(3, 1fr);
   }
 
@@ -437,7 +440,7 @@ body {
   width: 60px;
   height: 60px;
 
-  @include breakpoint($large) {
+  @include breakpoint($medium-wide) {
     width: 100px;
     height: 100px;
   }
@@ -448,7 +451,7 @@ body {
   height: 40px;
   border-radius: 50%;
 
-  @include breakpoint($large) {
+  @include breakpoint($medium-wide) {
     width: 80px;
     height: 80px;
     padding: 5px;
@@ -457,10 +460,10 @@ body {
 }
 
 .comment__content-wrapper {
-  float: right;
+  float: left;
   width: calc(100% - 60px);
 
-  @include breakpoint($large) {
+  @include breakpoint($medium-wide) {
     width: calc(100% - 100px);
   }
 }
@@ -493,15 +496,14 @@ body {
   padding-top: 1em;
   border-top: 1px solid var(--border-color);
 
-  @include breakpoint($large) {
-    float: right;
-    margin-right: $right-sidebar-width-narrow;
-    width: calc(100% - 2 * #{$right-sidebar-width-narrow});
+  @include breakpoint($medium-wide) {
+    float: left;
+    margin-left: 2em;
+    width: calc(100% - #{$sidebar-width-narrow} - 2em);
   }
 
-  @include breakpoint($x-large) {
-    margin-right: $right-sidebar-width;
-    width: calc(100% - 2 * #{$right-sidebar-width});
+  @include breakpoint($large) {
+    width: calc(100% - #{$sidebar-width} - 2em);
   }
 
   a {
@@ -522,21 +524,13 @@ body {
 
 .wide {
   .page {
-    @include breakpoint($large) {
-      padding-right: 0;
-    }
-
-    @include breakpoint($x-large) {
+    @include breakpoint($medium-wide) {
       padding-right: 0;
     }
   }
 
   .page__related {
-    @include breakpoint($large) {
-      padding-right: 0;
-    }
-
-    @include breakpoint($x-large) {
+    @include breakpoint($medium-wide) {
       padding-right: 0;
     }
   }
