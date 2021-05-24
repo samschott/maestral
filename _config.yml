@@ -287,13 +287,13 @@ defaults:
       path: "_docs"
     values:
       layout: single
-      breadcrumbs: false
+      breadcrumbs: true
       sidebar:
           nav: "docs"
   - scope:
       path: "_cli_docs"
     values:
       layout: single
-      breadcrumbs: false
+      breadcrumbs: true
       sidebar:
           nav: "cli-docs"
