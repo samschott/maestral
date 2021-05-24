@@ -468,7 +468,7 @@ class SyncEngine:
     """
 
     sync_errors: Set[SyncError]
-    syncing: List[SyncEvent]
+    syncing: Dict[str, SyncEvent]
     _case_conversion_cache: LRUCache
 
     _max_history = 1000
@@ -514,7 +514,7 @@ class SyncEngine:
         self._cancel_requested = Event()
 
         # data structures for user information
-        self.syncing = []
+        self.syncing = {}
 
         # initialize SQLite database
         self._db_path = get_data_path("maestral", f"{self.config_name}.db")
@@ -1780,7 +1780,7 @@ class SyncEngine:
                 other.append(event)
 
             # housekeeping
-            self.syncing.append(event)
+            self.syncing[event.local_path] = event
 
         # apply deleted events first, folder moved events second
         # neither event type requires an actual upload
@@ -2187,7 +2187,7 @@ class SyncEngine:
             self._handle_sync_error(err, direction=SyncDirection.Up)
             event.status = SyncStatus.Failed
         finally:
-            self.syncing.remove(event)
+            self.syncing.pop(event.local_path, None)
 
         # add to history database
         if event.status == SyncStatus.Done:
@@ -2622,7 +2622,7 @@ class SyncEngine:
             if event.is_directory:
                 success = self._get_remote_folder(dbx_path, client)
             else:
-                self.syncing.append(event)
+                self.syncing[event.local_path] = event
                 e = self._create_local_entry(event)
                 success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
 
@@ -2869,7 +2869,7 @@ class SyncEngine:
                 add_to_bin(folders, level, event)
 
             # housekeeping
-            self.syncing.append(event)
+            self.syncing[event.local_path] = event
 
         results = []  # local list of all changes
 
@@ -3273,7 +3273,7 @@ class SyncEngine:
             self._handle_sync_error(e, direction=SyncDirection.Down)
             event.status = SyncStatus.Failed
         finally:
-            self.syncing.remove(event)
+            self.syncing.pop(event.local_path, None)
 
         # add to history database
         if event.status == SyncStatus.Done:

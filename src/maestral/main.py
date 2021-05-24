@@ -524,7 +524,13 @@ class Maestral:
 
     def get_file_status(self, local_path: str) -> str:
         """
-        Returns the sync status of an individual file.
+        Returns the sync status of a file or folder. The returned status is recursive
+        for folders, e.g., the file status will be "uploading" for a a folder if any
+        file inside that folder is being uploaded.
+
+        .. versionadded:: 1.4.4
+           Recursive behavior. Previous versions would return "up to date" even if in
+           case of syncing children.
 
         :param local_path: Path to file on the local drive. May be relative to the
             current working directory.
@@ -542,9 +548,15 @@ class Maestral:
         except ValueError:
             return FileStatus.Unwatched.value
 
-        sync_event = next(
-            iter(e for e in self.manager.activity if e.local_path == local_path), None
-        )
+        sync_event = self.manager.activity.get(local_path)
+
+        if sync_event is None:
+            # check if there is any sync event for a child path
+            # TODO: Improve performance
+            path = next(
+                iter(p for p in self.manager.activity if p.startswith(local_path)), ""
+            )
+            sync_event = self.manager.activity.get(path)
 
         if sync_event and sync_event.direction == SyncDirection.Up:
             return FileStatus.Uploading.value
@@ -552,7 +564,7 @@ class Maestral:
             return FileStatus.Downloading.value
         elif any(dbx_path == err["dbx_path"] for err in self.sync_errors):
             return FileStatus.Error.value
-        elif self.sync.get_local_rev(dbx_path):
+        elif dbx_path == "/" or self.sync.get_local_rev(dbx_path):
             return FileStatus.Synced.value
         else:
             return FileStatus.Unwatched.value
@@ -569,11 +581,11 @@ class Maestral:
         """
 
         self._check_linked()
-        if limit:
-            activity = [sync_event_to_dict(e) for e in self.manager.activity[:limit]]
-        else:
-            activity = [sync_event_to_dict(e) for e in self.manager.activity]
-        return activity
+
+        activity = list(self.manager.activity.values())[:limit]
+        serialized_activity = [sync_event_to_dict(event) for event in activity]
+
+        return serialized_activity
 
     def get_history(self, limit: Optional[int] = 100) -> List[StoneType]:
         """
