@@ -277,8 +277,6 @@ class FSEventHandler(FileSystemEventHandler):
             for ignore in new_ignores:
                 ignore.ttl = time.time() + self.ignore_timeout
 
-            self.expire_ignored_events()
-
     def expire_ignored_events(self) -> None:
         """Removes all expired ignore entries."""
 
@@ -297,6 +295,12 @@ class FSEventHandler(FileSystemEventHandler):
         """
 
         for ignore in self._ignored_events.copy():
+
+            # check for expired events
+            if ignore.ttl and ignore.ttl < time.time():
+                self._ignored_events.discard(ignore)
+                continue
+
             ignore_event = ignore.event
             recursive = ignore.recursive
 
