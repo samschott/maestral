@@ -178,7 +178,7 @@ class FSEventHandler(FileSystemEventHandler):
         events will expire.
     """
 
-    _ignored_events: List[_Ignore]
+    _ignored_events: Set[_Ignore]
     local_file_event_queue: "Queue[FileSystemEvent]"
 
     def __init__(
@@ -205,7 +205,7 @@ class FSEventHandler(FileSystemEventHandler):
         self.file_event_types = file_event_types
         self.dir_event_types = dir_event_types
 
-        self._ignored_events = []
+        self._ignored_events = set()
         self.ignore_timeout = 2.0
         self.local_file_event_queue = Queue()
 
@@ -259,9 +259,9 @@ class FSEventHandler(FileSystemEventHandler):
         """
 
         now = time.time()
-        new_ignores = []
+        new_ignores = set()
         for e in events:
-            new_ignores.append(
+            new_ignores.add(
                 _Ignore(
                     event=e,
                     start_time=now,
@@ -269,7 +269,7 @@ class FSEventHandler(FileSystemEventHandler):
                     recursive=recursive and e.is_directory,
                 )
             )
-        self._ignored_events.extend(new_ignores)  # this is atomic
+        self._ignored_events.update(new_ignores)  # this is atomic
 
         try:
             yield
@@ -284,13 +284,8 @@ class FSEventHandler(FileSystemEventHandler):
 
         now = time.time()
         for ignore in self._ignored_events.copy():
-            ttl = ignore.ttl
-            if ttl and ttl < now:
-                try:
-                    self._ignored_events.remove(ignore)
-                except ValueError:
-                    # someone else removed it in the meantime
-                    pass
+            if ignore.ttl and ignore.ttl < now:
+                self._ignored_events.discard(ignore)
 
     def _is_ignored(self, event: FileSystemEvent) -> bool:
         """
@@ -308,10 +303,7 @@ class FSEventHandler(FileSystemEventHandler):
             if event == ignore_event:
 
                 if not recursive:
-                    try:
-                        self._ignored_events.remove(ignore)
-                    except ValueError:
-                        pass
+                    self._ignored_events.discard(ignore)
 
                 return True
 
