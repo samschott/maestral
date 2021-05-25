@@ -97,15 +97,11 @@ body {
       position: absolute;
       margin-left: -20px;
       padding-right: 4px;
-      opacity: 0;
+      visibility: hidden;
       font-weight: normal;
-      -webkit-transition: opacity 0.2s ease-in-out 0.1s;
-      -moz-transition: opacity 0.2s ease-in-out 0.1s;
-      -o-transition: opacity 0.2s ease-in-out 0.1s;
-      transition: opacity 0.2s ease-in-out 0.1s;
     }
     &:hover .header-link::before {
-      opacity: 1;
+      visibility: visible;
       text-decoration: none;
     }
   }
