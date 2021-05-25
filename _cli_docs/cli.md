@@ -18,7 +18,7 @@ Running `maestral` without any arguments or `maestral --help` will print an over
 all available commands with help texts. Help on a specific command is available through
 `maestral COMMAND --help` which will list allowed arguments and options.
 
-### Dropbox paths
+## Dropbox paths
 
 When a command shows paths relative to your Dropbox folder in its output, those paths
 may be in lower case. This is because Dropbox itself is case-insensitive and Maestral
@@ -29,7 +29,7 @@ Likewise, when a command takes a Dropbox path as input, it may be specified with
 casing. Dropbox paths may be specified as relative paths or optionally with a leading `/`
 and will always be interpreted relative to the Dropbox root.
 
-### Config names
+## Config names
 
 Several commands take a `-c, --config-name` option to support multiple configurations of
 Maestral which are linked to different Dropbox accounts. For instance,
