@@ -1925,10 +1925,52 @@ def config_show(no_pager: bool, config_name: str) -> None:
     help="""
 Generate completion script for your shell.
 
-This command can generate shell completion scripts for bash, zsh or fish. For bash or
-zsh, save the returned script in a location of you choice and source it in '~/.bashrc'
-or '~/.zshrc', respectively. For fish, save the returned script at
-'~/.config/fish/completions/maestral.fish'.
+This command can generate shell completion scripts for bash, zsh or fish. Follow the
+instructions below for your shell to load the resulting script. The exact config file
+locations might vary based on your system. Make sure to restart your
+shell before testing whether completions are working.
+
+### bash
+
+You can enable shell completion for all users by generating and saving the script as
+follows:
+
+\b
+    maestral completion bash > /usr/share/bash-completion/completions/maestral
+
+To enable shell completion for the current user only, save the script in a location of
+your choice, for example `~/.local/completions/maestral`, and source it in `~/.bashrc`
+by adding the line:
+
+\b
+    . ~/.local/completions/maestral
+
+### zsh
+
+Generate a `_maestral` completion script and put it somewhere in your `$fpath`. For
+example:
+
+\b
+    maestral completion zsh > /usr/local/share/zsh/site-functions/_maestral
+
+You can also save the completion script in a location of your choice and source it
+in `~/.zshrc`. Ensure that the following is present in your `~/.zshrc`:
+
+\b
+    autoload -Uz compinit && compinit
+
+### fish
+
+Generate and save a `maestral.fish` completion script as follows. For all users:
+
+\b
+    maestral completion fish > /usr/share/fish/vendor_completions.d/maestral.fish
+
+For the current user only:
+
+\b
+    maestral completion fish > ~/.config/fish/completions/maestral.fish
+
 """,
 )
 @click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
