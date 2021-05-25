@@ -92,20 +92,21 @@ body {
 
     scroll-margin-top: calc(#{$effective-navbar-height} + 10px);
 
-    .header-link {
-      position: relative;
-      left: 0.5em;
-      bottom: 0.15em;
+    .header-link::before {
+      content: "#";
+      position: absolute;
+      margin-left: -20px;
+      padding-right: 4px;
       opacity: 0;
-      font-size: 0.6em;
+      font-weight: normal;
       -webkit-transition: opacity 0.2s ease-in-out 0.1s;
       -moz-transition: opacity 0.2s ease-in-out 0.1s;
       -o-transition: opacity 0.2s ease-in-out 0.1s;
       transition: opacity 0.2s ease-in-out 0.1s;
     }
-
-    &:hover .header-link {
+    &:hover .header-link::before {
       opacity: 1;
+      text-decoration: none;
     }
   }
 
