@@ -2298,7 +2298,7 @@ class SyncEngine:
                 self.update_index_from_dbx_metadata(md, client)
 
     def _on_local_created(
-        self, event: SyncEvent, client: DropboxClient
+        self, event: SyncEvent, client: Optional[DropboxClient] = None
     ) -> Optional[Metadata]:
         """
         Call when a local item is created.
@@ -2405,7 +2405,7 @@ class SyncEngine:
         return md_new
 
     def _on_local_modified(
-        self, event: SyncEvent, client: DropboxClient
+        self, event: SyncEvent, client: Optional[DropboxClient] = None
     ) -> Optional[Metadata]:
         """
         Call when local item is modified.
@@ -2491,7 +2491,7 @@ class SyncEngine:
         return md_new
 
     def _on_local_deleted(
-        self, event: SyncEvent, client: DropboxClient
+        self, event: SyncEvent, client: Optional[DropboxClient] = None
     ) -> Optional[Metadata]:
         """
         Call when local item is deleted. We try not to delete remote items which have
@@ -2626,7 +2626,9 @@ class SyncEngine:
 
             return success
 
-    def _get_remote_folder(self, dbx_path: str, client: DropboxClient) -> bool:
+    def _get_remote_folder(
+        self, dbx_path: str, client: Optional[DropboxClient] = None
+    ) -> bool:
         """
         Gets all files/folders from a Dropbox folder and writes them to the local folder
         :attr:`dropbox_path`.
@@ -3279,7 +3281,7 @@ class SyncEngine:
         return event
 
     def _on_remote_file(
-        self, event: SyncEvent, client: DropboxClient
+        self, event: SyncEvent, client: Optional[DropboxClient]
     ) -> Optional[SyncEvent]:
         """
         Applies a remote file change or creation locally.
