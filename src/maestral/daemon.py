@@ -227,6 +227,7 @@ class Lock:
         self._external_lock = InterProcessLock(self.path)
 
         self._lock = threading.RLock()
+        self._acquired = False  # tracks if we acquired the lock
 
     def acquire(self) -> bool:
         """
@@ -249,6 +250,7 @@ class Lock:
             else:
 
                 if locked_external:
+                    self._acquired = True
                     return True
                 else:
                     self._internal_lock.release()
@@ -257,8 +259,15 @@ class Lock:
     def release(self) -> None:
         """Release the previously acquired lock."""
         with self._lock:
+
+            if not self._acquired:
+                raise RuntimeError(
+                    "Cannot release a lock, it was acquired by a different process"
+                )
+
             self._external_lock.release()
             self._internal_lock.release()
+            self._acquired = False
 
     def locked(self) -> bool:
         """
@@ -283,7 +292,7 @@ class Lock:
 
         with self._lock:
 
-            if self._external_lock.acquired:
+            if self._acquired:
                 return os.getpid()
 
             try:
