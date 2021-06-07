@@ -9,7 +9,12 @@ import subprocess
 
 import pytest
 
-from maestral.errors import NotFoundError, UnsupportedFileTypeForDiff, SharedLinkError
+from maestral.errors import (
+    NotFoundError,
+    UnsupportedFileTypeForDiff,
+    SharedLinkError,
+    SyncError,
+)
 from maestral.main import FileStatus, IDLE
 from maestral.utils.path import delete
 from maestral.utils.integration import get_inotify_limits
@@ -322,7 +327,13 @@ def test_restore(m):
 
     # restore the old rev
 
-    m.restore(dbx_path, old_md.rev)
+    try:
+        m.restore(dbx_path, old_md.rev)
+    except SyncError as exc:
+        # catch all error for restore in progress, raise otherwise
+        if "in progress" not in exc.title:
+            raise
+
     wait_for_idle(m)
 
     with open(local_path) as f:
