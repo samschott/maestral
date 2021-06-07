@@ -14,6 +14,7 @@ from typing import (
 )
 
 import click
+import shutil
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -355,7 +356,7 @@ class Table:
 
         # get terminal width if no width is given
         if not width:
-            width, height = click.get_terminal_size()
+            width, height = shutil.get_terminal_size()
 
         available_width = width - self.padding * len(self.columns)
         raw_col_widths = [col.display_width for col in self.columns]
@@ -479,7 +480,7 @@ class Grid:
 
             # get terminal width if no width is given
             if not width:
-                width, height = click.get_terminal_size()
+                width, height = shutil.get_terminal_size()
 
             field_width = max(field.display_width for field in self.fields)
             field_width = min(field_width, width)  # cap at terminal / total width
