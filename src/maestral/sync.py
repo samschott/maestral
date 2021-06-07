@@ -1261,7 +1261,9 @@ class SyncEngine:
 
         return f"{self.dropbox_path}{dbx_path_cased}"
 
-    def to_local_path(self, dbx_path: str, client=Optional[DropboxClient]) -> str:
+    def to_local_path(
+        self, dbx_path: str, client: Optional[DropboxClient] = None
+    ) -> str:
         """
         Converts a Dropbox path to the corresponding local path. Only the basename must
         be correctly cased, as guaranteed by the Dropbox API for the ``display_path``
