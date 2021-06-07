@@ -102,6 +102,10 @@ def test_locking_multiprocess():
     lock = Lock.singleton(lock_name)
     assert not lock.locked()
 
+    # try to release lock, will fail because it is not acquired
+    with pytest.raises(RuntimeError):
+        lock.release()
+
     # acquire lock from different process
 
     cmd = (
