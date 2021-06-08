@@ -77,7 +77,7 @@ def test_file_lifecycle(m):
     assert not m.fatal_errors
 
 
-def test_file_conflict(m):
+def test_file_conflict_modified(m):
     """Tests conflicting local vs remote file changes."""
 
     # create a local file
@@ -101,6 +101,34 @@ def test_file_conflict(m):
     # resume syncing and check for conflicting copy
     m.start_sync()
 
+    wait_for_idle(m)
+
+    assert_synced(m)
+    assert_exists(m, "/sync_tests", "file.txt")
+    assert_conflict(m, "/sync_tests", "file.txt")
+    assert_child_count(m, "/sync_tests", 2)
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+def test_file_conflict_created(m):
+    """Tests conflicting local vs remote file creations."""
+
+    m.stop_sync()
+
+    # create a local file
+    shutil.copy(resources + "/file.txt", m.test_folder_local)
+
+    # create different remote file
+    m.client.upload(
+        resources + "/file2.txt",
+        "/sync_tests/file.txt",
+        mode=WriteMode.overwrite,
+    )
+
+    # resume syncing and check for conflicting copy
+    m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)

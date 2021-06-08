@@ -1182,6 +1182,8 @@ class SyncEngine:
         :returns: Correctly cased Dropbox path.
         """
 
+        client = client or self.client
+
         dirname, basename = osp.split(dbx_path)
 
         dirname_cased = self._correct_case_helper(dirname, client)
@@ -1192,17 +1194,12 @@ class SyncEngine:
 
         return path_cased
 
-    def _correct_case_helper(
-        self, dbx_path: str, client: Optional[DropboxClient] = None
-    ) -> str:
+    def _correct_case_helper(self, dbx_path: str, client: DropboxClient) -> str:
         """
         :param dbx_path: Uncased or randomly cased Dropbox path.
-        :param client: Client instance to use. If not given, use the instance provided
-            in the constructor.
+        :param client: Client instance to use.
         :returns: Correctly cased Dropbox path.
         """
-
-        client = client or self.client
 
         # check for root folder
         if dbx_path == "/":
@@ -1261,7 +1258,9 @@ class SyncEngine:
 
         return f"{self.dropbox_path}{dbx_path_cased}"
 
-    def to_local_path(self, dbx_path: str, client=Optional[DropboxClient]) -> str:
+    def to_local_path(
+        self, dbx_path: str, client: Optional[DropboxClient] = None
+    ) -> str:
         """
         Converts a Dropbox path to the corresponding local path. Only the basename must
         be correctly cased, as guaranteed by the Dropbox API for the ``display_path``
@@ -2264,7 +2263,7 @@ class SyncEngine:
         if md_to_new.path_lower != event.dbx_path.lower():
             # TODO: test this
             # conflicting copy created during upload, mirror remote changes locally
-            local_path_cc = self.to_local_path(md_to_new.path_display)
+            local_path_cc = self.to_local_path(md_to_new.path_display, client)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
                 with convert_api_errors():
@@ -2382,7 +2381,7 @@ class SyncEngine:
 
         if md_new.path_lower != event.dbx_path.lower():
             # conflicting copy created during upload, mirror remote changes locally
-            local_path_cc = self.to_local_path(md_new.path_display)
+            local_path_cc = self.to_local_path(md_new.path_display, client)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
                 with convert_api_errors():
@@ -2467,7 +2466,7 @@ class SyncEngine:
 
         if md_new.path_lower != event.dbx_path.lower():
             # conflicting copy created during upload, mirror remote changes locally
-            local_path_cc = self.to_local_path(md_new.path_display)
+            local_path_cc = self.to_local_path(md_new.path_display, client)
             with self.fs_events.ignore(FileMovedEvent(event.local_path, local_path_cc)):
                 try:
                     os.rename(event.local_path, local_path_cc)

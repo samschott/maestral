@@ -50,6 +50,7 @@ welcome.
 * Fixes an error when running the `diff` CLI command and selecting the local file as the
   base version.  
 * Fixes download links in the update dialog.
+* Fixes an unexpected error which may occur when creating a conflicting copy.
 
 #### Dependencies:
 
