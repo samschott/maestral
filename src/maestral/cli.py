@@ -510,7 +510,7 @@ class OrderedGroup(click.Group):
                         formatter.write_dl(rows)
 
 
-@click.group("maestral", cls=OrderedGroup, help="Dropbox client for Linux and macOS.")
+@click.group(cls=OrderedGroup, help="Dropbox client for Linux and macOS.")
 @click.version_option(version=__version__, message=__version__)
 def main():
     pass
