@@ -1,4 +1,4 @@
-## v1.4.4.dev
+## v1.4.4
 
 This release introduces support for tab-completion in the shell, allows you to choose
 the actual Dropbox folder instead of its parent folder / location from the GUI, and
