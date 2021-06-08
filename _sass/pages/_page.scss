@@ -106,6 +106,13 @@ body {
     }
   }
 
+  h3, h4, h5, h6 {
+
+    .header-link::before {
+      margin-left: -15px;
+    }
+  }
+
   /* paragraph indents */
   p {
     margin: 0 0 $indent-var;
