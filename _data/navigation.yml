@@ -106,3 +106,5 @@ cli-docs:
             url: /cli/log
           - title: "config"
             url: /cli/config
+          - title: "completion"
+            url: /cli/completion
