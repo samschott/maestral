@@ -81,7 +81,7 @@ def freeze_support() -> None:
     detected and do nothing otherwise.
     """
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-c")
     parsed_args, _ = parser.parse_known_args()
 
