@@ -24,23 +24,21 @@ cloud.
 
 ## Features
 
-The focus on "simple" file syncing does come with advantages: on macOS, the Maestral App
-bundle is smaller than the official Dropbox app (40 MB vs 420 MB) and uses less memory
-(100 MB for a medium sized Dropbox on macOS vs 500 GB). The memory usage will depend on
-the size of your synced Dropbox folder and can be further reduced when running Maestral
-without a GUI.
+The focus on "simple" file syncing does come with advantages:
 
-Maestral also supports syncing multiple Dropbox accounts by running multiple instance in
-parallel.
-
-Finally, since Maestral is not an official Dropbox App but just a third-party
-application, it will not count towards the three devices limit for basic Dropbox
-accounts.
+* Smaller App bundle than the official macOS Dropbox app (40 MB vs 420 MB).
+* Universal binary which runs natively on Apple Silicon.
+* Less memory usage: 100 MB for a medium sized Dropbox on macOS vs 500 MB). The memory
+  usage will depend on the size of your synced Dropbox folder and can be further reduced
+  when running the daemon without a GUI.
+* Supports syncing multiple Dropbox accounts by running multiple instances in parallel.
+* Does not count towards the three devices limit for basic Dropbox accounts.
 
 ## Privacy policy
 
 Maestral does not collect any user data, anonymous or otherwise. It only communicates
-with Dropbox servers and the Dropbox privacy policy of course applies.
+with Dropbox servers and the Dropbox privacy policy of course applies. This website
+collects only anonymous usage statistics without recording IP addresses or locations.
 
 ## Acknowledgements
 
