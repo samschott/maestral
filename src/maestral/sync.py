@@ -2285,9 +2285,7 @@ class SyncEngine:
                 with convert_api_errors():
                     move(event.local_path, local_path_cc, raise_error=True)
 
-            # Delete entry of old path but don't update entry for new path here. This
-            # will force conflict resolution on download in case of intermittent
-            # changes.
+            # Delete entry of old path.
             self.remove_node_from_index(event.dbx_path)
             self._logger.info(
                 'Upload conflict: renamed "%s" to "%s"',
@@ -2296,10 +2294,11 @@ class SyncEngine:
             )
 
         else:
-            self._update_index_recursive(md_to_new, client)
             self._logger.debug(
                 'Moved "%s" to "%s" on Dropbox', dbx_path_from, event.dbx_path
             )
+
+        self._update_index_recursive(md_to_new, client)
 
         return md_to_new
 
@@ -2403,9 +2402,7 @@ class SyncEngine:
                 with convert_api_errors():
                     move(event.local_path, local_path_cc, raise_error=True)
 
-            # Delete entry of old path but don't update entry for new path here. This
-            # will force conflict resolution on download in case of intermittent
-            # changes.
+            # Delete entry of old path
             self.remove_node_from_index(event.dbx_path)
             self._logger.debug(
                 'Upload conflict: renamed "%s" to "%s"',
@@ -2413,9 +2410,9 @@ class SyncEngine:
                 md_new.path_display,
             )
         else:
-            # everything went well, update index
-            self.update_index_from_dbx_metadata(md_new, client)
             self._logger.debug('Created "%s" on Dropbox', event.dbx_path)
+
+        self.update_index_from_dbx_metadata(md_new, client)
 
         return md_new
 
@@ -2491,8 +2488,7 @@ class SyncEngine:
                     with self.fs_events.ignore(FileDeletedEvent(event.local_path)):
                         delete(event.local_path)
 
-            # Delete revs of old path but don't set revs for new path here. This will
-            # force conflict resolution on download in case of intermittent changes.
+            # Delete revs of old path.
             self.remove_node_from_index(event.dbx_path)
             self._logger.debug(
                 'Upload conflict: renamed "%s" to "%s"',
@@ -2500,9 +2496,10 @@ class SyncEngine:
                 md_new.path_display,
             )
         else:
-            # everything went well, save new revs
-            self.update_index_from_dbx_metadata(md_new, client)
+            # everything went well
             self._logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
+
+        self.update_index_from_dbx_metadata(md_new, client)
 
         return md_new
 
