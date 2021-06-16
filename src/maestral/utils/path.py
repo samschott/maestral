@@ -35,6 +35,51 @@ def _path_components(path: str) -> List[str]:
     return cleaned_components
 
 
+def normalize_case(string: str) -> str:
+    """
+    Converts a string to lower case following Python 2.5 / Dropbox conventions.
+
+    :param string: Original string.
+    :returns: Lowercase string.
+    """
+    return "".join(_py2_lower_map[ord(c)] for c in string)
+
+
+def normalize_unicode(string: str) -> str:
+    """
+    Normalizes a string to replace all decomposed unicode characters with their single
+    character equivalents.
+
+    :param string: Original string.
+    :returns: Normalized string.
+    """
+    return unicodedata.normalize("NFC", string)
+
+
+def normalize(string: str) -> str:
+    """
+    Replicates the path normalization performed by Dropbox servers. This typically only
+    involves converting the path to lower case, with a few (undocumented) exceptions:
+
+    * Unicode normalization: decomposed characters are converted to composed characters.
+    * Lower casing of non-ascii characters: Dropbox uses the Python 2.5 behavior for
+      conversion to lower case. This means that some cyrillic characters are incorrectly
+      lower-cased. For example:
+      "Ꙋ".lower() -> "Ꙋ" instead of "ꙋ"
+      "ΣΣΣ".lower() -> "σσσ" instead of "σσς"
+    * Trailing spaces are stripped from folder names. We do not perform this
+      normalization here because the Dropbox API will raise sync errors for such names
+      anyways.
+
+    Note that calling :func:`normalize` on an already normalized path will return the
+    unmodified input.
+
+    :param string: Original path.
+    :returns: Normalized path.
+    """
+    return normalize_case(normalize_unicode(string))
+
+
 def is_fs_case_sensitive(path: str) -> bool:
     """
     Checks if ``path`` lies on a partition with a case-sensitive file system.
@@ -83,18 +128,29 @@ def is_equal_or_child(path: str, parent: str) -> bool:
     return is_child(path, parent) or path == parent
 
 
-def equivalent_path_candidates(path: str, root: str = osp.sep) -> List[str]:
+def equivalent_path_candidates(
+    path: str,
+    root: str = osp.sep,
+    norm_func: Callable = normalize,
+) -> List[str]:
     """
-    Returns a list of un-normalized versions of the given path as far as corresponding
-    nodes exist in the given root directory. For instance, if a case sensitive root
-    directory contains two folders "/parent/subfolder/child" and
-    "/parent/Subfolder/child", there will be two matches for
-    "/parent/subfolder/child/file.txt". If the root directory does not exist, only one
-    candidate ``os.path.join(root, path)`` is returned.
+    Given a "normalized" path using an injective (one-directional) normalization
+    function, this method returns a list of matching un-normalized local paths.
+
+    If no such local path exists, the normalized path itself is returned. If a local
+    path can be followed up to a certain parent in the hierarchy, it will be taked and
+    the remaining normalized path will be appended.
+
+    :Example:
+
+        Assume the normalization function is ``str.lower()``. If a root directory
+        contains two folders "/parent/subfolder/child" and "/parent/Subfolder/child",
+        two matches will be returned for "path = /parent/subfolder/child/file.txt".
 
     :param path: Normalized path relative to ``root``.
     :param root: Parent directory to search in. There are significant performance
         improvements if a root directory with a small tree is given.
+    :param norm_func: Normalization function to use. Defaults to :func:`normalize`.
     :returns: Candidates for correctly cased local paths.
     """
 
@@ -103,8 +159,7 @@ def equivalent_path_candidates(path: str, root: str = osp.sep) -> List[str]:
     if path == "":
         return [root]
 
-    path_list = _path_components(path)
-    n_components = len(path_list)
+    components = _path_components(path)
     n_components_root = len(_path_components(root))
 
     candidates = {-1: [root]}
@@ -120,34 +175,30 @@ def equivalent_path_candidates(path: str, root: str = osp.sep) -> List[str]:
         dirs.clear()
         files.clear()
 
-        if depth >= n_components:
+        if depth >= len(components):
+            # Current path is too deep to be match, skip it.
             continue
 
-        found = False
-        path_normalized = normalize(path_list[depth])
+        dirname_normalized = norm_func(components[depth])
 
-        for d in all_dirs:
-            if normalize(d) == path_normalized:
-                dirs.append(d)
+        for dirname in all_dirs:
+            if norm_func(dirname) == dirname_normalized:
+                dirs.append(dirname)
 
-        if depth + 1 == n_components and not found:
-            # look at files
-            for f in all_files:
-                if normalize(f) == path_normalized:
-                    files.append(f)
+        if depth + 1 == len(components):
+            # Any matching entries must be direct children of root: check files.
+            for filename in all_files:
+                if norm_func(filename) == dirname_normalized:
+                    files.append(filename)
 
         new_candidates = [osp.join(root, name) for name in itertools.chain(dirs, files)]
 
         if new_candidates:
-            try:
-                candidates[depth].extend(new_candidates)
-            except KeyError:
-                candidates[depth] = new_candidates
+            candidates[depth] = candidates.get(depth, []) + new_candidates
 
     i_max = max(candidates.keys())
-    local_paths = [
-        osp.join(node, *path_list[i_max + 1 :]) for node in candidates[i_max]
-    ]
+    best_candidates = candidates[i_max]
+    local_paths = [osp.join(path, *components[i_max + 1 :]) for path in best_candidates]
 
     return local_paths
 
@@ -391,48 +442,3 @@ def content_hash(
         return None, None
     finally:
         del hasher
-
-
-def normalize_case(string: str) -> str:
-    """
-    Converts a string to lower case following Python 2.5 / Dropbox conventions.
-
-    :param string: Original string.
-    :returns: Lowercase string.
-    """
-    return "".join(_py2_lower_map[ord(c)] for c in string)
-
-
-def normalize_unicode(string: str) -> str:
-    """
-    Normalizes a string to replace all decomposed unicode characters with their single
-    character equivalents.
-
-    :param string: Original string.
-    :returns: Normalized string.
-    """
-    return unicodedata.normalize("NFC", string)
-
-
-def normalize(string: str) -> str:
-    """
-    Replicates the path normalization performed by Dropbox servers. This typically only
-    involves converting the path to lower case, with a few (undocumented) exceptions:
-
-    * Unicode normalization: decomposed characters are converted to composed characters.
-    * Lower casing of non-ascii characters: Dropbox uses the Python 2.5 behavior for
-      conversion to lower case. This means that some cyrillic characters are incorrectly
-      lower-cased. For example:
-      "Ꙋ".lower() -> "Ꙋ" instead of "ꙋ"
-      "ΣΣΣ".lower() -> "σσσ" instead of "σσς"
-    * Trailing spaces are stripped from folder names. We do not perform this
-      normalization here because the Dropbox API will raise sync errors for such names
-      anyways.
-
-    Note that calling :func:`normalize` on an already normalized path will return the
-    unmodified input.
-
-    :param string: Original path.
-    :returns: Normalized path.
-    """
-    return normalize_case(normalize_unicode(string))
