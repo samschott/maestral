@@ -103,17 +103,19 @@ from .utils.integration import (
 )
 from .utils.path import (
     generate_cc_name,
-    cased_path_candidates,
-    is_fs_case_sensitive,
     move,
     delete,
     is_child,
     is_equal_or_child,
     content_hash,
     walk,
+    normalize,
+    normalize_case,
+    normalize_unicode,
+    equivalent_path_candidates,
 )
 from .utils.orm import Database, Manager
-from .utils.appdirs import get_data_path, get_home_dir
+from .utils.appdirs import get_data_path
 
 
 __all__ = [
@@ -537,7 +539,6 @@ class SyncEngine:
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
 
-        self._is_case_sensitive = is_fs_case_sensitive(get_home_dir())
         self._excluded_items = self._conf.get("main", "excluded_items")
         self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
         self._local_cursor = self._state.get("sync", "lastsync")
@@ -566,7 +567,6 @@ class SyncEngine:
             self._dropbox_path = path
             self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
             self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
-            self._is_case_sensitive = is_fs_case_sensitive(self._dropbox_path)
             self._conf.set("main", "path", path)
 
     @property
@@ -610,7 +610,7 @@ class SyncEngine:
         """
 
         # remove duplicate entries by creating set, strip trailing '/'
-        folder_set = {f.lower().rstrip("/") for f in folder_list}
+        folder_set = {normalize(f).rstrip("/") for f in folder_list}
 
         # remove all children of excluded folders
         clean_list = list(folder_set)
@@ -791,7 +791,7 @@ class SyncEngine:
         """
 
         with self._database_access():
-            entry = self._db_manager_index.get(dbx_path.lower())
+            entry = self._db_manager_index.get(normalize(dbx_path))
             return cast(Optional[IndexEntry], entry)
 
     def get_local_hash(self, local_path: str) -> Optional[str]:
@@ -890,7 +890,7 @@ class SyncEngine:
         if event.change_type is not ChangeType.Removed and not event.rev:
             raise ValueError("Rev required to update index")
 
-        dbx_path_lower = event.dbx_path.lower()
+        dbx_path_lower = event.dbx_path_lower
 
         with self._database_access():
 
@@ -899,7 +899,7 @@ class SyncEngine:
             if event.change_type is ChangeType.Removed:
                 self.remove_node_from_index(dbx_path_lower)
             elif event.change_type is ChangeType.Moved:
-                self.remove_node_from_index(event.dbx_path_from.lower())
+                self.remove_node_from_index(event.dbx_path_from_lower)
 
             # add or update entries for created or modified items
 
@@ -998,7 +998,7 @@ class SyncEngine:
 
         with self._database_access():
 
-            dbx_path_lower = dbx_path.lower().rstrip("/")
+            dbx_path_lower = normalize(dbx_path).rstrip("/")
 
             try:
                 self._db.execute(
@@ -1049,12 +1049,6 @@ class SyncEngine:
         self._mignore_rules = PathSpec.from_lines("gitwildmatch", spec.splitlines())
 
     # ==== helper functions ============================================================
-
-    @property
-    def is_case_sensitive(self) -> bool:
-        """Returns ``True`` if the local Dropbox folder is located on a partition with a
-        case-sensitive file system, ``False`` otherwise."""
-        return self._is_case_sensitive
 
     def ensure_dropbox_folder_present(self) -> None:
         """
@@ -1190,7 +1184,7 @@ class SyncEngine:
         path_cased = osp.join(dirname_cased, basename)
 
         # add our result to the cache
-        self._case_conversion_cache.put(dbx_path.lower(), path_cased)
+        self._case_conversion_cache.put(normalize(dbx_path), path_cased)
 
         return path_cased
 
@@ -1206,7 +1200,7 @@ class SyncEngine:
             return dbx_path
 
         # check in our conversion cache
-        dbx_path_lower = dbx_path.lower()
+        dbx_path_lower = normalize(dbx_path)
         dbx_path_cased = self._case_conversion_cache.get(dbx_path_lower)
 
         if dbx_path_cased:
@@ -1246,6 +1240,18 @@ class SyncEngine:
         if not is_equal_or_child(local_path, self.dropbox_path):
             raise ValueError(f'"{local_path}" is not in "{self.dropbox_path}"')
         return "/" + removeprefix(local_path, self.dropbox_path).lstrip("/")
+
+    def to_dbx_path_lower(self, local_path: str) -> str:
+        """
+        Converts a local path to a path relative to the Dropbox folder. The path will be
+        normalized as on Dropbox servers (lower case and some additional
+        normalisations).
+
+        :param local_path: Absolute path on local drive.
+        :returns: Relative path with respect to Dropbox folder.
+        :raises ValueError: When the path lies outside of the local Dropbox folder.
+        """
+        return normalize(self.to_dbx_path(local_path))
 
     def to_local_path_from_cased(self, dbx_path_cased: str) -> str:
         """
@@ -1301,12 +1307,12 @@ class SyncEngine:
             return
 
         dbx_path = cast(str, dbx_path)
-        dbx_path_lower = dbx_path.lower()
+        dbx_path_lower = normalize(dbx_path)
 
         if self.has_sync_errors():
             for error in self.sync_errors.copy():
                 if error.dbx_path and is_equal_or_child(
-                    error.dbx_path.lower(), dbx_path_lower
+                    normalize(error.dbx_path), dbx_path_lower
                 ):
                     try:
                         self.sync_errors.remove(error)
@@ -1337,7 +1343,7 @@ class SyncEngine:
         :param path: Path of item. Can be both a local or Dropbox paths.
         :returns: Whether the path is excluded from syncing.
         """
-        path = path.lower()
+        path = normalize(path)
 
         # is root folder?
         if path in ("/", ""):
@@ -1373,7 +1379,7 @@ class SyncEngine:
         :param dbx_path: Path relative to Dropbox folder.
         :returns: Whether the path is excluded from download syncing by the user.
         """
-        dbx_path = dbx_path.lower()
+        dbx_path = normalize(dbx_path)
 
         return any(is_equal_or_child(dbx_path, path) for path in self.excluded_items)
 
@@ -1496,9 +1502,9 @@ class SyncEngine:
 
             # save download errors to retry later
             if direction == SyncDirection.Down:
-                self.download_errors.add(err.dbx_path.lower())
+                self.download_errors.add(normalize(err.dbx_path))
             elif direction == SyncDirection.Up:
-                self.upload_errors.add(err.dbx_path.lower())
+                self.upload_errors.add(normalize(err.dbx_path))
 
     @contextmanager
     def _database_access(self, raise_error: bool = True) -> Iterator[None]:
@@ -1614,7 +1620,7 @@ class SyncEngine:
         for path, stat in walk(self.dropbox_path, self._scandir_with_ignore):
 
             is_dir = S_ISDIR(stat.st_mode)
-            dbx_path_lower = self.to_dbx_path(path).lower()
+            dbx_path_lower = self.to_dbx_path_lower(path)
             index_entry = self.get_index_entry(dbx_path_lower)
 
             if index_entry:
@@ -2061,30 +2067,39 @@ class SyncEngine:
 
             return src_is_mignore or dest_is_mignore
 
-    def _handle_case_conflict(self, event: SyncEvent) -> bool:
+    def _handle_normalization_conflict(self, event: SyncEvent) -> bool:
         """
-        Checks for other items in the same directory with same name but a different
-        case. Renames items if necessary. Only needed for case sensitive file systems.
+        Checks for other items in the same directory with a different name but the same
+        normalization.
 
         :param event: SyncEvent for local created or moved event.
         :returns: Whether a case conflict was detected and handled.
         """
 
-        if not self.is_case_sensitive:
-            return False
-
         if not (event.is_added or event.is_moved):
             return False
 
         dirname, basename = osp.split(event.local_path)
+        equivalent_paths = equivalent_path_candidates(basename, root=dirname)
 
-        # check number of paths with the same case
-        if len(cased_path_candidates(basename, root=dirname)) > 1:
+        if len(equivalent_paths) > 1:
+
+            # We have different file names that would map to the same normalized path!
+
+            conflict_path = next(p for p in equivalent_paths if p != event.local_path)
+
+            # Check if we have a case conflict or a unicode conflict.
+
+            if normalize_case(event.local_path) == normalize_case(conflict_path):
+                suffix = "case conflict"
+            elif normalize_unicode(event.local_path) == normalize_case(conflict_path):
+                suffix = "unicode conflict"
+            else:
+                suffix = "normalization conflict"
 
             local_path_cc = generate_cc_name(
                 event.local_path,
-                suffix="case conflict",
-                is_fs_case_sensitive=self.is_case_sensitive,
+                suffix=suffix,
             )
 
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
@@ -2095,7 +2110,9 @@ class SyncEngine:
                 self.rescan(local_path_cc)
 
             self._logger.info(
-                'Case conflict: renamed "%s" to "%s"', event.local_path, local_path_cc
+                'Normalization conflict: renamed "%s" to "%s"',
+                event.local_path,
+                local_path_cc,
             )
 
             return True
@@ -2118,7 +2135,6 @@ class SyncEngine:
             local_path_cc = generate_cc_name(
                 event.local_path,
                 suffix="selective sync conflict",
-                is_fs_case_sensitive=self.is_case_sensitive,
             )
 
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
@@ -2238,7 +2254,7 @@ class SyncEngine:
 
         if self._handle_selective_sync_conflict(event):
             return None
-        if self._handle_case_conflict(event):
+        if self._handle_normalization_conflict(event):
             return None
 
         dbx_path_from = cast(str, event.dbx_path_from)
@@ -2260,7 +2276,7 @@ class SyncEngine:
 
         self.remove_node_from_index(dbx_path_from)
 
-        if md_to_new.path_lower != event.dbx_path.lower():
+        if md_to_new.path_lower != event.dbx_path_lower:
             # TODO: test this
             # conflicting copy created during upload, mirror remote changes locally
             local_path_cc = self.to_local_path(md_to_new.path_display, client)
@@ -2275,8 +2291,8 @@ class SyncEngine:
             self.remove_node_from_index(event.dbx_path)
             self._logger.info(
                 'Upload conflict: renamed "%s" to "%s"',
-                event.dbx_path,
-                md_to_new.path_display,
+                event.dbx_path_lower,
+                md_to_new.path_lower,
             )
 
         else:
@@ -2316,7 +2332,7 @@ class SyncEngine:
 
         if self._handle_selective_sync_conflict(event):
             return None
-        if self._handle_case_conflict(event):
+        if self._handle_normalization_conflict(event):
             return None
 
         self._wait_for_creation(event.local_path)
@@ -2379,7 +2395,7 @@ class SyncEngine:
                 )
                 return None
 
-        if md_new.path_lower != event.dbx_path.lower():
+        if md_new.path_lower != event.dbx_path_lower:
             # conflicting copy created during upload, mirror remote changes locally
             local_path_cc = self.to_local_path(md_new.path_display, client)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
@@ -2393,7 +2409,7 @@ class SyncEngine:
             self.remove_node_from_index(event.dbx_path)
             self._logger.debug(
                 'Upload conflict: renamed "%s" to "%s"',
-                event.dbx_path,
+                event.dbx_path_lower,
                 md_new.path_lower,
             )
         else:
@@ -2435,6 +2451,7 @@ class SyncEngine:
                     "the same as on Dropbox",
                     event.dbx_path,
                 )
+                self.update_index_from_dbx_metadata(md_old, client)
                 return None
 
         local_entry = self.get_index_entry(event.dbx_path)
@@ -2464,8 +2481,8 @@ class SyncEngine:
             )
             return None
 
-        if md_new.path_lower != event.dbx_path.lower():
-            # conflicting copy created during upload, mirror remote changes locally
+        if md_new.path_lower != event.dbx_path_lower:
+            # Conflicting copy created during upload, mirror remote changes locally.
             local_path_cc = self.to_local_path(md_new.path_display, client)
             with self.fs_events.ignore(FileMovedEvent(event.local_path, local_path_cc)):
                 try:
@@ -2479,7 +2496,7 @@ class SyncEngine:
             self.remove_node_from_index(event.dbx_path)
             self._logger.debug(
                 'Upload conflict: renamed "%s" to "%s"',
-                event.dbx_path,
+                event.dbx_path_lower,
                 md_new.path_lower,
             )
         else:
@@ -2608,7 +2625,7 @@ class SyncEngine:
 
                 md = DeletedMetadata(
                     name=osp.basename(dbx_path),
-                    path_lower=dbx_path.lower(),
+                    path_lower=normalize(dbx_path),
                     path_display=cased_path,
                 )
 
@@ -2841,7 +2858,7 @@ class SyncEngine:
                 new_excluded = [
                     path
                     for path in self.excluded_items
-                    if not is_equal_or_child(path, event.dbx_path.lower())
+                    if not is_equal_or_child(path, event.dbx_path_lower)
                 ]
 
                 self.excluded_items = new_excluded
@@ -3061,7 +3078,7 @@ class SyncEngine:
             )
             return Conflict.Identical
         elif any(
-            is_equal_or_child(p, event.dbx_path.lower()) for p in self.upload_errors
+            is_equal_or_child(p, event.dbx_path_lower) for p in self.upload_errors
         ):
             # Local version could not be uploaded due to a sync error. Do not over-
             # write unsynced changes but declare a conflict.
@@ -3324,9 +3341,7 @@ class SyncEngine:
         # re-check for conflict and move the conflict
         # out of the way if anything has changed
         if self._check_download_conflict(event) == Conflict.Conflict:
-            new_local_path = generate_cc_name(
-                local_path, is_fs_case_sensitive=self.is_case_sensitive
-            )
+            new_local_path = generate_cc_name(local_path)
             event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path, new_local_path)):
                 with convert_api_errors():
@@ -3400,9 +3415,7 @@ class SyncEngine:
             return None
 
         if conflict_check == Conflict.Conflict:
-            new_local_path = generate_cc_name(
-                event.local_path, is_fs_case_sensitive=self.is_case_sensitive
-            )
+            new_local_path = generate_cc_name(event.local_path)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, new_local_path)):
                 with convert_api_errors():
@@ -3486,7 +3499,7 @@ class SyncEngine:
         """
 
         with self._database_access():
-            entry = self.get_index_entry(event.dbx_path.lower())
+            entry = self.get_index_entry(event.dbx_path_lower)
 
         if entry and entry.dbx_path_cased != event.dbx_path:
 
@@ -3521,8 +3534,6 @@ class SyncEngine:
 
             # add created and deleted events of children as appropriate
 
-            local_path_lower = local_path.lower()
-
             for path, stat in walk(local_path, self._scandir_with_ignore):
 
                 if S_ISDIR(stat.st_mode):
@@ -3531,6 +3542,8 @@ class SyncEngine:
                     self.fs_events.queue_event(FileModifiedEvent(path))
 
             # add deleted events
+
+            local_path_lower = normalize(local_path)
 
             with self._database_access():
 

@@ -13,8 +13,20 @@ import unicodedata
 from stat import S_ISDIR
 from typing import List, Optional, Tuple, Callable, Iterator, Iterable, Union
 
+try:
+    from importlib.resources import path  # type: ignore
+except ImportError:
+    from importlib_resources import path  # type: ignore
+
 # local imports
 from .content_hasher import DropboxContentHasher
+
+
+_py2_lower_map_file = path("maestral.resources", "py25_lower_map.txt").__enter__()
+
+
+with open(_py2_lower_map_file, "r", encoding="utf-8") as f:
+    _py2_lower_map = f.read()
 
 
 def _path_components(path: str) -> List[str]:
@@ -71,22 +83,18 @@ def is_equal_or_child(path: str, parent: str) -> bool:
     return is_child(path, parent) or path == parent
 
 
-def cased_path_candidates(
-    path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True
-) -> List[str]:
+def equivalent_path_candidates(path: str, root: str = osp.sep) -> List[str]:
     """
-    Returns a list of cased versions of the given path as far as corresponding nodes
-    exist in the given root directory. For instance, if a case sensitive root directory
-    contains two folders "/parent/subfolder/child" and "/parent/Subfolder/child", there
-    will be two matches for "/parent/subfolder/child/file.txt". If the root directory
-    does not exist, only one candidate ``os.path.join(root, path)`` is returned.
+    Returns a list of un-normalized versions of the given path as far as corresponding
+    nodes exist in the given root directory. For instance, if a case sensitive root
+    directory contains two folders "/parent/subfolder/child" and
+    "/parent/Subfolder/child", there will be two matches for
+    "/parent/subfolder/child/file.txt". If the root directory does not exist, only one
+    candidate ``os.path.join(root, path)`` is returned.
 
-    :param path: Original path relative to ``root``.
+    :param path: Normalized path relative to ``root``.
     :param root: Parent directory to search in. There are significant performance
         improvements if a root directory with a small tree is given.
-    :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
-        If ``False``, we know that there can be at most one match and choose a faster
-        algorithm.
     :returns: Candidates for correctly cased local paths.
     """
 
@@ -113,31 +121,20 @@ def cased_path_candidates(
         files.clear()
 
         if depth >= n_components:
-            if is_fs_case_sensitive:
-                continue
-            break
+            continue
 
         found = False
-        path_lower = path_list[depth].lower()
+        path_normalized = normalize(path_list[depth])
 
         for d in all_dirs:
-            if d.lower() == path_lower:
+            if normalize(d) == path_normalized:
                 dirs.append(d)
-
-                if not is_fs_case_sensitive:
-                    # skip to next iteration since there can be no more matches
-                    found = True
-                    break
 
         if depth + 1 == n_components and not found:
             # look at files
             for f in all_files:
-                if f.lower() == path_lower:
+                if normalize(f) == path_normalized:
                     files.append(f)
-
-                    if not is_fs_case_sensitive:
-                        # skip to next iteration since there can be no more matches
-                        break
 
         new_candidates = [osp.join(root, name) for name in itertools.chain(dirs, files)]
 
@@ -155,9 +152,7 @@ def cased_path_candidates(
     return local_paths
 
 
-def to_cased_path(
-    path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True
-) -> str:
+def to_cased_path(path: str, root: str = osp.sep) -> str:
     """
     Returns a cased version of the given path as far as corresponding nodes (with
     arbitrary casing) exist in the given root directory. If multiple matches are found,
@@ -167,19 +162,14 @@ def to_cased_path(
     :param path: Original path relative to ``root``.
     :param root: Parent directory to search in. There are significant performance
         improvements if a root directory with a small tree is given.
-    :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
-        If ``False``, we know that there can be at most one match and choose a faster
-        algorithm.
     :returns: Absolute and cased version of given path.
     """
 
-    candidates = cased_path_candidates(path, root, is_fs_case_sensitive)
+    candidates = equivalent_path_candidates(path, root)
     return candidates[0]
 
 
-def to_existing_cased_path(
-    path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True
-) -> str:
+def to_existing_cased_path(path: str, root: str = osp.sep) -> str:
     """
     Returns a cased version of the given path if corresponding nodes (with arbitrary
     casing) exist in the given root directory. If multiple matches are found, only one
@@ -188,15 +178,12 @@ def to_existing_cased_path(
     :param path: Original path relative to ``root``.
     :param root: Parent directory to search in. There are significant performance
         improvements if a root directory with a small tree is given.
-    :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
-        If ``False``, we know that there can be at most one match and choose a faster
-        algorithm.
     :returns: Absolute and cased version of given path.
     :raises FileNotFoundError: if ``path`` does not exist in root ``root`` or ``root``
         itself does not exist.
     """
 
-    candidates = cased_path_candidates(path, root, is_fs_case_sensitive)
+    candidates = equivalent_path_candidates(path, root)
 
     for candidate in candidates:
         if osp.exists(candidate):
@@ -205,39 +192,28 @@ def to_existing_cased_path(
     raise FileNotFoundError(f'No matches with different casing found in "{root}"')
 
 
-def path_exists_case_insensitive(
-    path: str, root: str = osp.sep, is_fs_case_sensitive: bool = True
-) -> bool:
+def normalized_path_exists(path: str, root: str = osp.sep) -> bool:
     """
     Checks if a ``path`` exists in given ``root`` directory, similar to
-    ``os.path.exists`` but case-insensitive.
+    ``os.path.exists`` but case-insensitive. Normalisation is performed as by Dropbox
+    servers (lower case and unicode normalisation).
 
     :param path: Path relative to ``root``.
     :param root: Directory where we will look for ``path``. There are significant
         performance improvements if a root directory with a small tree is given.
-    :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
-        If ``False``, we know that there can be at most one match and choose a faster
-        algorithm.
     :returns: Whether an arbitrarily cased version of ``path`` exists.
     """
 
-    if is_fs_case_sensitive:
+    candidates = equivalent_path_candidates(path, root)
 
-        candidates = cased_path_candidates(path, root, is_fs_case_sensitive)
+    for c in candidates:
+        if osp.exists(c):
+            return True
 
-        for c in candidates:
-            if osp.exists(c):
-                return True
-
-        return False
-
-    else:
-        return osp.exists(osp.join(root, path.lstrip(osp.sep)))
+    return False
 
 
-def generate_cc_name(
-    path: str, suffix: str = "conflicting copy", is_fs_case_sensitive: bool = True
-) -> str:
+def generate_cc_name(path: str, suffix: str = "conflicting copy") -> str:
     """
     Generates a path for a conflicting copy of ``path``. The file name is created by
     inserting the given ``suffix`` between the the filename and extension. For instance:
@@ -251,9 +227,6 @@ def generate_cc_name(
 
     :param path: Original path name.
     :param suffix: Suffix to use. Defaults to "conflicting copy".
-    :param is_fs_case_sensitive: Bool indicating if the file system is case sensitive.
-        If ``False``, we know that there can be at most one match and choose a faster
-        algorithm.
     :returns: New path.
     """
 
@@ -263,7 +236,7 @@ def generate_cc_name(
     i = 0
     cc_candidate = f"{filename} ({suffix}){ext}"
 
-    while path_exists_case_insensitive(cc_candidate, dirname, is_fs_case_sensitive):
+    while normalized_path_exists(cc_candidate, dirname):
         i += 1
         cc_candidate = f"{filename} ({suffix} {i}){ext}"
 
@@ -427,7 +400,7 @@ def normalize_case(string: str) -> str:
     :param string: Original string.
     :returns: Lowercase string.
     """
-    return string.lower()
+    return "".join(_py2_lower_map[ord(c)] for c in string)
 
 
 def normalize_unicode(string: str) -> str:
