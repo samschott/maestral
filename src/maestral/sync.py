@@ -2276,7 +2276,7 @@ class SyncEngine:
 
         self.remove_node_from_index(dbx_path_from)
 
-        if md_to_new.path_lower != event.dbx_path_lower:
+        if md_to_new.name != osp.basename(event.local_path):
             # TODO: test this
             # conflicting copy created during upload, mirror remote changes locally
             local_path_cc = self.to_local_path(md_to_new.path_display, client)
@@ -2291,8 +2291,8 @@ class SyncEngine:
             self.remove_node_from_index(event.dbx_path)
             self._logger.info(
                 'Upload conflict: renamed "%s" to "%s"',
-                event.dbx_path_lower,
-                md_to_new.path_lower,
+                event.dbx_path,
+                md_to_new.path_display,
             )
 
         else:
@@ -2395,7 +2395,7 @@ class SyncEngine:
                 )
                 return None
 
-        if md_new.path_lower != event.dbx_path_lower:
+        if md_new.name != osp.basename(event.local_path):
             # conflicting copy created during upload, mirror remote changes locally
             local_path_cc = self.to_local_path(md_new.path_display, client)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
@@ -2409,8 +2409,8 @@ class SyncEngine:
             self.remove_node_from_index(event.dbx_path)
             self._logger.debug(
                 'Upload conflict: renamed "%s" to "%s"',
-                event.dbx_path_lower,
-                md_new.path_lower,
+                event.dbx_path,
+                md_new.path_display,
             )
         else:
             # everything went well, update index
@@ -2481,7 +2481,7 @@ class SyncEngine:
             )
             return None
 
-        if md_new.path_lower != event.dbx_path_lower:
+        if md_new.name != osp.basename(event.local_path):
             # Conflicting copy created during upload, mirror remote changes locally.
             local_path_cc = self.to_local_path(md_new.path_display, client)
             with self.fs_events.ignore(FileMovedEvent(event.local_path, local_path_cc)):
@@ -2496,8 +2496,8 @@ class SyncEngine:
             self.remove_node_from_index(event.dbx_path)
             self._logger.debug(
                 'Upload conflict: renamed "%s" to "%s"',
-                event.dbx_path_lower,
-                md_new.path_lower,
+                event.dbx_path,
+                md_new.path_display,
             )
         else:
             # everything went well, save new revs
