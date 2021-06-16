@@ -203,12 +203,12 @@ def equivalent_path_candidates(
     return local_paths
 
 
-def to_cased_path(path: str, root: str = osp.sep) -> str:
+def denormalize_path(path: str, root: str = osp.sep) -> str:
     """
-    Returns a cased version of the given path as far as corresponding nodes (with
-    arbitrary casing) exist in the given root directory. If multiple matches are found,
-    only one is returned. If ``path`` does not exist in root ``root`` or ``root`` does
-    not exist, the return value will be ``os.path.join(root, path)``.
+    Returns a denormalized version of the given path as far as corresponding nodes with
+    the same normalization exist in the given root directory. If multiple matches are
+    found, only one is returned. If ``path`` does not exist in root ``root`` or ``root``
+    does not exist, the return value will be ``os.path.join(root, path)``.
 
     :param path: Original path relative to ``root``.
     :param root: Parent directory to search in. There are significant performance
@@ -220,7 +220,7 @@ def to_cased_path(path: str, root: str = osp.sep) -> str:
     return candidates[0]
 
 
-def to_existing_cased_path(path: str, root: str = osp.sep) -> str:
+def to_existing_unnormalized_path(path: str, root: str = osp.sep) -> str:
     """
     Returns a cased version of the given path if corresponding nodes (with arbitrary
     casing) exist in the given root directory. If multiple matches are found, only one

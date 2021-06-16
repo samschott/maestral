@@ -55,7 +55,7 @@ from .utils import get_newer_version
 from .utils.path import (
     is_child,
     is_equal_or_child,
-    to_existing_cased_path,
+    to_existing_unnormalized_path,
     delete,
 )
 from .utils.serializer import (
@@ -1017,7 +1017,7 @@ class Maestral:
         local_path = self.sync.to_local_path_from_cased(dbx_path)
         # dbx_path will be lower-case, we there explicitly run `to_existing_cased_path`
         try:
-            local_path = to_existing_cased_path(local_path)
+            local_path = to_existing_unnormalized_path(local_path)
         except FileNotFoundError:
             pass
         else:
