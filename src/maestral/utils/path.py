@@ -9,6 +9,7 @@ import os.path as osp
 import errno
 import shutil
 import itertools
+import unicodedata
 from stat import S_ISDIR
 from typing import List, Optional, Tuple, Callable, Iterator, Iterable, Union
 
@@ -417,3 +418,48 @@ def content_hash(
         return None, None
     finally:
         del hasher
+
+
+def normalize_case(string: str) -> str:
+    """
+    Converts a string to lower case following Python 2.5 / Dropbox conventions.
+
+    :param string: Original string.
+    :returns: Lowercase string.
+    """
+    return string.lower()
+
+
+def normalize_unicode(string: str) -> str:
+    """
+    Normalizes a string to replace all decomposed unicode characters with their single
+    character equivalents.
+
+    :param string: Original string.
+    :returns: Normalized string.
+    """
+    return unicodedata.normalize("NFC", string)
+
+
+def normalize(string: str) -> str:
+    """
+    Replicates the path normalization performed by Dropbox servers. This typically only
+    involves converting the path to lower case, with a few (undocumented) exceptions:
+
+    * Unicode normalization: decomposed characters are converted to composed characters.
+    * Lower casing of non-ascii characters: Dropbox uses the Python 2.5 behavior for
+      conversion to lower case. This means that some cyrillic characters are incorrectly
+      lower-cased. For example:
+      "Ꙋ".lower() -> "Ꙋ" instead of "ꙋ"
+      "ΣΣΣ".lower() -> "σσσ" instead of "σσς"
+    * Trailing spaces are stripped from folder names. We do not perform this
+      normalization here because the Dropbox API will raise sync errors for such names
+      anyways.
+
+    Note that calling :func:`normalize` on an already normalized path will return the
+    unmodified input.
+
+    :param string: Original path.
+    :returns: Normalized path.
+    """
+    return normalize_case(normalize_unicode(string))
