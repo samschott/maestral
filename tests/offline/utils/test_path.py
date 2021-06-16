@@ -7,7 +7,7 @@ import pytest
 from maestral.utils.path import (
     normalized_path_exists,
     equivalent_path_candidates,
-    to_cased_path,
+    denormalize_path,
     is_fs_case_sensitive,
     is_child,
 )
@@ -19,9 +19,9 @@ def test_path_exists_case_insensitive():
     # choose a path which exists on all Unix systems
     path = "/usr/local/share"
 
-    assert to_cased_path(path) == path
-    assert to_cased_path(path.title()) == path
-    assert to_cased_path(path.upper()) == path
+    assert denormalize_path(path) == path
+    assert denormalize_path(path.title()) == path
+    assert denormalize_path(path.upper()) == path
 
     # choose a random path that likely does not exist
     path = "/usr/local/share/test_folder/path_928"
