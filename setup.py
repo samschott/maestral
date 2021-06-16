@@ -39,6 +39,8 @@ dev_requires = [
     "pre-commit",
     "pytest",
     "pytest-cov",
+    "types-requests",
+    "types-pkg_resources",
 ]
 
 docs_require = [
