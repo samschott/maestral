@@ -17,9 +17,9 @@ official Dropbox client:
 ### System files
 
 * desktop.ini
-* thumbs.db
-* ds_store
-* icon\r
+* Thumbs.db
+* .DS_Store
+* Icon\r
 
 ### Maestral or Dropbox config files
 
