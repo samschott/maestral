@@ -13,20 +13,8 @@ import unicodedata
 from stat import S_ISDIR
 from typing import List, Optional, Tuple, Callable, Iterator, Iterable, Union
 
-try:
-    from importlib.resources import path  # type: ignore
-except ImportError:
-    from importlib_resources import path  # type: ignore
-
 # local imports
 from .content_hasher import DropboxContentHasher
-
-
-_py2_lower_map_file = path("maestral.resources", "py25_lower_map.txt").__enter__()
-
-
-with open(_py2_lower_map_file, "r", encoding="utf-8") as f:
-    _py2_lower_map = f.read()
 
 
 def _path_components(path: str) -> List[str]:
@@ -37,12 +25,12 @@ def _path_components(path: str) -> List[str]:
 
 def normalize_case(string: str) -> str:
     """
-    Converts a string to lower case following Python 2.5 / Dropbox conventions.
+    Converts a string to lower case. Todo: Follow Python 2.5 / Dropbox conventions.
 
     :param string: Original string.
     :returns: Lowercase string.
     """
-    return "".join(_py2_lower_map[ord(c)] for c in string)
+    return string.lower()
 
 
 def normalize_unicode(string: str) -> str:
@@ -73,6 +61,8 @@ def normalize(string: str) -> str:
 
     Note that calling :func:`normalize` on an already normalized path will return the
     unmodified input.
+
+    Todo: Follow Python 2.5 / Dropbox conventions instead of Python 3 conventions.
 
     :param string: Original path.
     :returns: Normalized path.
