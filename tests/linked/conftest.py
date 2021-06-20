@@ -17,7 +17,7 @@ from maestral.config import remove_configuration
 from maestral.utils.path import (
     generate_cc_name,
     delete,
-    to_existing_cased_path,
+    to_existing_unnormalized_path,
     is_child,
 )
 from maestral.utils.appdirs import get_home_dir
@@ -155,7 +155,7 @@ def assert_synced(m: Maestral):
     # with the same content hash
     for e in listing.entries:
         dbx_path = e.path_display
-        local_path = to_existing_cased_path(str(dbx_path), root=m.dropbox_path)
+        local_path = to_existing_unnormalized_path(str(dbx_path), root=m.dropbox_path)
 
         remote_hash = e.content_hash if isinstance(e, FileMetadata) else "folder"
         assert (
@@ -196,7 +196,7 @@ def assert_synced(m: Maestral):
 
             # check if casing on drive is the same as in index
             local_path_expected_casing = m.dropbox_path + index_entry.dbx_path_cased
-            local_path_actual_casing = to_existing_cased_path(
+            local_path_actual_casing = to_existing_unnormalized_path(
                 local_path_expected_casing
             )
 

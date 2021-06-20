@@ -26,6 +26,7 @@ from watchdog.events import (
 # local imports
 from .errors import SyncError
 from .utils.orm import Model, Column, SqlEnum, SqlInt, SqlString, SqlFloat, SqlPath
+from .utils.path import normalize
 
 if TYPE_CHECKING:
     from .sync import SyncEngine
@@ -135,8 +136,16 @@ class SyncEvent(Model):
 
     dbx_path = Column(SqlPath(), nullable=False)
     """
+    Upper case Dropbox path of the item to sync. If the sync represents a move
+    operation, this will be the destination path. Follows the casing from the
+    path_display attribute of Dropbox metadata.
+    """
+
+    dbx_path_lower = Column(SqlPath(), nullable=False)
+    """
     Dropbox path of the item to sync. If the sync represents a move operation, this will
-    be the destination path. Follows the casing from server.
+    be the destination path. This is normalised as the path_lower attribute of Dropbox
+    metadata.
     """
 
     local_path = Column(SqlPath(), nullable=False)
@@ -148,7 +157,15 @@ class SyncEvent(Model):
     dbx_path_from = Column(SqlPath())
     """
     Dropbox path that this item was moved from. Will only be set if :attr:`change_type`
-    is :attr:`ChangeType.Moved`. Follows the casing from server.
+    is :attr:`ChangeType.Moved`. Follows the casing from the path_display attribute of
+    Dropbox metadata.
+    """
+
+    dbx_path_from_lower = Column(SqlPath())
+    """
+    Dropbox path that this item was moved from. Will only be set if :attr:`change_type`
+    is :attr:`ChangeType.Moved`. This is normalised as the path_lower attribute of
+    Dropbox metadata.
     """
 
     local_path_from = Column(SqlPath())
@@ -327,6 +344,7 @@ class SyncEvent(Model):
             item_type=item_type,
             sync_time=time.time(),
             dbx_path=dbx_path_cased,
+            dbx_path_lower=md.path_lower,
             dbx_id=dbx_id,
             local_path=sync_engine.to_local_path_from_cased(dbx_path_cased),
             rev=rev,
@@ -393,6 +411,12 @@ class SyncEvent(Model):
             change_time = stat.st_ctime if stat else None
             size = stat.st_size if stat else 0
 
+        dbx_path = sync_engine.to_dbx_path(to_path)
+        dbx_path_lower = normalize(dbx_path)
+
+        dbx_path_from = sync_engine.to_dbx_path(from_path) if from_path else None
+        dbx_path_from_lower = normalize(dbx_path_from) if dbx_path_from else None
+
         # Note: We get the content hash here instead of later, even though the
         # calculation may be slow and :meth:`from_file_system_event` may be called
         # serially and not from a thread pool. This is because hashing is CPU bound
@@ -403,9 +427,11 @@ class SyncEvent(Model):
             direction=SyncDirection.Up,
             item_type=item_type,
             sync_time=time.time(),
-            dbx_path=sync_engine.to_dbx_path(to_path),
+            dbx_path=dbx_path,
+            dbx_path_lower=dbx_path_lower,
             local_path=to_path,
-            dbx_path_from=sync_engine.to_dbx_path(from_path) if from_path else None,
+            dbx_path_from=dbx_path_from,
+            dbx_path_from_lower=dbx_path_from_lower,
             local_path_from=from_path,
             content_hash=content_hash,
             change_type=change_type,
@@ -436,10 +462,14 @@ class IndexEntry(Model):
     """
     Dropbox path of the item in lower case. This acts as a primary key for the SQLites
     database since there can only be one entry per case-insensitive Dropbox path.
+    Corresponds to the path_lower field of Dropbox metadata.
     """
 
     dbx_path_cased = Column(SqlPath(), nullable=False)
-    """Dropbox path of the item, correctly cased."""
+    """
+    Dropbox path of the item, correctly cased. Corresponds to the path_display field of
+    Dropbox metadata.
+    """
 
     dbx_id = Column(SqlString(), nullable=False)
     """The unique dropbox ID for the item."""

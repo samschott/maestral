@@ -1,3 +1,11 @@
+## v1.4.5
+
+#### Fixed:
+
+* Fixes an issue where erroneous file conflicts could occur when a file name contains
+  decomposed unicode characters such as "é" represented by a "e" + " ́" instead of single
+  character.
+
 ## v1.4.4
 
 This release introduces support for tab-completion in the shell, allows you to choose

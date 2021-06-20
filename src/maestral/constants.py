@@ -28,8 +28,11 @@ FILE_CACHE = ".maestral.cache"
 EXCLUDED_FILE_NAMES = frozenset(
     [
         "desktop.ini",
+        "Thumbs.db",
         "thumbs.db",
-        ".ds_store",
+        ".DS_Store",
+        ".ds_tore",
+        "Icon\r",
         "icon\r",
         ".com.apple.timemachine.supported",
         ".dropbox",

@@ -5,9 +5,9 @@ import os.path as osp
 import pytest
 
 from maestral.utils.path import (
-    path_exists_case_insensitive,
-    cased_path_candidates,
-    to_cased_path,
+    normalized_path_exists,
+    equivalent_path_candidates,
+    denormalize_path,
     is_fs_case_sensitive,
     is_child,
 )
@@ -19,20 +19,20 @@ def test_path_exists_case_insensitive():
     # choose a path which exists on all Unix systems
     path = "/usr/local/share"
 
-    assert to_cased_path(path) == path
-    assert to_cased_path(path.title()) == path
-    assert to_cased_path(path.upper()) == path
+    assert denormalize_path(path) == path
+    assert denormalize_path(path.title()) == path
+    assert denormalize_path(path.upper()) == path
 
     # choose a random path that likely does not exist
     path = "/usr/local/share/test_folder/path_928"
     if not osp.exists(path):
-        assert not path_exists_case_insensitive(path)
+        assert not normalized_path_exists(path)
 
     # choose a random parent that likely does not exist
     path = "/test_folder/path_928"
     root = "/usr"
     if not osp.exists(root):
-        assert not path_exists_case_insensitive(path, root)
+        assert not normalized_path_exists(path, root)
 
 
 def test_cased_path_candidates():
@@ -41,12 +41,12 @@ def test_cased_path_candidates():
     # starting from a candidate with scrambled casing
 
     path = "/usr/local/share".upper()
-    candidates = cased_path_candidates(path)
+    candidates = equivalent_path_candidates(path)
 
     assert len(candidates) == 1
     assert "/usr/local/share" in candidates
 
-    candidates = cased_path_candidates("/test", root="/usr/local/share")
+    candidates = equivalent_path_candidates("/test", root="/usr/local/share")
 
     assert len(candidates) == 1
     assert "/usr/local/share/test" in candidates
@@ -76,14 +76,14 @@ def test_multiple_cased_path_candidates(tmp_path):
     path = osp.join(dir0.lower(), "File.txt")
 
     # find matches for original path itself
-    candidates = cased_path_candidates(path)
+    candidates = equivalent_path_candidates(path)
 
     assert len(candidates) == 2
     assert osp.join(dir0, "File.txt") in candidates
     assert osp.join(dir1, "File.txt") in candidates
 
     # find matches for children
-    candidates = cased_path_candidates(
+    candidates = equivalent_path_candidates(
         "/test folder/subfolder/File.txt", root=str(tmp_path)
     )
 

@@ -648,6 +648,33 @@ def test_case_conflict(m):
     assert not m.fatal_errors
 
 
+def test_unicode_conflict(m):
+    """
+    Tests the creation of a unicode conflict when a local item is created with a path
+    that only differs in utf-8 form from an existing path.
+    """
+
+    os.mkdir(m.test_folder_local.encode() + b"/fo\xcc\x81lder")  # decomposed "ó"
+    wait_for_idle(m)
+
+    try:
+        os.mkdir(m.test_folder_local.encode() + b"/f\xc3\xb3lder")  # composed "ó"
+    except FileExistsError:
+        # file system / OS does not allow for unicode conflicts
+        return
+    wait_for_idle(m)
+
+    assert osp.isdir(m.test_folder_local + "/folder")
+    assert osp.isdir(m.test_folder_local + "/Folder (case conflict)")
+    assert m.client.get_metadata("/sync_tests/folder")
+    assert m.client.get_metadata("/sync_tests/Folder (case conflict)")
+
+    assert_synced(m)
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
 def test_case_change_local(m):
     """
     Tests the upload sync of local rename which only changes the casing of the local
