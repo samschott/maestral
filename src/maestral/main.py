@@ -55,6 +55,7 @@ from .utils import get_newer_version
 from .utils.path import (
     is_child,
     is_equal_or_child,
+    normalize,
     to_existing_unnormalized_path,
     delete,
 )
@@ -564,7 +565,7 @@ class Maestral:
             return FileStatus.Downloading.value
         elif any(dbx_path == err["dbx_path"] for err in self.sync_errors):
             return FileStatus.Error.value
-        elif dbx_path == "/" or self.sync.get_local_rev(dbx_path):
+        elif dbx_path == "/" or self.sync.get_local_rev(normalize(dbx_path)):
             return FileStatus.Synced.value
         else:
             return FileStatus.Unwatched.value
