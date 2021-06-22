@@ -2133,7 +2133,7 @@ class SyncEngine:
         if not (event.is_added or event.is_moved):
             return False
 
-        if self.is_excluded_by_user(event.dbx_path):
+        if self.is_excluded_by_user(event.dbx_path_lower):
             local_path_cc = generate_cc_name(
                 event.local_path,
                 suffix="selective sync conflict",
