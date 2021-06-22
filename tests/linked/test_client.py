@@ -6,6 +6,7 @@ import pytest
 from dropbox.files import FolderMetadata
 
 from maestral.errors import NotFoundError, PathError
+from maestral.utils.path import normalize
 
 from .conftest import resources
 
@@ -24,7 +25,7 @@ def test_upload_large_file(m):
 
     large_file = resources + "/large-file.pdf"
     md = m.client.upload(
-        large_file, "/sync_tests/large-file.pdf", chunk_size=5 * 10 ** 5
+        large_file, f"{m.test_folder_dbx}/large-file.pdf", chunk_size=5 * 10 ** 5
     )
 
     assert md.content_hash == m.sync.get_local_hash(large_file)
@@ -35,14 +36,14 @@ def test_upload_large_file(m):
 def test_batch_methods(m, batch_size, force_async):
     # batch methods are not currently used by sync module
 
-    folders = [f"/sync_tests/folder {i}" for i in range(20)]
+    folders = [f"{m.test_folder_dbx}/folder {i}" for i in range(20)]
 
     # create some test directories
     res = m.client.make_dir_batch(folders + ["/invalid\\"], force_async=force_async)
 
     for i in range(20):
         assert isinstance(res[i], FolderMetadata)
-        assert res[i].path_lower == folders[i]
+        assert res[i].path_lower == normalize(folders[i])
 
     assert isinstance(res[20], PathError)
 
@@ -54,6 +55,6 @@ def test_batch_methods(m, batch_size, force_async):
 
     for i in range(20):
         assert isinstance(res[i], FolderMetadata)
-        assert res[i].path_lower == folders[i]
+        assert res[i].path_lower == normalize(folders[i])
 
     assert isinstance(res[20], NotFoundError)

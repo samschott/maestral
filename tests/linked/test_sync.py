@@ -14,7 +14,7 @@ from dropbox.files import WriteMode
 from maestral.database import SyncEvent
 from maestral.utils import sanitize_string
 from maestral.utils.appdirs import get_home_dir
-from maestral.utils.path import delete, move, is_fs_case_sensitive
+from maestral.utils.path import delete, move, is_fs_case_sensitive, normalize
 
 from .conftest import assert_synced, wait_for_idle, resources
 
@@ -39,8 +39,8 @@ def test_file_lifecycle(m):
 
     wait_for_idle(m)
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "file.txt")
-    assert_child_count(m, "/sync_tests", 1)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 1)
 
     # test changing the file locally
 
@@ -49,29 +49,29 @@ def test_file_lifecycle(m):
 
     wait_for_idle(m)
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "file.txt")
-    assert_child_count(m, "/sync_tests", 1)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 1)
 
     # test changing the file on remote
 
     m.client.upload(
         resources + "/file1.txt",
-        "/sync_tests/file.txt",
+        f"{m.test_folder_dbx}/file.txt",
         mode=WriteMode.overwrite,
     )
 
     wait_for_idle(m)
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "file.txt")
-    assert_child_count(m, "/sync_tests", 1)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 1)
 
     # test deleting the file remotely
 
-    m.client.remove("/sync_tests/file.txt")
+    m.client.remove(f"{m.test_folder_dbx}/file.txt")
 
     wait_for_idle(m)
     assert_synced(m)
-    assert_child_count(m, "/sync_tests", 0)
+    assert_child_count(m, m.test_folder_dbx, 0)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -94,7 +94,7 @@ def test_file_conflict_modified(m):
     # modify file.txt on remote
     m.client.upload(
         resources + "/file2.txt",
-        "/sync_tests/file.txt",
+        f"{m.test_folder_dbx}/file.txt",
         mode=WriteMode.overwrite,
     )
 
@@ -104,9 +104,9 @@ def test_file_conflict_modified(m):
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "file.txt")
-    assert_conflict(m, "/sync_tests", "file.txt")
-    assert_child_count(m, "/sync_tests", 2)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_conflict(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 2)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -123,7 +123,7 @@ def test_file_conflict_created(m):
     # create different remote file
     m.client.upload(
         resources + "/file2.txt",
-        "/sync_tests/file.txt",
+        f"{m.test_folder_dbx}/file.txt",
         mode=WriteMode.overwrite,
     )
 
@@ -132,9 +132,9 @@ def test_file_conflict_created(m):
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "file.txt")
-    assert_conflict(m, "/sync_tests", "file.txt")
-    assert_child_count(m, "/sync_tests", 2)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_conflict(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 2)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -156,13 +156,13 @@ def test_parallel_deletion_when_paused(m):
     delete(m.test_folder_local + "/file.txt")
 
     # delete remote file
-    m.client.remove("/sync_tests/file.txt")
+    m.client.remove(f"{m.test_folder_dbx}/file.txt")
 
     m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_child_count(m, "/sync_tests", 0)
+    assert_child_count(m, m.test_folder_dbx, 0)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -177,14 +177,14 @@ def test_local_and_remote_creation_with_equal_content(m):
     # create local file
     shutil.copy(resources + "/file.txt", m.test_folder_local)
     # create remote file with equal content
-    m.client.upload(resources + "/file.txt", "/sync_tests/file.txt")
+    m.client.upload(resources + "/file.txt", f"{m.test_folder_dbx}/file.txt")
 
     m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "file.txt")
-    assert_child_count(m, "/sync_tests", 1)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 1)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -199,15 +199,15 @@ def test_local_and_remote_creation_with_different_content(m):
     # create local file
     shutil.copy(resources + "/file.txt", m.test_folder_local)
     # create remote file with different content
-    m.client.upload(resources + "/file1.txt", "/sync_tests/file.txt")
+    m.client.upload(resources + "/file1.txt", f"{m.test_folder_dbx}/file.txt")
 
     m.start_sync()
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "file.txt")
-    assert_conflict(m, "/sync_tests", "file.txt")
-    assert_child_count(m, "/sync_tests", 2)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_conflict(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 2)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -223,7 +223,7 @@ def test_local_deletion_during_upload(m):
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_child_count(m, "/sync_tests", 0)
+    assert_child_count(m, m.test_folder_dbx, 0)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -240,8 +240,8 @@ def test_rapid_local_changes(m):
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "file.txt")
-    assert_child_count(m, "/sync_tests", 1)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 1)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -253,7 +253,7 @@ def test_rapid_remote_changes(m):
     shutil.copy(resources + "/file.txt", m.test_folder_local)
     wait_for_idle(m)
 
-    md = m.client.get_metadata("/sync_tests/file.txt")
+    md = m.client.get_metadata(f"{m.test_folder_dbx}/file.txt")
 
     for t in (0.1, 0.1, 0.5, 0.5, 1.0, 1.0, 2.0, 2.0):
         time.sleep(t)
@@ -261,7 +261,7 @@ def test_rapid_remote_changes(m):
             f.write(f" {t} ")
         md = m.client.upload(
             resources + "/file.txt",
-            "/sync_tests/file.txt",
+            f"{m.test_folder_dbx}/file.txt",
             mode=WriteMode.update(md.rev),
         )
 
@@ -272,8 +272,8 @@ def test_rapid_remote_changes(m):
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "file.txt")
-    assert_child_count(m, "/sync_tests", 1)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 1)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -292,7 +292,7 @@ def test_folder_tree_local(m):
     wait_for_idle(m, 10)
 
     assert_synced(m)
-    assert_child_count(m, "/sync_tests", num_items)
+    assert_child_count(m, m.test_folder_dbx, num_items)
 
     # test deleting tree
 
@@ -300,7 +300,7 @@ def test_folder_tree_local(m):
 
     wait_for_idle(m)
     assert_synced(m)
-    assert_child_count(m, "/sync_tests", 0)
+    assert_child_count(m, m.test_folder_dbx, 0)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -323,7 +323,7 @@ def test_local_indexing(m):
     wait_for_idle(m, 10)
 
     assert_synced(m)
-    assert_child_count(m, "/sync_tests", num_items)
+    assert_child_count(m, m.test_folder_dbx, num_items)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -356,21 +356,21 @@ def test_folder_tree_remote(m):
     # test creating remote tree
 
     for i in range(1, 11):
-        path = "/sync_tests" + i * "/nested_folder"
+        path = m.test_folder_dbx + i * "/nested_folder"
         m.client.make_dir(path)
 
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_child_count(m, "/sync_tests", 10)
+    assert_child_count(m, m.test_folder_dbx, 10)
 
     # test deleting remote tree
 
-    m.client.remove("/sync_tests/nested_folder")
+    m.client.remove(f"{m.test_folder_dbx}/nested_folder")
     wait_for_idle(m, 15)
 
     assert_synced(m)
-    assert_child_count(m, "/sync_tests", 0)
+    assert_child_count(m, m.test_folder_dbx, 0)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -385,13 +385,13 @@ def test_remote_file_replaced_by_folder(m):
     with m.sync.sync_lock:
 
         # replace remote file with folder
-        m.client.remove("/sync_tests/file.txt")
-        m.client.make_dir("/sync_tests/file.txt")
+        m.client.remove(f"{m.test_folder_dbx}/file.txt")
+        m.client.make_dir(f"{m.test_folder_dbx}/file.txt")
 
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_child_count(m, "/sync_tests", 1)
+    assert_child_count(m, m.test_folder_dbx, 1)
     assert os.path.isdir(m.test_folder_local + "/file.txt")
 
     # check for fatal errors
@@ -410,8 +410,8 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m):
     with m.sync.sync_lock:
 
         # replace remote file with folder
-        m.client.remove("/sync_tests/file.txt")
-        m.client.make_dir("/sync_tests/file.txt")
+        m.client.remove(f"{m.test_folder_dbx}/file.txt")
+        m.client.make_dir(f"{m.test_folder_dbx}/file.txt")
 
         # create local changes
         with open(m.test_folder_local + "/file.txt", "a") as f:
@@ -420,9 +420,9 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m):
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "file.txt")
-    assert_conflict(m, "/sync_tests", "file.txt")
-    assert_child_count(m, "/sync_tests", 2)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_conflict(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 2)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -431,20 +431,20 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m):
 def test_remote_folder_replaced_by_file(m):
     """Tests the download sync when a folder is replaced by a file."""
 
-    m.client.make_dir("/sync_tests/folder")
+    m.client.make_dir(f"{m.test_folder_dbx}/folder")
     wait_for_idle(m)
 
     # replace remote folder with file
 
     with m.sync.sync_lock:
-        m.client.remove("/sync_tests/folder")
-        m.client.upload(resources + "/file.txt", "/sync_tests/folder")
+        m.client.remove(f"{m.test_folder_dbx}/folder")
+        m.client.upload(resources + "/file.txt", f"{m.test_folder_dbx}/folder")
 
     wait_for_idle(m)
 
     assert_synced(m)
     assert os.path.isfile(m.test_folder_local + "/folder")
-    assert_child_count(m, "/sync_tests", 1)
+    assert_child_count(m, m.test_folder_dbx, 1)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -462,8 +462,8 @@ def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m):
     with m.sync.sync_lock:
 
         # replace remote folder with file
-        m.client.remove("/sync_tests/folder")
-        m.client.upload(resources + "/file.txt", "/sync_tests/folder")
+        m.client.remove(f"{m.test_folder_dbx}/folder")
+        m.client.upload(resources + "/file.txt", f"{m.test_folder_dbx}/folder")
 
         # create local changes
         os.mkdir(m.test_folder_local + "/folder/subfolder")
@@ -471,9 +471,9 @@ def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m):
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "folder")
-    assert_conflict(m, "/sync_tests", "folder")
-    assert_child_count(m, "/sync_tests", 3)
+    assert_exists(m, m.test_folder_dbx, "folder")
+    assert_conflict(m, m.test_folder_dbx, "folder")
+    assert_child_count(m, m.test_folder_dbx, 3)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -495,7 +495,7 @@ def test_local_folder_replaced_by_file(m):
 
     assert_synced(m)
     assert osp.isfile(m.test_folder_local + "/folder")
-    assert_child_count(m, "/sync_tests", 1)
+    assert_child_count(m, m.test_folder_dbx, 1)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -519,13 +519,15 @@ def test_local_folder_replaced_by_file_and_unsynced_remote_changes(m):
         shutil.copy(resources + "/file.txt", m.test_folder_local + "/folder")
 
         # create remote changes
-        m.client.upload(resources + "/file1.txt", "/sync_tests/folder/file.txt")
+        m.client.upload(
+            resources + "/file1.txt", f"{m.test_folder_dbx}/folder/file.txt"
+        )
 
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "folder")
-    assert_child_count(m, "/sync_tests", 1)
+    assert_exists(m, m.test_folder_dbx, "folder")
+    assert_child_count(m, m.test_folder_dbx, 1)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -547,7 +549,7 @@ def test_local_file_replaced_by_folder(m):
 
     assert_synced(m)
     assert osp.isdir(m.test_folder_local + "/file.txt")
-    assert_child_count(m, "/sync_tests", 1)
+    assert_child_count(m, m.test_folder_dbx, 1)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -574,16 +576,16 @@ def test_local_file_replaced_by_folder_and_unsynced_remote_changes(m):
         # create remote changes
         m.client.upload(
             resources + "/file1.txt",
-            "/sync_tests/file.txt",
+            f"{m.test_folder_dbx}/file.txt",
             mode=WriteMode.overwrite,
         )
 
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "file.txt")
-    assert_conflict(m, "/sync_tests", "file.txt")
-    assert_child_count(m, "/sync_tests", 2)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_conflict(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 2)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -599,7 +601,7 @@ def test_selective_sync_conflict(m):
     wait_for_idle(m)
 
     # exclude 'folder' from sync
-    m.exclude_item("/sync_tests/folder")
+    m.exclude_item(f"{m.test_folder_dbx}/folder")
     wait_for_idle(m)
 
     assert not osp.exists(m.test_folder_local + "/folder")
@@ -614,9 +616,13 @@ def test_selective_sync_conflict(m):
     assert not osp.exists(m.test_folder_local + "/folder")
     assert osp.isdir(m.test_folder_local + "/folder (selective sync conflict)")
     assert osp.isdir(m.test_folder_local + "/folder (selective sync conflict 1)")
-    assert m.client.get_metadata("/sync_tests/folder")
-    assert m.client.get_metadata("/sync_tests/folder (selective sync conflict)")
-    assert m.client.get_metadata("/sync_tests/folder (selective sync conflict 1)")
+    assert m.client.get_metadata(f"{m.test_folder_dbx}/folder")
+    assert m.client.get_metadata(
+        f"{m.test_folder_dbx}/folder (selective sync conflict)"
+    )
+    assert m.client.get_metadata(
+        f"{m.test_folder_dbx}/folder (selective sync conflict 1)"
+    )
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -639,8 +645,8 @@ def test_case_conflict(m):
 
     assert osp.isdir(m.test_folder_local + "/folder")
     assert osp.isdir(m.test_folder_local + "/Folder (case conflict)")
-    assert m.client.get_metadata("/sync_tests/folder")
-    assert m.client.get_metadata("/sync_tests/Folder (case conflict)")
+    assert m.client.get_metadata(f"{m.test_folder_dbx}/folder")
+    assert m.client.get_metadata(f"{m.test_folder_dbx}/Folder (case conflict)")
 
     assert_synced(m)
 
@@ -666,8 +672,8 @@ def test_unicode_conflict(m):
 
     assert osp.isdir(m.test_folder_local + "/folder")
     assert osp.isdir(m.test_folder_local + "/Folder (case conflict)")
-    assert m.client.get_metadata("/sync_tests/folder")
-    assert m.client.get_metadata("/sync_tests/Folder (case conflict)")
+    assert m.client.get_metadata(f"{m.test_folder_dbx}/folder")
+    assert m.client.get_metadata(f"{m.test_folder_dbx}/Folder (case conflict)")
 
     assert_synced(m)
 
@@ -695,7 +701,7 @@ def test_case_change_local(m):
     assert osp.isdir(m.test_folder_local + "/FOLDER")
     assert osp.isdir(m.test_folder_local + "/FOLDER/Subfolder")
     assert (
-        m.client.get_metadata("/sync_tests/folder").name == "FOLDER"
+        m.client.get_metadata(f"{m.test_folder_dbx}/folder").name == "FOLDER"
     ), "casing was not propagated to Dropbox"
 
     assert_synced(m)
@@ -718,14 +724,16 @@ def test_case_change_remote(m):
     assert_synced(m)
 
     # rename remote folder
-    m.client.move("/sync_tests/folder", "/sync_tests/FOLDER", autorename=True)
+    m.client.move(
+        f"{m.test_folder_dbx}/folder", f"{m.test_folder_dbx}/FOLDER", autorename=True
+    )
 
     wait_for_idle(m)
 
     assert osp.isdir(m.test_folder_local + "/FOLDER")
     assert osp.isdir(m.test_folder_local + "/FOLDER/Subfolder")
     assert (
-        m.client.get_metadata("/sync_tests/folder").name == "FOLDER"
+        m.client.get_metadata(f"{m.test_folder_dbx}/folder").name == "FOLDER"
     ), "casing was not propagated to local folder"
     assert_synced(m)
 
@@ -750,7 +758,7 @@ def test_mignore(m):
     wait_for_idle(m)
 
     assert_synced(m)
-    assert_exists(m, "/sync_tests", "bar")
+    assert_exists(m, m.test_folder_dbx, "bar")
 
     # 2) test that items are removed after restart
 
@@ -761,22 +769,22 @@ def test_mignore(m):
     os.mkdir(m.test_folder_local + "/foo")
     wait_for_idle(m)
 
-    assert not m.client.get_metadata("/sync_tests/foo")
-    assert not m.client.get_metadata("/sync_tests/bar")
+    assert not m.client.get_metadata(f"{m.test_folder_dbx}/foo")
+    assert not m.client.get_metadata(f"{m.test_folder_dbx}/bar")
 
     # 3) test that renaming an item excludes it
 
     move(m.test_folder_local + "/folder", m.test_folder_local + "/build")
     wait_for_idle(m)
 
-    assert not m.client.get_metadata("/sync_tests/build")
+    assert not m.client.get_metadata(f"{m.test_folder_dbx}/build")
 
     # 4) test that renaming an item includes it
 
     move(m.test_folder_local + "/build", m.test_folder_local + "/folder")
     wait_for_idle(m)
 
-    assert_exists(m, "/sync_tests", "folder")
+    assert_exists(m, m.test_folder_dbx, "folder")
 
     clean_local(m)
     wait_for_idle(m)
@@ -792,7 +800,7 @@ def test_local_path_error(m):
     # we create such a local folder and assert that it triggers a sync issue
 
     test_path_local = m.test_folder_local + "/folder\\"
-    test_path_dbx = "/sync_tests/folder\\"
+    test_path_dbx = f"{m.test_folder_dbx}/folder\\"
 
     os.mkdir(test_path_local)
     wait_for_idle(m)
@@ -801,7 +809,7 @@ def test_local_path_error(m):
     assert m.sync_errors[-1]["local_path"] == test_path_local
     assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
     assert m.sync_errors[-1]["type"] == "PathError"
-    assert test_path_dbx in m.sync.upload_errors
+    assert normalize(test_path_dbx) in m.sync.upload_errors
 
     # remove folder with invalid name and assert that sync issue is cleared
 
@@ -809,7 +817,7 @@ def test_local_path_error(m):
     wait_for_idle(m)
 
     assert len(m.sync_errors) == 0
-    assert test_path_dbx not in m.sync.upload_errors
+    assert normalize(test_path_dbx) not in m.sync.upload_errors
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -819,7 +827,7 @@ def test_local_permission_error(m):
     """Tests error handling on local PermissionError."""
 
     test_path_local = m.test_folder_local + "/file"
-    test_path_dbx = "/sync_tests/file"
+    test_path_dbx = f"{m.test_folder_dbx}/file"
 
     m.stop_sync()
 
@@ -833,7 +841,7 @@ def test_local_permission_error(m):
     assert m.sync_errors[-1]["local_path"] == test_path_local
     assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
     assert m.sync_errors[-1]["type"] == "InsufficientPermissionsError"
-    assert test_path_dbx in m.sync.upload_errors
+    assert normalize(test_path_dbx) in m.sync.upload_errors
 
     # reset file permission
 
@@ -842,7 +850,7 @@ def test_local_permission_error(m):
     wait_for_idle(m)
 
     assert len(m.sync_errors) == 0
-    assert test_path_dbx not in m.sync.upload_errors
+    assert normalize(test_path_dbx) not in m.sync.upload_errors
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -856,7 +864,7 @@ def test_download_sync_issues(m):
     """
 
     test_path_local = m.test_folder_local + "/dmca.gif"
-    test_path_dbx = "/sync_tests/dmca.gif"
+    test_path_dbx = f"{m.test_folder_dbx}/dmca.gif"
 
     m.client.upload(resources + "/dmca.gif", test_path_dbx)
 
@@ -868,7 +876,7 @@ def test_download_sync_issues(m):
     assert m.sync_errors[-1]["local_path"] == test_path_local
     assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
     assert m.sync_errors[-1]["type"] == "RestrictedContentError"
-    assert test_path_dbx in m.sync.download_errors
+    assert normalize(test_path_dbx) in m.sync.download_errors
 
     # 2) Check that the sync is retried after pause / resume
 
@@ -881,7 +889,7 @@ def test_download_sync_issues(m):
     assert m.sync_errors[-1]["local_path"] == test_path_local
     assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
     assert m.sync_errors[-1]["type"] == "RestrictedContentError"
-    assert test_path_dbx in m.sync.download_errors
+    assert normalize(test_path_dbx) in m.sync.download_errors
 
     # 3) Check that the error is cleared when the file is deleted
 
@@ -889,7 +897,7 @@ def test_download_sync_issues(m):
     wait_for_idle(m)
 
     assert len(m.sync_errors) == 0
-    assert test_path_dbx not in m.sync.download_errors
+    assert normalize(test_path_dbx) not in m.sync.download_errors
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -901,18 +909,18 @@ def test_excluded_folder_cleared_on_deletion(m):
     corresponding item is deleted.
     """
 
-    dbx_path = "/sync_tests/selective_sync_test_folder"
-    local_path = m.to_local_path("/sync_tests/selective_sync_test_folder")
+    dbx_path = f"{m.test_folder_dbx}/selective_sync_test_folder"
+    local_path = m.to_local_path(f"{m.test_folder_dbx}/selective_sync_test_folder")
 
     # create folder structure
     os.mkdir(local_path)
     wait_for_idle(m)
 
-    # exclude "/sync_tests/selective_sync_test_folder" from sync
+    # exclude f"{m.test_folder_dbx}/selective_sync_test_folder" from sync
     m.exclude_item(dbx_path)
     wait_for_idle(m)
 
-    assert dbx_path in m.excluded_items
+    assert normalize(dbx_path) in m.excluded_items
     assert m.excluded_status(dbx_path) == "excluded"
     assert not osp.exists(local_path)
 
@@ -921,7 +929,7 @@ def test_excluded_folder_cleared_on_deletion(m):
     wait_for_idle(m)
 
     assert (
-        dbx_path not in m.excluded_items
+        normalize(dbx_path) not in m.excluded_items
     ), 'deleted item is still in "excluded_items" list'
 
     # check for fatal errors
@@ -935,7 +943,7 @@ def test_unix_permissions(m):
     modifications.
     """
 
-    dbx_path = "/sync_tests/file"
+    dbx_path = f"{m.test_folder_dbx}/file"
     local_path = m.to_local_path(dbx_path)
 
     m.client.upload(resources + "/file.txt", dbx_path)
@@ -979,8 +987,8 @@ def test_unicode_allowed(m, name):
 
     wait_for_idle(m)
     assert_synced(m)
-    assert_exists(m, "/sync_tests", name)
-    assert_child_count(m, "/sync_tests", 1)
+    assert_exists(m, m.test_folder_dbx, name)
+    assert_child_count(m, m.test_folder_dbx, 1)
 
 
 @pytest.mark.parametrize(
@@ -1011,7 +1019,7 @@ def test_unknown_path_encoding(m, capsys):
     """
 
     # create a path with Python surrogate escapes and convert it to bytes
-    test_path_dbx = "/sync_tests/my_folder_\udce4"
+    test_path_dbx = f"{m.test_folder_dbx}/my_folder_\udce4"
     test_path_local = m.sync.to_local_path(test_path_dbx)
     test_path_local_bytes = os.fsencode(test_path_local)
 
@@ -1029,7 +1037,7 @@ def test_unknown_path_encoding(m, capsys):
     assert m.sync_errors[-1]["local_path"] == sanitize_string(test_path_local)
     assert m.sync_errors[-1]["dbx_path"] == sanitize_string(test_path_dbx)
     assert m.sync_errors[-1]["type"] == "PathError"
-    assert test_path_dbx in m.sync.upload_errors
+    assert normalize(test_path_dbx) in m.sync.upload_errors
 
     # 2) Check that the sync is retried after pause / resume
 
@@ -1046,7 +1054,7 @@ def test_unknown_path_encoding(m, capsys):
     assert m.sync_errors[-1]["local_path"] == sanitize_string(test_path_local)
     assert m.sync_errors[-1]["dbx_path"] == sanitize_string(test_path_dbx)
     assert m.sync_errors[-1]["type"] == "PathError"
-    assert test_path_dbx in m.sync.upload_errors
+    assert normalize(test_path_dbx) in m.sync.upload_errors
 
     # 3) Check that the error is cleared when the file is deleted
 
@@ -1058,7 +1066,7 @@ def test_unknown_path_encoding(m, capsys):
 
     assert len(m.fatal_errors) == 0
     assert len(m.sync_errors) == 0
-    assert test_path_dbx not in m.sync.upload_errors
+    assert normalize(test_path_dbx) not in m.sync.upload_errors
 
 
 def test_sync_event_conversion_performance(m):
@@ -1071,7 +1079,7 @@ def test_sync_event_conversion_performance(m):
     wait_for_idle(m)
     m.stop_sync()
 
-    res = m.client.list_folder("/sync_tests", recursive=True)
+    res = m.client.list_folder(m.test_folder_dbx, recursive=True)
 
     def setup():
         m.sync.clear_index()

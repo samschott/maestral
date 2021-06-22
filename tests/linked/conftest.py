@@ -31,6 +31,9 @@ fsevents_logger = logging.getLogger("fsevents")
 fsevents_logger.setLevel(logging.DEBUG)
 
 
+SYNC_TEST_FOLDER = "/Sync Tests"
+
+
 @pytest.fixture
 def m():
     config_name = "test-config"
@@ -73,8 +76,8 @@ def m():
         raise TimeoutError("Could not acquire test lock")
 
     # create / clean our temporary test folder
-    m.test_folder_dbx = "/sync_tests"
-    m.test_folder_local = m.to_local_path(m.test_folder_dbx)
+    m.test_folder_dbx = SYNC_TEST_FOLDER
+    m.test_folder_local = m.to_local_path(SYNC_TEST_FOLDER)
 
     try:
         m.client.remove(m.test_folder_dbx)

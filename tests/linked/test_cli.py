@@ -10,6 +10,8 @@ from maestral.cli import main
 from maestral.constants import IDLE, PAUSED, ERROR
 from maestral.daemon import MaestralProxy
 
+from .conftest import SYNC_TEST_FOLDER
+
 
 if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.environ):
     pytest.skip("Requires auth token", allow_module_level=True)
@@ -74,7 +76,7 @@ def test_status(proxy):
 def test_filestatus(proxy):
     runner = CliRunner()
 
-    local_path = proxy.to_local_path("/sync_tests")
+    local_path = proxy.to_local_path(SYNC_TEST_FOLDER)
 
     result = runner.invoke(main, ["filestatus", local_path, "-c", proxy.config_name])
 
@@ -96,7 +98,7 @@ def test_history(proxy):
     wait_for_idle(proxy)
 
     # lets make history
-    dbx_path = "/sync_tests/new_file.txt"
+    dbx_path = f"{SYNC_TEST_FOLDER}/new_file.txt"
     local_path = proxy.to_local_path(dbx_path)
 
     with open(local_path, "a") as f:
