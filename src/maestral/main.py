@@ -1423,8 +1423,10 @@ class Maestral:
 
         if Version(updated_from) < Version("1.2.1"):
             self._update_from_pre_v1_2_1()
-        elif Version(updated_from) < Version("1.3.2"):
+        if Version(updated_from) < Version("1.3.2"):
             self._update_from_pre_v1_3_2()
+        if Version(updated_from) < Version("1.4.5"):
+            self._update_from_pre_v1_4_5()
 
         self.set_state("app", "updated_scripts_completed", __version__)
 
@@ -1436,6 +1438,10 @@ class Maestral:
         if self._conf.get("app", "keyring") == "keyring.backends.OS_X.Keyring":
             self._logger.info("Migrating keyring after update from pre v1.3.2")
             self._conf.set("app", "keyring", "keyring.backends.macOS.Keyring")
+
+    def _update_from_pre_v1_4_5(self) -> None:
+        # clear sync history table because we have added new columns
+        self.sync.clear_sync_history()
 
     # ==== period async jobs ===========================================================
 
