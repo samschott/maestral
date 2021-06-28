@@ -1,16 +1,25 @@
 ## v1.4.5
 
+#### Added:
+
+* Support CMD+Q keyboard shortcut to quit app on macOS.
+
 #### Changed:
 
-* Clarified the "merge local folder" option in the GUI setup dialog.
+* Clarified the "merge local folder" option in the GUI's setup dialog.
 
 #### Fixed:
 
-* Fixes an issue where erroneous file conflicts could occur when a file name contains
-  decomposed unicode characters such as "é" represented by a "e" + " ́" instead of single
+* Fixed an issue where erroneous file conflicts could occur when a file name contains
+  decomposed unicode characters such as "é" represented by "e" + "́" instead of a single
   character.
-* Fixes as issue where center-aligned text would appear right-aligned on Apple Silicon
+* Fixed an issue where center-aligned text would appear right-aligned on Apple Silicon
   computers.
+  
+#### Dependencies:
+
+* Bumped desktop-notifier to v3.3.0. This fixes a segfault for non-framework
+  distributions of Python such as Anaconda Python.
 
 ## v1.4.4
 
