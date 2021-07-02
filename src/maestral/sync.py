@@ -1345,8 +1345,8 @@ class SyncEngine:
         temporary files as well as caches used by Dropbox or Maestral. `is_excluded`
         accepts both local and Dropbox paths.
 
-        :param path: Can be either absolute or relative to the Dropbox folder. Does not
-            need to be normalized
+        :param path: Can be an absolute path, a path relative to the Dropbox folder or
+            just a file name. Does not need to be normalized.
         :returns: Whether the path is excluded from syncing.
         """
 
@@ -1360,7 +1360,9 @@ class SyncEngine:
             return True
 
         # in excluded dirs?
-        if dirname.split("/", 2)[1] in EXCLUDED_DIR_NAMES:
+        root_dir = next(iter(part for part in dirname.split("/", 2) if part), "")
+
+        if root_dir in EXCLUDED_DIR_NAMES:
             return True
 
         if "~" in basename:  # is temporary file?
