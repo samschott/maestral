@@ -3060,7 +3060,6 @@ class SyncEngine:
 
         :param event: Download SyncEvent.
         :returns: Conflict check result.
-        :raises MaestralApiError: For any issues when syncing the item.
         """
 
         local_rev = self.get_local_rev(event.dbx_path_lower)
