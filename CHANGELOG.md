@@ -1,3 +1,14 @@
+## v1.4.6.dev
+
+#### Changed:
+
+* Performance improvements to selective sync dialog in GUI.
+
+#### Fixed:
+
+* Fixed an `IndexError` during conflict resolution when the local item is a non-empty
+  folder.
+
 ## v1.4.5
 
 #### Added:
