@@ -64,7 +64,7 @@ setup(
     packages=find_packages("src"),
     package_dir={"": "src"},
     package_data={
-        "maestral": ["resources/*"],
+        "maestral": ["resources/*", "py.typed"],
     },
     setup_requires=["wheel"],
     install_requires=install_requires,
