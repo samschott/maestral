@@ -1,0 +1,51 @@
+<style>
+      :root {
+          font-size: 11px;
+      }
+      body {
+          padding: 0 0.5rem 0 0.5rem;
+          font-family: -apple-system;
+          line-height: 1.2rem;
+      }
+      h1 {
+          font-size: 1.3rem;
+      }
+      h2,h3,h4 {
+          font-size: 1.2rem;
+          margin-block-end: 1rem;
+      }
+      ul {
+          padding-left: 2rem;
+          margin-top: 0rem;
+          margin-bottom: 1.3rem;
+      }
+      li, p {
+          margin-left: 0;
+          margin-top: 0;
+          margin-bottom: 0.5rem;
+          font-size: 1.1rem;
+      }
+      .annotation {
+          font-size: 1.1rem;
+      }
+      @media (prefers-color-scheme: light) {
+          h1 {
+              color: #272727;
+          }
+          a {
+              color: #0948be;
+          }
+      }
+      @media (prefers-color-scheme: dark) {
+          body {
+              background-color: #1e1e1e;
+              color: #D9D9D9; /* For headers */
+          }
+          li, p {
+              color:#FFFFFF;
+          }
+          a {
+              color: #3586FF;
+          }
+      }
+  </style>
