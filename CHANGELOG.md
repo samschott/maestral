@@ -1,3 +1,16 @@
+## v1.4.8.dev
+
+#### Added:
+
+* Added automatic updates with Sparkle for the macOS app bundle.
+
+#### Changed:
+
+* Improved error messages when the system keyring cannot be accessed despite being
+  unlocked, for example because the executable (app bundle or Python) has an invalid
+  signature.
+* Improved error messages on startup for the macOS app bundle.
+
 ## v1.4.6
 
 #### Changed:
