@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"  xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Maestral Update Feed for Prereleases</title>
+    <link>https://maestral.app//appcast-pre.xml</link>
+    <description>Prereleases of Maestral</description>
+    <language>en</language>
+        <item>
+        <title>v1.4.6 available</title>
+        <pubDate>2021-07-03T12:07:07Z</pubDate>
+        <sparkle:version>1.4.6</sparkle:version>
+        <sparkle:shortVersionString>1.4.6</sparkle:shortVersionString>
+        <sparkle:minimumSystemVersion>10.14.0</sparkle:minimumSystemVersion>
+        <description><![CDATA[
+            <!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>v1.4.6</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="" />
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+  <style>
+        :root {
+            font-size: 11px;
+        }
+        body {
+            padding: 0 0.5rem 0 0.5rem;
+            font-family: -apple-system;
+            line-height: 1.2rem;
+        }
+        h1 {
+            font-size: 1.3rem;
+        }
+        h2,h3,h4 {
+            font-size: 1.2rem;
+            margin-block-end: 1rem;
+        }
+        ul {
+            padding-left: 2rem;
+            margin-top: 0rem;
+            margin-bottom: 1.3rem;
+        }
+        li, p {
+            margin-left: 0;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+        .annotation {
+            font-size: 1.1rem;
+        }
+        @media (prefers-color-scheme: light) {
+            h1 {
+                color: #272727;
+            }
+            a {
+                color: #0948be;
+            }
+        }
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1e1e1e;
+                color: #D9D9D9; /* For headers */
+            }
+            li, p {
+                color:#FFFFFF;
+            }
+            a {
+                color: #3586FF;
+            }
+        }
+    </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">v1.4.6</h1>
+</header>
+<h4 id="changed">Changed:</h4>
+<ul>
+<li>Performance improvements to selective sync dialog in GUI.</li>
+</ul>
+<h4 id="fixed">Fixed:</h4>
+<ul>
+<li>Fixed an <code>IndexError</code> during conflict resolution when the local item is a non-empty folder.</li>
+</ul>
+</body>
+</html>
+
+        ]]>
+        </description>
+        <enclosure
+            url="https://github.com/SamSchott/maestral/releases/download/v1.4.6/Maestral-1.4.6.dmg"
+            sparkle:edSignature="SLNFkRbLrPWh5pI0r60tbV+LY0ghxmhPKGgYqlD1jPh5RZRFAwAdl/0ob8moN7YRsc/bcEHb5Sgzhwc16wyABQ==" length="16990308"
+            type="application/octet-stream"
+        />
+    </item>
+  </channel>
+</rss>
