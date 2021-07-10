@@ -1,0 +1,32 @@
+name: Update Sparkle appcast
+
+on:
+  release:
+  workflow_dispatch:
+
+jobs:
+  generate_appcast:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout website
+        uses: actions/checkout@v2
+        with:
+          ref: website
+
+      - uses: actions/setup-python@v2
+
+      - name: Install requirements
+        run: |
+          brew install pandoc
+          python3 -m pip install requests
+
+      - name: Generate appcast
+        run: |
+          python3 _scripts/generate_appcast.py
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE }}
+
+      - name: Push back appcast updates
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Auto-commit appcast updates
