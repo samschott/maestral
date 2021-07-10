@@ -10,15 +10,15 @@ from typing import Optional
 from datetime import datetime
 
 # external imports
+import requests
 import keyring.backends  # type: ignore
 import keyring.backends.macOS  # type: ignore
 import keyring.backends.SecretService  # type: ignore
+import keyrings.alt.file  # type: ignore
 import keyring.backends.kwallet  # type: ignore
 from keyring.backend import KeyringBackend  # type: ignore
 from keyring.core import load_keyring  # type: ignore
-from keyring.errors import KeyringLocked, PasswordDeleteError, InitError  # type: ignore
-import keyrings.alt.file  # type: ignore
-import requests
+from keyring.errors import KeyringLocked, KeyringError, PasswordDeleteError, InitError  # type: ignore
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect  # type: ignore
 
 # local imports
@@ -323,6 +323,11 @@ class OAuth2Session:
             new_exc = KeyringAccessError(title, msg)
             self._logger.error(title, exc_info=exc_info_tuple(new_exc))
             raise new_exc
+        except KeyringError as e:
+            title = "Could not load auth token"
+            new_exc = KeyringAccessError(title, e.args[0])
+            self._logger.error(title, exc_info=exc_info_tuple(new_exc))
+            raise new_exc
 
     def get_auth_url(self) -> str:
         """
@@ -388,8 +393,8 @@ class OAuth2Session:
                     cli.warn(
                         "No supported keyring found, credentials stored in plain text"
                     )
-            except (KeyringLocked, InitError):
-                # switch to plain text keyring if user won't unlock
+            except KeyringError:
+                # switch to plain text keyring if we cannot access preferred backend
                 self.keyring = keyrings.alt.file.PlaintextKeyring()
                 self._conf.set("app", "keyring", "keyrings.alt.file.PlaintextKeyring")
                 self.save_creds()
@@ -416,6 +421,11 @@ class OAuth2Session:
             except PasswordDeleteError as exc:
                 # password does not exist in keyring
                 self._logger.info(exc.args[0])
+            except KeyringError as e:
+                title = "Could not delete auth token"
+                new_exc = KeyringAccessError(title, e.args[0])
+                self._logger.error(title, exc_info=exc_info_tuple(new_exc))
+                raise new_exc
 
             self._conf.set("account", "account_id", "")
             self._state.set("account", "token_access_type", "")
