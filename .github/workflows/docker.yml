@@ -2,8 +2,6 @@ name: Uploads Maestral Docker image and pushes to hub.docker.com
 
 on:
   push:
-    branches:
-      - '**'
     tags:
       - 'v*.*.*'
 
