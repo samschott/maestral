@@ -39,7 +39,6 @@ dev_requires = [
     "pre-commit",
     "pytest",
     "pytest-cov",
-    "pytest-rerunfailures",
     "types-pkg_resources",
     "types-requests",
 ]
