@@ -1240,12 +1240,11 @@ def config_files(clean: bool) -> None:
 
         for name in list_configs():
             conf = MaestralConfig(name)
-            path = conf.get_config_fpath()
             dbid = conf.get("account", "account_id")
 
             if dbid == "" and not is_running(name):
                 remove_configuration(name)
-                cli.echo(f"Removed: {path}")
+                cli.echo(f"Removed: {conf.config_path}")
 
     else:
         # Display config files.
@@ -1254,11 +1253,11 @@ def config_files(clean: bool) -> None:
         paths = []
 
         for name in names:
-            config = MaestralConfig(name)
+            conf = MaestralConfig(name)
             state = MaestralState(name)
 
             emails.append(state.get("account", "email"))
-            paths.append(config.get_config_fpath())
+            paths.append(conf.config_path)
 
         table = cli.Table(
             [
