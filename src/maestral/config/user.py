@@ -86,7 +86,8 @@ class DefaultsConfig(cp.ConfigParser):
 
 class UserConfig(DefaultsConfig):
     """
-    UserConfig class, based on ConfigParser.
+    UserConfig class, based on ConfigParser. This class is save to use from different
+    threads but must not be used from different processes!
 
     :param path: Configuration file will be saved to this path.
     :param defaults: Dictionary containing options.
@@ -133,7 +134,11 @@ class UserConfig(DefaultsConfig):
         if load:
             # If config file already exists, it overrides Default options.
             self._load_from_ini(self.config_path)
-            old_version = self.get_version(version)
+
+            try:
+                old_version = self.get_version()
+            except cp.NoOptionError:
+                old_version = version
 
             # Updating defaults only if major/minor version is different.
 
@@ -253,15 +258,14 @@ class UserConfig(DefaultsConfig):
 
     # --- Public API -------------------------------------------------------------------
 
-    def get_version(self, version: Version) -> Version:
+    def get_version(self) -> Version:
         """
         Get the current config version.
 
-        :param version: Fallback version if not present in config file.
         :returns: Configuration (not application!) version.
         """
         with self._lock:
-            version_str = self.get(UserConfig.DEFAULT_SECTION_NAME, "version", version)
+            version_str = self.get(UserConfig.DEFAULT_SECTION_NAME, "version")
             return Version(version_str)
 
     def set_version(self, version: Version, save: bool = True) -> None:
@@ -459,9 +463,10 @@ class UserConfig(DefaultsConfig):
                 pass
 
             # remove saved backups
-            for file in os.scandir(backup_path):
-                if file.name.startswith(self._filename):
-                    try:
-                        os.remove(file.path)
-                    except FileNotFoundError:
-                        pass
+            if osp.isdir(backup_path):
+                for file in os.scandir(backup_path):
+                    if file.name.startswith(self._filename):
+                        try:
+                            os.remove(file.path)
+                        except FileNotFoundError:
+                            pass
