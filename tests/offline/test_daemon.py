@@ -13,7 +13,6 @@ from Pyro5.api import Proxy
 from maestral.daemon import (
     CommunicationError,
     MaestralProxy,
-    start_maestral_daemon,
     start_maestral_daemon_process,
     stop_maestral_daemon_process,
     Start,
@@ -151,10 +150,6 @@ def test_lifecycle(config_name):
     # retry start daemon process
     res = start_maestral_daemon_process(config_name, timeout=20)
     assert res is Start.AlreadyRunning
-
-    # retry start daemon in-process
-    with pytest.raises(RuntimeError):
-        start_maestral_daemon(config_name)
 
     # stop daemon
     res = stop_maestral_daemon_process(config_name)
