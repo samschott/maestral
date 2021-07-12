@@ -444,92 +444,91 @@ def start_maestral_daemon(
 
     setup_logging(config_name, log_to_stderr)
     dlogger = scoped_logger(__name__, config_name)
+    sd_notifier = sdnotify.SystemdNotifier()
 
     dlogger.info("Starting daemon")
 
-    if threading.current_thread() is not threading.main_thread():
-        dlogger.error("Must run daemon in main thread")
-        raise RuntimeError("Must run daemon in main thread")
-
-    dlogger.debug("Environment:\n%s", pformat(os.environ.copy()))
-
-    # acquire PID lock file
-    lock = maestral_lock(config_name)
-
-    if lock.acquire():
-        dlogger.debug("Acquired daemon lock: %s", lock.path)
-    else:
-        dlogger.error("Could not acquire lock, daemon is already running")
-        raise RuntimeError("Daemon is already running")
-
-    # Nice ourselves to give other processes priority.
-    os.nice(10)
-
-    # Integrate with CFRunLoop in macOS.
-    if IS_MACOS:
-
-        dlogger.debug("Integrating with CFEventLoop")
-
-        from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
-
-        asyncio.set_event_loop_policy(EventLoopPolicy())
-
-    # Get the default event loop.
-    loop = asyncio.get_event_loop()
-
-    sd_notifier = sdnotify.SystemdNotifier()
-
-    # Notify systemd that we have started.
-    if NOTIFY_SOCKET:
-        dlogger.debug("Running as systemd notify service")
-        dlogger.debug("NOTIFY_SOCKET = %s", NOTIFY_SOCKET)
-        sd_notifier.notify("READY=1")
-
-    # Notify systemd periodically if alive.
-    if IS_WATCHDOG and WATCHDOG_USEC:
-
-        async def periodic_watchdog() -> None:
-
-            if WATCHDOG_USEC:
-
-                sleep = int(WATCHDOG_USEC)
-                while True:
-                    sd_notifier.notify("WATCHDOG=1")
-                    await asyncio.sleep(sleep / (2 * 10 ** 6))
-
-        dlogger.debug("Running as systemd watchdog service")
-        dlogger.debug("WATCHDOG_USEC = %s", WATCHDOG_USEC)
-        dlogger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
-        loop.create_task(periodic_watchdog())
-
-    # Get socket for config name.
-    sockpath = sockpath_for_config(config_name)
-    dlogger.debug(f"Socket path: '{sockpath}'")
-
-    # Clean up old socket.
     try:
-        os.remove(sockpath)
-    except FileNotFoundError:
-        pass
 
-    # Expose maestral as Pyro server. Convert management
-    # methods to one way calls so that they don't block.
+        if threading.current_thread() is not threading.main_thread():
+            dlogger.error("Must run daemon in main thread")
+            raise RuntimeError("Must run daemon in main thread")
 
-    dlogger.debug("Creating Pyro daemon")
+        dlogger.debug("Environment:\n%s", pformat(os.environ.copy()))
 
-    ExposedMaestral = expose(Maestral)
+        # acquire PID lock file
+        lock = maestral_lock(config_name)
 
-    ExposedMaestral.start_sync = oneway(ExposedMaestral.start_sync)
-    ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
-    ExposedMaestral.shutdown_daemon = oneway(ExposedMaestral.shutdown_daemon)
+        if lock.acquire():
+            dlogger.debug("Acquired daemon lock: %r", lock.path)
+        else:
+            dlogger.error("Could not acquire lock, daemon is already running")
+            return
 
-    maestral_daemon = ExposedMaestral(config_name, log_to_stderr=log_to_stderr)
+        # Nice ourselves to give other processes priority.
+        os.nice(10)
 
-    if start_sync:
-        dlogger.debug("Starting sync")
-        maestral_daemon.start_sync()
+        # Integrate with CFRunLoop in macOS.
+        if IS_MACOS:
 
-    try:
+            dlogger.debug("Integrating with CFEventLoop")
+
+            from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
+
+            asyncio.set_event_loop_policy(EventLoopPolicy())
+
+        # Get the default event loop.
+        loop = asyncio.get_event_loop()
+
+        # Notify systemd that we have started.
+        if NOTIFY_SOCKET:
+            dlogger.debug("Running as systemd notify service")
+            dlogger.debug("NOTIFY_SOCKET = %s", NOTIFY_SOCKET)
+            sd_notifier.notify("READY=1")
+
+        # Notify systemd periodically if alive.
+        if IS_WATCHDOG and WATCHDOG_USEC:
+
+            async def periodic_watchdog() -> None:
+
+                if WATCHDOG_USEC:
+
+                    sleep = int(WATCHDOG_USEC)
+                    while True:
+                        sd_notifier.notify("WATCHDOG=1")
+                        await asyncio.sleep(sleep / (2 * 10 ** 6))
+
+            dlogger.debug("Running as systemd watchdog service")
+            dlogger.debug("WATCHDOG_USEC = %s", WATCHDOG_USEC)
+            dlogger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
+            loop.create_task(periodic_watchdog())
+
+        # Get socket for config name.
+        sockpath = sockpath_for_config(config_name)
+        dlogger.debug("Socket path: %r", sockpath)
+
+        # Clean up old socket.
+        try:
+            os.remove(sockpath)
+        except FileNotFoundError:
+            pass
+
+        # Expose maestral as Pyro server. Convert management
+        # methods to one way calls so that they don't block.
+
+        dlogger.debug("Creating Pyro daemon")
+
+        ExposedMaestral = expose(Maestral)
+
+        ExposedMaestral.start_sync = oneway(ExposedMaestral.start_sync)
+        ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
+        ExposedMaestral.shutdown_daemon = oneway(ExposedMaestral.shutdown_daemon)
+
+        maestral_daemon = ExposedMaestral(config_name, log_to_stderr=log_to_stderr)
+
+        if start_sync:
+            dlogger.debug("Starting sync")
+            maestral_daemon.start_sync()
 
         dlogger.debug("Starting event loop")
 
