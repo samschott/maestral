@@ -150,35 +150,38 @@ for err_cls in (*SYNC_ERRORS, *GENERAL_ERRORS):
 # ==== interprocess locking ============================================================
 
 
-def _get_lockdata() -> Tuple[bytes, str, int]:
+def _flock_struct() -> Tuple[bytes, str, int]:
 
     try:
         os.O_LARGEFILE
     except AttributeError:
-        start_len = "ll"
+        start_len = "ll"  # off_t = long int
     else:
-        start_len = "qq"
+        start_len = "qq"  # off_t = long long
 
-    if sys.platform.startswith(("netbsd", "freebsd", "openbsd")) or IS_MACOS:
-        if struct.calcsize("l") == 8:
-            off_t = "l"
-            pid_t = "i"
-        else:
-            off_t = "lxxxx"
-            pid_t = "l"
+    if IS_MACOS:
+        # struct flock {
+        #     off_t       l_start;    /* long long */
+        #     off_t       l_len;      /* long long */
+        #     pid_t       l_pid;      /* int */
+        #     short       l_type;
+        #     short       l_whence;
+        # };
 
-        fmt = off_t + off_t + pid_t + "hh"
+        fmt = "qqihh"
         pid_index = 2
         lockdata = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0)
-    # elif sys.platform.startswith('gnukfreebsd'):
-    #     fmt = 'qqihhi'
-    #     pid_index = 2
-    #     lockdata = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0, 0)
-    # elif sys.platform in ('hp-uxB', 'unixware7'):
-    #     fmt = 'hhlllii'
-    #     pid_index = 2
-    #     lockdata = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0, 0)
     elif sys.platform.startswith("linux"):
+
+        # struct flock {
+        #     short       l_type;
+        #     short       l_whence;
+        #     off_t       l_start;   /* long int or long long */
+        #     off_t       l_len;     /* long int or long long */
+        #     pid_t       l_pid;     /* int */
+        #     __ARCH_FLOCK_PAD;      /* long int */
+        # };
+
         fmt = "hh" + start_len + "ih"
         pid_index = 4
         lockdata = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0)
@@ -298,7 +301,7 @@ class Lock:
             try:
                 # Don't close again in case we are the locking process.
                 self._external_lock._do_open()
-                lockdata, fmt, pid_index = _get_lockdata()
+                lockdata, fmt, pid_index = _flock_struct()
                 lockdata = fcntl.fcntl(
                     self._external_lock.lockfile, fcntl.F_GETLK, lockdata
                 )
