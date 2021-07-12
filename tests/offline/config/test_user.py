@@ -9,23 +9,62 @@ from maestral.config.main import DEFAULTS_CONFIG, CONF_VERSION
 from maestral.config.user import UserConfig
 
 
-def test_update(tmp_path):
+def test_config_creation(config):
 
-    config_path = tmp_path / "test-update-config.ini"
-    old_version = Version(CONF_VERSION)
+    # Check that all config values have been set correctly.
 
-    # Create an initial config on disk.
-    conf = UserConfig(
-        config_path,
-        defaults=DEFAULTS_CONFIG,
-        version=CONF_VERSION,
-        backup=True,
-        remove_obsolete=True,
-    )
+    for section_name, section in DEFAULTS_CONFIG.items():
+        for option, value in section.items():
+            assert config.get(section_name, option) == value
+
+    assert config.get_version() == CONF_VERSION
+
+
+def test_get_option(config):
+
+    # Test getting existing config values.
+    assert config.get("main", "path", "/test/path") == DEFAULTS_CONFIG["main"]["path"]
+
+    config.set("main", "excluded_items", ["a", "b", "c"])
+    assert config.get("main", "excluded_items") == ["a", "b", "c"]
+
+    # Check getting non-existing config options.
+    with pytest.raises(cp.NoOptionError):
+        config.get("main", "invalid_option")
+
+    with pytest.raises(cp.NoSectionError):
+        config.get("invalid_section", "invalid_option")
+
+    assert config.get("main", "invalid_option", "default") == "default"
+    assert config.get("invalid_section", "invalid_option", "default") == "default"
+
+
+def test_set_option(config):
+
+    # Test setting valid config values of different types.
+    config.set("main", "path", "/test/path")
+    config.set("main", "excluded_items", ["a", "b", "c"])
+    config.set("new_section", "new_option", {"a", "b", "c"})
+
+    assert config.get("main", "path") == "/test/path"
+    assert config.get("main", "excluded_items") == ["a", "b", "c"]
+    assert config.get("new_section", "new_option") == {"a", "b", "c"}
+
+    # Check setting invalid config values.
+    with pytest.raises(ValueError):
+        config.set("main", "path", 1234)
+
+    with pytest.raises(ValueError):
+        config.set("main", "excluded_items", "path")
+
+
+def test_update(config):
+
+    old_version = CONF_VERSION
 
     # Modify some values.
-    conf.set("account", "account_id", "my id")
-    conf.set("main", "path", "/path/to/folder")
+    config.set("account", "account_id", "my id")
+    config.set("main", "path", "/path/to/folder")
 
     # Remove a default config option.
     del DEFAULTS_CONFIG["main"]["path"]
@@ -43,9 +82,9 @@ def test_update(tmp_path):
     for i in range(2):
 
         conf = UserConfig(
-            config_path,
+            str(config.config_path),
             defaults=DEFAULTS_CONFIG,
-            version=new_version,
+            version=Version(new_version),
             backup=True,
             remove_obsolete=True,
         )

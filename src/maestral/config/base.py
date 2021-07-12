@@ -6,8 +6,8 @@ the config module.
 """
 
 # system imports
-import platform
 import os
+import platform
 import os.path as osp
 from typing import Optional
 
