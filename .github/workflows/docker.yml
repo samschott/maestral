@@ -5,9 +5,6 @@ on:
     tags:
       - 'v*.*.*'
 
-  schedule:
-    - cron: "19 4 * * *" # everyday at 04:19
-
 jobs:
   docker-build:
     runs-on: ubuntu-latest
