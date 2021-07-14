@@ -160,7 +160,7 @@ class SdNotificationHandler(logging.Handler):
 
         :param record: Log record.
         """
-        self.notifier.notify(f"STATUS={record.message}")
+        self.notifier.notify(f"STATUS={record.getMessage()}")
 
 
 def scoped_logger_name(module_name: str, config_name: str = "maestral") -> str:
