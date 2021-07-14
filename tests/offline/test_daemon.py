@@ -75,6 +75,7 @@ def test_locking_threaded(tmp_path):
         daemon=True,
     )
     t.start()
+    t.join()
 
     # check that lock is acquired
     assert lock.locked()
