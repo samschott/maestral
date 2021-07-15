@@ -56,16 +56,17 @@ class EncodingSafeLogRecord(logging.LogRecord):
     a :class:`UnicodeEncodeError` under many circumstances (printing to stdout, etc).
     """
 
-    _msg: Optional[str] = None
+    _safe_msg: Optional[str] = None
 
     def getMessage(self) -> str:
         """
         Formats the log message and replaces all surrogate escapes with "�".
         """
-        if not self._msg:
-            self._msg = sanitize_string(super().getMessage())
+        if not self._safe_msg:
+            msg = super().getMessage()
+            self._safe_msg = sanitize_string(msg)
 
-        return self._msg
+        return self._safe_msg
 
 
 logging.setLogRecordFactory(EncodingSafeLogRecord)
