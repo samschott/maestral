@@ -611,7 +611,7 @@ def start_maestral_daemon_process(
         start_new_session=True,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
         env=subprocess_env,
     )
 
@@ -632,6 +632,10 @@ def start_maestral_daemon_process(
             process.terminate()
         else:
             clogger.error("Daemon stopped with return code %s", returncode)
+
+        stderr = process.stderr.read()  # type: ignore
+        clogger.error("Stderr from daemon process:\n%s", stderr.decode())
+
         return Start.Failed
     else:
         return Start.Ok
