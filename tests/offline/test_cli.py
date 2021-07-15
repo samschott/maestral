@@ -225,6 +225,10 @@ def test_log_clear(m):
     assert result.exit_code == 0, result.output
     assert "Hello from pytest!" in result.output
 
+    # Stop connection helper to prevent spurious log messages.
+    m.manager._connection_helper_running = False
+    m.manager.connection_helper.join()
+
     # clear the logs
     result = runner.invoke(main, ["log", "clear", "-c", m.config_name])
     assert result.exit_code == 0, result.output
