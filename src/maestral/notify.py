@@ -7,6 +7,7 @@ backend for cross-platform desktop notifications.
 
 # system imports
 import time
+import asyncio
 from typing import Optional, Dict, Callable
 
 # external imports
@@ -89,7 +90,8 @@ def level_name_to_number(name: str) -> int:
 class MaestralDesktopNotifier:
     """Desktop notification emitter for Maestral
 
-    Desktop notifier with snooze functionality and variable notification levels.
+    Desktop notifier with snooze functionality and variable notification levels. Must
+    be instantiated in the main thread.
 
     :param config_name: Config name. This is used to access notification settings for
         the daemon.
@@ -98,6 +100,7 @@ class MaestralDesktopNotifier:
     def __init__(self, config_name: str) -> None:
         self._conf = MaestralConfig(config_name)
         self._snooze = 0.0
+        self._loop = asyncio.get_event_loop()
 
     @property
     def notify_level(self) -> int:
@@ -129,7 +132,8 @@ class MaestralDesktopNotifier:
         actions: Optional[Dict[str, Callable]] = None,
     ) -> None:
         """
-        Sends a desktop notification.
+        Sends a desktop notification. This will schedule a notification task in the
+        asyncio loop of the thread where :class:`DesktopNotifier` was instantiated.
 
         :param title: Notification title.
         :param message: Notification message.
@@ -151,10 +155,12 @@ class MaestralDesktopNotifier:
             else:
                 buttons = []
 
-            _desktop_notifier.send_sync(
+            coro = _desktop_notifier.send(
                 title=title,
                 message=message,
                 urgency=urgency,
                 on_clicked=on_click,
                 buttons=buttons,
             )
+
+            asyncio.run_coroutine_threadsafe(coro, self._loop)
