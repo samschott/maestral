@@ -10,7 +10,6 @@ import os
 import time
 import signal
 import enum
-import subprocess
 import threading
 import fcntl
 import struct
@@ -601,19 +600,10 @@ def start_maestral_daemon_process(
         f'maestral.daemon.start_maestral_daemon("{cc}", start_sync={start_sync})'
     )
 
-    cmd = [sys.executable, "-c", script]
+    env = os.environ.copy()
+    env.update(ENV)
 
-    subprocess_env = os.environ.copy()
-    subprocess_env.update(ENV)
-
-    process = subprocess.Popen(
-        cmd,
-        start_new_session=True,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        env=subprocess_env,
-    )
+    pid = os.spawnve(os.P_NOWAIT, sys.executable, [sys.executable, "-c", script], env)
 
     try:
         wait_for_startup(config_name, timeout)
@@ -625,16 +615,14 @@ def start_maestral_daemon_process(
 
         clogger.error("Could not communicate with daemon", exc_info=exc_info_tuple(exc))
 
-        # Let's check what the daemon has been doing.
-        returncode = process.poll()
-        if returncode is None:
+        # Let's check if the daemon is running
+        try:
+            os.kill(pid, 0)
             clogger.error("Daemon is running but not responsive, killing now")
-            process.terminate()
+        except OSError:
+            clogger.error("Daemon quit unexpectedly")
         else:
-            clogger.error("Daemon stopped with return code %s", returncode)
-
-        stderr = process.stderr.read()  # type: ignore
-        clogger.error("Stderr from daemon process:\n%s", stderr.decode())
+            os.kill(pid, signal.SIGTERM)
 
         return Start.Failed
     else:
