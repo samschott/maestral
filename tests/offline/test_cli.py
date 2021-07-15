@@ -10,6 +10,8 @@ from maestral.notify import level_number_to_name, level_name_to_number
 from maestral.daemon import MaestralProxy, start_maestral_daemon_process, Start
 from maestral.logging import scoped_logger
 
+from .conftest import print_logs
+
 
 def test_help():
     runner = CliRunner()
@@ -33,6 +35,10 @@ def test_invalid_config(m):
 def test_start(config_name):
 
     res = start_maestral_daemon_process(config_name, timeout=20)
+
+    if res is not Start.Ok:
+        print_logs(config_name)
+
     assert res is Start.Ok
 
     runner = CliRunner()

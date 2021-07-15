@@ -22,6 +22,8 @@ from maestral.daemon import (
 from maestral.main import Maestral
 from maestral.errors import NotLinkedError
 
+from .conftest import print_logs
+
 
 # locking tests
 
@@ -143,21 +145,28 @@ def test_locking_multiprocess():
 
 def test_lifecycle(config_name):
 
-    # start daemon process
-    res = start_maestral_daemon_process(config_name, timeout=20)
-    assert res is Start.Ok
+    # this may be flaky under some conditions, run multiple times
+    for _ in range(50):
 
-    # retry start daemon process
-    res = start_maestral_daemon_process(config_name, timeout=20)
-    assert res is Start.AlreadyRunning
+        # start daemon process
+        res = start_maestral_daemon_process(config_name, timeout=20)
 
-    # stop daemon
-    res = stop_maestral_daemon_process(config_name)
-    assert res is Stop.Ok
+        if res is not Start.Ok:
+            print_logs(config_name)
 
-    # retry stop daemon
-    res = stop_maestral_daemon_process(config_name)
-    assert res is Stop.NotRunning
+        assert res is Start.Ok
+
+        # retry start daemon process
+        res = start_maestral_daemon_process(config_name, timeout=20)
+        assert res is Start.AlreadyRunning
+
+        # stop daemon
+        res = stop_maestral_daemon_process(config_name)
+        assert res is Stop.Ok
+
+        # retry stop daemon
+        res = stop_maestral_daemon_process(config_name)
+        assert res is Stop.NotRunning
 
 
 # proxy tests
