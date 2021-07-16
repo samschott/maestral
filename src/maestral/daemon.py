@@ -19,7 +19,7 @@ import ast
 import re
 from pprint import pformat
 from shlex import quote
-from typing import Optional, Any, Union, Tuple, Dict, Iterable, Type, TYPE_CHECKING
+from typing import Optional, Any, Union, Dict, Iterable, Type, TYPE_CHECKING
 from types import TracebackType
 
 # external imports
@@ -149,47 +149,6 @@ for err_cls in (*SYNC_ERRORS, *GENERAL_ERRORS):
 # ==== interprocess locking ============================================================
 
 
-def _flock_struct() -> Tuple[bytes, str, int]:
-
-    try:
-        os.O_LARGEFILE
-    except AttributeError:
-        start_len = "ll"  # off_t = long int
-    else:
-        start_len = "qq"  # off_t = long long
-
-    if IS_MACOS:
-        # struct flock {
-        #     off_t       l_start;    /* long long */
-        #     off_t       l_len;      /* long long */
-        #     pid_t       l_pid;      /* int */
-        #     short       l_type;
-        #     short       l_whence;
-        # };
-
-        fmt = "qqihh"
-        pid_index = 2
-        lockdata = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0)
-    elif sys.platform.startswith("linux"):
-
-        # struct flock {
-        #     short       l_type;
-        #     short       l_whence;
-        #     off_t       l_start;   /* long int or long long */
-        #     off_t       l_len;     /* long int or long long */
-        #     pid_t       l_pid;     /* int */
-        #     __ARCH_FLOCK_PAD;      /* long int */
-        # };
-
-        fmt = "hh" + start_len + "ih"
-        pid_index = 4
-        lockdata = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0)
-    else:
-        raise RuntimeError(f"Unsupported platform {sys.platform}")
-
-    return lockdata, fmt, pid_index
-
-
 class Lock:
     """A inter-process and inter-thread lock
 
@@ -213,23 +172,18 @@ class Lock:
         """
 
         with cls._singleton_lock:
-            try:
-                instance = cls._instances[path]
-            except KeyError:
-                instance = cls(path)
-                cls._instances[path] = instance
+            path = os.path.abspath(path)
 
-            return instance
+            if path not in cls._instances:
+                cls._instances[path] = cls(path)
+
+            return cls._instances[path]
 
     def __init__(self, path: str) -> None:
-
         self.path = path
-
-        self._internal_lock = threading.Semaphore()
+        self.pid = os.getpid()
         self._external_lock = InterProcessLock(self.path)
-
         self._lock = threading.RLock()
-        self._acquired = False  # tracks if we acquired the lock
 
     def acquire(self) -> bool:
         """
@@ -239,37 +193,21 @@ class Lock:
         """
 
         with self._lock:
-            locked_internal = self._internal_lock.acquire(blocking=False)
-
-            if not locked_internal:
+            if self._external_lock.acquired:
                 return False
 
-            try:
-                locked_external = self._external_lock.acquire(blocking=False)
-            except Exception:
-                self._internal_lock.release()
-                raise
-            else:
-
-                if locked_external:
-                    self._acquired = True
-                    return True
-                else:
-                    self._internal_lock.release()
-                    return False
+            return self._external_lock.acquire(blocking=False)
 
     def release(self) -> None:
         """Release the previously acquired lock."""
         with self._lock:
 
-            if not self._acquired:
+            if not self._external_lock.acquired:
                 raise RuntimeError(
                     "Cannot release a lock, it was acquired by a different process"
                 )
 
             self._external_lock.release()
-            self._internal_lock.release()
-            self._acquired = False
 
     def locked(self) -> bool:
         """
@@ -293,26 +231,29 @@ class Lock:
         """
 
         with self._lock:
-
-            if self._acquired:
-                return os.getpid()
+            if self._external_lock.acquired:
+                return self.pid
 
             try:
-                # Don't close again in case we are the locking process.
-                self._external_lock._do_open()
-                lockdata, fmt, pid_index = _flock_struct()
-                lockdata = fcntl.fcntl(
-                    self._external_lock.lockfile, fcntl.F_GETLK, lockdata
-                )
-
-                lockdata_list = struct.unpack(fmt, lockdata)
-                pid = lockdata_list[pid_index]
-
-                if pid > 0:
-                    return pid
-
+                fh = open(self._external_lock.path, "a")
             except OSError:
-                pass
+                return None
+
+            if IS_MACOS:
+                fmt = "qqihh"
+                pid_index = 2
+                flock = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0)
+            else:
+                fmt = "hhqqih"
+                pid_index = 4
+                flock = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0)
+
+            lockdata = fcntl.fcntl(fh.fileno(), fcntl.F_GETLK, flock)
+            lockdata_list = struct.unpack(fmt, lockdata)
+            pid = lockdata_list[pid_index]
+
+            if pid > 0:
+                return pid
 
             return None
 

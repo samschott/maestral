@@ -28,11 +28,11 @@ from .conftest import print_logs
 # locking tests
 
 
-def test_locking_from_same_thread():
-    lock_name = "test-lock-" + str(uuid.uuid4())
+def test_locking_from_same_thread(tmp_path):
+    path = f"{tmp_path}/test-lock-{uuid.uuid4()}"
 
     # initialise lock
-    lock = Lock.singleton(lock_name)
+    lock = Lock.singleton(path)
     assert not lock.locked()
 
     # acquire lock
@@ -57,17 +57,17 @@ def test_locking_from_same_thread():
         lock.release()
 
 
-def test_locking_threaded():
-    lock_name = "test-lock-" + str(uuid.uuid4())
+def test_locking_threaded(tmp_path):
+    path = f"{tmp_path}/test-lock-{uuid.uuid4()}"
 
     # initialise lock
-    lock = Lock.singleton(lock_name)
+    lock = Lock.singleton(path)
     assert not lock.locked()
 
     # acquire lock from thread
 
     def acquire_in_thread():
-        lock_thread = Lock.singleton(lock_name)
+        lock_thread = Lock.singleton(path)
         lock_thread.acquire()
 
     t = threading.Thread(
@@ -75,6 +75,7 @@ def test_locking_threaded():
         daemon=True,
     )
     t.start()
+    t.join()
 
     # check that lock is acquired
     assert lock.locked()
@@ -96,11 +97,11 @@ def test_locking_threaded():
         lock.release()
 
 
-def test_locking_multiprocess():
-    lock_name = "test-lock-" + str(uuid.uuid4())
+def test_locking_multiprocess(tmp_path):
+    path = f"{tmp_path}/test-lock-{uuid.uuid4()}"
 
     # initialise lock
-    lock = Lock.singleton(lock_name)
+    lock = Lock.singleton(path)
     assert not lock.locked()
 
     # try to release lock, will fail because it is not acquired
@@ -111,7 +112,7 @@ def test_locking_multiprocess():
 
     cmd = (
         "import time; from maestral.daemon import Lock; "
-        f"l = Lock.singleton({lock_name!r}); l.acquire(); "
+        f"l = Lock.singleton({path!r}); l.acquire(); "
         "time.sleep(60);"
     )
 
