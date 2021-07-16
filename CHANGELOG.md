@@ -11,6 +11,11 @@
   signature.
 * Improved error messages on startup for the macOS app bundle.
 
+#### Fixed:
+
+* Fixed a crash on startup when the log level is set to WARNING.
+* Fixed an issue which could result in an unresponsive daemon during startup on macOS.
+
 ## v1.4.6
 
 #### Changed:
