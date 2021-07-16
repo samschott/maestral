@@ -390,13 +390,15 @@ def start_maestral_daemon(
 
     try:
 
+        # ==== Process and thread management ===========================================
+
         if threading.current_thread() is not threading.main_thread():
             dlogger.error("Must run daemon in main thread")
             raise RuntimeError("Must run daemon in main thread")
 
         dlogger.debug("Environment:\n%s", pformat(os.environ.copy()))
 
-        # acquire PID lock file
+        # Acquire PID lock file.
         lock = maestral_lock(config_name)
 
         if lock.acquire():
@@ -407,6 +409,8 @@ def start_maestral_daemon(
 
         # Nice ourselves to give other processes priority.
         os.nice(10)
+
+        # ==== System integration ======================================================
 
         # Integrate with CFRunLoop in macOS.
         if IS_MACOS:
@@ -443,6 +447,8 @@ def start_maestral_daemon(
             dlogger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
             loop.create_task(periodic_watchdog())
 
+        # ==== Pyro5 server setup ======================================================
+
         # Get socket for config name.
         sockpath = sockpath_for_config(config_name)
         dlogger.debug("Socket path: %r", sockpath)
@@ -462,6 +468,8 @@ def start_maestral_daemon(
 
         ExposedMaestral.start_sync = oneway(ExposedMaestral.start_sync)
         ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
+
+        # ==== Run Maestral and respond to signals + requests ==========================
 
         maestral_daemon = ExposedMaestral(config_name, log_to_stderr=log_to_stderr)
 
