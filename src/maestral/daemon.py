@@ -386,8 +386,6 @@ def start_maestral_daemon(
     dlogger = scoped_logger(__name__, config_name)
     sd_notifier = sdnotify.SystemdNotifier()
 
-    loop: Optional[asyncio.AbstractEventLoop] = None
-
     dlogger.info("Starting daemon")
 
     try:
@@ -489,7 +487,10 @@ def start_maestral_daemon(
             for s in signals:
                 loop.add_signal_handler(s, maestral_daemon.shutdown_daemon)
 
-            loop.run_until_complete(maestral_daemon.shutdown_complete)
+            async def main():
+                await maestral_daemon.shutdown_complete
+
+            asyncio.run(main())
 
             for socket in daemon.sockets:
                 loop.remove_reader(socket.fileno())
@@ -500,8 +501,6 @@ def start_maestral_daemon(
     except Exception as exc:
         dlogger.error(exc.args[0], exc_info=True)
     finally:
-        if loop:
-            loop.close()
 
         if NOTIFY_SOCKET:
             # Notify systemd that we are shutting down.
