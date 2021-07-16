@@ -386,6 +386,8 @@ def start_maestral_daemon(
     dlogger = scoped_logger(__name__, config_name)
     sd_notifier = sdnotify.SystemdNotifier()
 
+    loop: Optional[asyncio.AbstractEventLoop] = None
+
     dlogger.info("Starting daemon")
 
     try:
@@ -499,6 +501,8 @@ def start_maestral_daemon(
     except Exception as exc:
         dlogger.error(exc.args[0], exc_info=True)
     finally:
+        if loop:
+            loop.close()
 
         if NOTIFY_SOCKET:
             # Notify systemd that we are shutting down.
