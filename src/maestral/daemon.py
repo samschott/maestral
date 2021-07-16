@@ -261,9 +261,9 @@ class Lock:
 # ==== helpers for daemon management ===================================================
 
 
-def _send_term(pid: int) -> None:
+def _send_signal(pid: int, sig: int) -> None:
     try:
-        os.kill(pid, signal.SIGTERM)
+        os.kill(pid, sig)
     except ProcessLookupError:
         pass
 
@@ -464,7 +464,6 @@ def start_maestral_daemon(
 
         ExposedMaestral.start_sync = oneway(ExposedMaestral.start_sync)
         ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
-        ExposedMaestral.shutdown_daemon = oneway(ExposedMaestral.shutdown_daemon)
 
         maestral_daemon = ExposedMaestral(config_name, log_to_stderr=log_to_stderr)
 
@@ -595,33 +594,22 @@ def stop_maestral_daemon_process(
 
     pid = get_maestral_pid(config_name)
 
-    try:
-        with MaestralProxy(config_name) as m:
-            m.shutdown_daemon()
-    except CommunicationError:
-        if pid:
-            _send_term(pid)
-    finally:
-        while timeout > 0:
-            if not is_running(config_name):
-                return Stop.Ok
-            else:
-                time.sleep(0.2)
-                timeout -= 0.2
+    if not pid:
+        # Cannot send SIGTERM to process if we don't know its pid.
+        return Stop.Failed
 
-        # Send SIGTERM after timeout and delete PID file.
-        if pid:
-            _send_term(pid)
+    _send_signal(pid, signal.SIGTERM)
 
-        time.sleep(1)
-
+    while timeout > 0:
         if not is_running(config_name):
             return Stop.Ok
-        elif pid:
-            os.kill(pid, signal.SIGKILL)
-            return Stop.Killed
         else:
-            return Stop.Failed
+            time.sleep(0.2)
+            timeout -= 0.2
+
+    # Kill.
+    _send_signal(pid, signal.SIGKILL)
+    return Stop.Killed
 
 
 class MaestralProxy:
