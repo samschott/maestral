@@ -9,9 +9,9 @@ from typing import Dict
 
 from packaging.version import Version
 
-from .base import get_conf_path, get_data_path
 from .user import UserConfig, DefaultsType
 from .. import __version__
+from ..utils.appdirs import get_conf_path, get_data_path
 
 
 CONFIG_DIR_NAME = "maestral"

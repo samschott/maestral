@@ -3,15 +3,13 @@
 import os
 from typing import List, TypeVar
 
-from .base import get_conf_path, get_data_path
 from .main import MaestralConfig, MaestralState
+from ..utils.appdirs import get_conf_path, get_data_path
 
 
 __all__ = [
     "MaestralConfig",
     "MaestralState",
-    "get_conf_path",
-    "get_data_path",
     "list_configs",
     "remove_configuration",
     "validate_config_name",
