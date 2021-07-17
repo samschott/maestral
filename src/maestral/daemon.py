@@ -25,7 +25,7 @@ from types import TracebackType
 # external imports
 import Pyro5  # type: ignore
 from Pyro5.errors import CommunicationError  # type: ignore
-from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class  # type: ignore
+from Pyro5.api import Daemon, Proxy, expose, register_dict_to_class  # type: ignore
 import sdnotify  # type: ignore
 from fasteners import InterProcessLock  # type: ignore
 
@@ -447,7 +447,7 @@ def start_maestral_daemon(
             dlogger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
             loop.create_task(periodic_watchdog())
 
-        # ==== Pyro5 server setup ======================================================
+        # ==== Run Maestral as Pyro server =============================================
 
         # Get socket for config name.
         sockpath = sockpath_for_config(config_name)
@@ -464,14 +464,7 @@ def start_maestral_daemon(
 
         dlogger.debug("Creating Pyro daemon")
 
-        ExposedMaestral = expose(Maestral)
-
-        ExposedMaestral.start_sync = oneway(ExposedMaestral.start_sync)
-        ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
-
-        # ==== Run Maestral and respond to signals + requests ==========================
-
-        maestral_daemon = ExposedMaestral(config_name, log_to_stderr=log_to_stderr)
+        maestral_daemon = expose(Maestral)(config_name, log_to_stderr=log_to_stderr)
 
         if start_sync:
             dlogger.debug("Starting sync")
