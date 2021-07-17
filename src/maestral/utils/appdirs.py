@@ -135,7 +135,7 @@ def get_cache_path(
     """
     Returns the default cache path for the platform. This will be:
 
-        - macOS: "~/Library/Application Support/SUBFOLDER/FILENAME"
+        - macOS: "~/Library/Caches/SUBFOLDER/FILENAME"
         - Linux: "$XDG_CACHE_HOME/SUBFOLDER/FILENAME"
         - fallback: "$HOME/.cache/SUBFOLDER/FILENAME"
 
@@ -144,7 +144,7 @@ def get_cache_path(
     :param create: If ``True``, the folder ``subfolder`` will be created on-demand.
     """
     if platform.system() == "Darwin":
-        cache_path = get_conf_path(create=False)
+        cache_path = osp.join(home_dir, "Library", "Caches")
     elif platform.system() == "Linux":
         fallback = osp.join(home_dir, ".cache")
         cache_path = os.environ.get("XDG_CACHE_HOME", fallback)
