@@ -22,20 +22,18 @@ CONFIG_DIR_NAME = "maestral"
 # =============================================================================
 
 DEFAULTS_CONFIG: DefaultsType = {
-    "main": {
-        "path": "",  # dropbox folder location
-        "excluded_items": [],  # files and folders excluded from sync
-    },
-    "account": {
+    "auth": {
         "account_id": "",  # dropbox account id, must match the saved account key
+        "keyring": "automatic",  # keychain backend to use for credential storage
     },
     "app": {
         "notification_level": 15,  # desktop notification level, default: FILECHANGE
         "log_level": 20,  # log level for journal and file, default: INFO
         "update_notification_interval": 60 * 60 * 24 * 7,  # default: weekly
-        "keyring": "automatic",  # keychain backend to use for credential storage
     },
     "sync": {
+        "path": "",  # dropbox folder location
+        "excluded_items": [],  # files and folders excluded from sync
         "reindex_interval": 60 * 60 * 24 * 14,  # default: every fortnight
         "max_cpu_percent": 20.0,  # max usage target per cpu core, default: 20%
         "keep_history": 60 * 60 * 24 * 7,  # default: one week
@@ -52,6 +50,8 @@ DEFAULTS_STATE: DefaultsType = {
         "type": "",
         "usage": "",
         "usage_type": "",  # private vs business
+    },
+    "auth": {
         "token_access_type": "",  # will be updated on completed OAuth
     },
     "app": {  # app state
@@ -112,7 +112,6 @@ def _get_conf(
                 defaults=defaults,
                 version=CONF_VERSION,
                 backup=True,
-                remove_obsolete=True,
             )
         except OSError:
             conf = UserConfig(
@@ -120,7 +119,6 @@ def _get_conf(
                 defaults=defaults,
                 version=CONF_VERSION,
                 backup=True,
-                remove_obsolete=True,
                 load=False,
             )
 

@@ -151,7 +151,7 @@ class UserConfig(DefaultsConfig):
 
                 # Remove deprecated options if major version has changed.
                 if remove_obsolete and version.major > old_version.major:
-                    self._remove_deprecated_options()
+                    self.remove_deprecated_options()
 
                 # Set new version number.
                 self.set_version(version, save=False)
@@ -214,7 +214,7 @@ class UserConfig(DefaultsConfig):
             except cp.MissingSectionHeaderError:
                 logger.error("File contains no section headers.")
 
-    def _remove_deprecated_options(self) -> None:
+    def remove_deprecated_options(self) -> None:
         """
         Remove options which are present in the file but not in defaults.
         """

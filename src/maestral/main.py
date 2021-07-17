@@ -66,8 +66,9 @@ from .utils.serializer import (
     StoneType,
     ErrorType,
 )
-from .utils.appdirs import get_cache_path
+from .utils.appdirs import get_cache_path, get_data_path
 from .utils.integration import get_ac_state, ACState
+from .utils.orm import Database
 from .constants import IDLE, PAUSED, CONNECTING, FileStatus, GITHUB_RELEASES_API
 
 
@@ -122,19 +123,20 @@ class Maestral:
         self._conf = MaestralConfig(self._config_name)
         self._state = MaestralState(self._config_name)
 
-        # set up logging
+        # Set up logging.
         self._logger = scoped_logger(__name__, config_name)
         self._log_to_stderr = log_to_stderr
         self._setup_logging()
 
-        # set up sync infrastructure
+        # Run update scripts after init of loggers and config / state.
+        self._check_and_run_post_update_scripts()
+
+        # Set up sync infrastructure.
         self.client = DropboxClient(config_name=self.config_name)
         self.manager = SyncManager(self.client)
         self.sync = self.manager.sync
 
-        self._check_and_run_post_update_scripts()
-
-        # schedule background tasks
+        # Schedule background tasks.
         self._loop = asyncio.get_event_loop()
         self._tasks: Set[asyncio.Task] = set()
         self._pool = ThreadPoolExecutor(
@@ -146,8 +148,8 @@ class Maestral:
         self._schedule_task(self._period_update_check())
         self._schedule_task(self._period_reindexing())
 
-        # create a future which will return once `shutdown_daemon` is called
-        # can be used by an event loop wait until maestral has been stopped
+        # Create a future which will return once `shutdown_daemon` is called.
+        # This can be used by an event loop wait until maestral has been stopped.
         self.shutdown_complete = self._loop.create_future()
 
     @property
@@ -1419,7 +1421,7 @@ class Maestral:
         Runs post-update scripts if necessary.
         """
 
-        updated_from = self.get_state("app", "updated_scripts_completed")
+        updated_from = self._state.get("app", "updated_scripts_completed")
 
         if Version(updated_from) < Version("1.2.1"):
             self._update_from_pre_v1_2_1()
@@ -1427,8 +1429,13 @@ class Maestral:
             self._update_from_pre_v1_3_2()
         if Version(updated_from) < Version("1.4.5"):
             self._update_from_pre_v1_4_5()
+        if Version(updated_from) < Version("1.4.8"):
+            self._update_from_pre_v1_4_8()
 
-        self.set_state("app", "updated_scripts_completed", __version__)
+        self._state.set("app", "updated_scripts_completed", __version__)
+
+        self._conf.remove_deprecated_options()
+        self._state.remove_deprecated_options()
 
     def _update_from_pre_v1_2_1(self) -> None:
         raise RuntimeError("Cannot upgrade from version before v1.2.1")
@@ -1440,8 +1447,44 @@ class Maestral:
             self._conf.set("app", "keyring", "keyring.backends.macOS.Keyring")
 
     def _update_from_pre_v1_4_5(self) -> None:
-        # clear sync history table because we have added new columns
-        self.sync.clear_sync_history()
+        # Clear sync history table because we have added new columns. Note that our
+        # sync instance has not been loaded yet, we therefore do things manually.
+
+        self._logger.info("Clearing sync history after update from pre v1.4.5")
+
+        db_path = get_data_path("maestral", f"{self.config_name}.db")
+        db = Database(db_path, check_same_thread=False)
+        db.execute("DROP TABLE history")
+        db.close()
+
+    def _update_from_pre_v1_4_8(self) -> None:
+
+        # Migrate config and state keys to new sections.
+
+        self._logger.info("Migrating config after update from pre v1.4.8")
+
+        mapping = {
+            "path": {"old": "main", "new": "sync"},
+            "excluded_items": {"old": "main", "new": "sync"},
+            "keyring": {"old": "app", "new": "auth"},
+            "account_id": {"old": "account", "new": "auth"},
+        }
+
+        for key, sections in mapping.items():
+            if self._conf.has_option(sections["old"], key):
+                value = self._conf.get(sections["old"], key)
+                self._conf.set(sections["new"], key, value)
+
+        self._logger.info("Migrating state after update from pre v1.4.8")
+
+        mapping = {
+            "token_access_type": {"old": "account", "new": "auth"},
+        }
+
+        for key, sections in mapping.items():
+            if self._state.has_option(sections["old"], key):
+                value = self._state.get(sections["old"], key)
+                self._state.set(sections["new"], key, value)
 
     # ==== period async jobs ===========================================================
 

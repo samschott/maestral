@@ -112,11 +112,9 @@ class OAuth2Session:
             token_access_type=self.default_token_access_type,
         )
 
-        self._account_id: Optional[str] = (
-            self._conf.get("account", "account_id") or None
-        )
+        self._account_id: Optional[str] = self._conf.get("auth", "account_id") or None
         self._token_access_type: Optional[str] = (
-            self._state.get("account", "token_access_type") or None
+            self._state.get("auth", "token_access_type") or None
         )
 
         # defer keyring access until token requested by user
@@ -147,7 +145,7 @@ class OAuth2Session:
 
         import keyring.backends
 
-        keyring_class: str = self._conf.get("app", "keyring").strip()
+        keyring_class: str = self._conf.get("auth", "keyring").strip()
 
         if self._account_id and keyring_class != "automatic":
             # We are already linked and have a keyring set. Insist on using
@@ -188,7 +186,7 @@ class OAuth2Session:
                 ring = max(supported_rings, key=lambda x: x.priority)
 
             self._conf.set(
-                "app",
+                "auth",
                 "keyring",
                 f"{ring.__class__.__module__}.{ring.__class__.__name__}",
             )
@@ -293,13 +291,13 @@ class OAuth2Session:
             self._migrate_keyring(self._account_id)
 
             token = self.keyring.get_password("Maestral", self._get_accessor())
-            access_type = self._state.get("account", "token_access_type")
+            access_type = self._state.get("auth", "token_access_type")
 
             if not access_type:
                 # if no token type was saved, we linked with a version < 1.2.0
                 # default to legacy token access type
                 access_type = "legacy"
-                self._state.set("account", "token_access_type", access_type)
+                self._state.set("auth", "token_access_type", access_type)
 
             self.loaded = True
 
@@ -375,8 +373,8 @@ class OAuth2Session:
 
         with self._lock:
 
-            self._conf.set("account", "account_id", self._account_id)
-            self._state.set("account", "token_access_type", self._token_access_type)
+            self._conf.set("auth", "account_id", self._account_id)
+            self._state.set("auth", "token_access_type", self._token_access_type)
 
             if self._token_access_type == "offline":
                 token = self.refresh_token
@@ -396,7 +394,7 @@ class OAuth2Session:
             except KeyringError:
                 # switch to plain text keyring if we cannot access preferred backend
                 self.keyring = keyrings.alt.file.PlaintextKeyring()
-                self._conf.set("app", "keyring", "keyrings.alt.file.PlaintextKeyring")
+                self._conf.set("auth", "keyring", "keyrings.alt.file.PlaintextKeyring")
                 self.save_creds()
 
     def delete_creds(self) -> None:
@@ -427,9 +425,9 @@ class OAuth2Session:
                 self._logger.error(title, exc_info=exc_info_tuple(new_exc))
                 raise new_exc
 
-            self._conf.set("account", "account_id", "")
-            self._state.set("account", "token_access_type", "")
-            self._conf.set("app", "keyring", "automatic")
+            self._conf.set("auth", "account_id", "")
+            self._state.set("auth", "token_access_type", "")
+            self._conf.set("auth", "keyring", "automatic")
 
             self._account_id = None
             self._access_token = None
