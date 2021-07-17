@@ -1392,11 +1392,7 @@ class Maestral:
         for task in self._tasks:
             task.cancel()
 
-        self._loop.run_until_complete(
-            asyncio.gather(*self._tasks, return_exceptions=True)
-        )
-
-        self._pool.shutdown(wait=False)
+        self._pool.shutdown()
 
         if self._loop.is_running():
             self._loop.call_soon_threadsafe(self.shutdown_complete.set_result, True)

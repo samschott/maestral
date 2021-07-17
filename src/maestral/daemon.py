@@ -488,10 +488,7 @@ def start_maestral_daemon(
             for s in signals:
                 loop.add_signal_handler(s, maestral_daemon.shutdown_daemon)
 
-            async def main():
-                await maestral_daemon.shutdown_complete
-
-            asyncio.run(main())
+            loop.run_until_complete(maestral_daemon.shutdown_complete)
 
             for socket in daemon.sockets:
                 loop.remove_reader(socket.fileno())
