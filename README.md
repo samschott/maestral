@@ -38,7 +38,24 @@ or downloading a file if it already exists with the same content locally or in t
 ## Installation
 
 An app bundle is provided for macOS High Sierra and higher and can be downloaded from the
-Releases tab. On other platforms, please download and install the Python package from PyPI:
+Releases tab. This app Bundle is also package as a Homebrew cask.
+
+On other platforms, you can download and install Maestral as a Python PyPI package, as a Docker package.
+
+For more detailed information on the installation, setup and system requirements, please
+check the [documentation](https://samschott.github.io/maestral/docs/installation).
+
+
+### Homebrew
+The official Maestral releases are also available as Homebrew casks. If you have [Homebrew](https://brew.sh) on your system, you can install using:
+
+```console
+$ brew install maestral
+```
+
+### Python package using PyPI
+
+Please download and install the Python package from PyPI:
 
 ```console
 $ python3 -m pip install --upgrade maestral
@@ -52,15 +69,13 @@ on Linux and `maestral-cocoa` on macOS:
 $ python3 -m pip install --upgrade maestral[gui]
 ```
 
+### Docker image
 There also a Docker image available for x86, arm/v7 (32bit) and arm64 platforms which can
 be installed with:
 
 ```colsole
-docker pull maestraldbx/maestral
+$ docker pull maestraldbx/maestral
 ```
-
-For more detailed information on the installation, setup and system requirements, please
-check the [documentation](https://samschott.github.io/maestral/docs/installation).
 
 ## Usage
 
