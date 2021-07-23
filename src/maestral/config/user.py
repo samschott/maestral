@@ -126,7 +126,7 @@ class UserConfig(DefaultsConfig):
         self.reset_to_defaults(save=False)
 
         self._backup_folder = "backups"
-        self._backup_suffix = ".bak"
+        self._backup_suffix = "bak"
 
         if backup:
             self._make_backup()
@@ -240,9 +240,11 @@ class UserConfig(DefaultsConfig):
         dircetory = osp.join(self._dirname, self._backup_folder)
 
         if version:
-            name = f"{self._filename}-{str(version)}{self._backup_suffix}"
+            filename = f"{self._filename}-{str(version)}"
         else:
-            name = f"{self._filename}{self._backup_suffix}"
+            filename = self._filename
+
+        name = f"{filename}.{self._suffix}.{self._backup_suffix}"
 
         return osp.join(dircetory, name)
 
