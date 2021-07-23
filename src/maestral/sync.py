@@ -535,11 +535,11 @@ class SyncEngine:
 
     def _load_cached_config(self) -> None:
 
-        self._dropbox_path = self._conf.get("main", "path")
+        self._dropbox_path = self._conf.get("sync", "path")
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
 
-        self._excluded_items = self._conf.get("main", "excluded_items")
+        self._excluded_items = self._conf.get("sync", "excluded_items")
         self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
         self._local_cursor = self._state.get("sync", "lastsync")
 
@@ -567,7 +567,7 @@ class SyncEngine:
             self._dropbox_path = path
             self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
             self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
-            self._conf.set("main", "path", path)
+            self._conf.set("sync", "path", path)
 
     @property
     def database_path(self) -> str:
@@ -597,7 +597,7 @@ class SyncEngine:
         with self.sync_lock:
             clean_list = self.clean_excluded_items_list(folder_list)
             self._excluded_items = clean_list
-            self._conf.set("main", "excluded_items", clean_list)
+            self._conf.set("sync", "excluded_items", clean_list)
 
     @staticmethod
     def clean_excluded_items_list(folder_list: List[str]) -> List[str]:
@@ -632,7 +632,7 @@ class SyncEngine:
     def max_cpu_percent(self, percent: float) -> None:
         """Setter: max_cpu_percent."""
         self._max_cpu_percent = percent
-        self._conf.set("app", "max_cpu_percent", percent // CPU_COUNT)
+        self._conf.set("sync", "max_cpu_percent", percent // CPU_COUNT)
 
     # ==== sync state ==================================================================
 

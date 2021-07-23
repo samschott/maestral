@@ -1,15 +1,30 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-
-from maestral.config.main import DEFAULTS_CONFIG, CONF_VERSION
+from packaging.version import Version
 from maestral.config.user import UserConfig
+
+
+DEFAULTS_CONFIG = {
+    "auth": {
+        "account_id": "12345",
+        "keyring": "automatic",
+    },
+    "sync": {
+        "path": "/Users/Leslie/Dropbox (Maestral)",
+        "excluded_items": ["/Photos"],
+        "upload": True,
+        "download": True,
+    },
+}
+
+CONF_VERSION = Version("1.0.0")
 
 
 @pytest.fixture
 def config(tmp_path):
 
-    config_path = tmp_path / "test-update-config.ini"
+    config_path = tmp_path / "test-config.ini"
 
     # Create an initial config on disk.
     conf = UserConfig(

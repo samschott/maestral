@@ -5,8 +5,9 @@ import configparser as cp
 import pytest
 
 from packaging.version import Version
-from maestral.config.main import DEFAULTS_CONFIG, CONF_VERSION
 from maestral.config.user import UserConfig
+
+from .conftest import DEFAULTS_CONFIG, CONF_VERSION
 
 
 def test_config_creation(config):
@@ -20,13 +21,7 @@ def test_config_creation(config):
     assert config.get_version() == CONF_VERSION
 
 
-def test_get_option(config):
-
-    # Test getting existing config values.
-    assert config.get("main", "path", "/test/path") == DEFAULTS_CONFIG["main"]["path"]
-
-    config.set("main", "excluded_items", ["a", "b", "c"])
-    assert config.get("main", "excluded_items") == ["a", "b", "c"]
+def test_get_failures(config):
 
     # Check getting non-existing config options.
     with pytest.raises(cp.NoOptionError):
@@ -42,20 +37,20 @@ def test_get_option(config):
 def test_set_option(config):
 
     # Test setting valid config values of different types.
-    config.set("main", "path", "/test/path")
-    config.set("main", "excluded_items", ["a", "b", "c"])
+    config.set("sync", "path", "/test/path")
+    config.set("sync", "excluded_items", ["a", "b", "c"])
     config.set("new_section", "new_option", {"a", "b", "c"})
 
-    assert config.get("main", "path") == "/test/path"
-    assert config.get("main", "excluded_items") == ["a", "b", "c"]
+    assert config.get("sync", "path") == "/test/path"
+    assert config.get("sync", "excluded_items") == ["a", "b", "c"]
     assert config.get("new_section", "new_option") == {"a", "b", "c"}
 
     # Check setting invalid config values.
     with pytest.raises(ValueError):
-        config.set("main", "path", 1234)
+        config.set("sync", "path", 1234)
 
     with pytest.raises(ValueError):
-        config.set("main", "excluded_items", "path")
+        config.set("sync", "excluded_items", "path")
 
 
 def test_update(config):
@@ -63,17 +58,17 @@ def test_update(config):
     old_version = CONF_VERSION
 
     # Modify some values.
-    config.set("account", "account_id", "my id")
-    config.set("main", "path", "/path/to/folder")
+    config.set("auth", "account_id", "my id")
+    config.set("sync", "path", "/path/to/folder")
 
     # Remove a default config option.
-    del DEFAULTS_CONFIG["main"]["path"]
+    del DEFAULTS_CONFIG["sync"]["path"]
 
     # Add a default config option.
-    DEFAULTS_CONFIG["main"]["new_option"] = "brand new"
+    DEFAULTS_CONFIG["sync"]["new_option"] = "brand new"
 
     # Modify some default config options.
-    DEFAULTS_CONFIG["account"]["account_id"] = "another id"
+    DEFAULTS_CONFIG["auth"]["account_id"] = "another id"
     DEFAULTS_CONFIG["sync"]["upload"] = False
 
     # Create a new instance with modified defaults.
@@ -91,8 +86,8 @@ def test_update(config):
 
         # Check that the config was updated properly.
 
-        assert conf.get("account", "account_id") == "my id"
-        assert conf.get("main", "new_option") == "brand new"
+        assert conf.get("auth", "account_id") == "my id"
+        assert conf.get("sync", "new_option") == "brand new"
 
         with pytest.raises(cp.NoOptionError):
-            conf.get("main", "path")
+            conf.get("sync", "path")

@@ -21,7 +21,7 @@ def test_macos_dirs(monkeypatch):
     home = get_home_dir()
 
     assert get_conf_path(create=False) == home + "/Library/Application Support"
-    assert get_cache_path(create=False) == get_conf_path(create=False)
+    assert get_cache_path(create=False) == home + "/Library/Caches"
     assert get_data_path(create=False) == get_conf_path(create=False)
     assert get_runtime_path(create=False) == get_conf_path(create=False)
     assert get_log_path(create=False) == home + "/Library/Logs"
