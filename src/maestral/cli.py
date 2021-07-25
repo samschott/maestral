@@ -313,7 +313,7 @@ class DropboxPath(click.ParamType):
         # TODO: query from server if not too slow
 
         config = MaestralConfig(config_name)
-        dropbox_dir = config.get("main", "path")
+        dropbox_dir = config.get("sync", "path")
         local_incomplete = osp.join(dropbox_dir, incomplete)
         local_dirname = osp.dirname(local_incomplete)
 
@@ -332,7 +332,7 @@ class DropboxPath(click.ParamType):
 
         # get all matching excluded items
 
-        for dbx_path in config.get("main", "excluded_items"):
+        for dbx_path in config.get("sync", "excluded_items"):
             if dbx_path.startswith("/" + incomplete):
                 matches.append(dbx_path)
 
@@ -805,9 +805,9 @@ def auth_status(config_name: str) -> None:
     conf = MaestralConfig(config_name)
     state = MaestralState(config_name)
 
+    dbid = conf.get("auth", "account_id")
     email = state.get("account", "email")
     account_type = state.get("account", "type").capitalize()
-    dbid = conf.get("account", "account_id")
 
     cli.echo("")
     cli.echo(f"Email:         {email}")
