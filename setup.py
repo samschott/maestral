@@ -17,7 +17,7 @@ install_requires = [
     "pathspec>=0.5.8",
     "Pyro5>=5.10",
     "requests>=2.16.2",
-    "rubicon-objc>=0.4.0;sys_platform=='darwin'",
+    "rubicon-objc>=0.4.1;sys_platform=='darwin'",
     "sdnotify>=0.3.2",
     "setuptools",
     "survey>=3.4.3,<4.0",
