@@ -1875,9 +1875,8 @@ instance, setting a boolean config value to 1 will actually set it to True.
 def config_set(key: str, value: str, config_name: str) -> None:
 
     import ast
-    from .config import MaestralConfig
     from .config.main import KEY_SECTION_MAP, DEFAULTS_CONFIG
-    from .daemon import MaestralProxy, CommunicationError
+    from .daemon import MaestralProxy
 
     section = KEY_SECTION_MAP.get(key, "")
 
@@ -1895,10 +1894,10 @@ def config_set(key: str, value: str, config_name: str) -> None:
             py_value = value
 
     try:
-        with MaestralProxy(config_name) as m:
+        with MaestralProxy(config_name, fallback=True) as m:
             m.set_conf(section, key, py_value)
-    except CommunicationError:
-        MaestralConfig(config_name).set(section, key, py_value)
+    except ValueError as e:
+        cli.warn(e.args[0])
 
 
 @config.command(name="show", help="Show all config keys and values")
