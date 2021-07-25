@@ -823,7 +823,7 @@ class Maestral:
 
         if md_old is None:
             raise NotFoundError(
-                f"Could not a file with revision {md_old}",
+                f"Could not a file with revision {old_rev}",
                 "Use 'list_revisions' to list past revisions of a file.",
             )
 
