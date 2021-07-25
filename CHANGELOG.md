@@ -10,11 +10,19 @@
   unlocked, for example because the executable (app bundle or Python) has an invalid
   signature.
 * Improved error messages on startup for the macOS app bundle.
+* Improved error message in CLI when setting a config value fails because the new value
+  has the wrong type.
 
 #### Fixed:
 
 * Fixed a crash on startup when the log level is set to WARNING.
 * Fixed an issue which could result in an unresponsive daemon during startup on macOS.
+* Fixed an issue which could result in the CLI or GUI to stall indefinitely if the
+  daemon process is unresponsive.
+
+#### Removed:
+
+* Removed an unneeded prompt when revoking a shared link.
 
 ## v1.4.6
 
