@@ -25,7 +25,7 @@ from types import TracebackType
 # external imports
 import Pyro5  # type: ignore
 from Pyro5.errors import CommunicationError  # type: ignore
-from Pyro5.api import Daemon, Proxy, expose, oneway, register_dict_to_class  # type: ignore
+from Pyro5.api import Daemon, Proxy, expose, register_dict_to_class  # type: ignore
 import sdnotify  # type: ignore
 from fasteners import InterProcessLock  # type: ignore
 
@@ -261,9 +261,9 @@ class Lock:
 # ==== helpers for daemon management ===================================================
 
 
-def _send_term(pid: int) -> None:
+def _send_signal(pid: int, sig: int) -> None:
     try:
-        os.kill(pid, signal.SIGTERM)
+        os.kill(pid, sig)
     except ProcessLookupError:
         pass
 
@@ -390,13 +390,15 @@ def start_maestral_daemon(
 
     try:
 
+        # ==== Process and thread management ===========================================
+
         if threading.current_thread() is not threading.main_thread():
             dlogger.error("Must run daemon in main thread")
             raise RuntimeError("Must run daemon in main thread")
 
         dlogger.debug("Environment:\n%s", pformat(os.environ.copy()))
 
-        # acquire PID lock file
+        # Acquire PID lock file.
         lock = maestral_lock(config_name)
 
         if lock.acquire():
@@ -407,6 +409,8 @@ def start_maestral_daemon(
 
         # Nice ourselves to give other processes priority.
         os.nice(10)
+
+        # ==== System integration ======================================================
 
         # Integrate with CFRunLoop in macOS.
         if IS_MACOS:
@@ -443,6 +447,8 @@ def start_maestral_daemon(
             dlogger.debug("WATCHDOG_PID = %s", WATCHDOG_PID)
             loop.create_task(periodic_watchdog())
 
+        # ==== Run Maestral as Pyro server =============================================
+
         # Get socket for config name.
         sockpath = sockpath_for_config(config_name)
         dlogger.debug("Socket path: %r", sockpath)
@@ -458,13 +464,7 @@ def start_maestral_daemon(
 
         dlogger.debug("Creating Pyro daemon")
 
-        ExposedMaestral = expose(Maestral)
-
-        ExposedMaestral.start_sync = oneway(ExposedMaestral.start_sync)
-        ExposedMaestral.stop_sync = oneway(ExposedMaestral.stop_sync)
-        ExposedMaestral.shutdown_daemon = oneway(ExposedMaestral.shutdown_daemon)
-
-        maestral_daemon = ExposedMaestral(config_name, log_to_stderr=log_to_stderr)
+        maestral_daemon = expose(Maestral)(config_name, log_to_stderr=log_to_stderr)
 
         if start_sync:
             dlogger.debug("Starting sync")
@@ -591,33 +591,22 @@ def stop_maestral_daemon_process(
 
     pid = get_maestral_pid(config_name)
 
-    try:
-        with MaestralProxy(config_name) as m:
-            m.shutdown_daemon()
-    except CommunicationError:
-        if pid:
-            _send_term(pid)
-    finally:
-        while timeout > 0:
-            if not is_running(config_name):
-                return Stop.Ok
-            else:
-                time.sleep(0.2)
-                timeout -= 0.2
+    if not pid:
+        # Cannot send SIGTERM to process if we don't know its pid.
+        return Stop.Failed
 
-        # Send SIGTERM after timeout and delete PID file.
-        if pid:
-            _send_term(pid)
+    _send_signal(pid, signal.SIGTERM)
 
-        time.sleep(1)
-
+    while timeout > 0:
         if not is_running(config_name):
             return Stop.Ok
-        elif pid:
-            os.kill(pid, signal.SIGKILL)
-            return Stop.Killed
         else:
-            return Stop.Failed
+            time.sleep(0.2)
+            timeout -= 0.2
+
+    # Kill.
+    _send_signal(pid, signal.SIGKILL)
+    return Stop.Killed
 
 
 class MaestralProxy:
