@@ -52,7 +52,7 @@
   character.
 * Fixed an issue where center-aligned text would appear right-aligned on Apple Silicon
   computers.
-  
+
 #### Dependencies:
 
 * Bumped desktop-notifier to v3.3.0. This fixes a segfault for non-framework
@@ -108,7 +108,7 @@ welcome.
   instead of as a sync issue.
 * Moving the Dropbox folder between partitions no longer triggers a full resync.
 * Fixes an error when running the `diff` CLI command and selecting the local file as the
-  base version.  
+  base version.
 * Fixes download links in the update dialog.
 * Fixes an unexpected error which may occur when creating a conflicting copy.
 
@@ -119,7 +119,7 @@ welcome.
 
 ## v1.4.3
 
-This release improves performance and memory usage by switching from sqlalchamey to our  
+This release improves performance and memory usage by switching from sqlalchamey to our
 own database interaction layer.
 
 Maestral now also has a website with a detailed documentation of the command line
@@ -128,7 +128,7 @@ interface, released with github pages at
 
 #### Changed:
 
-* We now use our own ORM layer instead of sqlalchemy. This improves both baseline memory 
+* We now use our own ORM layer instead of sqlalchemy. This improves both baseline memory
   usage and peak memory usage during startup and indexing.
 * Use a new network session for each thread and clean up network resources before the
   thread stops.
@@ -137,7 +137,7 @@ interface, released with github pages at
 
 #### Fixed:
 
-* Fixed detecting local changes when saving an MS Office on macOS with recent versions 
+* Fixed detecting local changes when saving an MS Office on macOS with recent versions
   of the Office suite.
 
 #### Dependencies:
@@ -175,7 +175,8 @@ reports as issues on GitHub where it is possible to follow up.
 
 * Added a command `maestral diff` to compare different versions of a text file. The
   resulting diff is printed to the console. Credit goes to @OrangeFran.
-* Resurrected the command `maestral revs` to list previous versions (revisions) of a file.
+* Resurrected the command `maestral revs` to list previous versions (revisions) of a
+  file.
 * Added a command group `maestral sharelink` to create and manage shared links.
   Subcommands are:
 
@@ -209,10 +210,10 @@ reports as issues on GitHub where it is possible to follow up.
 
 * Changes to indexing:
 
-  * Avoid scanning of objects matching an  `.mignore` pattern (file watches will still be
-    added however). This results in performance improvements during startup and resume.
-    A resulting behavioral change is that **maestral will remove files matching an
-    ignore pattern from Dropbox**. After this change it will be immaterial if an
+  * Avoid scanning of objects matching an  `.mignore` pattern (file watches will still
+    be added however). This results in performance improvements during startup and
+    resume. A resulting behavioral change is that **maestral will remove files matching
+    an ignore pattern from Dropbox**. After this change it will be immaterial if an
     `.mignore` pattern is added before or after having matching files in Dropbox. Credit
     goes to @andrewsali.
   * If Maestral is quit or interrupted during indexing, for instance due to connection
@@ -241,8 +242,8 @@ reports as issues on GitHub where it is possible to follow up.
 
 #### Fixed:
 
-* Fixes an issue with the CLI on Python 3.6 where commands that print dates to the console
-  would raise an exception.
+* Fixes an issue with the CLI on Python 3.6 where commands that print dates to the
+  console would raise an exception.
 * Properly handle a rare OSError "[Errno 41] Protocol wrong type for socket" on macOS,
   see https://bugs.python.org/issue33450.
 * Allow creating local files even if we cannot set their permissions, for instances on
@@ -284,9 +285,9 @@ reports as issues on GitHub where it is possible to follow up.
 
 ## v1.3.0
 
-This release features an overhaul of the command line interface: commands are grouped
-by sections in the help output, dialogs and output formatting have been improved and
-many commands have become significantly faster.
+This release features an overhaul of the command line interface: commands are grouped by
+sections in the help output, dialogs and output formatting have been improved and many
+commands have become significantly faster.
 
 This release also significantly reduces the CPU usage when idle and provides a whole
 series of bug fixes for GUI and daemon.
@@ -375,17 +376,17 @@ usage has been improved when syncing a Dropbox folder with a large number of ite
 #### Changed:
 
 - `maestral file-status` now accepts relative paths.
-- Runs the daemon in a Python interpreter with -OO flags. This strips docstrings and saves
-  a few MB of memory.
+- Runs the daemon in a Python interpreter with -OO flags. This strips docstrings and
+  saves a few MB of memory.
 - Moves from `pkg_resources` to locate entry points and other metadata to the faster and
   more light-weight `importlib.metadata`.
 - Update scripts are no longer run after a fresh install or for a new config.
-- Significantly reduces memory usage during the initial sync of a Dropbox folder with many
-  (> 10,000) items and when downloading a large set of changes. To achieve this, new APIs
-  have been added to `SyncEngine` and `DropboxClient` that return iterators over remote
-  changes. Dropbox servers are queried on every iteration.
-- `Maestral.get_history` now returns only the last 100 sync events by default. This can be
-  increased by setting the `limit` argument manually.
+- Significantly reduces memory usage during the initial sync of a Dropbox folder with
+  many (> 10,000) items and when downloading a large set of changes. To achieve this,
+  new APIs have been added to `SyncEngine` and `DropboxClient` that return iterators
+  over remote changes. Dropbox servers are queried on every iteration.
+- `Maestral.get_history` now returns only the last 100 sync events by default. This can
+  be increased by setting the `limit` argument manually.
 - The total sync history kept in out database is limited to the last 1,000 events.
 - Switch from PyInstaller to [briefcase](https://github.com/beeware/briefcase) for
   packaging on macOS.
@@ -395,31 +396,32 @@ usage has been improved when syncing a Dropbox folder with a large number of ite
 - Fixes an issue which would prevent the daemon from starting on macOS when running with
   Python 3.6.
 - Fixes a segfault of the macOS GUI on macOS High Sierra.
-- Fixes an issue with the macOS GUI becoming unresponsive when opening the selective sync
-  dialog if one of the displayed folders contains a large number (> 2k) of immediate
-  children.
-- Fixes an issue with the Qt GUI crashing when opening the selective sync dialog if one of
-  the folders contains a large number (> 2k) of immediate children.
-- Fixes an issue where `Mastral.excluded_status` would return "included" for items inside
-  an excluded folder.
+- Fixes an issue with the macOS GUI becoming unresponsive when opening the selective
+  sync dialog if one of the displayed folders contains a large number (> 2k) of
+  immediate children.
+- Fixes an issue with the Qt GUI crashing when opening the selective sync dialog if one
+  of the folders contains a large number (> 2k) of immediate children.
+- Fixes an issue where `Mastral.excluded_status` would return "included" for items
+  inside an excluded folder.
 
 ## v1.2.1
 
 This update provides bug fixes and some improvements to error handling. Major changes
-don't regard Maestral itself but its distribution: a Docker image is now available, thanks
-to @aries1980, and the macOS app bundle has been rebuilt with the macOS 11 SDK, providing
-full compatibility from macOS 10.13 High Sierra to macOS 11.0 Big Sur.
+don't regard Maestral itself but its distribution: a Docker image is now available,
+thanks to @aries1980, and the macOS app bundle has been rebuilt with the macOS 11 SDK,
+providing full compatibility from macOS 10.13 High Sierra to macOS 11.0 Big Sur.
 
 #### Added:
 
-- Added a Docker image, thanks to @aries1980. The docker image is based on Linux and does
-  not currently include a GUI.
-- Added `-V, --version` option to the command line interface to show the version and exit.
+- Added a Docker image, thanks to @aries1980. The docker image is based on Linux and
+  does not currently include a GUI.
+- Added `-V, --version` option to the command line interface to show the version and
+  exit.
 
 #### Changed:
 
-- Improves handling of database related errors such as database integrity, missing read /
-  write permissions for the database file, etc.
+- Improves handling of database related errors such as database integrity, missing read
+  / write permissions for the database file, etc.
 - Improves handling of errors when the keyring cannot be unlocked to delete credentials
   during an unlink.
 - Improves handling of errors when the keyring where Dropbox credentials are stored
@@ -428,16 +430,17 @@ full compatibility from macOS 10.13 High Sierra to macOS 11.0 Big Sur.
   Previously, any required setup such as linking, etc, would still be performed in a
   subprocess.
 - Minor tweaks and improvements to the macOS GUI.
-- Allow sending desktop notifications in Linux before the daemon's event loop has started.
-  This is useful for error messages which occur early during the initialization.
+- Allow sending desktop notifications in Linux before the daemon's event loop has
+  started. This is useful for error messages which occur early during the
+  initialization.
 - Improves log messages when the connection to Dropbox is lost.
 - Performance improvements to `maestral activity` in case of very large sync queues.
 
 #### Fixed:
 
 - Fixes a database integrity error due to an unfulfilled unique constraint.
-- Fixes an issue when the daemon is launched with systemd where systemd would unexpectedly
-  receive notifications from a subprocess instead of the main process.
+- Fixes an issue when the daemon is launched with systemd where systemd would
+  unexpectedly receive notifications from a subprocess instead of the main process.
 - Fixes an issue which would prevent syncing from automatically resuming after moving the
   local Dropbox directory with `maestral move-dir` or through the GUI.
 - Fixed a green background for sync issue views in the macOS GUI.
@@ -461,8 +464,8 @@ command `maestral activity` now shows the progress of individual uploads or down
 changes menu now has been replaced by a "Activity" window which shows all sync events of
 the past week.
 
-This release also introduces clickable desktop notifications, performance improvements to
-indexing of local file changes, and bug fixes and smaller changes listed below.
+This release also introduces clickable desktop notifications, performance improvements
+to indexing of local file changes, and bug fixes and smaller changes listed below.
 
 Finally, this release introduces support for macOS 11 (Big Sur).
 
@@ -475,10 +478,10 @@ Finally, this release introduces support for macOS 11 (Big Sur).
 - Desktop notifications are now clickable: for a single file change, clicking the
   notification will show the file in the platform's file manager. For a deletion, the
   Dropbox website is opened to provide options for restoring the file or folder.
-- Use entry points to discover GUI frontends. 3rd party GUIs can register a `maestral_gui`
-  entry point to be launched with the `maestral gui` CLI command. If installed,
-  `maestral gui` will default to the 1st party `maestral-cocoa` or `maestral-qt` GUIs on
-  macOS and Linux, respectively.
+- Use entry points to discover GUI frontends. 3rd party GUIs can register a
+  `maestral_gui` entry point to be launched with the `maestral gui` CLI command. If
+  installed, `maestral gui` will default to the 1st party `maestral-cocoa` or `maestral-
+  qt` GUIs on macOS and Linux, respectively.
 
 #### Changed:
 
@@ -487,23 +490,23 @@ Finally, this release introduces support for macOS 11 (Big Sur).
 - Save all sync history and local index in SQLite database.
 - Reduce unnecessary path conversions during indexing of local changes.
 - Improved performance on case-sensitive file systems.
-- Sync remote changes in filename even if they are only a change in casing. Those changes
-  where previously ignored.
-- Attempt to preserve local file permissions when syncing unless the file id has changed.
-  Dropbox servers do store file permissions but don't make them available through the
-  public API. We therefore cannot sync file permissions and instead choose not to
-  overwrite locally set permissions on every download.
+- Sync remote changes in filename even if they are only a change in casing. Those
+  changes where previously ignored.
+- Attempt to preserve local file permissions when syncing unless the file id has
+  changed. Dropbox servers do store file permissions but don't make them available
+  through the public API. We therefore cannot sync file permissions and instead choose
+  not to overwrite locally set permissions on every download.
 - Changed return type of `Maestral.get_activity` from namedtuple to dict for better
   consistency throughout the API. Every uploading or downloading item will have 'size'
   and 'completed' entries to monitor the progress of syncing individual items.
-- The CLI command `maestral activity` now shows the progress of uploads and downloads for
-  individual files.
+- The CLI command `maestral activity` now shows the progress of uploads and downloads
+  for individual files.
 - Introduced type annotations throughout and fixed a few type-related bugs.
 - Added a field "Sync threads" to the output of the CLI command `maestral status`.
 - The output of `maestral ls` is now printed in a grid, similar to the `ls` command
   included with most platforms.
-- The macOS app bundle now uses Python 3.8, leading to some performance improvements when
-  moving or copying file system trees.
+- The macOS app bundle now uses Python 3.8, leading to some performance improvements
+  when moving or copying file system trees.
 - Prepared the GUI for changes in macOS Big Sur: use native alerts and dialogs wherever
   possible and refactor loading of libraries.
 - Use an asyncio event loop instead of Pyro's event loop to run the daemon. This enables
@@ -525,8 +528,8 @@ Finally, this release introduces support for macOS 11 (Big Sur).
 
 - Support for config names with spaces. Spaces could cause issues with autostart entries
   on some platforms.
-- The ability to run the daemon in a separate thread. The daemon must now always be run in
-  its own process.
+- The ability to run the daemon in a separate thread. The daemon must now always be run
+  in its own process.
 
 #### Dependencies:
 
@@ -534,11 +537,11 @@ Finally, this release introduces support for macOS 11 (Big Sur).
 
 ## v1.1.0
 
-This release expands the CLI functionality and improves the handling of file modification
-times during upload and download (used for display purposes only). It also fixes bugs
-with the "start on login" functionality of the macOS app bundle. After updating, please
-toggle "start on login" in the GUI or `maestral autostart` in the CLI to replace any old
-login items.
+This release expands the CLI functionality and improves the handling of file
+modification times during upload and download (used for display purposes only). It also
+fixes bugs with the "start on login" functionality of the macOS app bundle. After
+updating, please toggle "start on login" in the GUI or `maestral autostart` in the CLI
+to replace any old login items.
 
 #### Added:
 
@@ -554,17 +557,17 @@ login items.
 - Renamed macOS executable inside app bundle from "main" to "Maestral". This results in
   more informative process names.
 - Local files are now created with the "last modified" time provided by Dropbox servers.
-  This only applies to new downloads. To update existing modified times, you will need to
-  delete and redownload your Dropbox folder.
+  This only applies to new downloads. To update existing modified times, you will need
+  to delete and redownload your Dropbox folder.
 
 #### Fixed:
 
 - Fixes a thread-safety issue with desktop notifications.
-- Fixes a thread-safety issue when two frontends try to start or stop syncing at the same
-  time.
+- Fixes a thread-safety issue when two frontends try to start or stop syncing at the
+  same time.
 - Fixes an issue where Maestral could incorrectly identify a file system as case
-  sensitive if the Dropbox folder and temporary directory are on partitions with different
-  file systems.
+  sensitive if the Dropbox folder and temporary directory are on partitions with
+  different file systems.
 - Fixes incorrect file modification times uploaded to Dropbox for timezones outside of
   UTC. Those times are used for display purposes only.
 - Fixes an issue where the `maestral autostart -Y` CLI command would start the GUI on
@@ -606,18 +609,18 @@ This release fixes bugs in the command line interface.
 
 #### Fixed:
 
-- Fixes a crash of the CLI when an update is available due to incorrect formatting of the
-  update message.
+- Fixes a crash of the CLI when an update is available due to incorrect formatting of
+  the update message.
 - Fixes an error when listing the contents of an empty directory with `maestral ls`.
 
 ## v1.0.0
 
-This is the first stable release of Maestral. There have been numerous bug fixes to error
-handling and platform integration as well as a few bug fixes to syncing itself. There are
-also a few outward facing changes: Pausing Maestral now cancels any pending sync jobs
-instead of waiting for them to be completed. The macOS GUI switches from Qt to using a
-native Cocoa interface and the macOS app bundle finally includes a full command line
-interface.
+This is the first stable release of Maestral. There have been numerous bug fixes to
+error handling and platform integration as well as a few bug fixes to syncing itself.
+There are also a few outward facing changes: Pausing Maestral now cancels any pending
+sync jobs instead of waiting for them to be completed. The macOS GUI switches from Qt to
+using a native Cocoa interface and the macOS app bundle finally includes a full command
+line interface.
 
 #### Added:
 
@@ -637,13 +640,13 @@ interface.
 - Temporary files during a download are now stored inside the Dropbox directory at
   '.maestral.cache'. This guarantees that temporary files always reside on the same
   partition as the Dropbox folder itself.
-- System tray icons are no longer installed in the platform theme in Linux. This is part of
-  a workaround for a Qt issue on Linux desktops which causes unnecessarily large pixmap
-  transfers over dBus when HiDPI support is enabled. Manually installed icons will still
-  be respected.
+- System tray icons are no longer installed in the platform theme in Linux. This is part
+  of a workaround for a Qt issue on Linux desktops which causes unnecessarily large
+  pixmap transfers over dBus when HiDPI support is enabled. Manually installed icons
+  will still be respected.
 - Switch from implicit grant to PKCE OAuth2 flow.
-- Added public API to link a Dropbox account: `Maestral.get_auth_url` and `Maestral.link`.
-  Frontends no longer need to import `maestral.oauth`.
+- Added public API to link a Dropbox account: `Maestral.get_auth_url` and
+  `Maestral.link`. Frontends no longer need to import `maestral.oauth`.
 - Moved all command line dialogs from the main API to the CLI module.
 - Bumped watchdog requirement to >= 10.0.0 for more consistent error handling.
 - Added explicit jeepny dependency for Linux. This is a dependency of keyring but we use
@@ -667,7 +670,8 @@ interface.
   installed.
 - Fixes an issue when checking for updates if the list of releases from Github includes
   dev releases.
-- Fixes an issue where only remote changes would be listed in 'Recent changes' in the GUI.
+- Fixes an issue where only remote changes would be listed in 'Recent changes' in the
+  GUI.
 - Fixes the alignment of comboboxes in the Qt GUI on macOS.
 - Fixes a crash on macOS when no notification center is available, for instance in a
   headless session or on Github test runners.
@@ -686,14 +690,15 @@ interface.
 ## v0.6.4
 
 The release provides bug fixes and minor improvements to the command line and graphical
-user interfaces. Importantly, it fixes an issue where some files could accidentally become
-un-indexed, resulting in incorrect conflict resolution.
+user interfaces. Importantly, it fixes an issue where some files could accidentally
+ubecome n-indexed, resulting in incorrect conflict resolution.
 
 #### Added:
 
 - Config option to set the keyring backend. This defaults to 'automatic' but can be used
-  to specify a preferred backend such as `keyrings.backends.kwallet.DBusKeyring`. You will
-  need to migrate your credentials manually to the new keyring if you change this setting.
+  to specify a preferred backend such as `keyrings.backends.kwallet.DBusKeyring`. You
+  will need to migrate your credentials manually to the new keyring if you change this
+  setting.
 - Added a `-v, --verbose` flag to `maestral start` and `maestral restart` commands to
   print log output to stdout.
 - Added an API documentation for developers, available on
@@ -701,13 +706,13 @@ un-indexed, resulting in incorrect conflict resolution.
 
 #### Changed:
 
-- During initial CLI setup, give the option to sync the entire Dropbox without paginating
-  through individual folders to exclude.
+- During initial CLI setup, give the option to sync the entire Dropbox without
+  paginating through individual folders to exclude.
 - Limit the number of notifications to keep in the notification center. This will only
   work for some desktop environments.
 - Fall back to plain text credential storage if neither Gnome Keyring, KWallet or any
-  other storage implementing the Secret Service API can be found. A warning is shown when
-  plain text storage is used.
+  other storage implementing the Secret Service API can be found. A warning is shown
+  when plain text storage is used.
 - Settings and setup windows are no longer always kept on top in Linux.
 - `maestral start --foreground` no longer prints log messages to stdout by default.
 
@@ -726,8 +731,8 @@ un-indexed, resulting in incorrect conflict resolution.
 
 ## v0.6.3
 
-This release fixes a critical error introduced when updating to v9.5 of the Dropbox Python
-SDK which prevented any remote changes from being downloaded.
+This release fixes a critical error introduced when updating to v9.5 of the Dropbox
+Python SDK which prevented any remote changes from being downloaded.
 
 #### Changed:
 
@@ -739,18 +744,18 @@ SDK which prevented any remote changes from being downloaded.
 
 - Fixes an issue with downloads failing because Dropbox Metadata is longer hashable from
   v9.5 of the Dropbox Python SDK.
-- Fixed a StopIteration exception on startup when the location of the maestral CLI script
-  cannot be found in the package metadata.
+- Fixed a StopIteration exception on startup when the location of the maestral CLI
+  script cannot be found in the package metadata.
 - Fixes an error when restarting the daemon with the "foreground" option.
 - Fixed incorrect button labels in the setup dialog when choosing whether to replace or
   keep an old Dropbox folder. The labels "Replace" and "Cancel" where switched.
-- Fixes a bug where the option "Unlink & Quit" in the "Revoked Access" error dialog would
-  unlink but not quit Maestral.
+- Fixes a bug where the option "Unlink & Quit" in the "Revoked Access" error dialog
+  would unlink but not quit Maestral.
 
 ## v0.6.2
 
-This release enables excluding individual files from syncing and fixes an issue which led
-to continuously retrying failed downloads. It also contains significant performance
+This release enables excluding individual files from syncing and fixes an issue which
+led to continuously retrying failed downloads. It also contains significant performance
 improvements to indexing, reduces the CPU usage when syncing a large number of files and
 introduces weekly re-indexing.
 
@@ -768,17 +773,17 @@ may change in the future. Feedback is welcome.
   folder and kept in the cloud only. The ".mignore" file enables the reverse: files or
   folders which exist locally will not be uploaded to Dropbox. It uses the same syntax
   as [gitignore files](https://git-scm.com/docs/gitignore) and, similar to gitignore,
-  files which are already tracked by Maestral will not be affected. More details are given
-  in the [Wiki](https://github.com/SamSchott/maestral-dropbox/wiki/mignore).
+  files which are already tracked by Maestral will not be affected. More details are
+  given in the [Wiki](https://github.com/SamSchott/maestral-dropbox/wiki/mignore).
 - Added a config option "max_cpu_percent" to adjust the target maximum CPU usage per CPU
   core. This defaults to 20%, i.e., 80% total for a quad core CPU. Maestral will aim to
   remain below that percentage but this is not guaranteed.
 
 #### Changed:
 
-- Replaced the `excluded_files` and `excluded_folders` settings from the config file with
-  a unified `excluded_items` setting. Entries from `excluded_folders` will be migrated to
-  the `excluded_items` setting.
+- Replaced the `excluded_files` and `excluded_folders` settings from the config file
+  with a unified `excluded_items` setting. Entries from `excluded_folders` will be
+  migrated to the `excluded_items` setting.
 - Renamed methods which exclude / include folders to `exclude_item` etc.
 - Speed up creation of local folders.
 - When trying to create a file or folder with the same path as an item excluded by
@@ -792,25 +797,25 @@ may change in the future. Feedback is welcome.
 
 #### Fixed:
 
-- Don't immediately retry when a download fails. Instead, save failed downloads and retry
-  only on pause / resume or restart.
+- Don't immediately retry when a download fails. Instead, save failed downloads and
+  retry only on pause / resume or restart.
 - Fixes missing cursor and resulting unexpected `ValidationError` during sync startup.
 - Wait until all sync activity has stopped before moving the Dropbox folder. This avoids
   errors when trying to convert local to dropbox paths and vice versa during the move.
-- Fixes an issue which would prevent some conflicting copies created by Dropbox from being
-  downloaded.
+- Fixes an issue which would prevent some conflicting copies created by Dropbox from
+  being downloaded.
 - Correctly handle when a local item is renamed to an always excluded file name such as
   ".DS_STORE": the item is now deleted from Dropbox.
-- Fixes an issue where sharing an existing folder from the Dropbox website would result in
-  the folder being deleted locally. This is because Dropbox actually removes the shared
-  folder from the user's Dropbox and then re-mounts it as a shared drive / file system. We
-  handle this correctly now by leaving the local folder alone or deleting and
+- Fixes an issue where sharing an existing folder from the Dropbox website would result
+  in the folder being deleted locally. This is because Dropbox actually removes the
+  shared folder from the user's Dropbox and then re-mounts it as a shared drive / file
+  system. We handle this correctly now by leaving the local folder alone or deleting and
   re-downloading it, depending on the time elapsed between removal and re-mounting.
 - Improves conflict resolution when a folder has been been replaced with a file or vice
   versa and both the local and remote item have un-synced changes.
-- Fixes an issue where `maestral stop` would block until all pending syncs have completed.
-  This could potentially take a *very* long time for large downloads. Instead, any
-  interrupted downloads will be restarted on next launch.
+- Fixes an issue where `maestral stop` would block until all pending syncs have
+  completed. This could potentially take a *very* long time for large downloads.
+  Instead, any interrupted downloads will be restarted on next launch.
 
 #### Removed:
 
@@ -818,26 +823,27 @@ may change in the future. Feedback is welcome.
 
 ## v0.6.1
 
-This release improves desktop notifications: Notifications will now only appear for remote
-file changes and you can chose between different notification levels (CLI only) and snooze
-notifications temporarily. It also reintroduces the `maestral autostart` command to start
-the sync daemon on login (requires systemd on Linux). This works independently of the GUI
-option "Start on login".
+This release improves desktop notifications: Notifications will now only appear for
+remote file changes and you can chose between different notification levels (CLI only)
+and snooze notifications temporarily. It also reintroduces the `maestral autostart`
+command to start the sync daemon on login (requires systemd on Linux). This works
+independently of the GUI option "Start on login".
 
 There have also been significant changes in package structure: the GUI has been split
 off into a separate package `maestral-qt` which will be installed with the gui extra
 `pip3 install -U maestral[gui]` or directly with `pip3 install -U maestral-qt`. A native
-Cocoa GUI (`maestral-cocoa`) for macOS is currently in testing and will likely be released
-with the next update.
+Cocoa GUI (`maestral-cocoa`) for macOS is currently in testing and will likely be
+released with the next update.
 
-Other changes include improved error handling, cleaned up config files and some tweaks to
-CLI commands. As always, there are several bug fixes. Thank you for all your feedback!
+Other changes include improved error handling, cleaned up config files and some tweaks
+to CLI commands. As always, there are several bug fixes. Thank you for all your
+feedback!
 
 #### Added:
 
-- New CLI command `maestral autostart` to start the daemon on login. This requires systemd
-  on Linux. The "Start on login" option of the GUI remains independent and the GUI will
-  attach to an existing daemon if it finds one.
+- New CLI command `maestral autostart` to start the daemon on login. This requires
+  systemd on Linux. The "Start on login" option of the GUI remains independent and the
+  GUI will attach to an existing daemon if it finds one.
 - Added desktop notifications for errors: Serious errors such as revoked Dropbox access,
   deleted Dropbox folder, etc, were previously only shown in the GUI as an alert window
   or printed as warnings when invoking a CLI command.
@@ -853,8 +859,8 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
   `-f, --foreground` option.
 - Added a native Cocoa GUI for macOS. This removes the PyQt5 dependency for macOS and
   reduces the size of the bundled app from 50 MB to 15 MB. It also eliminates a few
-  inconsistencies in GUI appearance. Especially the sync issues window looks a lot better
-  (hopefully you won't see it too often).
+  inconsistencies in GUI appearance. Especially the sync issues window looks a lot
+  better (hopefully you won't see it too often).
 
 #### Changed:
 
@@ -862,8 +868,8 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 - Notify only for remote changes and not for those which originated locally. This
   should significantly reduce the number of unwanted notifications.
 - Renamed `maestral notifications` to `maestral notify` for brevity.
-- Renamed the `set-dir` command to `move-dir` to emphasize that it moves the local Dropbox
-  folder to a new location.
+- Renamed the `set-dir` command to `move-dir` to emphesize that it moves the local
+  Dropbox folder to a new location.
 - Configurations are now tied to a Dropbox account:
     - New configurations are now created on-demand when calling `maestral gui` or
       `maestral start` with a new configuration name.
@@ -871,35 +877,39 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
     - All configurations can be listed together with the account emails with
       `maestral configs`. This replaces `maestral config list`.
 - For app bundles on macOS, you can now pass a config option `-c, --config-name` to the
-  bundle's executable ("Maestral.app/Contents/MacOS/main"). It will then use the specified
-  configuration if it already exists or to create a new one.
+  bundle's executable ("Maestral.app/Contents/MacOS/main"). It will then use the
+  specified configuration if it already exists or to create a new one.
 - The GUI no longer restarts after completing the setup dialog.
 - Removed sync and application state info from the config file. Sync and application
-  states are now  saved separately in '~/.local/share/maestral/CONFIG_NAME.state' on Linux
-  and '~/Library/Application Support/maestral/CONFIG_NAME.state' on macOS.
-- Use atomic save to prevent corruption of the sync index if Maestral crashes or is killed
-  during a save.
+  states are now  saved separately in '~/.local/share/maestral/CONFIG_NAME.state' on
+  Linux and '~/Library/Application Support/maestral/CONFIG_NAME.state' on macOS.
+- Use atomic save to prevent corruption of the sync index if Maestral crashes or is
+  killed during a save.
 - Moved the sync index to the same folder as the application state.
-- Improved conflict detection and resolution when changing files which are currently being
-  uploaded or downloaded.
+- Improved conflict detection and resolution when changing files which are currently
+  being uploaded or downloaded.
 
 #### Fixed:
 
 - Fixes an issue where local changes while maestral was not running could be overwritten
   by remote changes instead of resulting in a conflicting copy.
-- Fixes an issue where local file events could be ignored while a download is in progress.
+- Fixes an issue where local file events could be ignored while a download is in
+  progress.
 - Fixes an issue where a new local file could be incorrectly deleted if it was created
   just after a remote item at the same path was deleted.
-- Fixes an issue where `maestral stop` and `maestral restart` would not interrupt running
-  sync jobs but instead wait for them to be completed. Now, aborted jobs will be resumed
-  when starting Maestral again.
+- Fixes an issue where `maestral stop` and `maestral restart` would not interrupt
+  running sync jobs but instead wait for them to be completed. Now, aborted jobs will be
+  resumed when starting Maestral again.
 - Correctly handle when a folder is replaced by a file and vice versa.
 - Correctly handle additional error types: internal Dropbox server error, insufficient
-  space on local drive, file name too long for local file system and out-of-memory error.
-- Automatically resume upload in case of dropped packages instead of raising a sync issue.
+  space on local drive, file name too long for local file system and out-of-memory
+  error.
+- Automatically resume upload in case of dropped packages instead of raising a sync
+  issue.
 - Set the log level for the systemd journal according to user settings instead of always
   using logging.DEBUG.
-- Run checks for Dropbox folder location and link status when invoking `maestral restart`.
+- Run checks for Dropbox folder location and link status when invoking `maestral
+  restart`.
 - Notify the user through the GUI when moving the Dropbox directory fails instead of
   silently keeping the old directory.
 - Fixes an issue where the environment variable XDG_DATA_DIR would not be respected in
@@ -907,44 +917,45 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
 
 #### Removed:
 
-- Removed "-a" option from `maestral ls`. List all entries by default, even if they start
-  with a period.
-- Removed the `maestral config` command group. Configurations are now created and deleted
-  on-demand and can be listed with `maestral configs`.
+- Removed "-a" option from `maestral ls`. List all entries by default, even if they
+  start with a period.
+- Removed the `maestral config` command group. Configurations are now created and
+  deleted on-demand and can be listed with `maestral configs`.
 
 ## v0.5.2
 
 #### Added:
 
-- Added automatic crash and error reporting with [bugsnag](https://www.bugsnag.com). This
-  is *disabled* by default and can be enabled in the Settings pane or with the command
-  `maestral analytics -Y`. The information sent with the bug report contains a traceback,
-  the Python version, basic platform information (e.g, 'Darwin-19.2.0-x86_64-i386-64bit')
-  and potentially the version of PyQt5 and the user's desktop environment. No personal
-  information will be shared.
+- Added automatic crash and error reporting with [bugsnag](https://www.bugsnag.com).
+  This is *disabled* by default and can be enabled in the Settings pane or with the
+  command `maestral analytics -Y`. The information sent with the bug report contains a
+  traceback, the Python version, basic platform information (e.g,
+  'Darwin-19.2.0-x86_64-i386-64bit') and potentially the version of PyQt5 and the user's
+  desktop environment. No personal information will be shared.
 
 #### Changed:
 
-- Improved the code which handles multiple configurations: Explicitly pass the config name
-  to classes instead of keeping it as a global variable.
+- Improved the code which handles multiple configurations: Explicitly pass the config
+  name to classes instead of keeping it as a global variable.
 - Improved starting of the daemon: ensure that the right python executable is used.
-- Order of commands returned by `maestral --help` by importance instead of alphabetically.
+- Order of commands returned by `maestral --help` by importance instead of
+  alphabetically.
 - Sync errors will now be listed by `maestral status` if present.
 - Live updates to the Settings window when settings are changed from the command line.
 
 #### Fixed:
 
-- Fixed an issue on macOS where some directory deletions could be ignored in case of rapid
-  successive deletions.
-- Fixed an unexpected exception when attempting to create a directory that already exists.
-  Do not rely on the `exists_ok` parameter in `os.makedirs` but catch `FileExistsError`
-  explicitly (see https://bugs.python.org/issue13498).
-- Fixed an `AttributeError` when a local folder is replaced by file: the Dropbox metadata
-  of the folder will not have a content hash. This mostly occurs when modifying a folder
-  structure programmatically, for instance with git.
+- Fixed an issue on macOS where some directory deletions could be ignored in case of
+  rapid successive deletions.
+- Fixed an unexpected exception when attempting to create a directory that already
+  exists. Do not rely on the `exists_ok` parameter in `os.makedirs` but catch
+  `FileExistsError` explicitly (see https://bugs.python.org/issue13498).
+- Fixed an `AttributeError` when a local folder is replaced by file: the Dropbox
+  metadata of the folder will not have a content hash. This mostly occurs when modifying
+  a folder structure programmatically, for instance with git.
 - Fixed an `AttributeError` when a remote file has been replaced by a folder before its
-  changes could be downloaded: the Dropbox metadata of the folder will not have a content
-  hash.
+  changes could be downloaded: the Dropbox metadata of the folder will not have a
+  content hash.
 - Fixed an bug introduced in v0.5.0 which would cause rebuilding the index to block
   indefinitely.
 - Fixed a crash of the GUI when closing the settings window shortly after closing the
@@ -952,8 +963,8 @@ CLI commands. As always, there are several bug fixes. Thank you for all your fee
   the threads were still running.
 - Fixed an issue where the local revision number of a file could be set to 'folder',
   resulting in an exception from the Dropbox API.
-- Fixed a bug when the "relink dialog" (shown when Maestral's Dropbox access has expired)
-  might use the wrong Dropbox account when syncing multiple accounts.
+- Fixed a bug when the "relink dialog" (shown when Maestral's Dropbox access has
+  expired) might use the wrong Dropbox account when syncing multiple accounts.
 - Fixed an issue with imports in Pyro5 5.7 which prevented the daemon from starting.
 
 #### Removed:
@@ -984,22 +995,22 @@ may be considered the first release candidate for a stable v1.0.0.
 - Improves formatting of `maestral ls` output.
 - Improves status notifications for large uploads: dynamically adapt the unit to show up
   to four significant digits (e.g., "16MB/1.6GB" instead of "0/1.6GB").
-- Reduces memory footprint of macOS app by stripping doc strings (at least 5MB in dropbox
-  package only).
+- Reduces memory footprint of macOS app by stripping doc strings (at least 5MB in
+  dropbox package only).
 
 #### Fixed:
 
 - Fixes multiple sync issues and corner cases due to rapid and successive file changes:
   The algorithm which combines successive changes of a local file to a single file event
   (created / deleted / modified / moved) has been simplified and improved.
-- Fixes an issue which could cause the watchdog thread to crash silently on case-sensitive
-  file systems when saving changes to a file.
+- Fixes an issue which could cause the watchdog thread to crash silently on case-
+  sensitive file systems when saving changes to a file.
 - Removes sip import because it may fail depending on how PyQt was installed.
-- Fixed an issue where user notifications would not appear for certain implementations of
-  'notify-send'.
+- Fixed an issue where user notifications would not appear for certain implementations
+  of 'notify-send'.
 - Fixes an error when setting the log level from the CLI.
-- Fixes an error when relinking Maestral through the GUI after its Dropbox access has been
-  revoked.
+- Fixes an error when relinking Maestral through the GUI after its Dropbox access has
+  been revoked.
 
 ## v0.4.4
 
@@ -1026,16 +1037,16 @@ perform an incremental update to v0.4.3 first (see Removed section).
 - Fixes an unhandled error when attempting to calculate the content hash of a file which
   has been deleted locally. This can occur after Maestral has been notified of remote
   changes to a file which is deleted locally before comparing file contents.
-- Fixes a bug which could result in multiple false "conflicting copies" of a file when the
-  user modifies the file while it is being uploaded.
-- Fixes a regression bug which would prevent the creation and selection of new configs for
-  different Dropbox accounts.
-- Fixes a bug that would prevent Maestral from properly shutting down a sync daemon which
-  was started from the GUI. This was a result of the daemon's sync threads not exiting as
-  long as a parent process from the same process group is still alive (the GUI in our
-  case). We prevent this by using "double-fork" magic to properly orphan the daemon
-  process so that init will perform its cleanup. See Stevens' "Advanced Programming in the
-  UNIX Environment" for details (ISBN 0201563177).
+- Fixes a bug which could result in multiple false "conflicting copies" of a file when
+  the user modifies the file while it is being uploaded.
+- Fixes a regression bug which would prevent the creation and selection of new configs
+  for different Dropbox accounts.
+- Fixes a bug that would prevent Maestral from properly shutting down a sync daemon
+  which was started from the GUI. This was a result of the daemon's sync threads not
+  exiting as long as a parent process from the same process group is still alive (the
+  GUI in our case). We prevent this by using "double-fork" magic to properly orphan the
+  daemon process so that init will perform its cleanup. See Stevens' "Advanced
+  Programming in the UNIX Environment" for details (ISBN 0201563177).
 - Fixes an issue where the application launcher which is used to start Maestral on login
   in Linux may be untrusted.
 - Fixes an issue where `maestral set-dir` would fail if the new directory is the same as
@@ -1068,8 +1079,8 @@ perform an incremental update to v0.4.3 first (see Removed section).
 
 #### Removed:
 
-- Removed automatic detection of Gnome screen scaling factors because it caused problems on
-  a few desktop environments. Set the environment variable `QT_SCREEN_SCALE_FACTORS`
+- Removed automatic detection of Gnome screen scaling factors because it caused problems
+  on a few desktop environments. Set the environment variable `QT_SCREEN_SCALE_FACTORS`
   instead to enable it manually if required.
 
 ## v0.4.2
@@ -1081,22 +1092,26 @@ perform an incremental update to v0.4.3 first (see Removed section).
 
 #### Fixed:
 
-- Fixes crash of the sync thread when attempting to download a file from Dropbox which has
-  been deleted after it has been queued for download but before the actual download attempt.
+- Fixes crash of the sync thread when attempting to download a file from Dropbox which
+  has been deleted after it has been queued for download but before the actual download
+  attempt.
 - Fixes crash of the sync thread when attempting to upload a file to Dropbox which has
   been deleted after it has been queued for upload but before the actual upload attempt.
 - Fixes a bug where the revision number of a file could be incorrectly set to "folder".
 - Fixes a crash of the sync thread while indexing local changes (after a restart) if an
   indexed item has been deleted before we could check if it is a file or a folder.
-- Fixes a bug where newly downloaded files could be immediately re-uploaded in some cases.
+- Fixes a bug where newly downloaded files could be immediately re-uploaded in some
+  cases.
 - Fixes a crash on startup when started as systemd service with watchdog.
 
 ## v0.4.1
 
 This release focuses on bug fixes and performance improvements. Notable changes are:
 
-- You can now rebuild Maestral's index from the command line with `maestral rebuild-index`.
-- Communication between the sync daemon and frontend (GUI or CLI) is faster and more secure.
+- You can now rebuild Maestral's index from the command line with `maestral rebuild-
+  index`.
+- Communication between the sync daemon and frontend (GUI or CLI) is faster and more
+  secure.
 - Improved system tray notifications.
 
 Here is the list of all changes:
@@ -1119,8 +1134,8 @@ Here is the list of all changes:
   unlink in the background.
 - Show menu entry "No recent files" when there are no recently changed files to display.
 - Use Unix domain sockets instead of TCP/IP sockets for communication with daemon. This
-  means that communication is lighter, faster and more secure (other users on the same PC
-  can no longer connect to your sync daemon).
+  means that communication is lighter, faster and more secure (other users on the same
+  PC can no longer connect to your sync daemon).
 - Use NSTemporaryDirectory on macOS as runtime dir.
 - Simplified code for the initial sync.
 
@@ -1128,31 +1143,31 @@ Here is the list of all changes:
 
 - Fixes a bug where the CLI setup dialog could fail when choosing to replace an existing
   Dropbox folder.
-- Fixes a bug which would cause `maestral start` to hang indefinitely if the daemon is not
-  created successfully (see #57).
+- Fixes a bug which would cause `maestral start` to hang indefinitely if the daemon is
+  not created successfully (see #57).
 - Fixes a bug which would cause `maestral unlink` to fail when the Maestral daemon is
   still running.
 - Fixes a bug where the Maestral GUI would show a paused icon during the initial sync
   after setup.
-- Fixes a bug where the menu bar item "Pause Syncing" would not change to "Resume Syncing"
-  when pausing sync through the CLI via `maestral pause` (and vice versa).
+- Fixes a bug where the menu bar item "Pause Syncing" would not change to "Resume
+  Syncing" when pausing sync through the CLI via `maestral pause` (and vice versa).
 - Catch unexpected exceptions in sync threads and display to user instead of crashing.
 - Do not upload changes to an excluded folder but raise a sync issue instead.
 - Fixes wrong color of system tray / menu bar icon on macOS when clicked in light-mode.
-- Fixes a regression bug from v0.4.0 which caused the creation of new configs for separate
-  Dropbox accounts to fail silently.
-- Fixes a bug which could result in a missing sync cursor when running the Maestral after
-  the initial setup. This would come from parallel access to the config files from a
-  thread spawned by the setup dialog and the Maestral daemon itself. We now make sure that
-  the setup dialog leaves no threads behind after exiting.
-- Fixes a bug which could cause false sync errors when adding a nested folder structure to
-  the local Dropbox folder.
+- Fixes a regression bug from v0.4.0 which caused the creation of new configs for
+  separate Dropbox accounts to fail silently.
+- Fixes a bug which could result in a missing sync cursor when running the Maestral
+  thafter e initial setup. This would come from parallel access to the config files from
+  tha read spawned by the setup dialog and the Maestral daemon itself. We now make sure
+  ththat e setup dialog leaves no threads behind after exiting.
+- Fixes a bug which could cause false sync errors when adding a nested folder structure
+  to the local Dropbox folder.
 - Fixes bug in converting Dropbox `DeleteError`s due to an invalid path to
   `MaestralApiError`s.
 - Fixes a bug which would prevent Maestral from detecting local changes to files that are
   part of a batch which is currently being downloaded.
-- Fixes a bug where the user may be asked to create a new keyring in a non-default wallet
-  if multiple wallets are available on first start (see #56).
+- Fixes a bug where the user may be asked to create a new keyring in a non-default
+  wallet if multiple wallets are available on first start (see #56).
   See https://github.com/jaraco/keyring/issues/391 for the current behaviour of Python
   keyring.
 - Fixes a bug which could cause the Maestral daemon to be started with a different PATH
@@ -1176,24 +1191,24 @@ Details are given below.
 #### Added:
 
 - Method to get the sync status of individual files or folders. This is also accessible
-  through the CLI via `maestral file-status LOCAL_PATH`. In the future, this could be used
-  by file manager plugins to overlay the sync status of files.
+  through the CLI via `maestral file-status LOCAL_PATH`. In the future, this could be
+  used by file manager plugins to overlay the sync status of files.
 - Support to exclude subfolders in the main API, CLI and GUI.
-- Added a command group `maestral excluded` to view and manage excluded folders. Available
-  commands are `add`, `remove` and `show`.
-- For case-sensitive file systems: Automatically rename created items which have the same
-  name as an existing item, but with a different case. This avoids possible issues on
-  case-sensitive file systems since Dropbox itself is not case-sensitive.
+- Added a command group `maestral excluded` to view and manage excluded folders.
+  Available commands are `add`, `remove` and `show`.
+- For case-sensitive file systems: Automatically rename created items which have the
+  same name as an existing item, but with a different case. This avoids possible issues
+  on case-sensitive file systems since Dropbox itself is not case-sensitive.
 - GUI notifications when a new version of Maestral is available, configurable to daily,
   weekly, monthly or never.
 - A new "Check for updates..." menu entry.
-- Better integration with systemd: When the daemon is started from systemd, status updates
-  and ready / stopping signals are sent to systemd and the log is sent to the journal
-  instead of stdout. This requires the installation of the systemd extra as
-  `pip3 install -U maestral[systemd]`, which will install `sdnotify` and `systemd-python`.
-  The latter may require you install additional packages through your system's package
-  manager first. See [here](https://github.com/systemd/python-systemd) for installation
-  instructions.
+- Better integration with systemd: When the daemon is started from systemd, status
+  updates and ready / stopping signals are sent to systemd and the log is sent to the
+  journal instead of stdout. This requires the installation of the systemd extra as
+  `pip3 install -U maestral[systemd]`, which will install `sdnotify` and `systemd-
+  python`. The latter may require you install additional packages through your system's
+  package manager first. See [here](https://github.com/systemd/python-systemd) for
+  installation instructions.
 
 #### Changed:
 
@@ -1205,8 +1220,8 @@ Details are given below.
 - GUI now uses only the main Maestral API which is exposed over sockets.
 - Changed returned values of the Maestral API to Python types only for better
   serialisation.
-- GUI now starts its own daemon on demand or attaches to an existing one. This daemon will
-  run in a separate process, unless started from a macOS App bundle.
+- GUI now starts its own daemon on demand or attaches to an existing one. This daemon
+  will run in a separate process, unless started from a macOS App bundle.
 - Improved startup time for large folders: Moved indexing of local files after a restart
   to the `upload_thread`.
 - Sync engine moved to a submodule.
@@ -1217,8 +1232,8 @@ Details are given below.
 
 - Fixed an incorrect error being raised for a corrupted rev file, which could lead to a
   crash or misleading error message.
-- Fixed a bug which would cause a renamed file with a previously invalid name not to sync
-  to Dropbox.
+- Fixed a bug which would cause a renamed file with a previously invalid name not to
+  sync to Dropbox.
 - Fixed a bug in the GUI which would cause clicking on a recently changed file to reveal
   the wrong item in the file manager.
 - Fixed a bug which would cause the sync thread to crash when attempting to follow a
@@ -1266,22 +1281,22 @@ bug fixes and small tweaks to the UI.
     - Show Dropbox folder location in account-info.
     - Add colours to outputs like "[OK]" and "[FAILED]".
 - Set minimum version requirement for click package.
-- Reduced the startup time by downloading profile picture in a thread. Periodically update
-  in the background (every 20 min).
-- Check hashes before uploading modified files. This speeds up re-linking an old folder by
-  orders of magnitude.
+- Reduced the startup time by downloading profile picture in a thread. Periodically
+  update in the background (every 20 min).
+- Check hashes before uploading modified files. This speeds up re-linking an old folder
+  by orders of magnitude.
 - Enable the creation of multiple autostart entries for different configurations.
 - Fall back to PNG tray icons if the platform may not support our svg format.
 
 #### Fixed:
 
-- Fixed a bug which would not allow running maestral for the first time before explicitly
-  adding a configuration with `maestral config new`. Now, a default configuration is
-  created automatically on first run.
+- Fixed a bug which would not allow running maestral for the first time before
+  explicitly adding a configuration with `maestral config new`. Now, a default
+  configuration is created automatically on first run.
 - Prevent the GUI and a daemon from syncing the same folder at the same time.
 - Fixed the creation of multiple daemons. A new daemon will no longer overwrite an old
-  one and `maestral daemon start` will do nothing if a daemon for the given configuration
-  is already running.
+  one and `maestral daemon start` will do nothing if a daemon for the given
+  configuration is already running.
 - Automatic allocation of ports for the communication between daemon and client.
 - Show the (Dropbox) file path in the string representation of `MaestralApiError`.
   Previously, one could not see from the traceback which file caused the error.
@@ -1327,8 +1342,9 @@ The detailed list of changes is:
 - Improved grouping and naming of command line scripts.
 - Added a "relink" dialog which is shown when Maestral's Dropbox access has expired or
   has been revoked by the user.
-- Improved logic to detect system tray color and set icons accordingly. This is mostly for
-  KDE which, unlike Gnome, does not handle automatically adapting its tray icon colours.
+- Improved logic to detect system tray color and set icons accordingly. This is mostly
+  for KDE which, unlike Gnome, does not handle automatically adapting its tray icon
+  colours.
 
 #### Changed:
 
@@ -1336,16 +1352,16 @@ The detailed list of changes is:
 - Redesigned the settings window to show more prominent account information.
 - Improved command line and GUI flows for setting or moving the Dropbox folder location.
 - Moved to an Implicit Grant OAuth2 flow. This does not require an app secret to be
-  stored in the client source code. Maestral will therefore no longer require the user to
-  get their own API keys or to use the precompiled oauth binaries hosted on PyPI.
+  stored in the client source code. Maestral will therefore no longer require the user
+  to get their own API keys or to use the precompiled oauth binaries hosted on PyPI.
 - Improved the user massages given by command line scripts.
 - Improved status messages given in RebuildIndexDialog.
 - Unified and improved the creation of QThreads by the GUI to perform background tasks.
   This fixes an issue with occasional segfaults RebuildIndexDialog and improves the
   reliability of the UI.
-- Started to work on providing a top-level API in `Maestral` for all functionality that is
-  required by the UI. There should be no need to interact with `Monitor` or `UpDownSync`
-  directly for high-level functionality.
+- Started to work on providing a top-level API in `Maestral` for all functionality that
+  is required by the UI. There should be no need to interact with `Monitor` or
+  `UpDownSync` directly for high-level functionality.
 
 #### Fixed:
 
@@ -1366,7 +1382,8 @@ with a previous version of Maestral.
 
 #### Changed:
 
-- Move logs to '$XDG_CACHE_HOME/maestral' on Linux and '~/Library/Logs/maestral' on macOS.
+- Move logs to '$XDG_CACHE_HOME/maestral' on Linux and '~/Library/Logs/maestral' on
+  macOS.
 - Reduce the number of Dropbox API calls during initial sync.
 
 #### Fixed:
@@ -1399,7 +1416,8 @@ been revoked.
 - Fixed a false "Dropbox folder cannot be found" message which would appear when
   quitting and restarting Maestral during the first sync. Now, the initial download is
   quietly resumed when relaunching Maestral.
-- Fixed an issue where an interrupted upload would not resume without restarting Maestral.
+- Fixed an issue where an interrupted upload would not resume without restarting
+  Maestral.
 - Fixed an issue where file changes while "offline" would sometimes not be synced to
   Dropbox when a connection is reestablished.
 - Fixed an issue where errors from `requests` would inadvertently get caught instead of
@@ -1407,9 +1425,9 @@ been revoked.
 
 ## v0.2.4
 
-This version mainly improves the appearance and responsiveness of the GUI specifically on
-Linux platforms with a Gnome desktop. It also introduces a dialog to handle a deleted or
-moved Dropbox folder.
+This version mainly improves the appearance and responsiveness of the GUI specifically
+on Linux platforms with a Gnome desktop. It also introduces a dialog to handle a deleted
+or moved Dropbox folder.
 
 #### Added:
 
@@ -1444,8 +1462,8 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 
 #### Fixed:
 
-- Fixed a bug which could could result in the user being asked to re-authenticate when no
-  Dropbox folder is detected on startup.
+- Fixed a bug which could could result in the user being asked to re-authenticate when
+  no Dropbox folder is detected on startup.
 - Fixed a bug which could cause Maestral to crash during the setup dialog, immediately
   after user authentication.
 
@@ -1482,8 +1500,8 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 - Reload all file and folder icons when the system appearance changes: the system may
   provide different icons (e.g., darker folder icons in "dark mode" on macOS Mojave).
 - Improved notification centre alerts in macOS: when installed as a bundled app,
-  notifications are now properly sent from the Maestral itself, showing the Maestral icon,
-  instead of through apple script.
+  notifications are now properly sent from the Maestral itself, showing the Maestral
+  icon, instead of through apple script.
 - Improved layout of the "Rebuild index" dialog.
 
 #### Fixed:
@@ -1498,28 +1516,28 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 #### Added:
 
 - Proper handling of sync errors. Dropbox API errors are converted to a more informative
-  `MaestralApiError` and a log of sync errors is kept. This log is cleared as sync errors
-  are resolved. Errors are now handled as follows:
+  `MaestralApiError` and a log of sync errors is kept. This log is cleared as sync
+  errors are resolved. Errors are now handled as follows:
       - Individual file sync errors are indicated by the system tray icon changing. The
         can listed by the user through the GUI.
-      - Unexpected errors or major errors which prevent Maestral from functioning (e.g., a
-        corrupted index) trigger an error dialog.
+      - Unexpected errors or major errors which prevent Maestral from functioning (e.g.,
+        a corrupted index) trigger an error dialog.
 
 - Introduced a new panel "View Sync Issues..." to show an overview of sync issues and
   their cause (invalid file name, insufficient space on Dropbox, etc...)
 - Added a new function to rebuild Maestral's file index which is accessible through the
   GUI.
-- Added "Recently Changed Files" submenu to the system tray menu. "Recently Changed Files"
-  shows entries for the 30 last-changed files (synced folders only) and navigates to the
-  respective file in the default file manager when an entry is clicked.
+- Added "Recently Changed Files" submenu to the system tray menu. "Recently Changed
+  Files" shows entries for the 30 last-changed files (synced folders only) and navigates
+  to the respective file in the default file manager when an entry is clicked.
 
 #### Changed:
 
 - Refactored sync code: Collected all sync functionality in a the new class
-  `monitor.UpDownSync`. `MaestralClient` now only handles access to the Dropbox API itself
-  but is no longer concerned with version tracking, etc. `MaestralClient` no longer
-  catches Dropbox API errors but raises them, augmented with useful information, as
-  `MaestralApiError`.
+  `monitor.UpDownSync`. `MaestralClient` now only handles access to the Dropbox API
+  itself but is no longer concerned with version tracking, etc. `MaestralClient` no
+  longer catches Dropbox API errors but raises them, augmented with useful information,
+  as `MaestralApiError`.
 - Moved storage of user authentication tokens from a text file to the system keyring. As a
   result, authentication tokens will be encrypted on the hard drive and only decrypted
   when the user logs in. On some systems, this may cause problems in headless mode, when
@@ -1561,9 +1579,10 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
   how the changes were saved by the program which was used to edit the file.
 - Fixed a bug which would incorrectly list top level files as folders in the "Exclude
   folders" dialog.
-- Truncate entries in the "Recently Changed Files" menu if their width exceeds 200 pixels.
-- Fixed a bug which would cause Maestral to crash when clicking "Choose folders to sync..."
-  while Maestral cannot connect to Dropbox servers.
+- Truncate entries in the "Recently Changed Files" menu if their width exceeds 200
+  pixels.
+- Fixed a bug which would cause Maestral to crash when clicking "Choose folders to
+  sync..." while Maestral cannot connect to Dropbox servers.
 
 ## v0.1.2
 
@@ -1584,7 +1603,8 @@ This release mainly fixes crashes of the setup dialog and contains tweaks to the
 - Fixed a bug which would cause uploads to fail if they are split into multiple chunks.
 - Fixed a bug that would prevent Maestral from quitting if the setup dialog is aborted.
 - Fixed a bug that would cause Maestral to crash during the setup dialog when switching
-  multiple times between the "Select Folders to Sync" and "Select Dropbox location" panels.
+  multiple times between the "Select Folders to Sync" and "Select Dropbox location"
+  panels.
 - Do not upload files that have identical content on Dropbox. Previously: files were
   always uploaded and conflict checking was left to do by the Dropbox server.
 
