@@ -540,14 +540,14 @@ class DropboxClient:
                         if sync_event:
                             sync_event.completed = f.tell()
 
-        # Dropbox SDK provides naive datetime in UTC.
-        client_mod = md.client_modified.replace(tzinfo=timezone.utc)
-        server_mod = md.server_modified.replace(tzinfo=timezone.utc)
+            # Dropbox SDK provides naive datetime in UTC.
+            client_mod = md.client_modified.replace(tzinfo=timezone.utc)
+            server_mod = md.server_modified.replace(tzinfo=timezone.utc)
 
-        # Enforce client_modified < server_modified.
-        timestamp = min(client_mod.timestamp(), server_mod.timestamp(), time.time())
-        # Set mtime of downloaded file.
-        os.utime(local_path, (time.time(), timestamp))
+            # Enforce client_modified < server_modified.
+            timestamp = min(client_mod.timestamp(), server_mod.timestamp(), time.time())
+            # Set mtime of downloaded file.
+            os.utime(local_path, (time.time(), timestamp))
 
         return md
 
