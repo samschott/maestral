@@ -82,15 +82,18 @@ class OAuth2Session:
         other application in the same user session get access to *all* saved passwords.
 
     :param config_name: Name of maestral config.
-
-    :cvar int Success: Exit code for successful auth.
-    :cvar int InvalidToken: Exit code for invalid token.
-    :cvar int ConnectionFailed: Exit code for connection errors.
+    :param app_key: Public key of the app, as registered with Dropbox. Used for the
+        PKCE OAuth 2.0 flow.
     """
 
     Success = 0
+    """Exit code for successful auth."""
+
     InvalidToken = 1
+    """Exit code for invalid token."""
+
     ConnectionFailed = 2
+    """Exit code for connection errors."""
 
     default_token_access_type = "offline"
 
@@ -126,6 +129,7 @@ class OAuth2Session:
 
     @property
     def keyring(self) -> KeyringBackend:
+        """The keyring backend currently being used to store auth tokens."""
 
         if not self._keyring:
             self._keyring = self._get_keyring_backend()
@@ -204,7 +208,7 @@ class OAuth2Session:
 
     @property
     def linked(self) -> bool:
-        """Returns ``True`` if we have full auth credentials, ``False`` otherwise."""
+        """Whether we have full auth credentials (read only)."""
 
         if self.account_id:
 
@@ -218,17 +222,17 @@ class OAuth2Session:
 
     @property
     def account_id(self) -> Optional[str]:
-        """Returns the account ID (read only). This call may block until the keyring is
+        """The account ID (read only). This call may block until the keyring is
         unlocked."""
 
         return self._account_id
 
     @property
     def token_access_type(self) -> Optional[str]:
-        """Returns the type of access token. If 'legacy', we have a long-lived access
-        token. If 'offline', we have a short-lived access token with an expiry time and
-        a long-lived refresh token to generate new access tokens. This call may block
-        until the keyring is unlocked."""
+        """The type of access token (read only). If 'legacy', we have a long-lived
+        access token. If 'offline', we have a short-lived access token with an expiry
+        time and a long-lived refresh token to generate new access tokens. This call may
+        block until the keyring is unlocked."""
 
         with self._lock:
             if not self.loaded:
@@ -238,11 +242,11 @@ class OAuth2Session:
 
     @property
     def access_token(self) -> Optional[str]:
-        """Returns the access token (read only). This will always be set for a 'legacy'
-        token. For an 'offline' token, this will only be set if we completed the auth
-        flow in the current session. In case of an 'offline' token, use the refresh
-        token to retrieve a short-lived access token through the Dropbox API instead.
-        This call may block until the keyring is unlocked."""
+        """The access token (read only). This will always be set for a 'legacy' token.
+        For an 'offline' token, this will only be set if we completed the auth flow in
+        the current session. In case of an 'offline' token, use the refresh token to
+        retrieve a short-lived access token through the Dropbox API instead. This call
+        may block until the keyring is unlocked."""
 
         with self._lock:
             if not self.loaded:
@@ -252,8 +256,8 @@ class OAuth2Session:
 
     @property
     def refresh_token(self) -> Optional[str]:
-        """Returns the refresh token (read only). This will only be set for an 'offline'
-        token. This call may block until the keyring is unlocked."""
+        """The refresh token (read only). This will only be set for an 'offline' token.
+        This call may block until the keyring is unlocked."""
 
         with self._lock:
             if not self.loaded:
@@ -263,8 +267,8 @@ class OAuth2Session:
 
     @property
     def access_token_expiration(self) -> Optional[datetime]:
-        """Returns the expiry time for the short-lived access token. This will only be
-        set for an 'offline' token and if we completed the flow during the current
+        """The expiry time for the short-lived access token (read only). This will only
+        be set for an 'offline' token and if we completed the flow during the current
         session."""
 
         # this will only be set if we linked in the current session
@@ -278,7 +282,8 @@ class OAuth2Session:
         :attr:`refresh_token` or :attr:`token_access_type`. This call may block until
         the keyring is unlocked.
 
-        :raises KeyringAccessError: If the system keyring is locked.
+        :raises KeyringAccessError: if the system keyring is locked or otherwise cannot
+            be accessed (for example if the app bundle signature has been invalidated).
         """
 
         self._logger.debug(f"Using keyring: {self.keyring}")
@@ -342,6 +347,7 @@ class OAuth2Session:
         "authorization code". Have the user copy/paste that authorization code into the
         app and then call this method to exchange it for a long-lived auth token.
 
+        :param code: Ephemeral auth code.
         :returns: :attr:`Success`, :attr:`InvalidToken`, or :attr:`ConnectionFailed`.
         """
 
@@ -398,7 +404,12 @@ class OAuth2Session:
                 self.save_creds()
 
     def delete_creds(self) -> None:
-        """Deletes auth token from system keyring."""
+        """
+        Deletes auth token from system keyring.
+
+        :raises KeyringAccessError: if the system keyring is locked or otherwise cannot
+            be accessed (for example if the app bundle signature has been invalidated).
+        """
 
         with self._lock:
 
