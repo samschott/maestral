@@ -10,15 +10,19 @@
   unlocked, for example because the executable (app bundle or Python) has an invalid
   signature.
 * Improved error messages on startup for the macOS app bundle.
-* Improved error message in CLI when setting a config value fails because the new value
-  has the wrong type.
+* Improved error message in the CLI when setting a config value fails because the new 
+  value has the wrong type.
 
 #### Fixed:
 
-* Fixed a crash on startup when the log level is set to WARNING.
+* Fixed a crash on startup of the daemon when the log level is set to WARNING.
 * Fixed an issue which could result in an unresponsive daemon during startup on macOS.
 * Fixed an issue which could result in the CLI or GUI to stall indefinitely if the
   daemon process is unresponsive.
+* Fixed an issue in the macOS GUI where passing the "missing Dropbox folder" flow by
+  selecting a new location would lead to duplicate menu entries in the status bar menu.
+* Fixed an issue where moving / removing the local Dropbox folder during a download 
+  could lead to unhandled exceptions instead of useful error messages.
 
 #### Removed:
 
