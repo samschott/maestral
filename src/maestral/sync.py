@@ -1077,12 +1077,16 @@ class SyncEngine:
 
         while not osp.isdir(self.file_cache_path):
             try:
-                # this will raise FileExistsError if file_cache_path
-                # exists but is a file instead of a directory
+                # This will raise FileExistsError if file_cache_path
+                # exists but is a file instead of a directory.
                 os.makedirs(self.file_cache_path, exist_ok=True)
+                return
             except FileExistsError:
-                # remove the file that's in our way
+                # Remove the file that's in our way, retry creation.
                 self.clean_cache_dir()
+            except NotADirectoryError:
+                # Ensure that parent directories exist as expected.
+                self.ensure_dropbox_folder_present()
             except OSError as err:
                 raise CacheDirError(
                     f"Cannot create cache directory: {err.strerror}",
