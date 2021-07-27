@@ -23,6 +23,8 @@
   selecting a new location would lead to duplicate menu entries in the status bar menu.
 * Fixed an issue where moving / removing the local Dropbox folder during a download 
   could lead to unhandled exceptions instead of useful error messages.
+* Fixes handling of 503 and other raw HTTP errors from the Dropbox SDK, for instance
+  when Dropbox servers have temporary outages or are undergoing planned maintenance.
 
 #### Removed:
 
