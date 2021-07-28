@@ -1100,6 +1100,7 @@ class SyncEngine:
                     "Exceeded maximum number of retries",
                 )
 
+            time.sleep(0.01)
             retries += 1
 
     def clean_cache_dir(self, raise_error: bool = True) -> None:
