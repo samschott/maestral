@@ -1065,7 +1065,7 @@ class SyncEngine:
             )
             raise NoDropboxDirError(title, msg)
 
-    def _ensure_cache_dir_present(self) -> None:
+    def ensure_cache_dir_present(self) -> None:
         """
         Checks for or creates a directory at :attr:`file_cache_path`.
 
@@ -1130,7 +1130,7 @@ class SyncEngine:
 
     def _new_tmp_file(self) -> str:
         """Returns a new temporary file name in our cache directory."""
-        self._ensure_cache_dir_present()
+        self.ensure_cache_dir_present()
         try:
             with NamedTemporaryFile(dir=self.file_cache_path, delete=False) as f:
                 try:
