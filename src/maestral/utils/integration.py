@@ -8,10 +8,11 @@ import os
 import platform
 import enum
 import resource
-import socket
+import requests
 import time
 from pathlib import Path
 from typing import Union, Tuple
+from urllib.parse import urlparse
 
 __all__ = [
     "get_ac_state",
@@ -196,10 +197,10 @@ def check_connection(hostname: str, timeout: int = 2) -> bool:
     :param timeout: Timeout in seconds for connection check.
     :returns: Connection availability.
     """
+    if urlparse(hostname).scheme not in ["http", "https"]:
+        hostname = "http://" + hostname
     try:
-        host = socket.gethostbyname(hostname)
-        s = socket.create_connection(address=(host, 80), timeout=timeout)
-        s.close()
+        requests.head(hostname, timeout=timeout)
         return True
     except Exception:
         return False
