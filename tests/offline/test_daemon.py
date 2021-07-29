@@ -22,8 +22,6 @@ from maestral.daemon import (
 from maestral.main import Maestral
 from maestral.errors import NotLinkedError
 
-from .conftest import print_logs
-
 
 # locking tests
 
@@ -152,9 +150,6 @@ def test_lifecycle(config_name):
 
         # start daemon process
         res = start_maestral_daemon_process(config_name, timeout=20)
-
-        if res is not Start.Ok:
-            print_logs(config_name)
 
         assert res is Start.Ok
 

@@ -12,19 +12,8 @@ from maestral.fsevents import Observer
 from maestral.client import DropboxClient
 from maestral.config import list_configs, remove_configuration
 from maestral.daemon import stop_maestral_daemon_process, Stop
-from maestral.utils.appdirs import get_home_dir, get_log_path
+from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import delete
-
-
-def print_logs(config_name):
-    # Print daemon logs. Stdout will be shown in case of test failure.
-    log_path = get_log_path("maestral", f"{config_name}.log")
-    with open(log_path, "r") as f:
-        log_content = f.read()
-
-    print("# ==== Full log from daemon ==========")
-    print(log_content)
-    print("# ====================================")
 
 
 @pytest.fixture
