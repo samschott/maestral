@@ -144,6 +144,7 @@ def test_locking_multiprocess(tmp_path):
 # daemon lifecycle tests
 
 
+@pytest.mark.flaky(reruns=5, condition=sys.platform == "darwin")
 def test_lifecycle(config_name):
 
     # this may be flaky under some conditions, run multiple times
@@ -173,6 +174,7 @@ def test_lifecycle(config_name):
 # proxy tests
 
 
+@pytest.mark.flaky(reruns=5, condition=sys.platform == "darwin")
 def test_connection(config_name):
 
     # start daemon process
@@ -203,6 +205,7 @@ def test_fallback(config_name):
         assert isinstance(m._m, Maestral)
 
 
+@pytest.mark.flaky(reruns=5, condition=sys.platform == "darwin")
 def test_remote_exceptions(config_name):
 
     # start daemon process

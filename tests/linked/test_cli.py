@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import os
 import time
 
@@ -31,6 +32,7 @@ def wait_for_idle(m: MaestralProxy, minimum: int = 2):
             m.status_change_longpoll(timeout=minimum)
 
 
+@pytest.mark.flaky(reruns=5, condition=sys.platform == "darwin")
 def test_start_stop(proxy):
 
     config_name = proxy.config_name
