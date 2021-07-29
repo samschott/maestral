@@ -40,7 +40,7 @@ or downloading a file if it already exists with the same content locally or in t
 An app bundle is provided for macOS High Sierra and higher and can be downloaded from the
 Releases tab. This app Bundle is also package as a Homebrew cask.
 
-On other platforms, you can download and install Maestral as a Python PyPI package, as a Docker package.
+On other platforms, you can download and install Maestral as a Python package from PyPI or as a Docker image from Docker Hub.
 
 For more detailed information on the installation, setup and system requirements, please
 check the [documentation](https://samschott.github.io/maestral/docs/installation).
