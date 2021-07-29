@@ -43,7 +43,7 @@ Releases tab. This app Bundle is also package as a Homebrew cask.
 On other platforms, you can download and install Maestral as a Python package from PyPI or as a Docker image from Docker Hub.
 
 For more detailed information on the installation, setup and system requirements, please
-check the [documentation](https://samschott.github.io/maestral/docs/installation).
+check the [documentation](https://maestral.app/docs/installation).
 
 
 ### Homebrew
