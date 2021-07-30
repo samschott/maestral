@@ -1866,9 +1866,14 @@ class SyncEngine:
         self, events: List[FileSystemEvent]
     ) -> List[FileSystemEvent]:
         """
-        Takes local file events and cleans them up so that there is only a single
-        event per path. Collapses moved and deleted events of folders with those of
-        their children. Called by :meth:`wait_for_local_changes`.
+        Takes local file events and cleans them up as follows:
+
+        1) Keep only a single event per path, unless the item type changed (e.g., from
+           file to folder).
+        2) Collapses moved and deleted events of folders with those of their children.
+
+        The order of events will be preserved according to the first event registered
+        for that path.
 
         :param events: Iterable of :class:`watchdog.FileSystemEvent`.
         :returns: List of :class:`watchdog.FileSystemEvent`.
@@ -1881,104 +1886,106 @@ class SyncEngine:
         # of the destination path of has other events associated with it or is excluded
         # from sync.
 
-        histories: Dict[str, List[FileSystemEvent]] = {}
+        # mapping of path -> event history
+        events_for_path: Dict[str, List[FileSystemEvent]] = {}
+
+        # mapping of "event id" -> [source event, destination event]
         moved_events: Dict[str, List[FileSystemEvent]] = {}
-        unique_events: List[FileSystemEvent] = []
 
         for event in events:
-            if isinstance(event, (FileMovedEvent, DirMovedEvent)):
-                deleted, created = split_moved_event(event)
-                add_to_bin(histories, deleted.src_path, deleted)
-                add_to_bin(histories, created.src_path, created)
+            if event.event_type == EVENT_TYPE_MOVED:
+                deleted, created = split_moved_event(event)  # type: ignore
+                add_to_bin(events_for_path, deleted.src_path, deleted)
+                add_to_bin(events_for_path, created.src_path, created)
             else:
-                add_to_bin(histories, event.src_path, event)
+                add_to_bin(events_for_path, event.src_path, event)
 
-        # for every path, keep only a single event which represents all changes
+        # For every path, keep only a single event which represents all changes,
+        # unless we deal with a type change.
 
-        for path, events in histories.items():
+        for path in list(events_for_path):
+            events = events_for_path[path]
+
             if len(events) == 1:
-                event = events[0]
-                unique_events.append(event)
 
+                # There is only a single event for this path. If it is a split moved
+                # event, mark it for possible recombination later.
+                event = events[0]
                 if hasattr(event, "move_id"):
-                    # add to list "moved_events" to recombine line
                     add_to_bin(moved_events, event.move_id, event)
 
             else:
 
-                n_created = len(
-                    [e for e in events if e.event_type == EVENT_TYPE_CREATED]
-                )
-                n_deleted = len(
-                    [e for e in events if e.event_type == EVENT_TYPE_DELETED]
-                )
+                # Count how often the file / folder was created vs deleted.
+                # Remember if it was first created or deleted.
 
-                if n_created > n_deleted:  # item was created
+                n_created = 0
+                n_deleted = 0
+
+                first_created_index = -1
+                first_deleted_index = -1
+
+                for i in reversed(range(len(events))):
+                    event = events[i]
+
+                    if event.event_type == EVENT_TYPE_CREATED:
+                        n_created += 1
+                        first_created_index = i
+
+                    if event.event_type == EVENT_TYPE_DELETED:
+                        n_deleted += 1
+                        first_deleted_index = i
+
+                if n_created > n_deleted:  # Item was created.
                     if events[-1].is_directory:
-                        unique_events.append(DirCreatedEvent(path))
+                        events_for_path[path] = [DirCreatedEvent(path)]
                     else:
-                        unique_events.append(FileCreatedEvent(path))
-                elif n_created < n_deleted:  # item was deleted
-                    if events[0].is_directory:
-                        unique_events.append(DirDeletedEvent(path))
-                    else:
-                        unique_events.append(FileDeletedEvent(path))
-                else:
+                        events_for_path[path] = [FileCreatedEvent(path)]
 
-                    first_created_index = next(
-                        iter(
-                            i
-                            for i, e in enumerate(events)
-                            if e.event_type == EVENT_TYPE_CREATED
-                        ),
-                        -1,
-                    )
-                    first_deleted_index = next(
-                        iter(
-                            i
-                            for i, e in enumerate(events)
-                            if e.event_type == EVENT_TYPE_DELETED
-                        ),
-                        -1,
-                    )
+                elif n_created < n_deleted:  # Item was deleted.
+                    if events[0].is_directory:
+                        events_for_path[path] = [DirDeletedEvent(path)]
+                    else:
+                        events_for_path[path] = [FileDeletedEvent(path)]
+
+                else:  # Same number of deleted and created events.
 
                     if n_created == 0 or first_deleted_index < first_created_index:
-                        # item was modified
+                        # Item was modified.
                         if events[0].is_directory and events[-1].is_directory:
-                            unique_events.append(DirModifiedEvent(path))
+                            # Both first and last events are from folders.
+                            events_for_path[path] = [DirModifiedEvent(path)]
                         elif not events[0].is_directory and not events[-1].is_directory:
-                            unique_events.append(FileModifiedEvent(path))
+                            # Both first and last events are from files.
+                            events_for_path[path] = [FileModifiedEvent(path)]
                         elif events[0].is_directory:
-                            unique_events.append(DirDeletedEvent(path))
-                            unique_events.append(FileCreatedEvent(path))
+                            # Type change folder -> file.
+                            events_for_path[path] = [
+                                DirDeletedEvent(path),
+                                FileCreatedEvent(path),
+                            ]
                         elif events[-1].is_directory:
-                            unique_events.append(FileDeletedEvent(path))
-                            unique_events.append(DirCreatedEvent(path))
+                            # Type change file -> folder.
+                            events_for_path[path] = [
+                                FileDeletedEvent(path),
+                                DirCreatedEvent(path),
+                            ]
                     else:
                         # Item was likely only temporary. We still trigger a rescan of
                         # the path because some atomic modifications may be reported as
                         # out-of-order created and deleted events on macOS.
+                        del events_for_path[path]
                         self.rescan(path)
 
-        # event order does not matter anymore from this point because we have already
-        # consolidated events for every path
-
-        cleaned_events = set(unique_events)
-
-        # recombine moved events
+        # Recombine moved events if we have retained both sides of event during the
+        # above consolidation.
 
         for split_events in moved_events.values():
             if len(split_events) == 2:
-                src_path = next(
-                    e.src_path
-                    for e in split_events
-                    if e.event_type == EVENT_TYPE_DELETED
-                )
-                dest_path = next(
-                    e.src_path
-                    for e in split_events
-                    if e.event_type == EVENT_TYPE_CREATED
-                )
+
+                src_path = split_events[0].src_path
+                dest_path = split_events[1].src_path
+
                 if split_events[0].is_directory:
                     new_event = DirMovedEvent(src_path, dest_path)
                 else:
@@ -1988,70 +1995,80 @@ class SyncEngine:
                 # treat renaming from / to an excluded path as a creation / deletion,
                 # respectively.
                 if not self._should_split_excluded(new_event):
-                    cleaned_events.difference_update(split_events)
-                    cleaned_events.add(new_event)
+                    del events_for_path[src_path]
+                    events_for_path[dest_path] = [new_event]
+
+        # At this point, `events_for_path` will contain a single event per path or
+        # exactly two events (deleted and created) in case of a type change.
 
         # COMBINE MOVED AND DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
 
         # Avoid nested iterations over all events here, they are on the order of O(n^2)
         # which becomes costly when the user moves or deletes folder with a large number
         # of children. Benchmark: aim to stay below 1 sec for 20,000 nested events on
-        # representative laptops.
+        # representative laptop PCs.
 
-        # 1) combine moved events of folders and their children into one event
-        dir_moved_paths = {
-            (e.src_path, e.dest_path)
-            for e in cleaned_events
-            if isinstance(e, DirMovedEvent)
-        }
+        # 0) Collect all moved and deleted events in sets.
+
+        dir_moved_paths: Set[Tuple[str, str]] = set()
+        dir_deleted_paths: Set[str] = set()
+
+        for events in events_for_path.values():
+            event = events[0]
+            if isinstance(event, DirMovedEvent):
+                dir_moved_paths.add((event.src_path, event.dest_path))
+            elif isinstance(event, DirDeletedEvent):
+                dir_deleted_paths.add(event.src_path)
+
+        # 1) Combine moved events of folders and their children into one event.
 
         if len(dir_moved_paths) > 0:
-            child_moved_events: Dict[Tuple[str, str], List[FileSystemEvent]] = {}
-            for paths in dir_moved_paths:
-                child_moved_events[paths] = []
+            child_moved_dst_paths: Set[str] = set()
 
-            for event in cleaned_events:
+            # For each event, check if it is a child of a moved event discard it if yes.
+            for events in events_for_path.values():
+                event = events[0]
                 if event.event_type == EVENT_TYPE_MOVED:
-                    try:
-                        dirnames = (
-                            osp.dirname(event.src_path),
-                            osp.dirname(event.dest_path),
-                        )
-                        child_moved_events[dirnames].append(event)
-                    except KeyError:
-                        pass
+                    dirnames = (
+                        osp.dirname(event.src_path),
+                        osp.dirname(event.dest_path),  # type: ignore
+                    )
+                    if dirnames in dir_moved_paths:
+                        child_moved_dst_paths.add(event.dest_path)  # type: ignore
 
-            for split_events in child_moved_events.values():
-                cleaned_events.difference_update(split_events)
+            for path in child_moved_dst_paths:
+                del events_for_path[path]
 
-        # 2) combine deleted events of folders and their children to one event
-        dir_deleted_paths = {
-            e.src_path for e in cleaned_events if isinstance(e, DirDeletedEvent)
-        }
+        # 2) Combine deleted events of folders and their children to one event.
 
         if len(dir_deleted_paths) > 0:
-            child_deleted_events: Dict[str, List[FileSystemEvent]] = {}
-            for path in dir_deleted_paths:
-                child_deleted_events[path] = []
+            child_deleted_paths: Set[str] = set()
 
-            for event in cleaned_events:
+            for events in events_for_path.values():
+                event = events[0]
                 if event.event_type == EVENT_TYPE_DELETED:
-                    try:
-                        dirname = osp.dirname(event.src_path)
-                        child_deleted_events[dirname].append(event)
-                    except KeyError:
-                        pass
+                    dirname = osp.dirname(event.src_path)
+                    if dirname in dir_deleted_paths:
+                        child_deleted_paths.add(event.src_path)
 
-            for split_events in child_deleted_events.values():
-                cleaned_events.difference_update(split_events)
+            for path in child_deleted_paths:
+                del events_for_path[path]
+
+        # PREPARE RETURN VALUE AND FREE MEMORY
+
+        cleaned_events = []
+
+        for events in events_for_path.values():
+            cleaned_events.extend(events)
 
         # Free memory early to prevent fragmentation.
-        del histories
-        del unique_events
+        del events_for_path
         del moved_events
+        del dir_moved_paths
+        del dir_deleted_paths
         gc.collect()
 
-        return list(cleaned_events)
+        return cleaned_events
 
     def _should_split_excluded(self, event: Union[FileMovedEvent, DirMovedEvent]):
 
