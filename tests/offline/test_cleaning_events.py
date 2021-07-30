@@ -52,7 +52,7 @@ def test_single_file_events(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_single_path_cases(sync):
@@ -78,7 +78,7 @@ def test_single_path_cases(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_move_events(sync):
@@ -88,7 +88,7 @@ def test_move_events(sync):
         FileCreatedEvent(ipath(1)),
         FileMovedEvent(ipath(1), ipath(2)),
         # moved + deleted -> deleted
-        FileMovedEvent(ipath(1), ipath(4)),
+        FileMovedEvent(ipath(3), ipath(4)),
         FileDeletedEvent(ipath(4)),
         # moved + moved back -> modified
         FileMovedEvent(ipath(5), ipath(6)),
@@ -103,7 +103,7 @@ def test_move_events(sync):
         # created + moved -> created
         FileCreatedEvent(ipath(2)),
         # moved + deleted -> deleted
-        FileDeletedEvent(ipath(1)),
+        FileDeletedEvent(ipath(3)),
         # moved + moved back -> modified
         FileModifiedEvent(ipath(5)),
         # moved + moved -> deleted + created
@@ -113,7 +113,7 @@ def test_move_events(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_gedit_save(sync):
@@ -131,7 +131,7 @@ def test_gedit_save(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_macos_safe_save(sync):
@@ -147,7 +147,7 @@ def test_macos_safe_save(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_msoffice_created(sync):
@@ -165,7 +165,7 @@ def test_msoffice_created(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_type_changes(sync):
@@ -189,7 +189,7 @@ def test_type_changes(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_type_changes_difficult(sync):
@@ -218,7 +218,7 @@ def test_type_changes_difficult(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_nested_events(sync):
@@ -244,7 +244,7 @@ def test_nested_events(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_performance(sync):
