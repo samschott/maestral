@@ -38,6 +38,7 @@ dev_requires = [
     "mypy",
     "pre-commit",
     "pytest",
+    "pytest-benchmark",
     "pytest-cov",
     "pytest-rerunfailures",
     "types-pkg_resources",

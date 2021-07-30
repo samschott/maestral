@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import timeit
-
 import pytest
 from watchdog.events import (
     FileCreatedEvent,
@@ -247,7 +245,13 @@ def test_nested_events(sync):
     assert cleaned_events == res
 
 
-def test_performance(sync):
+@pytest.mark.benchmark(
+    group="local-event-processing",
+    min_time=0.1,
+    max_time=5,
+    min_rounds=4,
+)
+def test_performance(sync, benchmark):
 
     # 10,000 nested deleted events (5,000 folders, 5,000 files)
     file_events = [DirDeletedEvent(n * ipath(1)) for n in range(1, 5001)]
@@ -265,18 +269,12 @@ def test_performance(sync):
 
     res = [
         DirDeletedEvent(ipath(1)),
-        DirMovedEvent(ipath(2), ipath(3)),
         FileDeletedEvent(ipath(1) + ".txt"),
+        DirMovedEvent(ipath(2), ipath(3)),
         FileMovedEvent(ipath(2) + ".txt", ipath(3) + ".txt"),
     ]
     res += [FileCreatedEvent(ipath(n)) for n in range(5, 5001)]
 
-    cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    cleaned_events = benchmark(sync._clean_local_events, file_events)
 
-    n_loops = 4
-    duration = timeit.timeit(
-        lambda: sync._clean_local_events(file_events), number=n_loops
-    )
-
-    assert duration < 10 * n_loops
+    assert cleaned_events == res
