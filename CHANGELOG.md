@@ -25,6 +25,8 @@
   could lead to unhandled exceptions instead of useful error messages.
 * Fixes handling of 503 and other raw HTTP errors from the Dropbox SDK, for instance
   when Dropbox servers have temporary outages or are undergoing planned maintenance.
+* Fixes periodic connection checking for connections over proxy using
+  `http_proxy` environment variable.
 
 #### Removed:
 
