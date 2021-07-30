@@ -6,6 +6,7 @@
 
 #### Changed:
 
+* Improved performance when processing local file events.
 * Improved error messages when the system keyring cannot be accessed despite being
   unlocked, for example because the executable (app bundle or Python) has an invalid
   signature.
@@ -27,6 +28,8 @@
   when Dropbox servers have temporary outages or are undergoing planned maintenance.
 * Fixes periodic connection checking for connections over proxy using
   `http_proxy` environment variable.
+* Fixes an issue where some uploaded items would not register as synced after aborting
+  or pausing during an upload sync.
 
 #### Removed:
 
