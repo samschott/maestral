@@ -962,9 +962,10 @@ class SyncEngine:
                     item_type = ItemType.Folder
 
                 # construct correct display path from ancestors
-
-                entry = self.get_index_entry(md.path_lower)
                 dbx_path_cased = self.correct_case(md.path_display, client)
+
+                # update existing / create new entry
+                entry = self.get_index_entry(md.path_lower)
 
                 if entry:
                     entry.dbx_id = md.id
