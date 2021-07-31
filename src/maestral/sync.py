@@ -1777,11 +1777,13 @@ class SyncEngine:
             return results
 
         # Sort all sync events into deleted, dir_moved and other. Discard items
-        # which are excluded by mignore or the internal exclusion list.
+        # which are excluded by mignore or the internal exclusion list. Deleted and
+        # dir_moved events will never be nested (we have already combined such nested
+        # events) but all other events might be. We order and apply them hierarchically.
 
         deleted: List[SyncEvent] = []
         dir_moved: List[SyncEvent] = []
-        other: List[SyncEvent] = []  # file created / moved, dir created
+        other: Dict[int, List[SyncEvent]] = {}
 
         for event in sync_events:
 
@@ -1793,7 +1795,8 @@ class SyncEngine:
             elif event.is_directory and event.is_moved:
                 dir_moved.append(event)
             else:
-                other.append(event)
+                level = event.dbx_path.count("/")
+                add_to_bin(other, level, event)
 
             # Housekeeping.
             self.syncing[event.local_path] = event
@@ -1826,17 +1829,21 @@ class SyncEngine:
             r = self._create_remote_entry(event)
             results.append(r)
 
-        # Apply other events in parallel, order does not matter in most cases.
-        with ThreadPoolExecutor(
-            max_workers=self._num_threads,
-            thread_name_prefix="maestral-upload-pool",
-        ) as executor:
-            res = executor.map(self._create_remote_entry, other)
+        # Apply other events in parallel, processing each hierarchy level successively.
 
-            n_items = len(other)
-            for n, r in enumerate(res):
-                throttled_log(self._logger, f"Syncing ↑ {n + 1}/{n_items}")
-                results.append(r)
+        for level in sorted(other):
+            items = other[level]
+
+            with ThreadPoolExecutor(
+                max_workers=self._num_threads,
+                thread_name_prefix="maestral-upload-pool",
+            ) as executor:
+                res = executor.map(self._create_remote_entry, items)
+
+                n_items = len(items)
+                for n, r in enumerate(res):
+                    throttled_log(self._logger, f"Syncing ↑ {n + 1}/{n_items}")
+                    results.append(r)
 
         self._clean_history()
 
