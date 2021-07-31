@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import timeit
-
 import pytest
 from watchdog.events import (
     FileCreatedEvent,
@@ -52,7 +50,7 @@ def test_single_file_events(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_single_path_cases(sync):
@@ -78,7 +76,7 @@ def test_single_path_cases(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_move_events(sync):
@@ -88,7 +86,7 @@ def test_move_events(sync):
         FileCreatedEvent(ipath(1)),
         FileMovedEvent(ipath(1), ipath(2)),
         # moved + deleted -> deleted
-        FileMovedEvent(ipath(1), ipath(4)),
+        FileMovedEvent(ipath(3), ipath(4)),
         FileDeletedEvent(ipath(4)),
         # moved + moved back -> modified
         FileMovedEvent(ipath(5), ipath(6)),
@@ -103,7 +101,7 @@ def test_move_events(sync):
         # created + moved -> created
         FileCreatedEvent(ipath(2)),
         # moved + deleted -> deleted
-        FileDeletedEvent(ipath(1)),
+        FileDeletedEvent(ipath(3)),
         # moved + moved back -> modified
         FileModifiedEvent(ipath(5)),
         # moved + moved -> deleted + created
@@ -113,7 +111,7 @@ def test_move_events(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_gedit_save(sync):
@@ -131,7 +129,7 @@ def test_gedit_save(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_macos_safe_save(sync):
@@ -147,7 +145,7 @@ def test_macos_safe_save(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_msoffice_created(sync):
@@ -165,7 +163,7 @@ def test_msoffice_created(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_type_changes(sync):
@@ -189,7 +187,7 @@ def test_type_changes(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_type_changes_difficult(sync):
@@ -218,7 +216,7 @@ def test_type_changes_difficult(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
 def test_nested_events(sync):
@@ -244,10 +242,16 @@ def test_nested_events(sync):
     ]
 
     cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    assert cleaned_events == res
 
 
-def test_performance(sync):
+@pytest.mark.benchmark(
+    group="local-event-processing",
+    min_time=0.1,
+    max_time=5,
+    min_rounds=4,
+)
+def test_performance(sync, benchmark):
 
     # 10,000 nested deleted events (5,000 folders, 5,000 files)
     file_events = [DirDeletedEvent(n * ipath(1)) for n in range(1, 5001)]
@@ -265,18 +269,12 @@ def test_performance(sync):
 
     res = [
         DirDeletedEvent(ipath(1)),
-        DirMovedEvent(ipath(2), ipath(3)),
         FileDeletedEvent(ipath(1) + ".txt"),
+        DirMovedEvent(ipath(2), ipath(3)),
         FileMovedEvent(ipath(2) + ".txt", ipath(3) + ".txt"),
     ]
     res += [FileCreatedEvent(ipath(n)) for n in range(5, 5001)]
 
-    cleaned_events = sync._clean_local_events(file_events)
-    assert set(cleaned_events) == set(res)
+    cleaned_events = benchmark(sync._clean_local_events, file_events)
 
-    n_loops = 4
-    duration = timeit.timeit(
-        lambda: sync._clean_local_events(file_events), number=n_loops
-    )
-
-    assert duration < 10 * n_loops
+    assert cleaned_events == res

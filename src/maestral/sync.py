@@ -18,7 +18,7 @@ from pprint import pformat
 from threading import Event, Condition, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
-from collections import abc
+from collections import abc, defaultdict
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
 from typing import (
@@ -31,7 +31,7 @@ from typing import (
     Union,
     Iterator,
     Callable,
-    Hashable,
+    DefaultDict,
     cast,
 )
 
@@ -1776,25 +1776,37 @@ class SyncEngine:
         if len(sync_events) == 0:
             return results
 
-        sync_events, _ = self._filter_excluded_changes_local(sync_events)
+        # Sort all sync events into deleted, dir_moved and other. Discard items
+        # which are excluded by mignore or the internal exclusion list. Deleted and
+        # dir_moved events will never be nested (we have already combined such nested
+        # events) but all other events might be. We order and apply them hierarchically.
 
         deleted: List[SyncEvent] = []
         dir_moved: List[SyncEvent] = []
-        other: List[SyncEvent] = []  # file created + moved, dir created
+        other: DefaultDict[int, List[SyncEvent]] = defaultdict(list)
 
         for event in sync_events:
+
+            if self.is_excluded(event.dbx_path) or self.is_mignore(event):
+                continue
+
             if event.is_deleted:
                 deleted.append(event)
             elif event.is_directory and event.is_moved:
                 dir_moved.append(event)
             else:
-                other.append(event)
+                level = event.dbx_path.count("/")
+                other[level].append(event)
 
-            # housekeeping
+            # Housekeeping.
             self.syncing[event.local_path] = event
 
-        # apply deleted events first, folder moved events second
-        # neither event type requires an actual upload
+        self._logger.debug("Filtered deleted events:\n%s", pf_repr(deleted))
+        self._logger.debug("Filtered dir moved events:\n%s", pf_repr(deleted))
+        self._logger.debug("Filtered other events:\n%s", pf_repr(other))
+
+        # Apply deleted events first, folder moved events second.
+        # Neither event type requires an actual upload.
         if deleted:
             self._logger.info("Uploading deletions...")
 
@@ -1817,58 +1829,38 @@ class SyncEngine:
             r = self._create_remote_entry(event)
             results.append(r)
 
-        # apply other events in parallel since order does not matter
-        with ThreadPoolExecutor(
-            max_workers=self._num_threads,
-            thread_name_prefix="maestral-upload-pool",
-        ) as executor:
-            res = executor.map(self._create_remote_entry, other)
+        # Apply other events in parallel, processing each hierarchy level successively.
 
-            n_items = len(other)
-            for n, r in enumerate(res):
-                throttled_log(self._logger, f"Syncing ↑ {n + 1}/{n_items}")
-                results.append(r)
+        for level in sorted(other):
+            items = other[level]
+
+            with ThreadPoolExecutor(
+                max_workers=self._num_threads,
+                thread_name_prefix="maestral-upload-pool",
+            ) as executor:
+                res = executor.map(self._create_remote_entry, items)
+
+                n_items = len(items)
+                for n, r in enumerate(res):
+                    throttled_log(self._logger, f"Syncing ↑ {n + 1}/{n_items}")
+                    results.append(r)
 
         self._clean_history()
 
         return results
 
-    def _filter_excluded_changes_local(
-        self, sync_events: List[SyncEvent]
-    ) -> Tuple[List[SyncEvent], List[SyncEvent]]:
-        """
-        Checks for and removes file events referring to items which are excluded from
-        syncing. Called by :meth:`apply_local_changes`.
-
-        :param sync_events: List of file events.
-        :returns: (``events_filtered``, ``events_excluded``)
-        """
-
-        events_filtered = []
-        events_excluded = []
-
-        for event in sync_events:
-
-            if self.is_excluded(event.dbx_path):
-                events_excluded.append(event)
-            elif self.is_mignore(event):
-                # moved events with an ignored path are
-                # already split into deleted, created pairs
-                events_excluded.append(event)
-            else:
-                events_filtered.append(event)
-
-        self._logger.debug("Filtered fsevents:\n%s", pf_repr(events_filtered))
-
-        return events_filtered, events_excluded
-
     def _clean_local_events(
         self, events: List[FileSystemEvent]
     ) -> List[FileSystemEvent]:
         """
-        Takes local file events and cleans them up so that there is only a single
-        event per path. Collapses moved and deleted events of folders with those of
-        their children. Called by :meth:`wait_for_local_changes`.
+        Takes local file events and cleans them up as follows:
+
+        1) Keep only a single event per path, unless the item type changed (e.g., from
+           file to folder).
+        2) Collapses moved and deleted events of folders with those of their children.
+
+        The order of events will be preserved according to the first event registered
+        for that path.
 
         :param events: Iterable of :class:`watchdog.FileSystemEvent`.
         :returns: List of :class:`watchdog.FileSystemEvent`.
@@ -1881,104 +1873,106 @@ class SyncEngine:
         # of the destination path of has other events associated with it or is excluded
         # from sync.
 
-        histories: Dict[str, List[FileSystemEvent]] = {}
-        moved_events: Dict[str, List[FileSystemEvent]] = {}
-        unique_events: List[FileSystemEvent] = []
+        # mapping of path -> event history
+        events_for_path: DefaultDict[str, List[FileSystemEvent]] = defaultdict(list)
+
+        # mapping of "event id" -> [source event, destination event]
+        moved_events: DefaultDict[str, List[FileSystemEvent]] = defaultdict(list)
 
         for event in events:
-            if isinstance(event, (FileMovedEvent, DirMovedEvent)):
-                deleted, created = split_moved_event(event)
-                add_to_bin(histories, deleted.src_path, deleted)
-                add_to_bin(histories, created.src_path, created)
+            if event.event_type == EVENT_TYPE_MOVED:
+                deleted, created = split_moved_event(event)  # type: ignore
+                events_for_path[deleted.src_path].append(deleted)
+                events_for_path[created.src_path].append(created)
             else:
-                add_to_bin(histories, event.src_path, event)
+                events_for_path[event.src_path].append(event)
 
-        # for every path, keep only a single event which represents all changes
+        # For every path, keep only a single event which represents all changes,
+        # unless we deal with a type change.
 
-        for path, events in histories.items():
+        for path in list(events_for_path):
+            events = events_for_path[path]
+
             if len(events) == 1:
-                event = events[0]
-                unique_events.append(event)
 
+                # There is only a single event for this path. If it is a split moved
+                # event, mark it for possible recombination later.
+                event = events[0]
                 if hasattr(event, "move_id"):
-                    # add to list "moved_events" to recombine line
-                    add_to_bin(moved_events, event.move_id, event)
+                    moved_events[event.move_id].append(event)
 
             else:
 
-                n_created = len(
-                    [e for e in events if e.event_type == EVENT_TYPE_CREATED]
-                )
-                n_deleted = len(
-                    [e for e in events if e.event_type == EVENT_TYPE_DELETED]
-                )
+                # Count how often the file / folder was created vs deleted.
+                # Remember if it was first created or deleted.
 
-                if n_created > n_deleted:  # item was created
+                n_created = 0
+                n_deleted = 0
+
+                first_created_index = -1
+                first_deleted_index = -1
+
+                for i in reversed(range(len(events))):
+                    event = events[i]
+
+                    if event.event_type == EVENT_TYPE_CREATED:
+                        n_created += 1
+                        first_created_index = i
+
+                    if event.event_type == EVENT_TYPE_DELETED:
+                        n_deleted += 1
+                        first_deleted_index = i
+
+                if n_created > n_deleted:  # Item was created.
                     if events[-1].is_directory:
-                        unique_events.append(DirCreatedEvent(path))
+                        events_for_path[path] = [DirCreatedEvent(path)]
                     else:
-                        unique_events.append(FileCreatedEvent(path))
-                elif n_created < n_deleted:  # item was deleted
-                    if events[0].is_directory:
-                        unique_events.append(DirDeletedEvent(path))
-                    else:
-                        unique_events.append(FileDeletedEvent(path))
-                else:
+                        events_for_path[path] = [FileCreatedEvent(path)]
 
-                    first_created_index = next(
-                        iter(
-                            i
-                            for i, e in enumerate(events)
-                            if e.event_type == EVENT_TYPE_CREATED
-                        ),
-                        -1,
-                    )
-                    first_deleted_index = next(
-                        iter(
-                            i
-                            for i, e in enumerate(events)
-                            if e.event_type == EVENT_TYPE_DELETED
-                        ),
-                        -1,
-                    )
+                elif n_created < n_deleted:  # Item was deleted.
+                    if events[0].is_directory:
+                        events_for_path[path] = [DirDeletedEvent(path)]
+                    else:
+                        events_for_path[path] = [FileDeletedEvent(path)]
+
+                else:  # Same number of deleted and created events.
 
                     if n_created == 0 or first_deleted_index < first_created_index:
-                        # item was modified
+                        # Item was modified.
                         if events[0].is_directory and events[-1].is_directory:
-                            unique_events.append(DirModifiedEvent(path))
+                            # Both first and last events are from folders.
+                            events_for_path[path] = [DirModifiedEvent(path)]
                         elif not events[0].is_directory and not events[-1].is_directory:
-                            unique_events.append(FileModifiedEvent(path))
+                            # Both first and last events are from files.
+                            events_for_path[path] = [FileModifiedEvent(path)]
                         elif events[0].is_directory:
-                            unique_events.append(DirDeletedEvent(path))
-                            unique_events.append(FileCreatedEvent(path))
+                            # Type change folder -> file.
+                            events_for_path[path] = [
+                                DirDeletedEvent(path),
+                                FileCreatedEvent(path),
+                            ]
                         elif events[-1].is_directory:
-                            unique_events.append(FileDeletedEvent(path))
-                            unique_events.append(DirCreatedEvent(path))
+                            # Type change file -> folder.
+                            events_for_path[path] = [
+                                FileDeletedEvent(path),
+                                DirCreatedEvent(path),
+                            ]
                     else:
                         # Item was likely only temporary. We still trigger a rescan of
                         # the path because some atomic modifications may be reported as
                         # out-of-order created and deleted events on macOS.
+                        del events_for_path[path]
                         self.rescan(path)
 
-        # event order does not matter anymore from this point because we have already
-        # consolidated events for every path
-
-        cleaned_events = set(unique_events)
-
-        # recombine moved events
+        # Recombine moved events if we have retained both sides of event during the
+        # above consolidation.
 
         for split_events in moved_events.values():
             if len(split_events) == 2:
-                src_path = next(
-                    e.src_path
-                    for e in split_events
-                    if e.event_type == EVENT_TYPE_DELETED
-                )
-                dest_path = next(
-                    e.src_path
-                    for e in split_events
-                    if e.event_type == EVENT_TYPE_CREATED
-                )
+
+                src_path = split_events[0].src_path
+                dest_path = split_events[1].src_path
+
                 if split_events[0].is_directory:
                     new_event = DirMovedEvent(src_path, dest_path)
                 else:
@@ -1988,70 +1982,80 @@ class SyncEngine:
                 # treat renaming from / to an excluded path as a creation / deletion,
                 # respectively.
                 if not self._should_split_excluded(new_event):
-                    cleaned_events.difference_update(split_events)
-                    cleaned_events.add(new_event)
+                    del events_for_path[src_path]
+                    events_for_path[dest_path] = [new_event]
+
+        # At this point, `events_for_path` will contain a single event per path or
+        # exactly two events (deleted and created) in case of a type change.
 
         # COMBINE MOVED AND DELETED EVENTS OF FOLDERS AND THEIR CHILDREN INTO ONE EVENT
 
         # Avoid nested iterations over all events here, they are on the order of O(n^2)
         # which becomes costly when the user moves or deletes folder with a large number
         # of children. Benchmark: aim to stay below 1 sec for 20,000 nested events on
-        # representative laptops.
+        # representative laptop PCs.
 
-        # 1) combine moved events of folders and their children into one event
-        dir_moved_paths = {
-            (e.src_path, e.dest_path)
-            for e in cleaned_events
-            if isinstance(e, DirMovedEvent)
-        }
+        # 0) Collect all moved and deleted events in sets.
+
+        dir_moved_paths: Set[Tuple[str, str]] = set()
+        dir_deleted_paths: Set[str] = set()
+
+        for events in events_for_path.values():
+            event = events[0]
+            if isinstance(event, DirMovedEvent):
+                dir_moved_paths.add((event.src_path, event.dest_path))
+            elif isinstance(event, DirDeletedEvent):
+                dir_deleted_paths.add(event.src_path)
+
+        # 1) Combine moved events of folders and their children into one event.
 
         if len(dir_moved_paths) > 0:
-            child_moved_events: Dict[Tuple[str, str], List[FileSystemEvent]] = {}
-            for paths in dir_moved_paths:
-                child_moved_events[paths] = []
+            child_moved_dst_paths: Set[str] = set()
 
-            for event in cleaned_events:
+            # For each event, check if it is a child of a moved event discard it if yes.
+            for events in events_for_path.values():
+                event = events[0]
                 if event.event_type == EVENT_TYPE_MOVED:
-                    try:
-                        dirnames = (
-                            osp.dirname(event.src_path),
-                            osp.dirname(event.dest_path),
-                        )
-                        child_moved_events[dirnames].append(event)
-                    except KeyError:
-                        pass
+                    dirnames = (
+                        osp.dirname(event.src_path),
+                        osp.dirname(event.dest_path),  # type: ignore
+                    )
+                    if dirnames in dir_moved_paths:
+                        child_moved_dst_paths.add(event.dest_path)  # type: ignore
 
-            for split_events in child_moved_events.values():
-                cleaned_events.difference_update(split_events)
+            for path in child_moved_dst_paths:
+                del events_for_path[path]
 
-        # 2) combine deleted events of folders and their children to one event
-        dir_deleted_paths = {
-            e.src_path for e in cleaned_events if isinstance(e, DirDeletedEvent)
-        }
+        # 2) Combine deleted events of folders and their children to one event.
 
         if len(dir_deleted_paths) > 0:
-            child_deleted_events: Dict[str, List[FileSystemEvent]] = {}
-            for path in dir_deleted_paths:
-                child_deleted_events[path] = []
+            child_deleted_paths: Set[str] = set()
 
-            for event in cleaned_events:
+            for events in events_for_path.values():
+                event = events[0]
                 if event.event_type == EVENT_TYPE_DELETED:
-                    try:
-                        dirname = osp.dirname(event.src_path)
-                        child_deleted_events[dirname].append(event)
-                    except KeyError:
-                        pass
+                    dirname = osp.dirname(event.src_path)
+                    if dirname in dir_deleted_paths:
+                        child_deleted_paths.add(event.src_path)
 
-            for split_events in child_deleted_events.values():
-                cleaned_events.difference_update(split_events)
+            for path in child_deleted_paths:
+                del events_for_path[path]
+
+        # PREPARE RETURN VALUE AND FREE MEMORY
+
+        cleaned_events = []
+
+        for events in events_for_path.values():
+            cleaned_events.extend(events)
 
         # Free memory early to prevent fragmentation.
-        del histories
-        del unique_events
+        del events_for_path
         del moved_events
+        del dir_moved_paths
+        del dir_deleted_paths
         gc.collect()
 
-        return list(cleaned_events)
+        return cleaned_events
 
     def _should_split_excluded(self, event: Union[FileMovedEvent, DirMovedEvent]):
 
@@ -2858,49 +2862,58 @@ class SyncEngine:
             all download syncs were successful.
         """
 
-        # filter out excluded changes
-        changes_included, changes_excluded = self._filter_excluded_changes_remote(
-            sync_events
-        )
+        results: List[SyncEvent] = []
 
-        # remove deleted item and its children from the excluded list
-        for event in changes_excluded:
-            if event.is_deleted:
-                new_excluded = [
-                    path
-                    for path in self.excluded_items
-                    if not is_equal_or_child(path, event.dbx_path_lower)
-                ]
+        if len(sync_events) == 0:
+            return results
 
-                self.excluded_items = new_excluded
+        # Sort changes into folders, files and deleted items. Discard excluded items
+        # and remove and deleted items from our excluded list.
+        # Sort according to path hierarchy:
+        # - Do not create sub-folder / file before parent exists.
+        # - Delete parents before deleting children to save some work.
 
-        # sort changes into folders, files and deleted
-        # sort according to path hierarchy:
-        # do not create sub-folder / file before parent exists
-        # delete parents before deleting children to save some work
         files: List[SyncEvent] = []
-        folders: Dict[int, List[SyncEvent]] = {}
-        deleted: Dict[int, List[SyncEvent]] = {}
+        folders: DefaultDict[int, List[SyncEvent]] = defaultdict(list)
+        deleted: DefaultDict[int, List[SyncEvent]] = defaultdict(list)
 
-        for event in changes_included:
+        new_excluded = self.excluded_items
 
-            level = event.dbx_path.count("/")
+        for event in sync_events:
 
-            if event.is_deleted:
-                add_to_bin(deleted, level, event)
-            elif event.is_file:
-                files.append(event)
-            elif event.is_directory:
-                add_to_bin(folders, level, event)
+            is_excluded = self.is_excluded_by_user(
+                event.dbx_path_lower
+            ) or self.is_excluded(event.dbx_path)
 
-            # housekeeping
-            self.syncing[event.local_path] = event
+            if is_excluded:
+                if event.is_deleted:
+                    # Remove deleted item and its children from the excluded list.
+                    new_excluded = [
+                        path
+                        for path in new_excluded
+                        if not is_equal_or_child(path, event.dbx_path_lower)
+                    ]
 
-        results = []  # local list of all changes
+            else:
 
-        # apply deleted items
+                level = event.dbx_path.count("/")
+
+                if event.is_deleted:
+                    deleted[level].append(event)
+                elif event.is_file:
+                    files.append(event)
+                elif event.is_directory:
+                    folders[level].append(event)
+
+                # Housekeeping.
+                self.syncing[event.local_path] = event
+
+        self.excluded_items = new_excluded
+
+        # Apply deleted items.
         if deleted:
             self._logger.info("Applying deletions...")
+
         for level in sorted(deleted):
             items = deleted[level]
             with ThreadPoolExecutor(
@@ -2914,9 +2927,10 @@ class SyncEngine:
                     throttled_log(self._logger, f"Deleting {n + 1}/{n_items}...")
                     results.append(r)
 
-        # create local folders, start with top-level and work your way down
+        # Create local folders, start with top-level and work your way down.
         if folders:
             self._logger.info("Creating folders...")
+
         for level in sorted(folders):
             items = folders[level]
             with ThreadPoolExecutor(
@@ -2930,7 +2944,7 @@ class SyncEngine:
                     throttled_log(self._logger, f"Creating folder {n + 1}/{n_items}...")
                     results.append(r)
 
-        # apply created files
+        # Apply created files.
         with ThreadPoolExecutor(
             max_workers=self._num_threads, thread_name_prefix="maestral-download-pool"
         ) as executor:
@@ -3027,28 +3041,6 @@ class SyncEngine:
             msg = f"{file_name} {change_type}"
 
         self.desktop_notifier.notify("Items synced", msg, actions=buttons)
-
-    def _filter_excluded_changes_remote(
-        self, changes: List[SyncEvent]
-    ) -> Tuple[List[SyncEvent], List[SyncEvent]]:
-        """
-        Removes all excluded items from the given list of changes.
-
-        :param changes: List of SyncEvents.
-        :returns: Tuple with items to keep and items to discard.
-        """
-        items_to_keep = []
-        items_to_discard = []
-
-        for item in changes:
-            if self.is_excluded_by_user(item.dbx_path_lower) or self.is_excluded(
-                item.dbx_path
-            ):
-                items_to_discard.append(item)
-            else:
-                items_to_keep.append(item)
-
-        return items_to_keep, items_to_discard
 
     def _check_download_conflict(self, event: SyncEvent) -> Conflict:
         """
@@ -3219,9 +3211,10 @@ class SyncEngine:
         # Note: we won't have to deal with modified or moved events,
         # Dropbox only reports DeletedMetadata or FileMetadata / FolderMetadata
 
-        histories: Dict[str, List[Metadata]] = {}
+        histories: DefaultDict[str, List[Metadata]] = defaultdict(list)
+
         for entry in changes.entries:
-            add_to_bin(histories, entry.path_lower, entry)
+            histories[entry.path_lower].append(entry)
 
         new_entries = []
 
@@ -3614,14 +3607,6 @@ class SyncEngine:
 # ======================================================================================
 # Helper functions
 # ======================================================================================
-
-
-def add_to_bin(d: Dict[Any, List], key: Hashable, value: Any) -> None:
-
-    try:
-        d[key].append(value)
-    except KeyError:
-        d[key] = [value]
 
 
 def get_dest_path(event: FileSystemEvent) -> str:
