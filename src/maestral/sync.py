@@ -18,7 +18,7 @@ from pprint import pformat
 from threading import Event, Condition, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
-from collections import abc
+from collections import abc, defaultdict
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
 from typing import (
@@ -31,7 +31,7 @@ from typing import (
     Union,
     Iterator,
     Callable,
-    Hashable,
+    DefaultDict,
     cast,
 )
 
@@ -1783,7 +1783,7 @@ class SyncEngine:
 
         deleted: List[SyncEvent] = []
         dir_moved: List[SyncEvent] = []
-        other: Dict[int, List[SyncEvent]] = {}
+        other: DefaultDict[int, List[SyncEvent]] = defaultdict(list)
 
         for event in sync_events:
 
@@ -1796,7 +1796,7 @@ class SyncEngine:
                 dir_moved.append(event)
             else:
                 level = event.dbx_path.count("/")
-                add_to_bin(other, level, event)
+                other[level].append(event)
 
             # Housekeeping.
             self.syncing[event.local_path] = event
@@ -1874,18 +1874,18 @@ class SyncEngine:
         # from sync.
 
         # mapping of path -> event history
-        events_for_path: Dict[str, List[FileSystemEvent]] = {}
+        events_for_path: DefaultDict[str, List[FileSystemEvent]] = defaultdict(list)
 
         # mapping of "event id" -> [source event, destination event]
-        moved_events: Dict[str, List[FileSystemEvent]] = {}
+        moved_events: DefaultDict[str, List[FileSystemEvent]] = defaultdict(list)
 
         for event in events:
             if event.event_type == EVENT_TYPE_MOVED:
                 deleted, created = split_moved_event(event)  # type: ignore
-                add_to_bin(events_for_path, deleted.src_path, deleted)
-                add_to_bin(events_for_path, created.src_path, created)
+                events_for_path[deleted.src_path].append(deleted)
+                events_for_path[created.src_path].append(created)
             else:
-                add_to_bin(events_for_path, event.src_path, event)
+                events_for_path[event.src_path].append(event)
 
         # For every path, keep only a single event which represents all changes,
         # unless we deal with a type change.
@@ -1899,7 +1899,7 @@ class SyncEngine:
                 # event, mark it for possible recombination later.
                 event = events[0]
                 if hasattr(event, "move_id"):
-                    add_to_bin(moved_events, event.move_id, event)
+                    moved_events[event.move_id].append(event)
 
             else:
 
@@ -2874,8 +2874,8 @@ class SyncEngine:
         # - Delete parents before deleting children to save some work.
 
         files: List[SyncEvent] = []
-        folders: Dict[int, List[SyncEvent]] = {}
-        deleted: Dict[int, List[SyncEvent]] = {}
+        folders: DefaultDict[int, List[SyncEvent]] = defaultdict(list)
+        deleted: DefaultDict[int, List[SyncEvent]] = defaultdict(list)
 
         new_excluded = self.excluded_items
 
@@ -2899,11 +2899,11 @@ class SyncEngine:
                 level = event.dbx_path.count("/")
 
                 if event.is_deleted:
-                    add_to_bin(deleted, level, event)
+                    deleted[level].append(event)
                 elif event.is_file:
                     files.append(event)
                 elif event.is_directory:
-                    add_to_bin(folders, level, event)
+                    folders[level].append(event)
 
                 # Housekeeping.
                 self.syncing[event.local_path] = event
@@ -3211,9 +3211,10 @@ class SyncEngine:
         # Note: we won't have to deal with modified or moved events,
         # Dropbox only reports DeletedMetadata or FileMetadata / FolderMetadata
 
-        histories: Dict[str, List[Metadata]] = {}
+        histories: DefaultDict[str, List[Metadata]] = defaultdict(list)
+
         for entry in changes.entries:
-            add_to_bin(histories, entry.path_lower, entry)
+            histories[entry.path_lower].append(entry)
 
         new_entries = []
 
@@ -3606,14 +3607,6 @@ class SyncEngine:
 # ======================================================================================
 # Helper functions
 # ======================================================================================
-
-
-def add_to_bin(d: Dict[Any, List], key: Hashable, value: Any) -> None:
-
-    try:
-        d[key].append(value)
-    except KeyError:
-        d[key] = [value]
 
 
 def get_dest_path(event: FileSystemEvent) -> str:
