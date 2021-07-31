@@ -1776,13 +1776,18 @@ class SyncEngine:
         if len(sync_events) == 0:
             return results
 
-        sync_events, _ = self._filter_excluded_changes_local(sync_events)
+        # Sort all sync events into deleted, dir_moved and other. Discard items
+        # which are excluded by mignore or the internal exclusion list.
 
         deleted: List[SyncEvent] = []
         dir_moved: List[SyncEvent] = []
-        other: List[SyncEvent] = []  # file created + moved, dir created
+        other: List[SyncEvent] = []  # file created / moved, dir created
 
         for event in sync_events:
+
+            if self.is_excluded(event.dbx_path) or self.is_mignore(event):
+                continue
+
             if event.is_deleted:
                 deleted.append(event)
             elif event.is_directory and event.is_moved:
@@ -1790,11 +1795,15 @@ class SyncEngine:
             else:
                 other.append(event)
 
-            # housekeeping
+            # Housekeeping.
             self.syncing[event.local_path] = event
 
-        # apply deleted events first, folder moved events second
-        # neither event type requires an actual upload
+        self._logger.debug("Filtered deleted events:\n%s", pf_repr(deleted))
+        self._logger.debug("Filtered dir moved events:\n%s", pf_repr(deleted))
+        self._logger.debug("Filtered other events:\n%s", pf_repr(other))
+
+        # Apply deleted events first, folder moved events second.
+        # Neither event type requires an actual upload.
         if deleted:
             self._logger.info("Uploading deletions...")
 
@@ -1817,7 +1826,7 @@ class SyncEngine:
             r = self._create_remote_entry(event)
             results.append(r)
 
-        # apply other events in parallel since order does not matter
+        # Apply other events in parallel, order does not matter in most cases.
         with ThreadPoolExecutor(
             max_workers=self._num_threads,
             thread_name_prefix="maestral-upload-pool",
@@ -1832,35 +1841,6 @@ class SyncEngine:
         self._clean_history()
 
         return results
-
-    def _filter_excluded_changes_local(
-        self, sync_events: List[SyncEvent]
-    ) -> Tuple[List[SyncEvent], List[SyncEvent]]:
-        """
-        Checks for and removes file events referring to items which are excluded from
-        syncing. Called by :meth:`apply_local_changes`.
-
-        :param sync_events: List of file events.
-        :returns: (``events_filtered``, ``events_excluded``)
-        """
-
-        events_filtered = []
-        events_excluded = []
-
-        for event in sync_events:
-
-            if self.is_excluded(event.dbx_path):
-                events_excluded.append(event)
-            elif self.is_mignore(event):
-                # moved events with an ignored path are
-                # already split into deleted, created pairs
-                events_excluded.append(event)
-            else:
-                events_filtered.append(event)
-
-        self._logger.debug("Filtered fsevents:\n%s", pf_repr(events_filtered))
-
-        return events_filtered, events_excluded
 
     def _clean_local_events(
         self, events: List[FileSystemEvent]
@@ -2875,49 +2855,58 @@ class SyncEngine:
             all download syncs were successful.
         """
 
-        # filter out excluded changes
-        changes_included, changes_excluded = self._filter_excluded_changes_remote(
-            sync_events
-        )
+        results: List[SyncEvent] = []
 
-        # remove deleted item and its children from the excluded list
-        for event in changes_excluded:
-            if event.is_deleted:
-                new_excluded = [
-                    path
-                    for path in self.excluded_items
-                    if not is_equal_or_child(path, event.dbx_path_lower)
-                ]
+        if len(sync_events) == 0:
+            return results
 
-                self.excluded_items = new_excluded
+        # Sort changes into folders, files and deleted items. Discard excluded items
+        # and remove and deleted items from our excluded list.
+        # Sort according to path hierarchy:
+        # - Do not create sub-folder / file before parent exists.
+        # - Delete parents before deleting children to save some work.
 
-        # sort changes into folders, files and deleted
-        # sort according to path hierarchy:
-        # do not create sub-folder / file before parent exists
-        # delete parents before deleting children to save some work
         files: List[SyncEvent] = []
         folders: Dict[int, List[SyncEvent]] = {}
         deleted: Dict[int, List[SyncEvent]] = {}
 
-        for event in changes_included:
+        new_excluded = self.excluded_items
 
-            level = event.dbx_path.count("/")
+        for event in sync_events:
 
-            if event.is_deleted:
-                add_to_bin(deleted, level, event)
-            elif event.is_file:
-                files.append(event)
-            elif event.is_directory:
-                add_to_bin(folders, level, event)
+            is_excluded = self.is_excluded_by_user(
+                event.dbx_path_lower
+            ) or self.is_excluded(event.dbx_path)
 
-            # housekeeping
-            self.syncing[event.local_path] = event
+            if is_excluded:
+                if event.is_deleted:
+                    # Remove deleted item and its children from the excluded list.
+                    new_excluded = [
+                        path
+                        for path in new_excluded
+                        if not is_equal_or_child(path, event.dbx_path_lower)
+                    ]
 
-        results = []  # local list of all changes
+            else:
 
-        # apply deleted items
+                level = event.dbx_path.count("/")
+
+                if event.is_deleted:
+                    add_to_bin(deleted, level, event)
+                elif event.is_file:
+                    files.append(event)
+                elif event.is_directory:
+                    add_to_bin(folders, level, event)
+
+                # Housekeeping.
+                self.syncing[event.local_path] = event
+
+        self.excluded_items = new_excluded
+
+        # Apply deleted items.
         if deleted:
             self._logger.info("Applying deletions...")
+
         for level in sorted(deleted):
             items = deleted[level]
             with ThreadPoolExecutor(
@@ -2931,9 +2920,10 @@ class SyncEngine:
                     throttled_log(self._logger, f"Deleting {n + 1}/{n_items}...")
                     results.append(r)
 
-        # create local folders, start with top-level and work your way down
+        # Create local folders, start with top-level and work your way down.
         if folders:
             self._logger.info("Creating folders...")
+
         for level in sorted(folders):
             items = folders[level]
             with ThreadPoolExecutor(
@@ -2947,7 +2937,7 @@ class SyncEngine:
                     throttled_log(self._logger, f"Creating folder {n + 1}/{n_items}...")
                     results.append(r)
 
-        # apply created files
+        # Apply created files.
         with ThreadPoolExecutor(
             max_workers=self._num_threads, thread_name_prefix="maestral-download-pool"
         ) as executor:
@@ -3044,28 +3034,6 @@ class SyncEngine:
             msg = f"{file_name} {change_type}"
 
         self.desktop_notifier.notify("Items synced", msg, actions=buttons)
-
-    def _filter_excluded_changes_remote(
-        self, changes: List[SyncEvent]
-    ) -> Tuple[List[SyncEvent], List[SyncEvent]]:
-        """
-        Removes all excluded items from the given list of changes.
-
-        :param changes: List of SyncEvents.
-        :returns: Tuple with items to keep and items to discard.
-        """
-        items_to_keep = []
-        items_to_discard = []
-
-        for item in changes:
-            if self.is_excluded_by_user(item.dbx_path_lower) or self.is_excluded(
-                item.dbx_path
-            ):
-                items_to_discard.append(item)
-            else:
-                items_to_keep.append(item)
-
-        return items_to_keep, items_to_discard
 
     def _check_download_conflict(self, event: SyncEvent) -> Conflict:
         """
