@@ -199,9 +199,11 @@ class Maestral:
         self.stop_sync()
 
         try:
-            self.client.dbx.auth_token_revoke()
+            self.client.unlink()
         except (ConnectionError, MaestralApiError):
             self._logger.debug("Could not invalidate token with Dropbox", exc_info=True)
+        except KeyringAccessError:
+            self._logger.debug("Could not remove token from keyring", exc_info=True)
 
         try:
             self.client.auth.delete_creds()
