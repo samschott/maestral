@@ -13,6 +13,7 @@
 * Improved error messages on startup for the macOS app bundle.
 * Improved error message in the CLI when setting a config value fails because the new 
   value has the wrong type.
+* Migrated the Linux GUI from PyQt5 to PyQt6.
 
 #### Fixed:
 
@@ -22,6 +23,7 @@
   daemon process is unresponsive.
 * Fixed an issue in the macOS GUI where passing the "missing Dropbox folder" flow by
   selecting a new location would lead to duplicate menu entries in the status bar menu.
+* Fixed an issue where the Linux / Qt GUI would hang indefinitely after unlinking.
 * Fixed an issue where moving / removing the local Dropbox folder during a download 
   could lead to unhandled exceptions instead of useful error messages.
 * Fixes handling of 503 and other raw HTTP errors from the Dropbox SDK, for instance
