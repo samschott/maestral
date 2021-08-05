@@ -211,11 +211,9 @@ class Maestral:
             self._logger.debug("Could not remove token from keyring", exc_info=True)
 
         # clean up config + state
-        self.sync.clear_index()
-        self.sync.clear_sync_history()
         self._conf.cleanup()
         self._state.cleanup()
-        delete(self.sync.database_path)
+        self.sync.reset_sync_state()
         self.sync.reload_cached_config()  # reload cached config values
 
         self._logger.info("Unlinked Dropbox account.")
