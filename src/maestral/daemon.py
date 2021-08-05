@@ -15,7 +15,6 @@ import fcntl
 import struct
 import warnings
 import argparse
-import ast
 import re
 from pprint import pformat
 from shlex import quote
@@ -85,14 +84,11 @@ def freeze_support() -> None:
     parsed_args, _ = parser.parse_known_args()
 
     if parsed_args.c:
-        template = r'.*start_maestral_daemon\("(?P<config_name>\S+)", start_sync=(?P<start_sync>\S+)\).*'
+        template = r'.*start_maestral_daemon\("(?P<config_name>\S+)"\).*'
         match = re.match(template, parsed_args.c)
 
         if match:
-            config_name = match["config_name"]
-            start_sync = ast.literal_eval(match["start_sync"])
-
-            start_maestral_daemon(config_name, start_sync)
+            start_maestral_daemon(match["config_name"])
             sys.exit()
 
 
@@ -358,7 +354,7 @@ def wait_for_startup(config_name: str, timeout: float = 5) -> None:
 
 
 def start_maestral_daemon(
-    config_name: str = "maestral", log_to_stderr: bool = False, start_sync: bool = False
+    config_name: str = "maestral", log_to_stderr: bool = False
 ) -> None:
     """
     Starts the Maestral daemon with event loop in the current thread.
@@ -373,8 +369,6 @@ def start_maestral_daemon(
 
     :param config_name: The name of the Maestral configuration to use.
     :param log_to_stderr: If ``True``, write logs to stderr.
-    :param start_sync: If ``True``, start syncing once the daemon has started. If the
-        ``start_sync`` call fails, an error will be logged but not raised.
     :raises RuntimeError: if a daemon for the given ``config_name`` is already running.
     """
 
@@ -466,10 +460,6 @@ def start_maestral_daemon(
 
         maestral_daemon = expose(Maestral)(config_name, log_to_stderr=log_to_stderr)
 
-        if start_sync:
-            dlogger.debug("Starting sync")
-            maestral_daemon.start_sync()
-
         dlogger.debug("Starting event loop")
 
         with Daemon(unixsocket=sockpath) as daemon:
@@ -506,9 +496,7 @@ def start_maestral_daemon(
 
 
 def start_maestral_daemon_process(
-    config_name: str = "maestral",
-    start_sync: bool = False,
-    timeout: int = 5,
+    config_name: str = "maestral", timeout: int = 5
 ) -> Start:
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
@@ -521,7 +509,6 @@ def start_maestral_daemon_process(
     the environment variables defined in :const:`constants.ENV`.
 
     :param config_name: The name of the Maestral configuration to use.
-    :param start_sync: If ``True``, start syncing once the daemon has started.
     :param timeout: Time in sec to wait for daemon to start.
     :returns: :attr:`Start.Ok` if successful, :attr:`Start.AlreadyRunning` if the daemon
         was already running or :attr:`Start.Failed` if startup failed. It is possible
@@ -534,12 +521,8 @@ def start_maestral_daemon_process(
 
     # Protect against injection.
     cc = quote(config_name).strip("'")
-    start_sync = bool(start_sync)
 
-    script = (
-        f"import maestral.daemon; "
-        f'maestral.daemon.start_maestral_daemon("{cc}", start_sync={start_sync})'
-    )
+    script = f'import maestral.daemon; maestral.daemon.start_maestral_daemon("{cc}")'
 
     env = os.environ.copy()
     env.update(ENV)
