@@ -484,7 +484,7 @@ class SyncEngine:
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
-        self._load_cached_config()
+        self.reload_cached_config()
 
         self.desktop_notifier = notify.MaestralDesktopNotifier(self.config_name)
 
@@ -533,7 +533,12 @@ class SyncEngine:
         # clean our file cache
         self.clean_cache_dir(raise_error=False)
 
-    def _load_cached_config(self) -> None:
+    def reload_cached_config(self) -> None:
+        """
+        Reloads all config and state values that are otherwise cached by this class for
+        faster access. Call this method if config or state values where modified
+        directly instead of using :class:`SyncEngine` APIs.
+        """
 
         self._dropbox_path = self._conf.get("sync", "path")
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
