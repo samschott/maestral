@@ -40,14 +40,17 @@ or downloading a file if it already exists with the same content locally or in t
 An app bundle is provided for macOS High Sierra and higher and can be downloaded from the
 Releases tab. This app Bundle is also package as a Homebrew cask.
 
-On other platforms, you can download and install Maestral as a Python package from PyPI or as a Docker image from Docker Hub.
+On other platforms, you can download and install Maestral as a Python package from PyPI or
+as a Docker image from Docker Hub.
 
 For more detailed information on the installation, setup and system requirements, please
 check the [documentation](https://maestral.app/docs/installation).
 
 
 ### Homebrew
-The official Maestral releases are also available as Homebrew casks. If you have [Homebrew](https://brew.sh) on your system, you can install using:
+
+The official Maestral releases are also available as Homebrew casks. If you have
+[Homebrew](https://brew.sh) on your system, you can install using:
 
 ```console
 $ brew install maestral
@@ -70,8 +73,9 @@ $ python3 -m pip install --upgrade maestral[gui]
 ```
 
 ### Docker image
-There also a Docker image available for x86, arm/v7 (32bit) and arm64 platforms which can
-be installed with:
+
+A Docker image is available for x86, arm/v7 (32bit) and arm64 platforms and can be
+installed with:
 
 ```colsole
 $ docker pull maestraldbx/maestral
