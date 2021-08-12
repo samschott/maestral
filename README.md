@@ -118,16 +118,16 @@ $ maestral start --config-name="work"
 ```
 
 This will start two instances of Maestral, syncing a private and a work account, 
-respectively. Configs will be automatically cleared when unlinking an account and you can
-list all currently linked accounts with `maestral configs`:
+respectively. Configs will be automatically cleared when unlinking an account. You can
+list all currently linked accounts with `maestral config-files`. The above setup for
+example will return the following on macOS:
 
 ```console
-$ maestral configs
+$ maestral config-files
 
-Config name  Account
-personal     user@gmail.com
-work         user@mycorp.org
-
+Config name  Account          Path
+maestral     user@gmail.com   ~/Library/Application Support/maestral/maestral.ini
+private      user@mycorp.org  ~/Library/Application Support/maestral/private.ini
 ```
 
 By default, the Dropbox folder names will contain the capitalised config-name in braces.
