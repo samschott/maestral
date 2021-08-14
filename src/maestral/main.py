@@ -429,8 +429,10 @@ class Maestral:
 
     @property
     def pending_dropbox_folder(self) -> bool:
-        """Indicates if a local Dropbox directory has been created (read only)."""
-        return not osp.isdir(self.sync.dropbox_path)
+        """Indicates if a local Dropbox directory has been configured (read only). This
+        will not check if the configured directory actually exists, starting the sync
+        may still raise a :class:`NoDropboxDirError`."""
+        return not self.sync.dropbox_path
 
     @property
     def pending_first_download(self) -> bool:
