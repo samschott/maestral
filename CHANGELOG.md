@@ -14,6 +14,8 @@
 * Improved error message in the CLI when setting a config value fails because the new 
   value has the wrong type.
 * Migrated the Linux GUI from PyQt5 to PyQt6.
+* Improved handling of more exotic file system or device related errors when opening
+  local files.
 
 #### Fixed:
 
@@ -26,11 +28,11 @@
 * Fixed an issue where the Linux / Qt GUI would hang indefinitely after unlinking.
 * Fixed an issue where moving / removing the local Dropbox folder during a download 
   could lead to unhandled exceptions instead of useful error messages.
-* Fixes handling of 503 and other raw HTTP errors from the Dropbox SDK, for instance
+* Fixed handling of 503 and other raw HTTP errors from the Dropbox SDK, for instance
   when Dropbox servers have temporary outages or are undergoing planned maintenance.
-* Fixes periodic connection checking for connections over proxy using
+* Fixed periodic connection checking for connections over proxy using
   `http_proxy` environment variable.
-* Fixes an issue where some uploaded items would not register as synced after aborting
+* Fixed an issue where some uploaded items would not register as synced after aborting
   or pausing during an upload sync.
 
 #### Removed:
