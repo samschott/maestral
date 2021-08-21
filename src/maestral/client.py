@@ -1198,15 +1198,12 @@ def os_to_maestral_error(
         err_cls = InsufficientSpaceError  # subclass of SyncError
         title = "Could not download file"
         text = "There is not enough space left on the selected drive."
-    elif exc.errno == errno.EFAULT:
-        err_cls = FileReadError  # subclass of SyncError
-        title = "Could not upload file"
-        text = "An error occurred while reading the file content."
     elif exc.errno == errno.ENOMEM:
         err_cls = OutOfMemoryError  # subclass of MaestralApiError
         text = "Out of memory. Please reduce the number of memory consuming processes."
     else:
-        return exc
+        err_cls = FileReadError
+        text = f"Could not access file. Errno {exc.errno}: {os.strerror(exc.errno)}."
 
     local_path = local_path or exc.filename
 
