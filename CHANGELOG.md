@@ -34,6 +34,7 @@
   `http_proxy` environment variable.
 * Fixed an issue where some uploaded items would not register as synced after aborting
   or pausing during an upload sync.
+* Fixed a compatibility issue with watchdog v2.1.4 and higher.
 
 #### Removed:
 
