@@ -197,6 +197,7 @@ class FSEventHandler(FileSystemEventHandler):
             EVENT_TYPE_MOVED,
         ),
     ) -> None:
+        super().__init__()
 
         self._enabled = False
         self.has_events = Condition()
