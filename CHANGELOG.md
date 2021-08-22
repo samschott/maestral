@@ -13,7 +13,6 @@
 * Improved error messages on startup for the macOS app bundle.
 * Improved error message in the CLI when setting a config value fails because the new 
   value has the wrong type.
-* Migrated the Linux GUI from PyQt5 to PyQt6.
 * Improved handling of more exotic file system or device related errors when opening
   local files.
 
