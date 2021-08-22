@@ -99,7 +99,6 @@
 <li>Improved error messages when the system keyring cannot be accessed despite being unlocked, for example because the executable (app bundle or Python) has an invalid signature.</li>
 <li>Improved error messages on startup for the macOS app bundle.</li>
 <li>Improved error message in the CLI when setting a config value fails because the new value has the wrong type.</li>
-<li>Migrated the Linux GUI from PyQt5 to PyQt6.</li>
 <li>Improved handling of more exotic file system or device related errors when opening local files.</li>
 </ul>
 <h4 id="fixed">Fixed:</h4>
