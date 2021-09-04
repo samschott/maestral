@@ -134,7 +134,7 @@ By default, the Dropbox folder names will contain the capitalised config-name in
 In the above case, this will be "Dropbox (Personal)" and "Dropbox (Work)".
 
 A full documentation of the CLI is available on the
-[website](https://samschott.github.io/maestral/cli/).
+[website](https://maestral.app/cli).
 
 ## Contribute
 
