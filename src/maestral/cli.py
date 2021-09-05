@@ -1240,7 +1240,7 @@ def config_files(clean: bool) -> None:
 
         for name in list_configs():
             conf = MaestralConfig(name)
-            dbid = conf.get("account", "account_id")
+            dbid = conf.get("auth", "account_id")
 
             if dbid == "" and not is_running(name):
                 remove_configuration(name)
