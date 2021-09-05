@@ -1,4 +1,10 @@
-## v1.4.8.dev
+## v1.4.9.dev
+
+#### Fixed:
+
+* Fixed error in CLI command `maestral config-file --clean`.
+
+## v1.4.8
 
 #### Added:
 
