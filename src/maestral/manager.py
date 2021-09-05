@@ -2,6 +2,7 @@
 """This module contains the classes to coordinate sync threads."""
 
 # system imports
+import os
 import errno
 import time
 import gc
@@ -10,13 +11,17 @@ from contextlib import contextmanager
 from functools import wraps
 from queue import Empty, Queue
 from threading import Event, RLock, Thread
+from tempfile import TemporaryDirectory
 from typing import Iterator, Optional, cast, Dict, List, Type, TypeVar, Callable, Any
+
+# external imports
+from dropbox.common import RootInfo, TeamRootInfo, UserRootInfo
 
 # local imports
 from . import __url__
 from . import notify
 from .client import DropboxClient
-from .config import MaestralConfig
+from .config import MaestralConfig, MaestralState
 from .constants import (
     DISCONNECTED,
     CONNECTING,
@@ -31,12 +36,14 @@ from .errors import (
     DropboxConnectionError,
     MaestralApiError,
     InotifyError,
+    NoDropboxDirError,
 )
 from .sync import SyncEngine
 from .fsevents import Observer
 from .logging import scoped_logger
-from .utils import exc_info_tuple
+from .utils import exc_info_tuple, removeprefix
 from .utils.integration import check_connection, get_inotify_limits
+from .utils.path import move, delete, is_equal_or_child, is_child, normalize
 
 
 __all__ = ["SyncManager"]
@@ -77,6 +84,7 @@ class SyncManager:
         self.client = client
         self.config_name = self.client.config_name
         self._conf = MaestralConfig(self.config_name)
+        self._state = MaestralState(self.config_name)
         self._logger = scoped_logger(__name__, self.config_name)
 
         self._lock = RLock()
@@ -345,11 +353,228 @@ class SyncManager:
 
         self.stop()
 
-        self.sync.remote_cursor = ""
-        self.sync.clear_index()
+        self.reset_sync_state()
 
         if was_running:
             self.start()
+
+    # ---- path root management --------------------------------------------------------
+
+    def check_and_update_path_root(self) -> bool:
+        """
+        Checks if the user's root namespace corresponds to the currently configured
+        path root. Updates the root namespace if required and migrates the local
+        folder structure. Syncing will be paused during the migration.
+
+        :returns: Whether the path root was updated.
+        """
+
+        if self._needs_path_root_update():
+
+            was_running = self.running.is_set()
+
+            self.stop()
+
+            self._update_path_root()
+
+            if was_running:
+                self._logger.info("Restarting sync")
+                self.start()
+
+            return True
+        else:
+            self._save_path_root_info(self.client.account_info.root_info)
+            return False
+
+    def _needs_path_root_update(self) -> bool:
+        """
+        Checks if the user's root namespace corresponds to the currently configured
+        path root.
+
+        :returns: Whether the configured root namespace needs to be updated.
+        """
+
+        self._logger.debug("Checking path root...")
+
+        account_info = self.client.get_account_info()
+        return self.client.namespace_id != account_info.root_info.root_namespace_id
+
+    def _save_path_root_info(self, root_info: RootInfo):
+        """Saves given root namespace info to state file."""
+
+        if isinstance(root_info, UserRootInfo):
+            actual_root_type = "user"
+            actual_home_name = ""
+        elif isinstance(root_info, TeamRootInfo):
+            actual_root_type = "team"
+            actual_home_name = root_info.home_path
+        else:
+            raise RuntimeError("Unknown root namespace type")
+
+        self._state.set("account", "path_root_type", actual_root_type)
+        self._state.set("account", "home_path_name", actual_home_name)
+
+        self._logger.debug("Path root is up to date")
+        self._logger.debug("Path root type: %s", actual_root_type)
+        self._logger.debug("Path root nsid: %s", root_info.root_namespace_id)
+        self._logger.debug("User home name: %s", actual_home_name)
+
+    def _update_path_root(self) -> None:
+        """
+        Changes the layout of the local Dropbox folder if the user joins or leaves a
+        team. New team folders will be downloaded, old team folders will be removed.
+        """
+
+        current_root_type = self._state.get("account", "path_root_type")
+        current_user_home_name = self._state.get("account", "home_path_name")
+        current_user_home_name_lower = normalize(current_user_home_name)
+
+        root_info = self.client.account_info.root_info
+        team = self.client.account_info.team
+
+        team_name = team.name if team else "team"
+
+        if isinstance(root_info, UserRootInfo):
+            new_root_type = "user"
+            new_user_home_name = ""
+        elif isinstance(root_info, TeamRootInfo):
+            new_root_type = "team"
+            new_user_home_name = root_info.home_path
+        else:
+            raise RuntimeError("Unknown root namespace type")
+
+        try:
+            local_dropbox_dirlist = list(os.scandir(self.sync.dropbox_path))
+        except (FileNotFoundError, NotADirectoryError):
+            title = "Dropbox folder missing"
+            msg = (
+                "Please move the Dropbox folder back to its original location or "
+                "restart Maestral to set up a new folder."
+            )
+            raise NoDropboxDirError(title, msg)
+
+        with self.sync.sync_lock:
+
+            if new_root_type == "team" and current_root_type == "user":
+
+                # User joined a team.
+
+                self._logger.info("User joined %s. Updating folder layout.", team_name)
+
+                self.sync.desktop_notifier.notify(
+                    f"Joined {team_name}",
+                    "Migrating user files and downloading team folders",
+                )
+
+                # Migrate user folder to "self.sync.dropbox_path/home_path". We do this
+                # by creating a temporary folder and renaming it after moving all
+                # personal items to prevent name conflicts where a folder has the same
+                # name as `root_info.home_path`.
+
+                tmpdir = TemporaryDirectory(dir=self.sync.dropbox_path)
+
+                for entry in local_dropbox_dirlist:
+                    if entry.path != tmpdir.name:
+                        new_path = f"{tmpdir.name}/{entry.name}"
+                        move(entry.path, new_path, raise_error=True)
+                        self._logger.debug(
+                            "Moved to personal folder: %r → %r", entry.path, new_path
+                        )
+
+                os.rename(tmpdir.name, self.sync.dropbox_path + new_user_home_name)
+
+                # Migrate all excluded items.
+                self._logger.debug("Migrating excluded items")
+                new_excluded = [
+                    root_info.home_path + path for path in self.sync.excluded_items
+                ]
+                self.sync.excluded_items = new_excluded
+
+            elif new_root_type == "user" and current_root_type == "team":
+
+                # User left a team.
+
+                self._logger.info("User left team. Updating folder layout.")
+
+                self.sync.desktop_notifier.notify(
+                    "Left Dropbox Team",
+                    "Migrating user files and removing team folders",
+                )
+
+                # Remove all team folders.
+                for entry in local_dropbox_dirlist:
+                    if entry.name != current_user_home_name.lstrip("/"):
+                        delete(entry.path, raise_error=True)
+
+                # Migrate user folders to local Dropbox root. We do this by renaming the
+                # user home to a temporary name and then moving its contents to the
+                # parent folder.
+
+                old_home_root = self.sync.dropbox_path + current_user_home_name
+
+                tmpdir = TemporaryDirectory(dir=self.sync.dropbox_path)
+
+                try:
+                    os.rename(old_home_root, tmpdir.name)
+                except (FileNotFoundError, NotADirectoryError):
+                    # User folder does not (yet) exist.
+                    pass
+                else:
+                    for entry in list(os.scandir(tmpdir.name)):
+                        new_path = f"{self.sync.dropbox_path}/{entry.name}"
+                        move(entry.path, new_path, raise_error=True)
+                        self._logger.debug(
+                            "Moved to root folder: %r → %r", entry.path, new_path
+                        )
+
+                delete(tmpdir.name)
+
+                # Migrate excluded items:
+                # Prune all teams folders from excluded list. Remove home folder
+                # prefix from excluded items. If the user folder itself is
+                # excluded, keep it excluded.
+                self._logger.debug("Migrating excluded items")
+                new_excluded = [
+                    removeprefix(path, current_user_home_name_lower)
+                    for path in self.sync.excluded_items
+                    if is_child(path, current_user_home_name_lower)
+                ]
+
+                self.sync.excluded_items = new_excluded
+
+            elif new_root_type == "team" and current_root_type == "team":
+
+                # User switched between different teams.
+
+                self._logger.info("User switched teams. Updating team folders.")
+
+                self.sync.desktop_notifier.notify(
+                    f"Switched teams to {team_name}", "Updating team folders"
+                )
+
+                # Remove all team folders, leave user folder alone.
+                for entry in local_dropbox_dirlist:
+                    if entry.name != current_user_home_name.lstrip("/"):
+                        delete(entry.path, raise_error=True)
+                        self._logger.debug("Deleted team folder: %r", entry.path)
+
+                # Migrate excluded items:
+                # Prune all teams folders from excluded list. If the user folder
+                # itself is excluded, keep it excluded.
+                self._logger.debug("Migrating excluded items")
+                new_excluded = [
+                    path
+                    for path in self.sync.excluded_items
+                    if is_equal_or_child(path, current_user_home_name_lower)
+                ]
+                self.sync.excluded_items = new_excluded
+
+            # Update path root of client.
+            self.client.switch_path_root(root_info.root_namespace_id)
+            self._save_path_root_info(root_info)
+
+            #  Trigger reindex.
+            self.sync.reset_sync_state()
 
     # ---- thread methods --------------------------------------------------------------
 
@@ -401,6 +626,11 @@ class SyncManager:
                     has_changes = self.sync.wait_for_remote_changes(
                         self.sync.remote_cursor, client=client
                     )
+
+                    # Check for root namespace updates. Don't apply any remote
+                    # changes in case of a changed root path.
+                    if self.check_and_update_path_root():
+                        return
 
                     if not running.is_set():
                         return
@@ -510,6 +740,15 @@ class SyncManager:
 
             # Reload mignore rules.
             self.sync.load_mignore_file()
+
+            # Update path root and migrate local folders. This is required when a user
+            # joins or leaves a team and their root namespace changes.
+            if self._needs_path_root_update():
+                self.sync.fs_events.disable()
+                self._update_path_root()
+                self.sync.fs_events.enable()
+            else:
+                self._save_path_root_info(self.client.account_info.root_info)
 
             with self.sync.client.clone_with_new_session() as client:
 
