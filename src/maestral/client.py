@@ -37,6 +37,7 @@ from dropbox import (  # type: ignore
     async_,
     auth,
     oauth,
+    common,
 )
 from dropbox.stone_validators import ValidationError
 
@@ -70,6 +71,7 @@ from .errors import (
     InvalidDbidError,
     SharedLinkError,
     DropboxConnectionError,
+    PathRootError,
 )
 from .config import MaestralState
 from .constants import DROPBOX_APP_KEY
@@ -1483,7 +1485,6 @@ def dropbox_to_maestral_error(
             if error.is_shared_link_malformed():
                 text = "The shared link is malformed."
                 err_cls = SharedLinkError
-
             elif error.is_shared_link_not_found():
                 text = "The given link does not exist."
                 err_cls = NotFoundError
@@ -1503,6 +1504,14 @@ def dropbox_to_maestral_error(
             elif error.is_reset():
                 text = "Please try again later."
                 err_cls = SharedLinkError
+
+        elif isinstance(error, common.PathRootError):
+            if error.is_no_permission():
+                text = "You don't have permission to access this namespace"
+                err_cls = InsufficientPermissionsError
+            elif error.is_invalid_root():
+                text = "Invalid root namespace"
+                err_cls = MaestralApiError
 
     # ---- Authentication errors -------------------------------------------------------
     elif isinstance(exc, exceptions.AuthError):
@@ -1536,6 +1545,19 @@ def dropbox_to_maestral_error(
             err_cls = DropboxAuthError
             title = "Authentication error"
             text = "Please check if you can log in on the Dropbox website."
+
+    # ---- Namespace Errors ------------------------------------------------------------
+    elif isinstance(exc, exceptions.PathRootError):
+        error = exc.error
+        title = "API call failed"
+
+        if isinstance(error, common.PathRootError):
+            if error.is_no_permission():
+                text = "You don't have permission to access this namespace"
+                err_cls = PathRootError
+            elif error.is_invalid_root():
+                text = "Invalid root namespace"
+                err_cls = PathRootError
 
     # ---- OAuth2 flow errors ----------------------------------------------------------
     elif isinstance(exc, requests.HTTPError):
