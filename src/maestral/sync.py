@@ -2995,7 +2995,7 @@ class SyncEngine:
         if len(dbid_list) == 1:
             # all files have been modified by the same user
             dbid = dbid_list.pop()
-            if dbid == client.account_id:
+            if dbid == client.account_info.account_id:
                 user_name = "You"
             else:
                 try:

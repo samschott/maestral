@@ -212,13 +212,15 @@ class DropboxClient:
         self.config_name = config_name
         self.auth = OAuth2Session(config_name)
 
+        self._state = MaestralState(config_name)
+
         self._logger = logging.getLogger(__name__)
 
         self._timeout = timeout
         self._session = session or create_session()
         self._backoff_until = 0
         self._dbx = None
-        self._state = MaestralState(config_name)
+        self._cached_account_info = None
 
     # ---- linking API -----------------------------------------------------------------
 
@@ -302,6 +304,8 @@ class DropboxClient:
         :raises DropboxAuthError: if we cannot authenticate with Dropbox.
         """
 
+        self._cached_account_info = None
+
         with convert_api_errors():
             self.dbx.auth_token_revoke()
             self.auth.delete_creds()
@@ -336,9 +340,14 @@ class DropboxClient:
             self._dbx = None
 
     @property
-    def account_id(self) -> Optional[str]:
-        """The unique Dropbox ID of the linked account"""
-        return self.auth.account_id
+    def account_info(self) -> users.FullAccount:
+        """Returns cached account info. Use :meth:`get_account_info` to get account
+        info from Dropbox servers."""
+
+        if not self._cached_account_info:
+            return self.get_account_info()
+        else:
+            return self._cached_account_info
 
     # ---- session management ----------------------------------------------------------
 
@@ -423,6 +432,8 @@ class DropboxClient:
             self._state.set("account", "display_name", res.name.display_name)
             self._state.set("account", "abbreviated_name", res.name.abbreviated_name)
             self._state.set("account", "type", account_type)
+
+        self._cached_account_info = res
 
         return res
 

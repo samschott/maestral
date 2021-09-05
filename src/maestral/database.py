@@ -333,7 +333,7 @@ class SyncEvent(Model):
             else:
                 # file is not a shared folder, therefore
                 # the current user must have added or modified it
-                change_dbid = sync_engine.client.account_id
+                change_dbid = sync_engine.client.account_info.account_id
         else:
             raise RuntimeError(f"Cannot convert {md} to SyncEvent")
 
@@ -370,7 +370,7 @@ class SyncEvent(Model):
             SyncEvent.
         """
 
-        change_dbid = sync_engine.client.account_id
+        change_dbid = sync_engine.client.account_info.account_id
         to_path = getattr(event, "dest_path", event.src_path)
         from_path = None
 
