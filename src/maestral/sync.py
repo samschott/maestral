@@ -717,10 +717,11 @@ class SyncEngine:
         if self.busy():
             raise RuntimeError("Cannot reset sync state while syncing.")
 
-        self.remote_cursor = ""
-        self.local_cursor = 0.0
         self.clear_index()
         self.clear_sync_history()
+
+        self._state.reset_to_defaults("sync")
+        self.reload_cached_config()
 
         self._logger.debug("Sync state reset")
 
