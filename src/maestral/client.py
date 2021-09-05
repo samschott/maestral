@@ -39,6 +39,7 @@ from dropbox import (  # type: ignore
     oauth,
     common,
 )
+from dropbox.common import PathRoot
 from dropbox.stone_validators import ValidationError
 
 # local imports
@@ -196,6 +197,13 @@ class DropboxClient:
     :param timeout: Timeout for individual requests. Defaults to 100 sec if not given.
     :param session: Optional requests session to use. If not given, a new session will
         be created with :func:`dropbox.dropbox_client.create_session`.
+    :param namespace_id: ID of Dropbox namespace to use. All paths passed or returned by
+        this API will be interpreted relative to this namespace. The namespace id can
+        either designate the user's home space or their team namespace for Dropbox
+        Business accounts with Team Spaces. If not given, name namespace saved in the
+        state file (if any) or the user's home namespace will be used. See
+        https://developers.dropbox.com/dbx-team-files-guide for more information on
+        Dropbox namespaces.
     """
 
     SDK_VERSION: str = "2.0"
@@ -207,26 +215,43 @@ class DropboxClient:
         config_name: str,
         timeout: float = 100,
         session: Optional[requests.Session] = None,
+        namespace_id=None,
     ) -> None:
 
         self.config_name = config_name
         self.auth = OAuth2Session(config_name)
 
         self._state = MaestralState(config_name)
-
         self._logger = logging.getLogger(__name__)
 
         self._timeout = timeout
         self._session = session or create_session()
         self._backoff_until = 0
-        self._dbx = None
-        self._cached_account_info = None
+        self._dbx: Optional[Dropbox] = None
+        self._dbx_base: Optional[Dropbox] = None
+        self._cached_account_info: Optional[users.FullAccount] = None
+
+        if namespace_id:
+            self._namespace_id = namespace_id
+            self._state.set("account", "path_root_nsid", namespace_id)
+        else:
+            self._namespace_id = self._state.get("account", "path_root_nsid")
 
     # ---- linking API -----------------------------------------------------------------
 
     @property
+    def dbx_base(self) -> Dropbox:
+        """The underlying Dropbox SDK instance without namespace headers."""
+        if not self.linked:
+            raise NotLinkedError(
+                "No auth token set", "Please link a Dropbox account first."
+            )
+
+        return self._dbx_base
+
+    @property
     def dbx(self) -> Dropbox:
-        """The underlying Dropbox SDK instance."""
+        """The underlying Dropbox SDK instance with namespace headers."""
         if not self.linked:
             raise NotLinkedError(
                 "No auth token set", "Please link a Dropbox account first."
@@ -243,7 +268,7 @@ class DropboxClient:
         :raises KeyringAccessError: if keyring access fails.
         """
 
-        if self._dbx:
+        if self._dbx and self._dbx_base:
             return True
 
         elif self.auth.linked:  # this will trigger keyring access on first call
@@ -279,8 +304,7 @@ class DropboxClient:
 
         res = self.auth.verify_auth_token(token)
 
-        if res == self.auth.Success:
-            self.auth.save_creds()
+        if res == OAuth2Session.Success:
 
             self._init_sdk_with_token(
                 refresh_token=self.auth.refresh_token,
@@ -289,10 +313,13 @@ class DropboxClient:
             )
 
             try:
-                self.get_account_info()
-                self.get_space_usage()
+                account_info = self.get_account_info()
             except ConnectionError:
-                pass
+                return OAuth2Session.ConnectionFailed
+            else:
+                self.switch_path_root(account_info.root_info.root_namespace_id)
+
+            self.auth.save_creds()
 
         return res
 
@@ -307,7 +334,7 @@ class DropboxClient:
         self._cached_account_info = None
 
         with convert_api_errors():
-            self.dbx.auth_token_revoke()
+            self.dbx_base.auth_token_revoke()
             self.auth.delete_creds()
 
     def _init_sdk_with_token(
@@ -327,7 +354,8 @@ class DropboxClient:
 
         if refresh_token or access_token:
 
-            self._dbx = Dropbox(
+            # Initialise Dropbox SDK.
+            self._dbx_base = Dropbox(
                 oauth2_refresh_token=refresh_token,
                 oauth2_access_token=access_token,
                 oauth2_access_token_expiration=access_token_expiration,
@@ -336,7 +364,17 @@ class DropboxClient:
                 user_agent=USER_AGENT,
                 timeout=self._timeout,
             )
+
+            # If namespace_id was given, use the corresponding namespace, otherwise
+            # default to the home namespace.
+            if self._namespace_id:
+                root_path = PathRoot.namespace_id(self._namespace_id)
+                self._dbx = self._dbx_base.with_path_root(root_path)
+            else:
+                self._dbx = self._dbx_base
+
         else:
+            self._dbx_base = None
             self._dbx = None
 
     @property
@@ -348,6 +386,13 @@ class DropboxClient:
             return self.get_account_info()
         else:
             return self._cached_account_info
+
+    @property
+    def namespace_id(self) -> str:
+        """The namespace ID of the path root currently used by the DropboxClient. All
+        file paths will be interpreted as relative to the root namespace. Use
+        :meth:`switch_path_root` to change the root namespace."""
+        return self._namespace_id
 
     # ---- session management ----------------------------------------------------------
 
@@ -378,13 +423,11 @@ class DropboxClient:
         :returns: A new instance of DropboxClient.
         """
 
+        config_name = config_name or self.config_name
+        timeout = timeout or self._timeout
         session = session or self._session
 
-        client = self.__class__(
-            config_name or self.config_name,
-            timeout or self._timeout,
-            session,
-        )
+        client = self.__class__(config_name, timeout, session)
 
         if self._dbx:
             client._dbx = self._dbx.clone(session=session)
@@ -400,6 +443,43 @@ class DropboxClient:
         """
         return self.clone(session=create_session())
 
+    def switch_path_root(self, namespace_id: str) -> None:
+        """
+        Sets the root path for the Dropbox client. All files paths given as arguments to
+        API calls such as :meth:`list_folder` or :meth:`get_metadata` will be
+        interpreted as relative to the root path. All file paths returned by API calls,
+        for instance in file metadata, will be relative to this root path.
+
+        Root paths may be either the user's Dropbox folder or their Team folder. The
+        user's home folder will be user by default. Use :meth:`get_account_info` to
+        retrieve the user's root and home namespace ids.
+
+        .. note:: This method works when offline. It does not verify whether the given
+            namespace id is valid or if the user has permission to access the given
+            namespace. API calls operating on the user's files will raise a
+            :class:`PathRootError` in such cases.
+
+        :param namespace_id: Namespace id of the new root path to use. If an empty
+            string is given, the user's home namespace is used.
+        :raises BadInputError: if the given namespace id is incorrectly formatted.
+        """
+
+        if self._namespace_id == namespace_id:
+            return
+
+        with convert_api_errors():
+
+            if namespace_id:
+                # Clone Dropbox instance with correct path root header.
+                path_root = PathRoot.namespace_id(namespace_id)
+                self._dbx = self.dbx_base.with_path_root(path_root)
+            else:
+                # Reset path root header.
+                self.dbx._headers = {}
+
+        self._namespace_id = namespace_id
+        self._state.set("account", "path_root_nsid", namespace_id)
+
     # ---- SDK wrappers ----------------------------------------------------------------
 
     def get_account_info(self, dbid: Optional[str] = None) -> users.FullAccount:
@@ -413,9 +493,9 @@ class DropboxClient:
 
         with convert_api_errors():
             if dbid:
-                res = self.dbx.users_get_account(dbid)
+                res = self.dbx_base.users_get_account(dbid)
             else:
-                res = self.dbx.users_get_current_account()
+                res = self.dbx_base.users_get_current_account()
 
         if not dbid:
             # Save our own account info to config.
@@ -433,6 +513,11 @@ class DropboxClient:
             self._state.set("account", "abbreviated_name", res.name.abbreviated_name)
             self._state.set("account", "type", account_type)
 
+        if not self._namespace_id:
+            home_nsid = res.root_info.home_namespace_id
+            self._namespace_id = home_nsid
+            self._state.set("account", "path_root_nsid", home_nsid)
+
         self._cached_account_info = res
 
         return res
@@ -442,7 +527,7 @@ class DropboxClient:
         :returns: The space usage of the currently linked account.
         """
         with convert_api_errors():
-            res = self.dbx.users_get_space_usage()
+            res = self.dbx_base.users_get_space_usage()
 
         # Query space usage type.
         if res.allocation.is_team():
@@ -1522,7 +1607,7 @@ def dropbox_to_maestral_error(
                 err_cls = InsufficientPermissionsError
             elif error.is_invalid_root():
                 text = "Invalid root namespace"
-                err_cls = MaestralApiError
+                err_cls = SyncError
 
     # ---- Authentication errors -------------------------------------------------------
     elif isinstance(exc, exceptions.AuthError):
