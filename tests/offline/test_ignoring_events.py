@@ -47,7 +47,7 @@ def test_ignore_tree_creation(sync):
             file = new_dir / f"test_{i}"
             file.touch()
 
-    sync.wait_for_local_changes()
+    sync.wait_for_local_changes(timeout=1)
     sync_events, _ = sync.list_local_changes()
     assert len(sync_events) == 0
 
@@ -69,7 +69,7 @@ def test_ignore_tree_move(sync):
     with sync.fs_events.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
         move(new_dir, new_dir_1)
 
-    sync.wait_for_local_changes()
+    sync.wait_for_local_changes(timeout=1)
     sync_events, _ = sync.list_local_changes()
     assert len(sync_events) == 0
 
