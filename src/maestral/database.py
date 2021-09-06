@@ -24,7 +24,7 @@ from watchdog.events import (
 )
 
 # local imports
-from .errors import SyncError
+from .errors import SyncError, NotLinkedError
 from .utils.orm import Model, Column, SqlEnum, SqlInt, SqlString, SqlFloat, SqlPath
 from .utils.path import normalize
 
@@ -370,7 +370,12 @@ class SyncEvent(Model):
             SyncEvent.
         """
 
-        change_dbid = sync_engine.client.account_info.account_id
+        try:
+            change_dbid = sync_engine.client.account_info.account_id
+        except NotLinkedError:
+            # Allow converting events when we are not linked. This is useful for testing.
+            change_dbid = ""
+
         to_path = getattr(event, "dest_path", event.src_path)
         from_path = None
 
