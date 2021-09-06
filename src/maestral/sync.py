@@ -2285,14 +2285,17 @@ class SyncEngine:
         # If not on Dropbox, e.g., because its old name was invalid,
         # create it instead of moving it.
         if not md_from_old:
-            if event.is_directory:
-                new_event = DirCreatedEvent(event.local_path)
-            else:
-                new_event = FileCreatedEvent(event.local_path)
 
-            new_sync_event = SyncEvent.from_file_system_event(new_event, self)
+            self._logger.debug(
+                "Could not move '%s' -> '%s' on Dropbox, source does not exists. "
+                "Creating '%s' instead",
+                event.dbx_path_from,
+                event.dbx_path,
+                event.dbx_path,
+            )
 
-            return self._on_local_created(new_sync_event, client)
+            self.rescan(event.local_path)
+            return None
 
         md_to_new = client.move(dbx_path_from, event.dbx_path, autorename=True)
 
