@@ -1760,6 +1760,8 @@ def _get_write_error_msg(write_error: files.WriteError) -> Tuple[str, WriteError
             "There are too many write operations in your Dropbox. Please "
             "try again later."
         )
+    elif write_error.is_operation_suppressed():
+        text = "This file operation is not allowed at this path."
 
     return text, err_cls
 
