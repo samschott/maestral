@@ -145,25 +145,22 @@ def test_locking_multiprocess(tmp_path):
 @pytest.mark.flaky(reruns=5, condition=sys.platform == "darwin")
 def test_lifecycle(config_name):
 
-    # this may be flaky under some conditions, run multiple times
-    for _ in range(50):
+    # start daemon process
+    res = start_maestral_daemon_process(config_name, timeout=20)
 
-        # start daemon process
-        res = start_maestral_daemon_process(config_name, timeout=20)
+    assert res is Start.Ok
 
-        assert res is Start.Ok
+    # retry start daemon process
+    res = start_maestral_daemon_process(config_name, timeout=20)
+    assert res is Start.AlreadyRunning
 
-        # retry start daemon process
-        res = start_maestral_daemon_process(config_name, timeout=20)
-        assert res is Start.AlreadyRunning
+    # stop daemon
+    res = stop_maestral_daemon_process(config_name)
+    assert res is Stop.Ok
 
-        # stop daemon
-        res = stop_maestral_daemon_process(config_name)
-        assert res is Stop.Ok
-
-        # retry stop daemon
-        res = stop_maestral_daemon_process(config_name)
-        assert res is Stop.NotRunning
+    # retry stop daemon
+    res = stop_maestral_daemon_process(config_name)
+    assert res is Stop.NotRunning
 
 
 # proxy tests
