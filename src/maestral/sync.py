@@ -67,6 +67,7 @@ from .constants import (
     EXCLUDED_DIR_NAMES,
     MIGNORE_FILE,
     FILE_CACHE,
+    IS_MACOS,
 )
 from .errors import (
     SyncError,
@@ -3373,8 +3374,11 @@ class SyncEngine:
         ignore_events = [FileMovedEvent(tmp_fname, local_path)]
 
         if preserve_permissions:
-            # ignore FileModifiedEvent when changing permissions
+            # Ignore FileModifiedEvent when changing permissions.
+            # Note that two FileModifiedEvents may be emitted on macOS.
             ignore_events.append(FileModifiedEvent(local_path))
+            if IS_MACOS:
+                ignore_events.append(FileModifiedEvent(local_path))
 
         if osp.isfile(local_path):
             # ignore FileDeletedEvent when replacing old file
