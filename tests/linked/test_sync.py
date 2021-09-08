@@ -388,7 +388,7 @@ def test_remote_file_replaced_by_folder(m):
         m.client.remove(f"{m.test_folder_dbx}/file.txt")
         m.client.make_dir(f"{m.test_folder_dbx}/file.txt")
 
-    wait_for_idle(m)
+    wait_for_idle(m, minimum=10)
 
     assert_synced(m)
     assert_child_count(m, m.test_folder_dbx, 1)
