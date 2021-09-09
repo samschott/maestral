@@ -145,7 +145,6 @@ class Maestral:
         )
 
         self._schedule_task(self._periodic_refresh_info())
-        self._schedule_task(self._period_update_check())
         self._schedule_task(self._period_reindexing())
 
         # Create a future which will return once `shutdown_daemon` is called.
@@ -1383,6 +1382,8 @@ class Maestral:
         except Exception:
             error_msg = "Something when wrong. Please try again later."
 
+        self._state.set("app", "latest_release", new_version or current_version)
+
         return {
             "update_available": bool(new_version),
             "latest_release": new_version or current_version,
@@ -1505,7 +1506,7 @@ class Maestral:
         self._tasks.add(task)
 
     async def _periodic_refresh_info(self) -> None:
-        """Periodically refresh the account information from Dropbox servers."""
+        """Periodically refresh some infos."""
 
         await asyncio.sleep(60 * 5)
 
@@ -1517,25 +1518,12 @@ class Maestral:
                 # want to trigger any keyring access from here.
 
                 try:
-                    await self._loop.run_in_executor(self._pool, self.get_account_info)
                     await self._loop.run_in_executor(self._pool, self.get_profile_pic)
+                    await self._loop.run_in_executor(self._pool, self.check_for_updates)
                 except (ConnectionError, MaestralApiError):
-                    pass
-
-            await sleep_rand(60 * 45)
-
-    async def _period_update_check(self) -> None:
-        """Periodically check for software updates."""
-
-        await asyncio.sleep(60 * 3)
-
-        while True:
-            res = await self._loop.run_in_executor(self._pool, self.check_for_updates)
-
-            if not res["error"]:
-                self._state.set("app", "latest_release", res["latest_release"])
-
-            await sleep_rand(60 * 60)
+                    await sleep_rand(60 * 10)
+                else:
+                    await sleep_rand(60 * 45)
 
     async def _period_reindexing(self) -> None:
         """
