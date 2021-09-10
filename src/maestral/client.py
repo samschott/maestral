@@ -197,13 +197,6 @@ class DropboxClient:
     :param timeout: Timeout for individual requests. Defaults to 100 sec if not given.
     :param session: Optional requests session to use. If not given, a new session will
         be created with :func:`dropbox.dropbox_client.create_session`.
-    :param namespace_id: ID of Dropbox namespace to use. All paths passed or returned by
-        this API will be interpreted relative to this namespace. The namespace id can
-        either designate the user's home space or their team namespace for Dropbox
-        Business accounts with Team Spaces. If not given, name namespace saved in the
-        state file (if any) or the user's home namespace will be used. See
-        https://developers.dropbox.com/dbx-team-files-guide for more information on
-        Dropbox namespaces.
     """
 
     SDK_VERSION: str = "2.0"
@@ -215,7 +208,6 @@ class DropboxClient:
         config_name: str,
         timeout: float = 100,
         session: Optional[requests.Session] = None,
-        namespace_id=None,
     ) -> None:
 
         self.config_name = config_name
@@ -230,12 +222,7 @@ class DropboxClient:
         self._dbx: Optional[Dropbox] = None
         self._dbx_base: Optional[Dropbox] = None
         self._cached_account_info: Optional[users.FullAccount] = None
-
-        if namespace_id:
-            self._namespace_id = namespace_id
-            self._state.set("account", "path_root_nsid", namespace_id)
-        else:
-            self._namespace_id = self._state.get("account", "path_root_nsid")
+        self._namespace_id = self._state.get("account", "path_root_nsid")
 
     # ---- linking API -----------------------------------------------------------------
 
@@ -313,11 +300,9 @@ class DropboxClient:
             )
 
             try:
-                account_info = self.get_account_info()
+                self.update_path_root()
             except ConnectionError:
                 return OAuth2Session.ConnectionFailed
-            else:
-                self.switch_path_root(account_info.root_info.root_namespace_id)
 
             self.auth.save_creds()
 
@@ -368,7 +353,7 @@ class DropboxClient:
             # If namespace_id was given, use the corresponding namespace, otherwise
             # default to the home namespace.
             if self._namespace_id:
-                root_path = PathRoot.namespace_id(self._namespace_id)
+                root_path = PathRoot.root(self._namespace_id)
                 self._dbx = self._dbx_base.with_path_root(root_path)
             else:
                 self._dbx = self._dbx_base
@@ -443,42 +428,43 @@ class DropboxClient:
         """
         return self.clone(session=create_session())
 
-    def switch_path_root(self, namespace_id: str) -> None:
+    def update_path_root(self, root_info: Optional[common.RootInfo] = None) -> None:
         """
-        Sets the root path for the Dropbox client. All files paths given as arguments to
-        API calls such as :meth:`list_folder` or :meth:`get_metadata` will be
+        Updates the root path for the Dropbox client. All files paths given as arguments
+        to API calls such as :meth:`list_folder` or :meth:`get_metadata` will be
         interpreted as relative to the root path. All file paths returned by API calls,
         for instance in file metadata, will be relative to this root path.
 
-        Root paths may be either the user's Dropbox folder or their Team folder. The
-        user's home folder will be user by default. Use :meth:`get_account_info` to
-        retrieve the user's root and home namespace ids.
+        The root namespace will change when the user joins or leaves a Dropbox Team with
+        Team Spaces. If this happens, API calls using the old root namespace will raise
+        a :class:`PathRootError`. Use this method to update to the new root namespace.
 
-        .. note:: This method works when offline. It does not verify whether the given
-            namespace id is valid or if the user has permission to access the given
-            namespace. API calls operating on the user's files will raise a
-            :class:`PathRootError` in such cases.
+        See https://developers.dropbox.com/dbx-team-files-guide and
+        https://www.dropbox.com/developers/reference/path-root-header-modes for more
+        information on Dropbox Team namespaces and path root headers in API calls.
 
-        :param namespace_id: Namespace id of the new root path to use. If an empty
-            string is given, the user's home namespace is used.
-        :raises BadInputError: if the given namespace id is incorrectly formatted.
+        .. note:: We don't automatically switch root namespaces because API users may
+            want to take action when the path root has changed before making further API
+            calls. Be prepared to handle :class:`PathRootError`s and act accordingly.
+
+        :param root_info: Optional :class:`dropbox.common.RootInfo` describing the path
+            root. If not given, the latest root info will be fetched from Dropbox
+            servers.
         """
-
-        if self._namespace_id == namespace_id:
-            return
 
         with convert_api_errors():
 
-            if namespace_id:
-                # Clone Dropbox instance with correct path root header.
-                path_root = PathRoot.namespace_id(namespace_id)
-                self._dbx = self.dbx_base.with_path_root(path_root)
-            else:
-                # Reset path root header.
-                self.dbx._headers = {}
+            if not root_info:
+                account_info = self.get_account_info()
+                root_info = account_info.root_info
 
-        self._namespace_id = namespace_id
-        self._state.set("account", "path_root_nsid", namespace_id)
+            root_nsid = root_info.root_namespace_id
+
+            path_root = PathRoot.root(root_nsid)
+            self._dbx = self.dbx_base.with_path_root(path_root)
+
+        self._namespace_id = root_nsid
+        self._state.set("account", "path_root_nsid", root_nsid)
 
     # ---- SDK wrappers ----------------------------------------------------------------
 

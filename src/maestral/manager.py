@@ -570,7 +570,7 @@ class SyncManager:
                 self.sync.excluded_items = new_excluded
 
             # Update path root of client.
-            self.client.switch_path_root(root_info.root_namespace_id)
+            self.client.update_path_root(root_info)
             self._save_path_root_info(root_info)
 
             #  Trigger reindex.
