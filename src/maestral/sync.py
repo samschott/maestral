@@ -1694,7 +1694,7 @@ class SyncEngine:
                 changes.append(event)
 
         duration = time.time() - snapshot_time
-        self._logger.debug("Local indexing completed in %s sec", duration)
+        self._logger.debug("Local indexing completed in %s sec", round(duration, 4))
         self._logger.debug("Retrieved local changes:\n%s", pf_repr(changes))
 
         return changes, snapshot_time
