@@ -2544,6 +2544,20 @@ class SyncEngine:
 
         client = client or self.client
 
+        # We intercept any attempts to delete the home folder here instead of waiting
+        # for an error from the Dropbox API. This allows us to provide a better error
+        # message.
+
+        home_path = self._state.get("account", "home_path")
+
+        if event.dbx_path == home_path:
+            raise SyncError(
+                title="Could not delete item",
+                message="Cannot delete the user's home folder",
+                dbx_path=event.dbx_path,
+                local_path=event.local_path,
+            )
+
         if event.local_path == self.dropbox_path:
             self.ensure_dropbox_folder_present()
 
