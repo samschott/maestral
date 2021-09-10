@@ -3,7 +3,7 @@ from typing import Dict
 
 import pytest
 from dropbox.users import FullAccount
-from dropbox.common import TeamRootInfo, UserRootInfo
+from dropbox.common import RootInfo, TeamRootInfo, UserRootInfo
 
 from maestral.errors import NoDropboxDirError
 from maestral.utils.appdirs import get_home_dir
@@ -43,11 +43,11 @@ def test_migrate_path_root_user_to_team(m):
             ),
         )
 
-    def switch_path_root(nsid) -> None:
-        m.set_state("account", "path_root_nsid", nsid)
+    def update_path_root(root_info: RootInfo) -> None:
+        m.set_state("account", "path_root_nsid", root_info.root_namespace_id)
 
     m.client.get_account_info = get_account_info
-    m.client.switch_path_root = switch_path_root
+    m.client.update_path_root = update_path_root
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
@@ -58,7 +58,7 @@ def test_migrate_path_root_user_to_team(m):
 
         m.set_state("account", "path_root_type", "user")
         m.set_state("account", "path_root_nsid", "1")
-        m.set_state("account", "home_path_name", "")
+        m.set_state("account", "home_path", "")
 
         # define folder structures before and after migration
 
@@ -94,7 +94,7 @@ def test_migrate_path_root_user_to_team(m):
 
         assert m.get_state("account", "path_root_type") == "team"
         assert m.get_state("account", "path_root_nsid") == new_namespace_id
-        assert m.get_state("account", "home_path_name") == home_path
+        assert m.get_state("account", "home_path") == home_path
 
     finally:
         delete(local_dropbox_dir)
@@ -114,11 +114,11 @@ def test_migrate_path_root_team_to_user(m):
             ),
         )
 
-    def switch_path_root(nsid) -> None:
-        m.set_state("account", "path_root_nsid", nsid)
+    def update_path_root(root_info: RootInfo) -> None:
+        m.set_state("account", "path_root_nsid", root_info.root_namespace_id)
 
     m.client.get_account_info = get_account_info
-    m.client.switch_path_root = switch_path_root
+    m.client.update_path_root = update_path_root
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
@@ -129,7 +129,7 @@ def test_migrate_path_root_team_to_user(m):
 
         m.set_state("account", "path_root_type", "team")
         m.set_state("account", "path_root_nsid", "2")
-        m.set_state("account", "home_path_name", "/John Doe")
+        m.set_state("account", "home_path", "/John Doe")
 
         # define folder structures before and after migration
 
@@ -169,7 +169,7 @@ def test_migrate_path_root_team_to_user(m):
 
         assert m.get_state("account", "path_root_type") == "user"
         assert m.get_state("account", "path_root_nsid") == new_namespace_id
-        assert m.get_state("account", "home_path_name") == ""
+        assert m.get_state("account", "home_path") == ""
 
     finally:
         delete(local_dropbox_dir)
@@ -190,11 +190,11 @@ def test_migrate_path_root_team_to_team(m):
             ),
         )
 
-    def switch_path_root(nsid) -> None:
-        m.set_state("account", "path_root_nsid", nsid)
+    def update_path_root(root_info: RootInfo) -> None:
+        m.set_state("account", "path_root_nsid", root_info.root_namespace_id)
 
     m.client.get_account_info = get_account_info
-    m.client.switch_path_root = switch_path_root
+    m.client.update_path_root = update_path_root
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
@@ -205,7 +205,7 @@ def test_migrate_path_root_team_to_team(m):
 
         m.set_state("account", "path_root_type", "team")
         m.set_state("account", "path_root_nsid", "2")
-        m.set_state("account", "home_path_name", "/John Doe")
+        m.set_state("account", "home_path", "/John Doe")
 
         # define folder structures before and after migration
 
@@ -247,7 +247,7 @@ def test_migrate_path_root_team_to_team(m):
 
         assert m.get_state("account", "path_root_type") == "team"
         assert m.get_state("account", "path_root_nsid") == new_namespace_id
-        assert m.get_state("account", "home_path_name") == "/John Doe"
+        assert m.get_state("account", "home_path") == "/John Doe"
 
     finally:
         delete(local_dropbox_dir)
@@ -269,11 +269,11 @@ def test_migrate_path_root_error(m):
             ),
         )
 
-    def switch_path_root(nsid) -> None:
-        m.set_state("account", "path_root_nsid", nsid)
+    def update_path_root(root_info: RootInfo) -> None:
+        m.set_state("account", "path_root_nsid", root_info.root_namespace_id)
 
     m.client.get_account_info = get_account_info
-    m.client.switch_path_root = switch_path_root
+    m.client.update_path_root = update_path_root
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
@@ -282,7 +282,7 @@ def test_migrate_path_root_error(m):
 
     m.set_state("account", "path_root_type", "user")
     m.set_state("account", "path_root_nsid", "1")
-    m.set_state("account", "home_path_name", "")
+    m.set_state("account", "home_path", "")
 
     # attempt to migrate folder structure without Dropbox dir
 
