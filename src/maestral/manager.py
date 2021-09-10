@@ -334,7 +334,9 @@ class SyncManager:
         """Resets all saved sync state. Settings are not affected."""
 
         if self.running.is_set():
-            raise RuntimeError("Cannot reset sync state while syncing.")
+            raise MaestralApiError(
+                "Cannot reset sync state while syncing", "Please try again when idle."
+            )
 
         self.sync.reset_sync_state()
 
@@ -410,7 +412,10 @@ class SyncManager:
             actual_root_type = "team"
             actual_home_path = root_info.home_path
         else:
-            raise RuntimeError("Unknown root namespace type")
+            raise MaestralApiError(
+                "Unknown root namespace type",
+                f"Got {root_info!r} but expected UserRootInfo or TeamRootInfo.",
+            )
 
         self._state.set("account", "path_root_type", actual_root_type)
         self._state.set("account", "home_path", actual_home_path)
@@ -430,6 +435,12 @@ class SyncManager:
         current_user_home_path = self._state.get("account", "home_path")
         current_user_home_path_lower = normalize(current_user_home_path)
 
+        if current_root_type == "team" and current_user_home_path == "":
+            raise MaestralApiError(
+                "Cannot migrate folder structure",
+                "Inconsistent namespace information found.",
+            )
+
         root_info = self.client.account_info.root_info
         team = self.client.account_info.team
 
@@ -442,7 +453,10 @@ class SyncManager:
             new_root_type = "team"
             new_user_home_path = root_info.home_path
         else:
-            raise RuntimeError("Unknown root namespace type")
+            raise MaestralApiError(
+                "Unknown root namespace type",
+                f"Got {root_info!r} but expected UserRootInfo or TeamRootInfo.",
+            )
 
         local_user_home_path = self.sync.to_local_path_from_cased(new_user_home_path)
 
