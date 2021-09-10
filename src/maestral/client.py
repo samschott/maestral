@@ -1589,10 +1589,10 @@ def dropbox_to_maestral_error(
 
         elif isinstance(error, common.PathRootError):
             if error.is_no_permission():
-                text = "You don't have permission to access this namespace"
+                text = "You don't have permission to access this namespace."
                 err_cls = InsufficientPermissionsError
             elif error.is_invalid_root():
-                text = "Invalid root namespace"
+                text = "Invalid root namespace."
                 err_cls = SyncError
 
     # ---- Authentication errors -------------------------------------------------------
@@ -1635,10 +1635,10 @@ def dropbox_to_maestral_error(
 
         if isinstance(error, common.PathRootError):
             if error.is_no_permission():
-                text = "You don't have permission to access this namespace"
+                text = "You don't have permission to access this namespace."
                 err_cls = PathRootError
             elif error.is_invalid_root():
-                text = "Invalid root namespace"
+                text = "Invalid root namespace."
                 err_cls = PathRootError
 
     # ---- OAuth2 flow errors ----------------------------------------------------------
