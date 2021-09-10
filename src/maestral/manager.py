@@ -400,25 +400,25 @@ class SyncManager:
         account_info = self.client.get_account_info()
         return self.client.namespace_id != account_info.root_info.root_namespace_id
 
-    def _save_path_root_info(self, root_info: RootInfo):
+    def _save_path_root_info(self, root_info: RootInfo) -> None:
         """Saves given root namespace info to state file."""
 
         if isinstance(root_info, UserRootInfo):
             actual_root_type = "user"
-            actual_home_name = ""
+            actual_home_path = ""
         elif isinstance(root_info, TeamRootInfo):
             actual_root_type = "team"
-            actual_home_name = root_info.home_path
+            actual_home_path = root_info.home_path
         else:
             raise RuntimeError("Unknown root namespace type")
 
         self._state.set("account", "path_root_type", actual_root_type)
-        self._state.set("account", "home_path_name", actual_home_name)
+        self._state.set("account", "home_path", actual_home_path)
 
         self._logger.debug("Path root is up to date")
         self._logger.debug("Path root type: %s", actual_root_type)
         self._logger.debug("Path root nsid: %s", root_info.root_namespace_id)
-        self._logger.debug("User home name: %s", actual_home_name)
+        self._logger.debug("User home path: %s", actual_home_path)
 
     def _update_path_root(self) -> None:
         """
@@ -427,8 +427,8 @@ class SyncManager:
         """
 
         current_root_type = self._state.get("account", "path_root_type")
-        current_user_home_name = self._state.get("account", "home_path_name")
-        current_user_home_name_lower = normalize(current_user_home_name)
+        current_user_home_path = self._state.get("account", "home_path")
+        current_user_home_path_lower = normalize(current_user_home_path)
 
         root_info = self.client.account_info.root_info
         team = self.client.account_info.team
@@ -437,12 +437,14 @@ class SyncManager:
 
         if isinstance(root_info, UserRootInfo):
             new_root_type = "user"
-            new_user_home_name = ""
+            new_user_home_path = ""
         elif isinstance(root_info, TeamRootInfo):
             new_root_type = "team"
-            new_user_home_name = root_info.home_path
+            new_user_home_path = root_info.home_path
         else:
             raise RuntimeError("Unknown root namespace type")
+
+        local_user_home_path = self.sync.to_local_path_from_cased(new_user_home_path)
 
         try:
             local_dropbox_dirlist = list(os.scandir(self.sync.dropbox_path))
@@ -460,7 +462,7 @@ class SyncManager:
 
                 # User joined a team.
 
-                self._logger.info("User joined %s. Updating folder layout.", team_name)
+                self._logger.info("User joined %s. Resyncing user files.", team_name)
 
                 self.sync.desktop_notifier.notify(
                     f"Joined {team_name}",
@@ -477,12 +479,13 @@ class SyncManager:
                 for entry in local_dropbox_dirlist:
                     if entry.path != tmpdir.name:
                         new_path = f"{tmpdir.name}/{entry.name}"
-                        move(entry.path, new_path, raise_error=True)
                         self._logger.debug(
-                            "Moved to personal folder: %r → %r", entry.path, new_path
+                            "Moving to personal folder: %r → %r", entry.path, new_path
                         )
+                        move(entry.path, new_path, raise_error=True)
 
-                os.rename(tmpdir.name, self.sync.dropbox_path + new_user_home_name)
+                self._logger.debug("Moving %r → %r", tmpdir.name, local_user_home_path)
+                os.rename(tmpdir.name, local_user_home_path)
 
                 # Migrate all excluded items.
                 self._logger.debug("Migrating excluded items")
@@ -504,14 +507,14 @@ class SyncManager:
 
                 # Remove all team folders.
                 for entry in local_dropbox_dirlist:
-                    if entry.name != current_user_home_name.lstrip("/"):
+                    if entry.name != current_user_home_path.lstrip("/"):
                         delete(entry.path, raise_error=True)
 
                 # Migrate user folders to local Dropbox root. We do this by renaming the
                 # user home to a temporary name and then moving its contents to the
                 # parent folder.
 
-                old_home_root = self.sync.dropbox_path + current_user_home_name
+                old_home_root = self.sync.dropbox_path + current_user_home_path
 
                 tmpdir = TemporaryDirectory(dir=self.sync.dropbox_path)
 
@@ -536,9 +539,9 @@ class SyncManager:
                 # excluded, keep it excluded.
                 self._logger.debug("Migrating excluded items")
                 new_excluded = [
-                    removeprefix(path, current_user_home_name_lower)
+                    removeprefix(path, current_user_home_path_lower)
                     for path in self.sync.excluded_items
-                    if is_child(path, current_user_home_name_lower)
+                    if is_child(path, current_user_home_path_lower)
                 ]
 
                 self.sync.excluded_items = new_excluded
@@ -555,7 +558,7 @@ class SyncManager:
 
                 # Remove all team folders, leave user folder alone.
                 for entry in local_dropbox_dirlist:
-                    if entry.name != current_user_home_name.lstrip("/"):
+                    if entry.name != current_user_home_path.lstrip("/"):
                         delete(entry.path, raise_error=True)
                         self._logger.debug("Deleted team folder: %r", entry.path)
 
@@ -566,7 +569,7 @@ class SyncManager:
                 new_excluded = [
                     path
                     for path in self.sync.excluded_items
-                    if is_equal_or_child(path, current_user_home_name_lower)
+                    if is_equal_or_child(path, current_user_home_path_lower)
                 ]
                 self.sync.excluded_items = new_excluded
 
