@@ -37,6 +37,7 @@ from .errors import (
     MaestralApiError,
     InotifyError,
     NoDropboxDirError,
+    PathRootError,
 )
 from .sync import SyncEngine
 from .fsevents import Observer
@@ -796,20 +797,23 @@ class SyncManager:
         try:
             yield
         except CancelledError:
+            # Shutdown will be handled externally.
             running.clear()
         except DropboxConnectionError:
-            self._logger.info(DISCONNECTED)
             self._logger.debug("Connection error", exc_info=True)
-            running.clear()
-            autostart.set()
+            self._logger.info(DISCONNECTED)
+            self.stop()
+            self.autostart.set()
             self._logger.info(CONNECTING)
+        except PathRootError:
+            self._logger.debug("API call failed due to path root error", exc_info=True)
+            self.check_and_update_path_root()
         except Exception as err:
-            running.clear()
-            autostart.clear()
             title = getattr(err, "title", "Unexpected error")
             message = getattr(err, "message", "Please restart to continue syncing")
             self._logger.error(title, exc_info=True)
             self.sync.desktop_notifier.notify(title, message, level=notify.ERROR)
+            self.stop()
 
     def __del__(self):
         try:
