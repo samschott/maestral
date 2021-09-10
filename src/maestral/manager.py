@@ -741,14 +741,15 @@ class SyncManager:
             # Reload mignore rules.
             self.sync.load_mignore_file()
 
+            self.client.get_space_usage()
+
             # Update path root and migrate local folders. This is required when a user
             # joins or leaves a team and their root namespace changes.
-            if self._needs_path_root_update():
-                self.sync.fs_events.disable()
-                self._update_path_root()
-                self.sync.fs_events.enable()
-            else:
-                self._save_path_root_info(self.client.account_info.root_info)
+            self.check_and_update_path_root()
+
+            if not running.is_set():
+                startup_completed.set()
+                return
 
             with self.sync.client.clone_with_new_session() as client:
 
