@@ -41,7 +41,7 @@ def m():
     m = Maestral(config_name)
     m.log_level = logging.DEBUG
 
-    # link with given token
+    # link with given token and store auth info in keyring for other processes
     access_token = os.environ.get("DROPBOX_ACCESS_TOKEN")
     refresh_token = os.environ.get("DROPBOX_REFRESH_TOKEN")
 
@@ -58,10 +58,9 @@ def m():
             "Either access token or refresh token must be given as environment "
             "variable DROPBOX_ACCESS_TOKEN or DROPBOX_REFRESH_TOKEN."
         )
+    m.client.update_path_root()
 
-    # get corresponding Dropbox ID and store in keyring for other processes
-    res = m.client.get_account_info()
-    m.client.auth._account_id = res.account_id
+    m.client.auth._account_id = m.client.account_info.account_id
     m.client.auth.loaded = True
     m.client.auth.save_creds()
 
