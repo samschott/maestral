@@ -9,6 +9,7 @@ import uuid
 import pytest
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 from dropbox.files import WriteMode, FileMetadata
+from dropbox.common import TeamRootInfo
 
 from maestral.main import Maestral
 from maestral.errors import NotFoundError, FileConflictError
@@ -29,9 +30,6 @@ resources = os.path.dirname(__file__) + "/resources"
 
 fsevents_logger = logging.getLogger("fsevents")
 fsevents_logger.setLevel(logging.DEBUG)
-
-
-SYNC_TEST_FOLDER = "/Sync Tests"
 
 
 @pytest.fixture
@@ -75,8 +73,15 @@ def m():
         raise TimeoutError("Could not acquire test lock")
 
     # create / clean our temporary test folder
-    m.test_folder_dbx = SYNC_TEST_FOLDER
-    m.test_folder_local = m.to_local_path(SYNC_TEST_FOLDER)
+
+    sync_test_folder = "/Sync Tests"
+
+    if isinstance(m.client.account_info.root_info, TeamRootInfo):
+        home_path = m.client.account_info.root_info.home_path
+        sync_test_folder = home_path + sync_test_folder
+
+    m.test_folder_dbx = sync_test_folder
+    m.test_folder_local = m.to_local_path(sync_test_folder)
 
     try:
         m.client.remove(m.test_folder_dbx)
@@ -124,8 +129,11 @@ def m():
 @pytest.fixture
 def proxy(m):
     m.stop_sync()
-    start_maestral_daemon_process(m.config_name, timeout=20)
-    yield MaestralProxy(m.config_name)
+    start_maestral_daemon_process(m.config_name)
+    proxy = MaestralProxy(m.config_name)
+    proxy._test_folder_dbx = m.test_folder_dbx
+
+    yield proxy
 
     stop_maestral_daemon_process(m.config_name)
 
