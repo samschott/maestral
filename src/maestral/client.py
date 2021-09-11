@@ -302,6 +302,7 @@ class DropboxClient:
             try:
                 self.update_path_root()
             except ConnectionError:
+                self.auth.delete_creds()
                 return OAuth2Session.ConnectionFailed
 
             self.auth.save_creds()
