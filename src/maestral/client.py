@@ -223,6 +223,7 @@ class DropboxClient:
         self._dbx_base: Optional[Dropbox] = None
         self._cached_account_info: Optional[users.FullAccount] = None
         self._namespace_id = self._state.get("account", "path_root_nsid")
+        self._is_team_space = self._state.get("account", "path_root_type") == "team"
 
     # ---- linking API -----------------------------------------------------------------
 
@@ -365,8 +366,8 @@ class DropboxClient:
 
     @property
     def account_info(self) -> users.FullAccount:
-        """Returns cached account info. Use :meth:`get_account_info` to get account
-        info from Dropbox servers."""
+        """Returns cached account info. Use :meth:`get_account_info` to get the latest
+        account info from Dropbox servers."""
 
         if not self._cached_account_info:
             return self.get_account_info()
@@ -377,8 +378,16 @@ class DropboxClient:
     def namespace_id(self) -> str:
         """The namespace ID of the path root currently used by the DropboxClient. All
         file paths will be interpreted as relative to the root namespace. Use
-        :meth:`switch_path_root` to change the root namespace."""
+        :meth:`update_path_root` to update the root namespace after the user joins or
+        leaves a team with a Team Space."""
         return self._namespace_id
+
+    @property
+    def is_team_space(self) -> bool:
+        """Whether the user's Dropbox uses a Team Space. Use :meth:`update_path_root` to
+        update the root namespace after the user joins or eaves a team with a Team
+        Space."""
+        return self._is_team_space
 
     # ---- session management ----------------------------------------------------------
 
@@ -464,8 +473,28 @@ class DropboxClient:
             path_root = PathRoot.root(root_nsid)
             self._dbx = self.dbx_base.with_path_root(path_root)
 
+        if isinstance(root_info, common.UserRootInfo):
+            actual_root_type = "user"
+            actual_home_path = ""
+        elif isinstance(root_info, common.TeamRootInfo):
+            actual_root_type = "team"
+            actual_home_path = root_info.home_path
+        else:
+            raise MaestralApiError(
+                "Unknown root namespace type",
+                f"Got {root_info!r} but expected UserRootInfo or TeamRootInfo.",
+            )
+
         self._namespace_id = root_nsid
+        self._is_team_space = actual_root_type == "team"
+
         self._state.set("account", "path_root_nsid", root_nsid)
+        self._state.set("account", "path_root_type", actual_root_type)
+        self._state.set("account", "home_path", actual_home_path)
+
+        self._logger.debug("Path root type: %s", actual_root_type)
+        self._logger.debug("Path root nsid: %s", root_info.root_namespace_id)
+        self._logger.debug("User home path: %s", actual_home_path)
 
     # ---- SDK wrappers ----------------------------------------------------------------
 

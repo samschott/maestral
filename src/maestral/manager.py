@@ -15,7 +15,7 @@ from tempfile import TemporaryDirectory
 from typing import Iterator, Optional, cast, Dict, List, Type, TypeVar, Callable, Any
 
 # external imports
-from dropbox.common import RootInfo, TeamRootInfo, UserRootInfo
+from dropbox.common import TeamRootInfo, UserRootInfo
 
 # local imports
 from . import __url__
@@ -386,7 +386,7 @@ class SyncManager:
 
             return True
         else:
-            self._save_path_root_info(self.client.account_info.root_info)
+            self._logger.debug("Path root is up to date")
             return False
 
     def _needs_path_root_update(self) -> bool:
@@ -401,29 +401,6 @@ class SyncManager:
 
         account_info = self.client.get_account_info()
         return self.client.namespace_id != account_info.root_info.root_namespace_id
-
-    def _save_path_root_info(self, root_info: RootInfo) -> None:
-        """Saves given root namespace info to state file."""
-
-        if isinstance(root_info, UserRootInfo):
-            actual_root_type = "user"
-            actual_home_path = ""
-        elif isinstance(root_info, TeamRootInfo):
-            actual_root_type = "team"
-            actual_home_path = root_info.home_path
-        else:
-            raise MaestralApiError(
-                "Unknown root namespace type",
-                f"Got {root_info!r} but expected UserRootInfo or TeamRootInfo.",
-            )
-
-        self._state.set("account", "path_root_type", actual_root_type)
-        self._state.set("account", "home_path", actual_home_path)
-
-        self._logger.debug("Path root is up to date")
-        self._logger.debug("Path root type: %s", actual_root_type)
-        self._logger.debug("Path root nsid: %s", root_info.root_namespace_id)
-        self._logger.debug("User home path: %s", actual_home_path)
 
     def _update_path_root(self) -> None:
         """
@@ -589,7 +566,6 @@ class SyncManager:
 
             # Update path root of client.
             self.client.update_path_root(root_info)
-            self._save_path_root_info(root_info)
 
             #  Trigger reindex.
             self.sync.reset_sync_state()
