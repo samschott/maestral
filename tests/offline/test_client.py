@@ -13,8 +13,35 @@ from dropbox.async_ import *
 from dropbox.users import *
 from dropbox.sharing import *
 from dropbox.auth import *
+from dropbox.common import *
 
-from maestral.errors import *
+from maestral.errors import (
+    MaestralApiError,
+    InvalidDbidError,
+    DropboxAuthError,
+    TokenExpiredError,
+    TokenRevokedError,
+    CursorResetError,
+    BadInputError,
+    OutOfMemoryError,
+    SharedLinkError,
+    SyncError,
+    InsufficientPermissionsError,
+    InsufficientSpaceError,
+    PathError,
+    NotFoundError,
+    ConflictError,
+    IsAFolderError,
+    NotAFolderError,
+    DropboxServerError,
+    RestrictedContentError,
+    UnsupportedFileError,
+    FileSizeError,
+    FileReadError,
+    FileConflictError,
+    FolderConflictError,
+)
+from maestral.errors import PathRootError as MPRE
 from maestral.client import (
     os_to_maestral_error,
     dropbox_to_maestral_error,
@@ -212,6 +239,9 @@ def test_dropbox_api_to_maestral_error(error, maestral_exc):
         (oauth.NotApprovedException(), DropboxAuthError),
         (exceptions.BadInputError("", ""), BadInputError),
         (exceptions.InternalServerError("", "", ""), DropboxServerError),
+        (exceptions.PathRootError("", PathRootError.no_permission), MPRE),
+        (exceptions.PathRootError("", PathRootError.invalid_root(RootInfo())), MPRE),
+        (exceptions.PathRootError("", PathRootError.other), MPRE),
     ],
 )
 def test_dropbox_to_maestral_error(exception, maestral_exc):
