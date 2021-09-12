@@ -1632,15 +1632,16 @@ def dropbox_to_maestral_error(
     # ---- Namespace Errors ------------------------------------------------------------
     elif isinstance(exc, exceptions.PathRootError):
         error = exc.error
-        title = "API call failed"
+        err_cls = PathRootError
+        title = "Invalid root namespace"
 
         if isinstance(error, common.PathRootError):
             if error.is_no_permission():
                 text = "You don't have permission to access this namespace."
-                err_cls = PathRootError
             elif error.is_invalid_root():
-                text = "Invalid root namespace."
-                err_cls = PathRootError
+                text = "The given namespace does not exist."
+            elif error.is_other():
+                text = "An unexpected error occurred with the given namespace."
 
     # ---- OAuth2 flow errors ----------------------------------------------------------
     elif isinstance(exc, requests.HTTPError):
