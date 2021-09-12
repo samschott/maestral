@@ -3,7 +3,7 @@ from typing import Dict
 
 import pytest
 from dropbox.users import FullAccount
-from dropbox.common import RootInfo, TeamRootInfo, UserRootInfo
+from dropbox.common import TeamRootInfo, UserRootInfo
 
 from maestral.errors import NoDropboxDirError
 from maestral.utils.appdirs import get_home_dir
@@ -43,11 +43,7 @@ def test_migrate_path_root_user_to_team(m):
             ),
         )
 
-    def update_path_root(root_info: RootInfo) -> None:
-        m.set_state("account", "path_root_nsid", root_info.root_namespace_id)
-
     m.client.get_account_info = get_account_info
-    m.client.update_path_root = update_path_root
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
@@ -114,11 +110,7 @@ def test_migrate_path_root_team_to_user(m):
             ),
         )
 
-    def update_path_root(root_info: RootInfo) -> None:
-        m.set_state("account", "path_root_nsid", root_info.root_namespace_id)
-
     m.client.get_account_info = get_account_info
-    m.client.update_path_root = update_path_root
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
@@ -190,11 +182,7 @@ def test_migrate_path_root_team_to_team(m):
             ),
         )
 
-    def update_path_root(root_info: RootInfo) -> None:
-        m.set_state("account", "path_root_nsid", root_info.root_namespace_id)
-
     m.client.get_account_info = get_account_info
-    m.client.update_path_root = update_path_root
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
@@ -269,11 +257,7 @@ def test_migrate_path_root_error(m):
             ),
         )
 
-    def update_path_root(root_info: RootInfo) -> None:
-        m.set_state("account", "path_root_nsid", root_info.root_namespace_id)
-
     m.client.get_account_info = get_account_info
-    m.client.update_path_root = update_path_root
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
