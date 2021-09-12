@@ -216,7 +216,6 @@ GENERAL_ERRORS = {
     KeyringAccessError,
     NoDropboxDirError,
     InotifyError,
-    RestrictedContentError,
     DatabaseError,
     DropboxAuthError,
     TokenExpiredError,
@@ -245,4 +244,7 @@ SYNC_ERRORS = {
     RestrictedContentError,
     UnsupportedFileError,
     FileSizeError,
+    FileReadError,
+    FileConflictError,
+    FolderConflictError,
 }
