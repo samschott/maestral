@@ -9,7 +9,6 @@ import uuid
 import pytest
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 from dropbox.files import WriteMode, FileMetadata
-from dropbox.common import TeamRootInfo
 
 from maestral.main import Maestral
 from maestral.errors import NotFoundError, FileConflictError
@@ -76,9 +75,9 @@ def m():
 
     sync_test_folder = "/Sync Tests"
 
-    if isinstance(m.client.account_info.root_info, TeamRootInfo):
-        home_path = m.client.account_info.root_info.home_path
-        sync_test_folder = home_path + sync_test_folder
+    # if isinstance(m.client.account_info.root_info, TeamRootInfo):
+    #     home_path = m.client.account_info.root_info.home_path
+    #     sync_test_folder = home_path + sync_test_folder
 
     m.test_folder_dbx = sync_test_folder
     m.test_folder_local = m.to_local_path(sync_test_folder)
@@ -87,7 +86,11 @@ def m():
         m.client.remove(m.test_folder_dbx)
     except NotFoundError:
         pass
-    m.client.make_dir(m.test_folder_dbx)
+
+    if m.client.is_team_space:
+        m.client.share_dir(m.test_folder_dbx)
+    else:
+        m.client.make_dir(m.test_folder_dbx)
 
     # start syncing
     m.start_sync()
