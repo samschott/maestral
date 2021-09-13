@@ -220,11 +220,39 @@ def test_get_write_error_msg(error, maestral_exc):
         (ListSharedLinksError.path(LookupError.not_found), NotFoundError),
         (ListSharedLinksError.reset, SharedLinkError),
         (ListSharedLinksError.other, MaestralApiError),
+        (ShareFolderError.no_permission, InsufficientPermissionsError),
+        (ShareFolderError.disallowed_shared_link_policy, InsufficientPermissionsError),
+        (
+            ShareFolderError.team_policy_disallows_member_policy,
+            InsufficientPermissionsError,
+        ),
+        (ShareFolderError.email_unverified, MaestralApiError),
+        (ShareFolderError.bad_path(SharePathError.is_file), FileConflictError),
+        (ShareFolderError.bad_path(SharePathError.inside_shared_folder), SyncError),
+        (ShareFolderError.bad_path(SharePathError.contains_shared_folder), SyncError),
+        (ShareFolderError.bad_path(SharePathError.contains_app_folder), SyncError),
+        (ShareFolderError.bad_path(SharePathError.contains_team_folder), SyncError),
+        (ShareFolderError.bad_path(SharePathError.is_app_folder), SyncError),
+        (ShareFolderError.bad_path(SharePathError.inside_app_folder), SyncError),
+        (ShareFolderError.bad_path(SharePathError.is_public_folder), SyncError),
+        (ShareFolderError.bad_path(SharePathError.inside_public_folder), SyncError),
+        (
+            ShareFolderError.bad_path(
+                SharePathError.already_shared(SharedFolderMetadata())
+            ),
+            FolderConflictError,
+        ),
+        (ShareFolderError.bad_path(SharePathError.invalid_path), SyncError),
+        (ShareFolderError.bad_path(SharePathError.is_osx_package), SyncError),
+        (ShareFolderError.bad_path(SharePathError.inside_osx_package), SyncError),
+        (ShareFolderError.bad_path(SharePathError.is_vault), SyncError),
+        (ShareFolderError.bad_path(SharePathError.is_family), SyncError),
+        (ShareFolderError.other, MaestralApiError),
     ],
 )
 def test_dropbox_api_to_maestral_error(error, maestral_exc):
     converted = dropbox_to_maestral_error(exceptions.ApiError("", error, "", ""))
-    assert isinstance(converted, maestral_exc)
+    assert isinstance(converted, maestral_exc), f"{error} was incorrectly converted"
 
 
 @pytest.mark.parametrize(
