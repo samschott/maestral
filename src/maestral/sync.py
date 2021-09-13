@@ -2363,7 +2363,32 @@ class SyncEngine:
 
         if event.is_directory:
             try:
-                md_new = client.make_dir(event.dbx_path, autorename=False)
+                if client.is_team_space and event.dbx_path.count("/") == 1:
+                    # We create the folder as a shared folder immediately to prevent
+                    # race conditions when it is created, unmounted, and remounted as a
+                    # shared folder in a Team Space. We then retrieve the metadata in a
+                    # second `get_metadata` call. Note: This is also racy because the
+                    # shared folder may no longer exist at the point of the get_metadata
+                    # call. However, this is easier for us to deal with.
+                    shared_md = client.share_dir(event.dbx_path)
+                    md_new = client.get_metadata(f"ns:{shared_md.shared_folder_id}")
+
+                    if not md_new:
+                        # Remote folder has been deleted after creating. Reflect changes
+                        # locally and return.
+                        self._logger.debug(
+                            '"%s" on Dropbox was deleted after creation, '
+                            "deleting local copy",
+                            event.dbx_path,
+                        )
+                        err = delete(event.local_path)
+
+                        if err:
+                            raise os_to_maestral_error(err)
+
+                        return None
+                else:
+                    md_new = client.make_dir(event.dbx_path, autorename=False)
             except FolderConflictError:
                 self._logger.debug(
                     'No conflict for "%s": the folder already exists', event.local_path
