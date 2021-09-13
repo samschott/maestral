@@ -93,35 +93,6 @@ __all__ = [
 
 # type definitions
 LocalError = Union[MaestralApiError, OSError]
-WriteErrorType = Type[
-    Union[
-        SyncError,
-        InsufficientPermissionsError,
-        PathError,
-        InsufficientSpaceError,
-        FileConflictError,
-        FolderConflictError,
-        ConflictError,
-        FileReadError,
-    ]
-]
-LookupErrorType = Type[
-    Union[
-        SyncError,
-        UnsupportedFileError,
-        RestrictedContentError,
-        NotFoundError,
-        NotAFolderError,
-        IsAFolderError,
-        PathError,
-    ]
-]
-SessionLookupErrorType = Type[
-    Union[
-        SyncError,
-        FileSizeError,
-    ]
-]
 PaginationResultType = Union[sharing.ListSharedLinksResult, files.ListFolderResult]
 FT = TypeVar("FT", bound=Callable[..., Any])
 
@@ -817,7 +788,7 @@ class DropboxClient:
             elif res.is_async_job_id():
                 async_job_id = res.get_async_job_id()
 
-                time.sleep(1.0)
+                time.sleep(0.5)
 
                 with convert_api_errors():
                     res = self.dbx.files_delete_batch_check(async_job_id)
@@ -923,7 +894,7 @@ class DropboxClient:
                 elif res.is_async_job_id():
                     async_job_id = res.get_async_job_id()
 
-                    time.sleep(1.0)
+                    time.sleep(0.5)
                     res = self.dbx.files_create_folder_batch_check(async_job_id)
 
                     check_interval = round(len(chunk) / 100, 1)
@@ -958,6 +929,52 @@ class DropboxClient:
                 result_list.append(sync_err)
 
         return result_list
+
+    def share_dir(self, dbx_path: str, **kwargs) -> sharing.SharedFolderMetadata:
+        """
+        Converts a Dropbox folder to a shared folder. Creates the folder if it does not
+        exist.
+
+        :param dbx_path: Path of Dropbox folder.
+        :param kwargs: Keyword arguments for the Dropbox API files_create_folder_v2
+            endpoint.
+        :returns: Metadata of shared folder.
+        """
+
+        dbx_path = "" if dbx_path == "/" else dbx_path
+
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.sharing_share_folder(dbx_path, **kwargs)
+
+        if res.is_complete():
+            return res.get_complete()
+
+        elif res.is_async_job_id():
+            async_job_id = res.get_async_job_id()
+
+            time.sleep(0.2)
+
+            with convert_api_errors(dbx_path=dbx_path):
+                job_status = self.dbx.sharing_check_share_job_status(async_job_id)
+
+            while job_status.is_in_progress():
+                time.sleep(0.2)
+
+                with convert_api_errors(dbx_path=dbx_path):
+                    job_status = self.dbx.sharing_check_share_job_status(async_job_id)
+
+            if job_status.is_complete():
+                return job_status.get_complete()
+
+            elif job_status.is_failed():
+                error = job_status.get_failed()
+                exc = exceptions.ApiError(
+                    error=error,
+                    user_message_locale="",
+                    user_message_text="",
+                    request_id="",
+                )
+                raise dropbox_to_maestral_error(exc)
 
     def get_latest_cursor(
         self, dbx_path: str, include_non_downloadable_files: bool = False, **kwargs
@@ -1624,6 +1641,29 @@ def dropbox_to_maestral_error(
             elif error.is_invalid_root():
                 text = "Invalid root namespace."
                 err_cls = SyncError
+        elif isinstance(error, sharing.ShareFolderErrorBase):
+            title = "Could not share folder"
+            if error.is_email_unverified():
+                text = (
+                    "You need to verify your email address before creating shared "
+                    "folders."
+                )
+                err_cls = SyncError
+            elif error.is_bad_path():
+                path_error = error.get_bad_path()
+                text, err_cls = _get_bad_path_error_msg(path_error)
+            elif error.is_team_policy_disallows_member_policy():
+                text = "Team policy does not allow sharing with the specified members."
+                err_cls = InsufficientPermissionsError
+            elif error.is_disallowed_shared_link_policy():
+                text = "Team policy does not allow creating the specified shared link."
+                err_cls = InsufficientPermissionsError
+
+            elif (
+                isinstance(error, sharing.ShareFolderError) and error.is_no_permission()
+            ):
+                text = "You don't have permissions to share this folder."
+                err_cls = InsufficientPermissionsError
 
     # ---- Authentication errors -------------------------------------------------------
     elif isinstance(exc, exceptions.AuthError):
@@ -1724,7 +1764,7 @@ def dropbox_to_maestral_error(
     return maestral_exc
 
 
-def _get_write_error_msg(write_error: files.WriteError) -> Tuple[str, WriteErrorType]:
+def _get_write_error_msg(write_error: files.WriteError) -> Tuple[str, Type[SyncError]]:
 
     text = ""
     err_cls = SyncError
@@ -1785,7 +1825,7 @@ def _get_write_error_msg(write_error: files.WriteError) -> Tuple[str, WriteError
 
 def _get_lookup_error_msg(
     lookup_error: files.LookupError,
-) -> Tuple[str, LookupErrorType]:
+) -> Tuple[str, Type[SyncError]]:
 
     text = ""
     err_cls = SyncError
@@ -1821,7 +1861,7 @@ def _get_lookup_error_msg(
 
 def _get_session_lookup_error_msg(
     session_lookup_error: files.UploadSessionLookupError,
-) -> Tuple[str, SessionLookupErrorType]:
+) -> Tuple[str, Type[SyncError]]:
 
     text = ""
     err_cls = SyncError
@@ -1844,5 +1884,51 @@ def _get_session_lookup_error_msg(
     elif session_lookup_error.is_too_large():
         text = "You can only upload files up to 350 GB."
         err_cls = FileSizeError
+
+    return text, err_cls
+
+
+def _get_bad_path_error_msg(
+    path_error: sharing.SharePathError,
+) -> Tuple[str, Type[SyncError]]:
+
+    text = ""
+    err_cls = SyncError
+
+    if path_error.is_is_file():
+        text = "A file is at the specified path."
+        err_cls = FileConflictError
+    elif path_error.is_inside_shared_folder():
+        text = "Cannot share a folder inside a shared folder."
+    elif path_error.is_contains_shared_folder():
+        text = "Cannot share a folder that contains a shared folder."
+    elif path_error.is_contains_app_folder():
+        text = "Cannot share a folder that contains an app folder."
+    elif path_error.is_contains_team_folder():
+        text = "Cannot share a folder that contains a team folder."
+    elif path_error.is_is_app_folder():
+        text = "Cannot share app folders."
+    elif path_error.is_inside_app_folder():
+        text = "Cannot share a folder inside an app folder."
+    elif path_error.is_is_public_folder():
+        text = "A public folder can't be shared this way. Use a public link instead."
+    elif path_error.is_inside_public_folder():
+        text = (
+            "A folder inside a public folder can't be shared this way. Use a public "
+            "link instead."
+        )
+    elif path_error.is_already_shared():
+        err_cls = FolderConflictError
+        text = "The folder is already shared."
+    elif path_error.is_invalid_path():
+        text = "The path is not valid."
+    elif path_error.is_is_osx_package():
+        text = "Cannot share macOS packages."
+    elif path_error.is_inside_osx_package():
+        text = "Cannot share folders inside macOS packages."
+    elif path_error.is_is_vault():
+        text = "Cannot share the Vault folder."
+    elif path_error.is_is_family():
+        text = "Cannot share the Family folder."
 
     return text, err_cls
