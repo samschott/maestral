@@ -382,6 +382,9 @@ def start_maestral_daemon(
 
     dlogger.info("Starting daemon")
 
+    # Acquire PID lock file.
+    lock = maestral_lock(config_name)
+
     try:
 
         # ==== Process and thread management ===========================================
@@ -391,9 +394,6 @@ def start_maestral_daemon(
             raise RuntimeError("Must run daemon in main thread")
 
         dlogger.debug("Environment:\n%s", pformat(os.environ.copy()))
-
-        # Acquire PID lock file.
-        lock = maestral_lock(config_name)
 
         if lock.acquire():
             dlogger.debug("Acquired daemon lock: %r", lock.path)
@@ -493,6 +493,8 @@ def start_maestral_daemon(
         if NOTIFY_SOCKET:
             # Notify systemd that we are shutting down.
             sd_notifier.notify("STOPPING=1")
+
+        lock.release()
 
 
 def start_maestral_daemon_process(
