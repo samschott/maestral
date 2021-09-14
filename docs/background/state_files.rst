@@ -12,10 +12,11 @@ Database
 ********
 
 The index is stored in a SQLite database with contains the sync index, the sync event
-history of the last week and a cache of locally calculated content hashes. SQLAlchemy is
-used to manage the database and the table declarations are given by the definitions of
-:class:`maestral.database.IndexEntry`, :class:`maestral.database.SyncEvent` and
-:class:`maestral.database.HashCacheEntry`.
+history of the last week and a cache of locally calculated content hashes. We use our own
+light-weight ORM layer, defined in :class:`maestral.utils.orm`, to manage the mapping
+between Python objects and database rows. The actual table declarations are given by the
+definitions of :class:`maestral.database.IndexEntry`, :class:`maestral.database.SyncEvent`
+and :class:`maestral.database.HashCacheEntry`.
 
 State file
 **********
@@ -30,41 +31,49 @@ The state file has the following sections:
     version = 12.0.0
 
     [account]
-    
+
     email = foo@bar.com
     display_name = Foo Bar
     abbreviated_name = FB
     type = business
     usage = 39.2% of 1312.8TB used
     usage_type = team
-    
+
+    # Information about the user's root namespace. This
+    # may be a personal namespace or a Team Space for certain
+    # Dropbox Business accounts.
+    path_root_type = team
+    path_root_nsid = 1287234
+    home_path = /User Name
+
+    [auth]
+
     # The type of OAuth access token used:
     # legacy: long-lived token
     # offline: short-lived token with long-lived refresh token
     token_access_type = offline
 
     [app]
-    
+
     # Version for which update / migration scripts have
     # run. This is bumped to the currently installed
     # version after an update.
     updated_scripts_completed = 1.2.0
-    
+
     # Time stamp of last update notification
     update_notification_last = 0.0
-    
+
     # Latest avilable release
     latest_release = 1.2.0
-    
 
     [sync]
-    
+
     # Cursor reflecting last-synced remote state
     cursor = ...
-    
+
     # Time stamp reflecting last-synced local state
     lastsync = 1589979736.623609
-    
+
     # Time stamp of last full reindexing
     last_reindex = 1589577566.8533309
 
