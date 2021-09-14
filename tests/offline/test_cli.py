@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import sys
 import logging
 
-import pytest
 from click.testing import CliRunner
 
 from maestral.cli import main
@@ -32,7 +30,6 @@ def test_invalid_config(m):
     )
 
 
-@pytest.mark.flaky(reruns=5, condition=sys.platform == "darwin")
 def test_start(config_name):
 
     res = start_maestral_daemon_process(config_name, timeout=20)
@@ -46,7 +43,6 @@ def test_start(config_name):
     assert "already running" in result.output
 
 
-@pytest.mark.flaky(reruns=5, condition=sys.platform == "darwin")
 def test_stop(config_name):
 
     res = start_maestral_daemon_process(config_name, timeout=20)
@@ -147,7 +143,6 @@ def test_excluded_remove(m):
     assert "Daemon must be running to download folders." in result.output
 
 
-@pytest.mark.flaky(reruns=5, condition=sys.platform == "darwin")
 def test_notify_level(config_name):
 
     start_maestral_daemon_process(config_name, timeout=20)
@@ -175,7 +170,6 @@ def test_notify_level(config_name):
     assert isinstance(result.exception, SystemExit)
 
 
-@pytest.mark.flaky(reruns=5, condition=sys.platform == "darwin")
 def test_notify_snooze(config_name):
 
     start_maestral_daemon_process(config_name, timeout=20)
