@@ -322,7 +322,7 @@ def is_running(config_name: str) -> bool:
     return maestral_lock(config_name).locked()
 
 
-def wait_for_startup(config_name: str, timeout: float = 5) -> None:
+def wait_for_startup(config_name: str, timeout: float = 10) -> None:
     """
     Waits until we can communicate with the maestral daemon for ``config_name``.
 
@@ -496,7 +496,7 @@ def start_maestral_daemon(
 
 
 def start_maestral_daemon_process(
-    config_name: str = "maestral", timeout: int = 5
+    config_name: str = "maestral", timeout: int = 10
 ) -> Start:
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
