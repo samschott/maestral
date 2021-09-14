@@ -31,9 +31,6 @@ fsevents_logger = logging.getLogger("fsevents")
 fsevents_logger.setLevel(logging.DEBUG)
 
 
-SYNC_TEST_FOLDER = "/Sync Tests"
-
-
 @pytest.fixture
 def m():
     config_name = "test-config"
@@ -41,7 +38,7 @@ def m():
     m = Maestral(config_name)
     m.log_level = logging.DEBUG
 
-    # link with given token
+    # link with given token and store auth info in keyring for other processes
     access_token = os.environ.get("DROPBOX_ACCESS_TOKEN")
     refresh_token = os.environ.get("DROPBOX_REFRESH_TOKEN")
 
@@ -58,10 +55,9 @@ def m():
             "Either access token or refresh token must be given as environment "
             "variable DROPBOX_ACCESS_TOKEN or DROPBOX_REFRESH_TOKEN."
         )
+    m.client.update_path_root()
 
-    # get corresponding Dropbox ID and store in keyring for other processes
-    res = m.client.get_account_info()
-    m.client.auth._account_id = res.account_id
+    m.client.auth._account_id = m.client.account_info.account_id
     m.client.auth.loaded = True
     m.client.auth.save_creds()
 
@@ -76,14 +72,25 @@ def m():
         raise TimeoutError("Could not acquire test lock")
 
     # create / clean our temporary test folder
-    m.test_folder_dbx = SYNC_TEST_FOLDER
-    m.test_folder_local = m.to_local_path(SYNC_TEST_FOLDER)
+
+    sync_test_folder = "/Sync Tests"
+
+    # if isinstance(m.client.account_info.root_info, TeamRootInfo):
+    #     home_path = m.client.account_info.root_info.home_path
+    #     sync_test_folder = home_path + sync_test_folder
+
+    m.test_folder_dbx = sync_test_folder
+    m.test_folder_local = m.to_local_path(sync_test_folder)
 
     try:
         m.client.remove(m.test_folder_dbx)
     except NotFoundError:
         pass
-    m.client.make_dir(m.test_folder_dbx)
+
+    if m.client.is_team_space:
+        m.client.share_dir(m.test_folder_dbx)
+    else:
+        m.client.make_dir(m.test_folder_dbx)
 
     # start syncing
     m.start_sync()
@@ -109,7 +116,10 @@ def m():
     res = m.client.list_shared_links()
 
     for link in res.links:
-        m.revoke_shared_link(link.url)
+        try:
+            m.revoke_shared_link(link.url)
+        except NotFoundError:
+            pass
 
     # remove creds from system keyring
     m.client.auth.delete_creds()
@@ -125,8 +135,11 @@ def m():
 @pytest.fixture
 def proxy(m):
     m.stop_sync()
-    start_maestral_daemon_process(m.config_name, timeout=20)
-    yield MaestralProxy(m.config_name)
+    start_maestral_daemon_process(m.config_name)
+    proxy = MaestralProxy(m.config_name)
+    proxy._test_folder_dbx = m.test_folder_dbx
+
+    yield proxy
 
     stop_maestral_daemon_process(m.config_name)
 

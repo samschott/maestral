@@ -37,7 +37,9 @@ from dropbox import (  # type: ignore
     async_,
     auth,
     oauth,
+    common,
 )
+from dropbox.common import PathRoot
 from dropbox.stone_validators import ValidationError
 
 # local imports
@@ -70,6 +72,7 @@ from .errors import (
     InvalidDbidError,
     SharedLinkError,
     DropboxConnectionError,
+    PathRootError,
 )
 from .config import MaestralState
 from .constants import DROPBOX_APP_KEY
@@ -90,35 +93,6 @@ __all__ = [
 
 # type definitions
 LocalError = Union[MaestralApiError, OSError]
-WriteErrorType = Type[
-    Union[
-        SyncError,
-        InsufficientPermissionsError,
-        PathError,
-        InsufficientSpaceError,
-        FileConflictError,
-        FolderConflictError,
-        ConflictError,
-        FileReadError,
-    ]
-]
-LookupErrorType = Type[
-    Union[
-        SyncError,
-        UnsupportedFileError,
-        RestrictedContentError,
-        NotFoundError,
-        NotAFolderError,
-        IsAFolderError,
-        PathError,
-    ]
-]
-SessionLookupErrorType = Type[
-    Union[
-        SyncError,
-        FileSizeError,
-    ]
-]
 PaginationResultType = Union[sharing.ListSharedLinksResult, files.ListFolderResult]
 FT = TypeVar("FT", bound=Callable[..., Any])
 
@@ -210,19 +184,33 @@ class DropboxClient:
         self.config_name = config_name
         self.auth = OAuth2Session(config_name)
 
+        self._state = MaestralState(config_name)
         self._logger = logging.getLogger(__name__)
 
         self._timeout = timeout
         self._session = session or create_session()
         self._backoff_until = 0
-        self._dbx = None
-        self._state = MaestralState(config_name)
+        self._dbx: Optional[Dropbox] = None
+        self._dbx_base: Optional[Dropbox] = None
+        self._cached_account_info: Optional[users.FullAccount] = None
+        self._namespace_id = self._state.get("account", "path_root_nsid")
+        self._is_team_space = self._state.get("account", "path_root_type") == "team"
 
     # ---- linking API -----------------------------------------------------------------
 
     @property
+    def dbx_base(self) -> Dropbox:
+        """The underlying Dropbox SDK instance without namespace headers."""
+        if not self.linked:
+            raise NotLinkedError(
+                "No auth token set", "Please link a Dropbox account first."
+            )
+
+        return self._dbx_base
+
+    @property
     def dbx(self) -> Dropbox:
-        """The underlying Dropbox SDK instance."""
+        """The underlying Dropbox SDK instance with namespace headers."""
         if not self.linked:
             raise NotLinkedError(
                 "No auth token set", "Please link a Dropbox account first."
@@ -239,7 +227,7 @@ class DropboxClient:
         :raises KeyringAccessError: if keyring access fails.
         """
 
-        if self._dbx:
+        if self._dbx and self._dbx_base:
             return True
 
         elif self.auth.linked:  # this will trigger keyring access on first call
@@ -275,8 +263,7 @@ class DropboxClient:
 
         res = self.auth.verify_auth_token(token)
 
-        if res == self.auth.Success:
-            self.auth.save_creds()
+        if res == OAuth2Session.Success:
 
             self._init_sdk_with_token(
                 refresh_token=self.auth.refresh_token,
@@ -285,10 +272,12 @@ class DropboxClient:
             )
 
             try:
-                self.get_account_info()
-                self.get_space_usage()
+                self.update_path_root()
             except ConnectionError:
-                pass
+                self.auth.delete_creds()
+                return OAuth2Session.ConnectionFailed
+
+            self.auth.save_creds()
 
         return res
 
@@ -300,8 +289,10 @@ class DropboxClient:
         :raises DropboxAuthError: if we cannot authenticate with Dropbox.
         """
 
+        self._cached_account_info = None
+
         with convert_api_errors():
-            self.dbx.auth_token_revoke()
+            self.dbx_base.auth_token_revoke()
             self.auth.delete_creds()
 
     def _init_sdk_with_token(
@@ -321,7 +312,8 @@ class DropboxClient:
 
         if refresh_token or access_token:
 
-            self._dbx = Dropbox(
+            # Initialise Dropbox SDK.
+            self._dbx_base = Dropbox(
                 oauth2_refresh_token=refresh_token,
                 oauth2_access_token=access_token,
                 oauth2_access_token_expiration=access_token_expiration,
@@ -330,13 +322,43 @@ class DropboxClient:
                 user_agent=USER_AGENT,
                 timeout=self._timeout,
             )
+
+            # If namespace_id was given, use the corresponding namespace, otherwise
+            # default to the home namespace.
+            if self._namespace_id:
+                root_path = PathRoot.root(self._namespace_id)
+                self._dbx = self._dbx_base.with_path_root(root_path)
+            else:
+                self._dbx = self._dbx_base
+
         else:
+            self._dbx_base = None
             self._dbx = None
 
     @property
-    def account_id(self) -> Optional[str]:
-        """The unique Dropbox ID of the linked account"""
-        return self.auth.account_id
+    def account_info(self) -> users.FullAccount:
+        """Returns cached account info. Use :meth:`get_account_info` to get the latest
+        account info from Dropbox servers."""
+
+        if not self._cached_account_info:
+            return self.get_account_info()
+        else:
+            return self._cached_account_info
+
+    @property
+    def namespace_id(self) -> str:
+        """The namespace ID of the path root currently used by the DropboxClient. All
+        file paths will be interpreted as relative to the root namespace. Use
+        :meth:`update_path_root` to update the root namespace after the user joins or
+        leaves a team with a Team Space."""
+        return self._namespace_id
+
+    @property
+    def is_team_space(self) -> bool:
+        """Whether the user's Dropbox uses a Team Space. Use :meth:`update_path_root` to
+        update the root namespace after the user joins or eaves a team with a Team
+        Space."""
+        return self._is_team_space
 
     # ---- session management ----------------------------------------------------------
 
@@ -367,13 +389,11 @@ class DropboxClient:
         :returns: A new instance of DropboxClient.
         """
 
+        config_name = config_name or self.config_name
+        timeout = timeout or self._timeout
         session = session or self._session
 
-        client = self.__class__(
-            config_name or self.config_name,
-            timeout or self._timeout,
-            session,
-        )
+        client = self.__class__(config_name, timeout, session)
 
         if self._dbx:
             client._dbx = self._dbx.clone(session=session)
@@ -389,6 +409,64 @@ class DropboxClient:
         """
         return self.clone(session=create_session())
 
+    def update_path_root(self, root_info: Optional[common.RootInfo] = None) -> None:
+        """
+        Updates the root path for the Dropbox client. All files paths given as arguments
+        to API calls such as :meth:`list_folder` or :meth:`get_metadata` will be
+        interpreted as relative to the root path. All file paths returned by API calls,
+        for instance in file metadata, will be relative to this root path.
+
+        The root namespace will change when the user joins or leaves a Dropbox Team with
+        Team Spaces. If this happens, API calls using the old root namespace will raise
+        a :class:`PathRootError`. Use this method to update to the new root namespace.
+
+        See https://developers.dropbox.com/dbx-team-files-guide and
+        https://www.dropbox.com/developers/reference/path-root-header-modes for more
+        information on Dropbox Team namespaces and path root headers in API calls.
+
+        .. note:: We don't automatically switch root namespaces because API users may
+            want to take action when the path root has changed before making further API
+            calls. Be prepared to handle :class:`PathRootError`s and act accordingly.
+
+        :param root_info: Optional :class:`dropbox.common.RootInfo` describing the path
+            root. If not given, the latest root info will be fetched from Dropbox
+            servers.
+        """
+
+        with convert_api_errors():
+
+            if not root_info:
+                account_info = self.get_account_info()
+                root_info = account_info.root_info
+
+            root_nsid = root_info.root_namespace_id
+
+            path_root = PathRoot.root(root_nsid)
+            self._dbx = self.dbx_base.with_path_root(path_root)
+
+        if isinstance(root_info, common.UserRootInfo):
+            actual_root_type = "user"
+            actual_home_path = ""
+        elif isinstance(root_info, common.TeamRootInfo):
+            actual_root_type = "team"
+            actual_home_path = root_info.home_path
+        else:
+            raise MaestralApiError(
+                "Unknown root namespace type",
+                f"Got {root_info!r} but expected UserRootInfo or TeamRootInfo.",
+            )
+
+        self._namespace_id = root_nsid
+        self._is_team_space = actual_root_type == "team"
+
+        self._state.set("account", "path_root_nsid", root_nsid)
+        self._state.set("account", "path_root_type", actual_root_type)
+        self._state.set("account", "home_path", actual_home_path)
+
+        self._logger.debug("Path root type: %s", actual_root_type)
+        self._logger.debug("Path root nsid: %s", root_info.root_namespace_id)
+        self._logger.debug("User home path: %s", actual_home_path)
+
     # ---- SDK wrappers ----------------------------------------------------------------
 
     def get_account_info(self, dbid: Optional[str] = None) -> users.FullAccount:
@@ -402,9 +480,9 @@ class DropboxClient:
 
         with convert_api_errors():
             if dbid:
-                res = self.dbx.users_get_account(dbid)
+                res = self.dbx_base.users_get_account(dbid)
             else:
-                res = self.dbx.users_get_current_account()
+                res = self.dbx_base.users_get_current_account()
 
         if not dbid:
             # Save our own account info to config.
@@ -422,6 +500,13 @@ class DropboxClient:
             self._state.set("account", "abbreviated_name", res.name.abbreviated_name)
             self._state.set("account", "type", account_type)
 
+        if not self._namespace_id:
+            home_nsid = res.root_info.home_namespace_id
+            self._namespace_id = home_nsid
+            self._state.set("account", "path_root_nsid", home_nsid)
+
+        self._cached_account_info = res
+
         return res
 
     def get_space_usage(self) -> users.SpaceUsage:
@@ -429,7 +514,7 @@ class DropboxClient:
         :returns: The space usage of the currently linked account.
         """
         with convert_api_errors():
-            res = self.dbx.users_get_space_usage()
+            res = self.dbx_base.users_get_space_usage()
 
         # Query space usage type.
         if res.allocation.is_team():
@@ -703,7 +788,7 @@ class DropboxClient:
             elif res.is_async_job_id():
                 async_job_id = res.get_async_job_id()
 
-                time.sleep(1.0)
+                time.sleep(0.5)
 
                 with convert_api_errors():
                     res = self.dbx.files_delete_batch_check(async_job_id)
@@ -809,7 +894,7 @@ class DropboxClient:
                 elif res.is_async_job_id():
                     async_job_id = res.get_async_job_id()
 
-                    time.sleep(1.0)
+                    time.sleep(0.5)
                     res = self.dbx.files_create_folder_batch_check(async_job_id)
 
                     check_interval = round(len(chunk) / 100, 1)
@@ -844,6 +929,52 @@ class DropboxClient:
                 result_list.append(sync_err)
 
         return result_list
+
+    def share_dir(self, dbx_path: str, **kwargs) -> sharing.SharedFolderMetadata:
+        """
+        Converts a Dropbox folder to a shared folder. Creates the folder if it does not
+        exist.
+
+        :param dbx_path: Path of Dropbox folder.
+        :param kwargs: Keyword arguments for the Dropbox API files_create_folder_v2
+            endpoint.
+        :returns: Metadata of shared folder.
+        """
+
+        dbx_path = "" if dbx_path == "/" else dbx_path
+
+        with convert_api_errors(dbx_path=dbx_path):
+            res = self.dbx.sharing_share_folder(dbx_path, **kwargs)
+
+        if res.is_complete():
+            return res.get_complete()
+
+        elif res.is_async_job_id():
+            async_job_id = res.get_async_job_id()
+
+            time.sleep(0.2)
+
+            with convert_api_errors(dbx_path=dbx_path):
+                job_status = self.dbx.sharing_check_share_job_status(async_job_id)
+
+            while job_status.is_in_progress():
+                time.sleep(0.2)
+
+                with convert_api_errors(dbx_path=dbx_path):
+                    job_status = self.dbx.sharing_check_share_job_status(async_job_id)
+
+            if job_status.is_complete():
+                return job_status.get_complete()
+
+            elif job_status.is_failed():
+                error = job_status.get_failed()
+                exc = exceptions.ApiError(
+                    error=error,
+                    user_message_locale="",
+                    user_message_text="",
+                    request_id="",
+                )
+                raise dropbox_to_maestral_error(exc)
 
     def get_latest_cursor(
         self, dbx_path: str, include_non_downloadable_files: bool = False, **kwargs
@@ -1483,7 +1614,6 @@ def dropbox_to_maestral_error(
             if error.is_shared_link_malformed():
                 text = "The shared link is malformed."
                 err_cls = SharedLinkError
-
             elif error.is_shared_link_not_found():
                 text = "The given link does not exist."
                 err_cls = NotFoundError
@@ -1503,6 +1633,37 @@ def dropbox_to_maestral_error(
             elif error.is_reset():
                 text = "Please try again later."
                 err_cls = SharedLinkError
+
+        elif isinstance(error, common.PathRootError):
+            if error.is_no_permission():
+                text = "You don't have permission to access this namespace."
+                err_cls = InsufficientPermissionsError
+            elif error.is_invalid_root():
+                text = "Invalid root namespace."
+                err_cls = SyncError
+        elif isinstance(error, sharing.ShareFolderErrorBase):
+            title = "Could not share folder"
+            if error.is_email_unverified():
+                text = (
+                    "You need to verify your email address before creating shared "
+                    "folders."
+                )
+                err_cls = SyncError
+            elif error.is_bad_path():
+                path_error = error.get_bad_path()
+                text, err_cls = _get_bad_path_error_msg(path_error)
+            elif error.is_team_policy_disallows_member_policy():
+                text = "Team policy does not allow sharing with the specified members."
+                err_cls = InsufficientPermissionsError
+            elif error.is_disallowed_shared_link_policy():
+                text = "Team policy does not allow creating the specified shared link."
+                err_cls = InsufficientPermissionsError
+
+            elif (
+                isinstance(error, sharing.ShareFolderError) and error.is_no_permission()
+            ):
+                text = "You don't have permissions to share this folder."
+                err_cls = InsufficientPermissionsError
 
     # ---- Authentication errors -------------------------------------------------------
     elif isinstance(exc, exceptions.AuthError):
@@ -1536,6 +1697,20 @@ def dropbox_to_maestral_error(
             err_cls = DropboxAuthError
             title = "Authentication error"
             text = "Please check if you can log in on the Dropbox website."
+
+    # ---- Namespace Errors ------------------------------------------------------------
+    elif isinstance(exc, exceptions.PathRootError):
+        error = exc.error
+        err_cls = PathRootError
+        title = "Invalid root namespace"
+
+        if isinstance(error, common.PathRootError):
+            if error.is_no_permission():
+                text = "You don't have permission to access this namespace."
+            elif error.is_invalid_root():
+                text = "The given namespace does not exist."
+            elif error.is_other():
+                text = "An unexpected error occurred with the given namespace."
 
     # ---- OAuth2 flow errors ----------------------------------------------------------
     elif isinstance(exc, requests.HTTPError):
@@ -1589,7 +1764,7 @@ def dropbox_to_maestral_error(
     return maestral_exc
 
 
-def _get_write_error_msg(write_error: files.WriteError) -> Tuple[str, WriteErrorType]:
+def _get_write_error_msg(write_error: files.WriteError) -> Tuple[str, Type[SyncError]]:
 
     text = ""
     err_cls = SyncError
@@ -1642,13 +1817,15 @@ def _get_write_error_msg(write_error: files.WriteError) -> Tuple[str, WriteError
             "There are too many write operations in your Dropbox. Please "
             "try again later."
         )
+    elif write_error.is_operation_suppressed():
+        text = "This file operation is not allowed at this path."
 
     return text, err_cls
 
 
 def _get_lookup_error_msg(
     lookup_error: files.LookupError,
-) -> Tuple[str, LookupErrorType]:
+) -> Tuple[str, Type[SyncError]]:
 
     text = ""
     err_cls = SyncError
@@ -1684,7 +1861,7 @@ def _get_lookup_error_msg(
 
 def _get_session_lookup_error_msg(
     session_lookup_error: files.UploadSessionLookupError,
-) -> Tuple[str, SessionLookupErrorType]:
+) -> Tuple[str, Type[SyncError]]:
 
     text = ""
     err_cls = SyncError
@@ -1707,5 +1884,51 @@ def _get_session_lookup_error_msg(
     elif session_lookup_error.is_too_large():
         text = "You can only upload files up to 350 GB."
         err_cls = FileSizeError
+
+    return text, err_cls
+
+
+def _get_bad_path_error_msg(
+    path_error: sharing.SharePathError,
+) -> Tuple[str, Type[SyncError]]:
+
+    text = ""
+    err_cls = SyncError
+
+    if path_error.is_is_file():
+        text = "A file is at the specified path."
+        err_cls = FileConflictError
+    elif path_error.is_inside_shared_folder():
+        text = "Cannot share a folder inside a shared folder."
+    elif path_error.is_contains_shared_folder():
+        text = "Cannot share a folder that contains a shared folder."
+    elif path_error.is_contains_app_folder():
+        text = "Cannot share a folder that contains an app folder."
+    elif path_error.is_contains_team_folder():
+        text = "Cannot share a folder that contains a team folder."
+    elif path_error.is_is_app_folder():
+        text = "Cannot share app folders."
+    elif path_error.is_inside_app_folder():
+        text = "Cannot share a folder inside an app folder."
+    elif path_error.is_is_public_folder():
+        text = "A public folder can't be shared this way. Use a public link instead."
+    elif path_error.is_inside_public_folder():
+        text = (
+            "A folder inside a public folder can't be shared this way. Use a public "
+            "link instead."
+        )
+    elif path_error.is_already_shared():
+        err_cls = FolderConflictError
+        text = "The folder is already shared."
+    elif path_error.is_invalid_path():
+        text = "The path is not valid."
+    elif path_error.is_is_osx_package():
+        text = "Cannot share macOS packages."
+    elif path_error.is_inside_osx_package():
+        text = "Cannot share folders inside macOS packages."
+    elif path_error.is_is_vault():
+        text = "Cannot share the Vault folder."
+    elif path_error.is_is_family():
+        text = "Cannot share the Family folder."
 
     return text, err_cls

@@ -717,10 +717,11 @@ class SyncEngine:
         if self.busy():
             raise RuntimeError("Cannot reset sync state while syncing.")
 
-        self.remote_cursor = ""
-        self.local_cursor = 0.0
         self.clear_index()
         self.clear_sync_history()
+
+        self._state.reset_to_defaults("sync")
+        self.reload_cached_config()
 
         self._logger.debug("Sync state reset")
 
@@ -1693,7 +1694,7 @@ class SyncEngine:
                 changes.append(event)
 
         duration = time.time() - snapshot_time
-        self._logger.debug("Local indexing completed in %s sec", duration)
+        self._logger.debug("Local indexing completed in %s sec", round(duration, 4))
         self._logger.debug("Retrieved local changes:\n%s", pf_repr(changes))
 
         return changes, snapshot_time
@@ -2284,14 +2285,17 @@ class SyncEngine:
         # If not on Dropbox, e.g., because its old name was invalid,
         # create it instead of moving it.
         if not md_from_old:
-            if event.is_directory:
-                new_event = DirCreatedEvent(event.local_path)
-            else:
-                new_event = FileCreatedEvent(event.local_path)
 
-            new_sync_event = SyncEvent.from_file_system_event(new_event, self)
+            self._logger.debug(
+                "Could not move '%s' -> '%s' on Dropbox, source does not exists. "
+                "Creating '%s' instead",
+                event.dbx_path_from,
+                event.dbx_path,
+                event.dbx_path,
+            )
 
-            return self._on_local_created(new_sync_event, client)
+            self.rescan(event.local_path)
+            return None
 
         md_to_new = client.move(dbx_path_from, event.dbx_path, autorename=True)
 
@@ -2359,7 +2363,32 @@ class SyncEngine:
 
         if event.is_directory:
             try:
-                md_new = client.make_dir(event.dbx_path, autorename=False)
+                if client.is_team_space and event.dbx_path.count("/") == 1:
+                    # We create the folder as a shared folder immediately to prevent
+                    # race conditions when it is created, unmounted, and remounted as a
+                    # shared folder in a Team Space. We then retrieve the metadata in a
+                    # second `get_metadata` call. Note: This is also racy because the
+                    # shared folder may no longer exist at the point of the get_metadata
+                    # call. However, this is easier for us to deal with.
+                    shared_md = client.share_dir(event.dbx_path)
+                    md_new = client.get_metadata(f"ns:{shared_md.shared_folder_id}")
+
+                    if not md_new:
+                        # Remote folder has been deleted after creating. Reflect changes
+                        # locally and return.
+                        self._logger.debug(
+                            '"%s" on Dropbox was deleted after creation, '
+                            "deleting local copy",
+                            event.dbx_path,
+                        )
+                        err = delete(event.local_path)
+
+                        if err:
+                            raise os_to_maestral_error(err)
+
+                        return None
+                else:
+                    md_new = client.make_dir(event.dbx_path, autorename=False)
             except FolderConflictError:
                 self._logger.debug(
                     'No conflict for "%s": the folder already exists', event.local_path
@@ -2539,6 +2568,20 @@ class SyncEngine:
         """
 
         client = client or self.client
+
+        # We intercept any attempts to delete the home folder here instead of waiting
+        # for an error from the Dropbox API. This allows us to provide a better error
+        # message.
+
+        home_path = self._state.get("account", "home_path")
+
+        if event.dbx_path == home_path:
+            raise SyncError(
+                title="Could not delete item",
+                message="Cannot delete the user's home folder",
+                dbx_path=event.dbx_path,
+                local_path=event.local_path,
+            )
 
         if event.local_path == self.dropbox_path:
             self.ensure_dropbox_folder_present()
@@ -2995,7 +3038,7 @@ class SyncEngine:
         if len(dbid_list) == 1:
             # all files have been modified by the same user
             dbid = dbid_list.pop()
-            if dbid == client.account_id:
+            if dbid == client.account_info.account_id:
                 user_name = "You"
             else:
                 try:

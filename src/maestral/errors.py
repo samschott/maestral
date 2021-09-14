@@ -201,6 +201,10 @@ class SharedLinkError(MaestralApiError):
     """Raised when creating a shared link fails."""
 
 
+class PathRootError(MaestralApiError):
+    """Raised when making an API call with an invalid path root header."""
+
+
 # connection errors are handled as warnings
 # sync errors only appear in the sync errors list
 # all other errors raise an error dialog in the GUI
@@ -212,7 +216,6 @@ GENERAL_ERRORS = {
     KeyringAccessError,
     NoDropboxDirError,
     InotifyError,
-    RestrictedContentError,
     DatabaseError,
     DropboxAuthError,
     TokenExpiredError,
@@ -224,6 +227,7 @@ GENERAL_ERRORS = {
     UnsupportedFileTypeForDiff,
     SharedLinkError,
     DropboxConnectionError,
+    PathRootError,
 }
 
 SYNC_ERRORS = {
@@ -240,4 +244,7 @@ SYNC_ERRORS = {
     RestrictedContentError,
     UnsupportedFileError,
     FileSizeError,
+    FileReadError,
+    FileConflictError,
+    FolderConflictError,
 }
