@@ -70,6 +70,7 @@ IS_WATCHDOG = WATCHDOG_USEC and (
 
 URI = "PYRO:maestral.{0}@{1}"
 Pyro5.config.THREADPOOL_SIZE_MIN = 2
+Pyro5.config.COMMTIMEOUT = 8
 
 
 def freeze_support() -> None:
@@ -450,11 +451,10 @@ def start_maestral_daemon(
         # Clean up old socket.
         try:
             os.remove(sockpath)
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError):
             pass
 
-        # Expose maestral as Pyro server. Convert management
-        # methods to one way calls so that they don't block.
+        # Expose maestral as Pyro server.
 
         dlogger.debug("Creating Pyro daemon")
 
