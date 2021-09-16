@@ -31,9 +31,9 @@ config file may be overwritten without warning if made while the sync daemon is 
     # address may change and is therefore not stored here.
     account_id = dbid:AABP7CC5bpYd8ghjIColDFrMoc9SdhACA4
 
-    # The keychain to store user credentials. If "automatic",
+    # The keychain to use to store user credentials. If "automatic",
     # will be set automatically from available backends when
-    # completing the OAuth flow.
+    # completing the OAuth flow. Mus be a fully qualified class name.
     keyring = keyring.backends.macOS.Keyring
 
     [app]
