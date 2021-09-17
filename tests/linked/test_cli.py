@@ -53,11 +53,16 @@ def test_pause_resume(proxy):
     wait_for_idle(proxy)
 
     assert result.exit_code == 0
-    assert proxy.paused
+
+    timeout = 20
+    t0 = time.time()
+
+    while not proxy.paused:
+        time.sleep(0.5)
+        if time.time() - t0 > timeout:
+            raise AssertionError("Daemon did not pause")
 
     result = runner.invoke(main, ["resume", "-c", proxy.config_name])
-
-    wait_for_idle(proxy)
 
     assert result.exit_code == 0
     assert not proxy.paused
