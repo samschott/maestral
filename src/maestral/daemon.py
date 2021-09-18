@@ -70,6 +70,7 @@ IS_WATCHDOG = WATCHDOG_USEC and (
 
 URI = "PYRO:maestral.{0}@{1}"
 Pyro5.config.THREADPOOL_SIZE_MIN = 2
+Pyro5.config.COMMTIMEOUT = 8
 
 
 def freeze_support() -> None:
@@ -322,7 +323,7 @@ def is_running(config_name: str) -> bool:
     return maestral_lock(config_name).locked()
 
 
-def wait_for_startup(config_name: str, timeout: float = 5) -> None:
+def wait_for_startup(config_name: str, timeout: float = 20) -> None:
     """
     Waits until we can communicate with the maestral daemon for ``config_name``.
 
@@ -382,6 +383,9 @@ def start_maestral_daemon(
 
     dlogger.info("Starting daemon")
 
+    # Acquire PID lock file.
+    lock = maestral_lock(config_name)
+
     try:
 
         # ==== Process and thread management ===========================================
@@ -391,9 +395,6 @@ def start_maestral_daemon(
             raise RuntimeError("Must run daemon in main thread")
 
         dlogger.debug("Environment:\n%s", pformat(os.environ.copy()))
-
-        # Acquire PID lock file.
-        lock = maestral_lock(config_name)
 
         if lock.acquire():
             dlogger.debug("Acquired daemon lock: %r", lock.path)
@@ -450,11 +451,10 @@ def start_maestral_daemon(
         # Clean up old socket.
         try:
             os.remove(sockpath)
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError):
             pass
 
-        # Expose maestral as Pyro server. Convert management
-        # methods to one way calls so that they don't block.
+        # Expose maestral as Pyro server.
 
         dlogger.debug("Creating Pyro daemon")
 
@@ -494,9 +494,11 @@ def start_maestral_daemon(
             # Notify systemd that we are shutting down.
             sd_notifier.notify("STOPPING=1")
 
+        lock.release()
+
 
 def start_maestral_daemon_process(
-    config_name: str = "maestral", timeout: int = 5
+    config_name: str = "maestral", timeout: float = 20
 ) -> Start:
     """
     Starts the Maestral daemon in a new process by calling :func:`start_maestral_daemon`.
@@ -554,7 +556,7 @@ def start_maestral_daemon_process(
 
 
 def stop_maestral_daemon_process(
-    config_name: str = "maestral", timeout: float = 10
+    config_name: str = "maestral", timeout: float = 20
 ) -> Stop:
     """Stops a maestral daemon process by finding its PID and shutting it down.
 
