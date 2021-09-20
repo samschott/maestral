@@ -70,7 +70,6 @@ IS_WATCHDOG = WATCHDOG_USEC and (
 
 URI = "PYRO:maestral.{0}@{1}"
 Pyro5.config.THREADPOOL_SIZE_MIN = 2
-Pyro5.config.COMMTIMEOUT = 8
 
 
 def freeze_support() -> None:
