@@ -147,18 +147,20 @@ def proxy(m):
 # helper functions
 
 
-def wait_for_idle(m: Maestral, minimum: int = 10):
-    """Blocks until Maestral instance is idle for at least `minimum` sec."""
+def wait_for_idle(m: Maestral, cycles: int = 4):
+    """Blocks until Maestral instance is idle for at least `cycles` sync cycles."""
 
-    t0 = time.time()
-    while time.time() - t0 < minimum:
+    count = 0
+
+    while count < cycles:
         if m.sync.busy():
             # Wait until we can acquire the sync lock => we are idle.
             m.sync.sync_lock.acquire()
             m.sync.sync_lock.release()
-            t0 = time.time()
+            count = 0
         else:
-            time.sleep(0.1)
+            time.sleep(1)
+            count += 1
 
 
 def assert_synced(m: Maestral):

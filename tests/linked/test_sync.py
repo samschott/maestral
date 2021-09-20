@@ -269,7 +269,7 @@ def test_rapid_remote_changes(m):
     with open(resources + "/file.txt", "w") as f:
         f.write("content")
 
-    wait_for_idle(m)
+    wait_for_idle(m, 5)
 
     assert_synced(m)
     assert_exists(m, m.test_folder_dbx, "file.txt")
@@ -310,7 +310,7 @@ def test_local_indexing(m):
     """Tests the upload sync of a nested local folder structure."""
 
     m.stop_sync()
-    wait_for_idle(m, 1)
+    wait_for_idle(m)
 
     # create local tree
 
@@ -336,7 +336,7 @@ def test_local_indexing_error(m):
     wait_for_idle(m)
 
     m.stop_sync()
-    wait_for_idle(m, 1)
+    wait_for_idle(m)
 
     # change permissions of local folder
     subfolder = m.test_folder_local + "/test_folder/sub_folder_2"
@@ -388,7 +388,7 @@ def test_remote_file_replaced_by_folder(m):
         m.client.remove(f"{m.test_folder_dbx}/file.txt")
         m.client.make_dir(f"{m.test_folder_dbx}/file.txt")
 
-    wait_for_idle(m, minimum=10)
+    wait_for_idle(m, 10)
 
     assert_synced(m)
     assert_child_count(m, m.test_folder_dbx, 1)
@@ -983,7 +983,7 @@ def test_unicode_allowed(m, name):
 
     local_path = osp.join(m.test_folder_local, name)
 
-    os.mkdir(local_path)
+    os.makedirs(local_path)
 
     wait_for_idle(m)
     assert_synced(m)
