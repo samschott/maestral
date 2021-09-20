@@ -983,7 +983,7 @@ def test_unicode_allowed(m, name):
 
     local_path = osp.join(m.test_folder_local, name)
 
-    os.mkdir(local_path)
+    os.makedirs(local_path)
 
     wait_for_idle(m)
     assert_synced(m)
