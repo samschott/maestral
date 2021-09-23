@@ -2,8 +2,8 @@
 
 #### Added:
 
-* Added support for Dropbox Business accounts with Team Spaces. Shared folders in team
-  spaces will now be synced at the top level, next to the user's personal folder.
+* Added support for Dropbox Business accounts with a Team Space. Shared folders in a Team
+  Space will now be synced at the top level, next to the user's personal folder.
 
 #### Changed:
 
@@ -11,7 +11,7 @@
 
 #### Fixed:
 
-* Fixed error in CLI command `maestral config-file --clean`.
+* Fixed a crash when running the CLI command `maestral config-file --clean`.
 
 ## v1.4.8
 
