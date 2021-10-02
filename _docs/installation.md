@@ -25,7 +25,7 @@ comparison of installation sizes.
 
 The basic requirements to run the daemon are:
 
-- Mac OS X Mojave or higher
+- Mac OS X High Sierra or higher
 - Linux 2.6 or higher
 - For the Python package: Python 3.6 or higher
 
@@ -49,13 +49,6 @@ its own system tray extension. For Gnome desktop environments that do not provid
 system tray, the
 [gnome-shell-extension-appindicator](https://extensions.gnome.org/extension/615/appindicator-support/)
 is recommended.
-
-The GUI is regularly tested on the platforms which I have access to:
-
-- macOS 10.14 Mojave and macOS 11 Big Sur
-- Ubuntu 20.04
-- CentOS 6
-- Raspbian on Raspberry Pi 3B+
 
 ### systemd journal support
 
