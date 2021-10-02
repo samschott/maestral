@@ -1,4 +1,4 @@
-## v1.4.9.dev
+## v1.5.0
 
 #### Added:
 
@@ -8,6 +8,7 @@
 #### Changed:
 
 * Reorganised config file sections.
+* Brought back support for macOS High Sierra in the macOS app bundle.
 
 #### Fixed:
 
@@ -26,7 +27,7 @@
   unlocked, for example because the executable (app bundle or Python) has an invalid
   signature.
 * Improved error messages on startup for the macOS app bundle.
-* Improved error message in the CLI when setting a config value fails because the new 
+* Improved error message in the CLI when setting a config value fails because the new
   value has the wrong type.
 * Improved handling of more exotic file system or device related errors when opening
   local files.
@@ -40,7 +41,7 @@
 * Fixed an issue in the macOS GUI where passing the "missing Dropbox folder" flow by
   selecting a new location would lead to duplicate menu entries in the status bar menu.
 * Fixed an issue where the Linux / Qt GUI would hang indefinitely after unlinking.
-* Fixed an issue where moving / removing the local Dropbox folder during a download 
+* Fixed an issue where moving / removing the local Dropbox folder during a download
   could lead to unhandled exceptions instead of useful error messages.
 * Fixed handling of 503 and other raw HTTP errors from the Dropbox SDK, for instance
   when Dropbox servers have temporary outages or are undergoing planned maintenance.
