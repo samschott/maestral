@@ -811,8 +811,8 @@ def auth_status(config_name: str) -> None:
 
     cli.echo("")
     cli.echo(f"Email:         {email}")
-    cli.echo(f"Account-type:  {account_type}")
-    cli.echo(f"Dropbox-ID:    {dbid}")
+    cli.echo(f"Account type:  {account_type}")
+    cli.echo(f"Dropbox ID:    {dbid}")
     cli.echo("")
 
 
