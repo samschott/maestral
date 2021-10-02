@@ -117,7 +117,7 @@ $ maestral start --config-name="personal"
 $ maestral start --config-name="work"
 ```
 
-This will start two instances of Maestral, syncing a private and a work account, 
+This will start two instances of Maestral, syncing a private and a work account,
 respectively. Configs will be automatically cleared when unlinking an account. You can
 list all currently linked accounts with `maestral config-files`. The above setup for
 example will return the following on macOS:
@@ -152,12 +152,12 @@ Relevant resources are:
 [CONTRIBUTING.md](CONTRIBUTING.md) contains detailed information on the expected code
 style and test format.
 
-If you are using the macOS app bundle, please consider sponsoring the project with £1 per 
+If you are using the macOS app bundle, please consider sponsoring the project with £1 per
 month to offset the cost of an Apple Developer account to sign and notarize the bundle.
 
 ## System requirements
 
-- macOS 10.14 Mojave or higher or Linux
+- macOS 10.14 High Sierra or higher or Linux
 - Python 3.6 or higher
 - For the system tray icon on Linux:
   - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
