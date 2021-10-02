@@ -5,7 +5,7 @@ import warnings
 from click import shell_completion  # type: ignore
 
 
-__version__ = "1.5.0"
+__version__ = "1.5.1.dev0"
 __author__ = "Sam Schott"
 __url__ = "https://maestral.app"
 
