@@ -633,11 +633,13 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
         m.start_sync()
 
-    t = threading.Thread(target=startup_dialog)
-    t.start()
-
     if foreground:
+
+        setup_thread = threading.Thread(target=startup_dialog, daemon=True)
+        setup_thread.start()
+
         start_maestral_daemon(config_name, log_to_stderr=verbose)
+
     else:
         cli.echo("Starting Maestral...", nl=False)
 
@@ -650,7 +652,8 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         else:
             cli.echo("\rStarting Maestral...        " + FAILED)
             cli.echo("Please check logs for more information.")
-            return
+
+        startup_dialog()
 
 
 @main.command(section="Core Commands", help="Stop the sync daemon.")
