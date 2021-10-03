@@ -1,3 +1,9 @@
+## v1.5.1.dev
+
+#### Fixed:
+
+* Fixed issues when trying to abort the CLI setup dialog with ctrl+C.
+
 ## v1.5.0
 
 #### Added:
