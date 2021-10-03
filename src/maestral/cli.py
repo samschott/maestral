@@ -937,13 +937,17 @@ def status(config_name: str) -> None:
             account_type = m.get_state("account", "type").capitalize()
             usage = m.get_state("account", "usage")
             status_info = m.status
+
+            account_str = f"{email} ({account_type})" if email else "--"
+            usage_str = usage or "--"
+
             n_errors = len(m.sync_errors)
             color = "red" if n_errors > 0 else "green"
             n_errors_str = click.style(str(n_errors), fg=color)
 
             cli.echo("")
-            cli.echo(f"Account:      {email} ({account_type})")
-            cli.echo(f"Usage:        {usage}")
+            cli.echo(f"Account:      {account_str}")
+            cli.echo(f"Usage:        {usage_str}")
             cli.echo(f"Status:       {status_info}")
             cli.echo(f"Sync errors:  {n_errors_str}")
             cli.echo("")
