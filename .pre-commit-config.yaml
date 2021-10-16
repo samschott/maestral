@@ -1,16 +1,16 @@
 repos:
 -   repo: https://github.com/ambv/black
-    rev: stable
+    rev: 21.9b0
     hooks:
     - id: black
       language_version: python3
 
 -   repo: https://gitlab.com/pycqa/flake8
-    rev: master
+    rev: 3.9.2
     hooks:
     -   id: flake8
 
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: master
+    rev: v0.910-1
     hooks:
     -   id: mypy
