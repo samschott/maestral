@@ -398,6 +398,9 @@ class DropboxClient:
         if self._dbx:
             client._dbx = self._dbx.clone(session=session)
 
+        if self._dbx_base:
+            client._dbx_base = self._dbx_base.clone(session=session)
+
         return client
 
     def clone_with_new_session(self) -> "DropboxClient":
