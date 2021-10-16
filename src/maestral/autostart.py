@@ -33,6 +33,7 @@ except ImportError:  # Python 3.7 and lower
 # local imports
 from .utils.appdirs import get_home_dir, get_conf_path, get_data_path
 from .constants import BUNDLE_ID, ENV
+from .errors import MaestralApiError
 
 
 class SupportedImplementations(Enum):
@@ -114,10 +115,16 @@ class AutoStartSystemd(AutoStartBase):
             self.service_config.write(f)
 
     def enable(self) -> None:
-        subprocess.check_output(["systemctl", "--user", "enable", self.service_name])
+        res = subprocess.run(["systemctl", "--user", "enable", self.service_name])
+
+        if res.returncode != 0:
+            raise MaestralApiError("Could not enable autostart", str(res.stderr))
 
     def disable(self) -> None:
-        subprocess.check_output(["systemctl", "--user", "disable", self.service_name])
+        res = subprocess.run(["systemctl", "--user", "disable", self.service_name])
+
+        if res.returncode != 0:
+            raise MaestralApiError("Could not disable autostart", str(res.stderr))
 
     @property
     def enabled(self) -> bool:
@@ -212,17 +219,24 @@ class AutoStartXDGDesktop(AutoStartBase):
 
     def enable(self) -> None:
 
-        with open(self.destination, "w") as f:
-            self.config.write(f, space_around_delimiters=False)
+        try:
 
-        st = os.stat(self.destination)
-        os.chmod(self.destination, st.st_mode | stat.S_IEXEC)
+            with open(self.destination, "w") as f:
+                self.config.write(f, space_around_delimiters=False)
+
+            st = os.stat(self.destination)
+            os.chmod(self.destination, st.st_mode | stat.S_IEXEC)
+
+        except Exception as exc:
+            raise MaestralApiError("Could not enable autostart", exc.args[0])
 
     def disable(self) -> None:
         try:
             os.unlink(self.destination)
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError):
             pass
+        except Exception as exc:
+            raise MaestralApiError("Could not enable autostart", exc.args[0])
 
     @property
     def enabled(self) -> bool:
