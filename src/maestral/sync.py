@@ -3378,6 +3378,10 @@ class SyncEngine:
         elif conflict_check is Conflict.LocalNewerOrIdentical:
             return None
 
+        # Check if parent is in index.
+        if not self.get_index_entry(osp.dirname(event.dbx_path_lower)):
+            raise RuntimeError("Syncing child before parent")
+
         local_path = event.local_path
 
         # we download to a temporary file first (this may take some time)
