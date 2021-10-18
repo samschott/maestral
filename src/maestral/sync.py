@@ -3409,7 +3409,8 @@ class SyncEngine:
             with self.fs_events.ignore(DirDeletedEvent(local_path)):
                 delete(local_path)
 
-        # check if we should preserve permissions of destination file
+        # Preserve permissions of the destination file if we are only syncing an update
+        # to the file content (Dropbox ID of the file remains the same).
         old_entry = self.get_index_entry(event.dbx_path_lower)
 
         preserve_permissions = bool(old_entry and event.dbx_id == old_entry.dbx_id)
