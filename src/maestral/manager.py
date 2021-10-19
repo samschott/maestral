@@ -38,6 +38,7 @@ from .errors import (
     InotifyError,
     NoDropboxDirError,
     PathRootError,
+    DropboxServerError,
 )
 from .sync import SyncEngine
 from .fsevents import Observer
@@ -792,7 +793,7 @@ class SyncManager:
         except CancelledError:
             # Shutdown will be handled externally.
             running.clear()
-        except DropboxConnectionError:
+        except (DropboxConnectionError, DropboxServerError):
             self._logger.debug("Connection error", exc_info=True)
             self._logger.info(DISCONNECTED)
             self.stop()

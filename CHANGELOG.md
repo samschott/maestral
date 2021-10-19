@@ -1,5 +1,10 @@
 ## v1.5.1.dev
 
+#### Changed:
+
+* Handle Dropbox server errors in the same way as connection errors by retrying the sync
+  job.
+
 #### Fixed:
 
 * Fixed issues when trying to abort the CLI setup dialog with ctrl+C.
