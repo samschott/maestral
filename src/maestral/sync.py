@@ -3349,8 +3349,36 @@ class SyncEngine:
 
         return event
 
+    def _ensure_parent(
+        self, event: SyncEvent, client: Optional[DropboxClient] = None
+    ) -> None:
+        """
+        Ensures that all parent folders for a sync event exist locally. This is used to
+        prevent children from being downloaded before their parents. In the most cases,
+        we will automatically sync parents before their children but this is not always
+        guaranteed. See https://github.com/SamSchott/maestral/issues/452.
+
+        :param event: SyncEvent for target file.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
+        """
+
+        client = client or self.client
+
+        dbx_path_lower_dirname = osp.dirname(event.dbx_path_lower)
+
+        if dbx_path_lower_dirname == "/":
+            return
+
+        if not self.get_index_entry(dbx_path_lower_dirname):
+            parent_md = client.get_metadata(dbx_path_lower_dirname)
+
+            if parent_md:  # If the parent no longer exists, we don't do anything.
+                parent_event = SyncEvent.from_dbx_metadata(parent_md, self)
+                self._on_remote_folder(parent_event, client)
+
     def _on_remote_file(
-        self, event: SyncEvent, client: Optional[DropboxClient]
+        self, event: SyncEvent, client: Optional[DropboxClient] = None
     ) -> Optional[SyncEvent]:
         """
         Applies a remote file change or creation locally.
@@ -3378,11 +3406,8 @@ class SyncEngine:
         elif conflict_check is Conflict.LocalNewerOrIdentical:
             return None
 
-        # Check if parent is in index.
-        if not self.get_index_entry(osp.dirname(event.dbx_path_lower)):
-            raise RuntimeError("Syncing child before parent")
-
-        local_path = event.local_path
+        # Ensure that parent folders are synced.
+        self._ensure_parent(event, client)
 
         # we download to a temporary file first (this may take some time)
         tmp_fname = self._new_tmp_file()
@@ -3397,6 +3422,9 @@ class SyncEngine:
 
         # re-check for conflict and move the conflict
         # out of the way if anything has changed
+
+        local_path = event.local_path
+
         if self._check_download_conflict(event) == Conflict.Conflict:
             new_local_path = generate_cc_name(local_path)
             event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
@@ -3452,14 +3480,20 @@ class SyncEngine:
 
         return event
 
-    def _on_remote_folder(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_remote_folder(
+        self, event: SyncEvent, client: Optional[DropboxClient] = None
+    ) -> Optional[SyncEvent]:
         """
         Applies a remote folder creation locally.
 
         :param event: SyncEvent for folder download.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
         :returns: SyncEvent corresponding to local item or None if no local changes
             are made.
         """
+
+        client = client or self.client
 
         self._apply_case_change(event)
 
@@ -3488,6 +3522,9 @@ class SyncEngine:
                 new_local_path,
             )
             self.rescan(new_local_path)
+
+        # Ensure that parent folders are synced.
+        self._ensure_parent(event, client)
 
         if osp.isfile(event.local_path):
             event_cls = (
