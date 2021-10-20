@@ -8,6 +8,9 @@
 #### Fixed:
 
 * Fixed issues when trying to abort the CLI setup dialog with ctrl+C.
+* Fixes an issue which could under some circumstances result in deleted folder content
+  after performing the initial indexing and download. This would mostly occur for shared
+  folders.
 
 ## v1.5.0
 
