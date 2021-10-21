@@ -23,7 +23,7 @@ import plistlib
 import configparser
 from pathlib import Path
 from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 
 try:
     from importlib.metadata import files, PackageNotFoundError  # type: ignore
@@ -152,12 +152,13 @@ class AutoStartLaunchd(AutoStartBase):
         self.path = osp.join(get_home_dir(), "Library", "LaunchAgents")
         self.destination = osp.join(self.path, filename)
 
-        self.plist_dict: Dict[str, Any] = dict(
-            Label=None, ProcessType="Interactive", ProgramArguments=[], RunAtLoad=True
-        )
+        self.plist_dict = {
+            "Label": str(bundle_id),
+            "ProcessType": "Interactive",
+            "RunAtLoad": True,
+            "ProgramArguments": shlex.split(start_cmd),
+        }
 
-        self.plist_dict["Label"] = str(bundle_id)
-        self.plist_dict["ProgramArguments"] = shlex.split(start_cmd)
         self.plist_dict.update(kwargs)
 
     def enable(self) -> None:
