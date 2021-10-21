@@ -1722,18 +1722,21 @@ def dropbox_to_maestral_error(
         # See https://github.com/dropbox/dropbox-sdk-python/issues/360
         # and https://github.com/SamSchott/maestral/issues/388.
 
-        if exc.response is not None and exc.response.status_code >= 500:
+        res = exc.response
+
+        if res and res.status_code == 400 and res.json()["error"] == "invalid_grant":
+            err_cls = DropboxAuthError
+            title = "Authentication failed"
+            text = "Please make sure that you entered the correct authentication code."
+
+        else:
             err_cls = DropboxServerError
             title = "Dropbox server error"
             text = (
                 "Something went wrong on Dropbox’s end. Please check on "
-                "status.dropbox.com if their services are up and running and try again "
-                "later."
+                "https://status.dropbox.com if their services are up and running and "
+                "try again later."
             )
-        else:
-            err_cls = DropboxAuthError
-            title = "Authentication failed"
-            text = "Please make sure that you entered the correct authentication code."
 
     elif isinstance(exc, oauth.BadStateException):
         err_cls = DropboxAuthError
