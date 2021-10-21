@@ -3537,7 +3537,7 @@ class SyncEngine:
             with self.fs_events.ignore(
                 DirCreatedEvent(event.local_path), recursive=False
             ):
-                os.makedirs(event.local_path)
+                os.mkdir(event.local_path)
         except FileExistsError:
             pass
         except OSError as err:
