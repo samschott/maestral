@@ -11,6 +11,8 @@
 * Fixes an issue which could under some circumstances result in deleted folder content
   after performing the initial indexing and download. This would mostly occur for shared
   folders.
+* Fixes an issue where launchd or systemd might start the sync daemon with a non-UTF-8
+  encoding set in the environment.
 
 ## v1.5.0
 
