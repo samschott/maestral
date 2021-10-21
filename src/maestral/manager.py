@@ -733,6 +733,9 @@ class SyncManager:
 
         with self._handle_sync_thread_errors(running, autostart):
 
+            # Fail early if Dropbox folder disappeared.
+            self.sync.ensure_dropbox_folder_present()
+
             # Reload mignore rules.
             self.sync.load_mignore_file()
 
