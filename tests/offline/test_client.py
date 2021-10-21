@@ -262,7 +262,7 @@ def test_dropbox_api_to_maestral_error(error, maestral_exc):
         (exceptions.AuthError("", AuthError.invalid_access_token), TokenRevokedError),
         (exceptions.AuthError("", AuthError.user_suspended), DropboxAuthError),
         (exceptions.AuthError("", AuthError.other), MaestralApiError),
-        (requests.HTTPError(), DropboxAuthError),
+        (requests.HTTPError(), DropboxServerError),
         (oauth.BadStateException(), DropboxAuthError),
         (oauth.NotApprovedException(), DropboxAuthError),
         (exceptions.BadInputError("", ""), BadInputError),
