@@ -13,6 +13,8 @@
   folders.
 * Fixes an issue where launchd or systemd might start the sync daemon with a non-UTF-8
   encoding set in the environment.
+* Fixes an issue where deleting the local Dropbox folder during startup indexing may
+  result in some files being deleted from the remote Dropbox.
 
 ## v1.5.0
 
