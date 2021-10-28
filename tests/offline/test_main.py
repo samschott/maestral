@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import requests
 import maestral.main
 from maestral.constants import GITHUB_RELEASES_API

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Module to print neatly formatted tables and grids to the terminal."""
 
 import enum

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This module contains the default configuration and state values and functions to return
 existing config or state instances for a specified config_name.

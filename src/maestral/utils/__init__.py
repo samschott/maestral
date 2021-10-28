@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Utility modules and functions"""
 import os
 from types import TracebackType

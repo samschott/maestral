@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Looking at the source code for :class:`watchdog.utils.dirsnapshot.DirectorySnapshotDiff`,
 the event types are categorised as follows:

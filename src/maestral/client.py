@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This modules contains the Dropbox API client. It wraps calls to the Dropbox Python SDK
 and handles exceptions, chunked uploads or downloads, etc.

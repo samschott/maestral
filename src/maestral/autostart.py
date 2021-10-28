@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This module handles starting the maestral daemon on user login and supports multiple
 platform specific backends such as launchd or systemd.

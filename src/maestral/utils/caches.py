@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Module containing cache implementations."""
 
 from collections import OrderedDict

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import pytest
 from packaging.version import Version
 from maestral.config.user import UserConfig

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This module handles desktop notifications It uses the
 `desktop-notifier <https://desktop-notifier.readthedocs.io/en/latest/>`_ package as a

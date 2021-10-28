@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # system imports
 from setuptools import setup, find_packages  # type: ignore
 

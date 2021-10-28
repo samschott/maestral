@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This module defines the functions to configure and interact with Maestral from the
 command line. Some imports are deferred to the functions that required them in order to

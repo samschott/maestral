@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This module defines Maestral's error classes. It should be kept free of memory heavy
 imports.
