@@ -1122,6 +1122,37 @@ def test_invalid_pending_download(m):
     assert len(m.fatal_errors) == 0
 
 
+def test_out_of_order_indexing(m):
+
+    m.stop_sync()
+
+    # Create a nested remote folder structure.
+
+    m.client.make_dir(f"{m.test_folder_dbx}/parent")
+    m.client.upload(resources + "/file.txt", f"{m.test_folder_dbx}/parent/child_2")
+    m.client.make_dir(f"{m.test_folder_dbx}/parent/child_1")
+
+    # Fetch remote index manually and scramble order.
+
+    all_changes = []
+
+    for changes, cursor in m.sync.list_remote_changes_iterator(m.sync.remote_cursor):
+        all_changes += changes
+
+    # Reverse order of changes with children coming first.
+
+    for sync_event in reversed(all_changes):
+        m.sync._create_local_entry(sync_event)
+
+    # Check that all local items have been created.
+
+    assert os.path.isdir(f"{m.test_folder_local}/parent")
+    assert os.path.isdir(f"{m.test_folder_local}/parent/child_1")
+    assert os.path.isfile(f"{m.test_folder_local}/parent/child_2")
+
+    assert_synced(m)
+
+
 # ==== helper functions ================================================================
 
 
