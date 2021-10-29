@@ -3376,6 +3376,12 @@ class SyncEngine:
             return
 
         if not self.get_index_entry(dbx_path_lower_dirname):
+
+            self._logger.debug(
+                f"Parent folder {dbx_path_lower_dirname} is not in index. "
+                f"Syncing it now before syncing any children."
+            )
+
             parent_md = client.get_metadata(dbx_path_lower_dirname)
 
             if parent_md:  # If the parent no longer exists, we don't do anything.
