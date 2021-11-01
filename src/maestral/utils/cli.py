@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Module to print neatly formatted tables and grids to the terminal."""
 
+import sys
 import enum
 from typing import (
     Optional,
@@ -18,6 +19,9 @@ import shutil
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+
+INF_SIZE = (float("inf"), float("inf"))
 
 
 # ==== enums ===========================================================================
@@ -98,6 +102,11 @@ def adjust(text: str, width: int, align: Align = Align.Left) -> str:
             return " " * needed + text
     else:
         return text
+
+
+def get_term_width() -> int:
+    term_size = shutil.get_terminal_size(fallback=(sys.maxsize, sys.maxsize))
+    return term_size.columns
 
 
 # ==== printing structured data to console =============================================
@@ -350,13 +359,12 @@ class Table:
         Iterator over formatted lines of the table. Fields may span multiple lines if
         they are set to wrap instead of truncate.
 
-        :param width: Width to fit the table.
+        :param width: Width to fit the table. Defaults to terminal width if not given.
         :returns: Iterator over lines which can be printed to the terminal.
         """
 
-        # get terminal width if no width is given
-        if not width:
-            width, height = shutil.get_terminal_size()
+        # Get terminal width if no width is given.
+        width = width or get_term_width()
 
         available_width = width - self.padding * len(self.columns)
         raw_col_widths = [col.display_width for col in self.columns]
@@ -372,7 +380,7 @@ class Table:
 
         spacer = " " * self.padding
 
-        # generate line for titles
+        # Generate line for titles.
         if any(col.has_title for col in self.columns):
             titles: List[str] = []
 
@@ -385,7 +393,7 @@ class Table:
             line = spacer.join(titles)
             yield line.rstrip()
 
-        # generate lines for rows
+        # Generate lines for rows.
         for row in self.rows():
             cells = []
 
@@ -411,7 +419,7 @@ class Table:
         """
         Returns a fully formatted table as a string with linebreaks.
 
-        :param width: Width to fit the table.
+        :param width: Width to fit the table. Defaults to terminal width if not given.
         :returns: Formatted table.
         """
         return "\n".join(self.format_lines(width))
@@ -470,7 +478,7 @@ class Grid:
         """
         Iterator over formatted lines of the grid.
 
-        :param width: Width to fit the grid.
+        :param width: Width to fit the grid. Defaults to terminal width if not given.
         :returns: Iterator over lines which can be printed to the terminal.
         """
 
@@ -479,8 +487,7 @@ class Grid:
             from . import chunks
 
             # get terminal width if no width is given
-            if not width:
-                width, height = shutil.get_terminal_size()
+            width = width or get_term_width()
 
             field_width = max(field.display_width for field in self.fields)
             field_width = min(field_width, width)  # cap at terminal / total width
@@ -502,7 +509,7 @@ class Grid:
         """
         Returns a fully formatted grid as a string with linebreaks.
 
-        :param width: Width to fit the table.
+        :param width: Width to fit the table. Defaults to terminal width if not given.
         :returns: Formatted grid.
         """
         return "\n".join(self.format_lines(width))
