@@ -14,7 +14,13 @@ from dropbox.files import WriteMode
 from maestral.database import SyncEvent
 from maestral.utils import sanitize_string
 from maestral.utils.appdirs import get_home_dir
-from maestral.utils.path import delete, move, is_fs_case_sensitive, normalize
+from maestral.utils.path import (
+    delete,
+    move,
+    is_fs_case_sensitive,
+    normalize,
+    fs_max_lengths_for_path,
+)
 
 from .conftest import assert_synced, wait_for_idle, resources
 
@@ -854,6 +860,23 @@ def test_local_permission_error(m):
 
     # check for fatal errors
     assert not m.fatal_errors
+
+
+def test_long_path_error(m):
+    """Tests error handling on local PermissionError."""
+
+    max_path_length, _ = fs_max_lengths_for_path()
+
+    # Create a remote folder with a path name longer than locally allowed.
+    test_path = m.test_folder_dbx + "/nested" * (max_path_length // 5)
+    m.client.upload(f"{resources}/file.txt", test_path)
+
+    wait_for_idle(m)
+
+    assert len(m.sync_errors) > 0
+    assert any(err["dbx_path"] == test_path for err in m.sync_errors)
+    assert all(err["type"] == "PathError" for err in m.sync_errors)
+    assert normalize(test_path) in m.sync.download_errors
 
 
 def test_download_sync_issues(m):
