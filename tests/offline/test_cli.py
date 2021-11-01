@@ -11,6 +11,9 @@ from maestral.daemon import MaestralProxy, start_maestral_daemon_process, Start
 from maestral.logging import scoped_logger
 
 
+TEST_TIMEOUT = 60
+
+
 def test_help():
     runner = CliRunner()
     result = runner.invoke(main)
@@ -32,7 +35,7 @@ def test_invalid_config(m):
 
 def test_start(config_name):
 
-    res = start_maestral_daemon_process(config_name, timeout=20)
+    res = start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
 
     assert res is Start.Ok
 
@@ -45,7 +48,7 @@ def test_start(config_name):
 
 def test_stop(config_name):
 
-    res = start_maestral_daemon_process(config_name, timeout=20)
+    res = start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
     assert res is Start.Ok
 
     runner = CliRunner()
@@ -145,7 +148,7 @@ def test_excluded_remove(m):
 
 def test_notify_level(config_name):
 
-    start_maestral_daemon_process(config_name, timeout=20)
+    start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
     m = MaestralProxy(config_name)
 
     runner = CliRunner()
@@ -172,7 +175,7 @@ def test_notify_level(config_name):
 
 def test_notify_snooze(config_name):
 
-    start_maestral_daemon_process(config_name, timeout=20)
+    start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
     m = MaestralProxy(config_name)
 
     runner = CliRunner()
