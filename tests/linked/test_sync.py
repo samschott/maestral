@@ -1093,9 +1093,7 @@ def test_unknown_path_encoding(m, capsys):
 
 
 def test_sync_event_conversion_performance(m):
-    """
-    Tests the performance of converting remote file changes to SyncEvents.
-    """
+    """Tests the performance of converting remote file changes to SyncEvents."""
 
     # generate tree with 5 entries
     shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
@@ -1146,6 +1144,7 @@ def test_invalid_pending_download(m):
 
 
 def test_out_of_order_indexing(m):
+    """Tests applying remote events when children are synced before their parents."""
 
     m.stop_sync()
 
