@@ -1,4 +1,11 @@
-## v1.5.1.dev
+## v1.5.2.dev
+
+#### Fixed:
+
+* Fixes an issue where the output of CLI commands would get truncated to 80 chars when
+  piped to another command and not attached to an interactive stream such as a terminal.
+
+## v1.5.1
 
 #### Changed:
 
