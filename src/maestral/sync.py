@@ -3226,6 +3226,7 @@ class SyncEngine:
         :param local_path: Absolute path on local drive.
         :returns: Ctime or -1.0.
         """
+
         try:
             stat = os.stat(local_path)
             if S_ISDIR(stat.st_mode):
@@ -3246,6 +3247,8 @@ class SyncEngine:
                 return stat.st_ctime
         except (FileNotFoundError, NotADirectoryError):
             return -1.0
+        except OSError as exc:
+            raise os_to_maestral_error(exc, local_path=local_path)
 
     def _clean_remote_changes(self, changes: ListFolderResult) -> ListFolderResult:
         """
