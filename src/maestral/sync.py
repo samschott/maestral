@@ -121,6 +121,7 @@ from .utils.appdirs import get_data_path
 
 __all__ = [
     "Conflict",
+    "SyncDirection",
     "FSEventHandler",
     "SyncEngine",
 ]
