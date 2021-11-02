@@ -1310,36 +1310,53 @@ class SyncEngine:
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
         return len(self.sync_errors) > 0
 
-    def clear_sync_error(
-        self, local_path: Optional[str] = None, dbx_path: Optional[str] = None
-    ) -> None:
+    def clear_sync_error(self, event: SyncEvent) -> None:
         """
-        Clears all sync errors for ``local_path`` or ``dbx_path``.
+        Clears all sync errors after a successful sync event.
 
-        :param local_path: Absolute path on local drive.
-        :param dbx_path: Path relative to Dropbox folder.
+        :param event: Successfully applied sync event.
         """
 
-        if local_path and not dbx_path:
-            dbx_path = self.to_dbx_path(local_path)
-        elif not dbx_path and not local_path:
-            return
+        self.upload_errors.discard(event.dbx_path_lower)
+        self.download_errors.discard(event.dbx_path_lower)
 
-        dbx_path = cast(str, dbx_path)
-        dbx_path_lower = normalize(dbx_path)
+        recursive = event.is_deleted or event.is_moved
 
-        if self.has_sync_errors():
-            for error in self.sync_errors.copy():
-                if error.dbx_path and is_equal_or_child(
-                    normalize(error.dbx_path), dbx_path_lower
-                ):
-                    try:
-                        self.sync_errors.remove(error)
-                    except KeyError:
-                        pass
+        if event.is_moved:
+            self.upload_errors.discard(event.dbx_path_from_lower)
+            self.download_errors.discard(event.dbx_path_from_lower)
 
-        self.upload_errors.discard(dbx_path_lower)
-        self.download_errors.discard(dbx_path_lower)
+        for error in self.sync_errors.copy():
+
+            if not error.dbx_path:
+                continue
+
+            error_path_lower = normalize(error.dbx_path)
+
+            if error_path_lower == event.dbx_path_lower:
+                self.sync_errors.discard(error)
+
+            if recursive and is_child(error_path_lower, event.dbx_path_lower):
+                self.sync_errors.discard(error)
+
+            if event.is_moved and is_child(error_path_lower, event.dbx_path_from_lower):
+                self.sync_errors.discard(error)
+
+        if recursive:
+
+            for path in list(self.upload_errors):
+                if is_child(path, event.dbx_path_lower):
+                    self.upload_errors.discard(path)
+
+                if event.is_moved and is_child(path, event.dbx_path_from_lower):
+                    self.upload_errors.discard(path)
+
+            for path in list(self.download_errors):
+                if is_child(path, event.dbx_path_lower):
+                    self.download_errors.discard(path)
+
+                if event.is_moved and is_child(path, event.dbx_path_from_lower):
+                    self.download_errors.discard(path)
 
     def clear_sync_errors(self) -> None:
         """Clears all sync errors."""
@@ -2198,8 +2215,7 @@ class SyncEngine:
 
         self._slow_down()
 
-        self.clear_sync_error(local_path=event.local_path)
-        self.clear_sync_error(local_path=event.local_path_from)
+        self.clear_sync_error(event)
         event.status = SyncStatus.Syncing
 
         try:
@@ -3325,7 +3341,7 @@ class SyncEngine:
 
         self._slow_down()
 
-        self.clear_sync_error(dbx_path=event.dbx_path)
+        self.clear_sync_error(event)
         event.status = SyncStatus.Syncing
 
         try:
