@@ -21,6 +21,7 @@ from maestral.utils.path import (
     normalize,
     fs_max_lengths_for_path,
 )
+from maestral.errors import PathError
 
 from .conftest import assert_synced, wait_for_idle, resources
 
@@ -868,8 +869,12 @@ def test_long_path_error(m):
     max_path_length, _ = fs_max_lengths_for_path()
 
     # Create a remote folder with a path name longer than locally allowed.
-    test_path = m.test_folder_dbx + "/nested" * (max_path_length // 5)
-    m.client.upload(f"{resources}/file.txt", test_path)
+    test_path = m.test_folder_dbx + "/nested" * (max_path_length // 6)
+
+    try:
+        m.client.upload(f"{resources}/file.txt", test_path)
+    except PathError:
+        pytest.skip(f"Cannot create path with {len(test_path)} chars on Dropbox")
 
     wait_for_idle(m)
 
