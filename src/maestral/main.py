@@ -1021,20 +1021,36 @@ class Maestral:
     def _remove_after_excluded(self, dbx_path: str) -> None:
 
         # book keeping
-        self.sync.clear_sync_error(dbx_path=dbx_path)
         self.sync.remove_node_from_index(dbx_path)
+
+        for error in self.sync.sync_errors.copy():
+
+            if not error.dbx_path:
+                continue
+
+            if is_equal_or_child(normalize(error.dbx_path), dbx_path):
+                self.sync.sync_errors.discard(error)
+
+        for path in list(self.sync.download_errors):
+            if is_equal_or_child(path, dbx_path):
+                self.sync.download_errors.discard(path)
+
+        for path in list(self.sync.upload_errors):
+            if is_equal_or_child(path, dbx_path):
+                self.sync.upload_errors.discard(path)
 
         # remove folder from local drive
         local_path = self.sync.to_local_path_from_cased(dbx_path)
-        # dbx_path will be lower-case, we there explicitly run `to_existing_cased_path`
+        # dbx_path will be lower-case, we therefore explicitly run
+        # `to_existing_unnormalized_path`
         try:
             local_path = to_existing_unnormalized_path(local_path)
         except FileNotFoundError:
-            pass
-        else:
-            event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
-            with self.manager.sync.fs_events.ignore(event_cls(local_path)):
-                delete(local_path)
+            return
+
+        event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
+        with self.manager.sync.fs_events.ignore(event_cls(local_path)):
+            delete(local_path)
 
     def include_item(self, dbx_path: str) -> None:
         """
