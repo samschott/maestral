@@ -403,7 +403,7 @@ class ConfigName(click.ParamType):
             else:
                 raise cli.CliException(
                     f"Configuration '{value}' does not exist. "
-                    f"Use 'maestral configs' to list all configurations."
+                    f"Use 'maestral config-files' to list all configurations."
                 )
 
     def shell_complete(
