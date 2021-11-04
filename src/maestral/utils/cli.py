@@ -21,9 +21,6 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 
-INF_SIZE = (float("inf"), float("inf"))
-
-
 # ==== enums ===========================================================================
 
 

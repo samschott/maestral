@@ -190,13 +190,12 @@ def check_for_fatal_errors(m: Union["MaestralProxy", "Maestral"]) -> bool:
     """
 
     import textwrap
-    import shutil
 
     maestral_err_list = m.fatal_errors
 
     if len(maestral_err_list) > 0:
 
-        width, height = shutil.get_terminal_size()
+        width = cli.get_term_width()
 
         err = maestral_err_list[0]
         err_title = cast(str, err["title"])
@@ -1483,12 +1482,11 @@ Rebuilding may take several minutes, depending on the size of your Dropbox.
 def rebuild_index(yes: bool, config_name: str) -> None:
 
     import textwrap
-    import shutil
     from .daemon import MaestralProxy
 
     with MaestralProxy(config_name, fallback=True) as m:
 
-        width, height = shutil.get_terminal_size()
+        width = cli.get_term_width()
 
         msg = textwrap.fill(
             "Rebuilding the index may take several minutes, depending on the size of "
