@@ -14,7 +14,14 @@ from dropbox.files import WriteMode
 from maestral.database import SyncEvent
 from maestral.utils import sanitize_string
 from maestral.utils.appdirs import get_home_dir
-from maestral.utils.path import delete, move, is_fs_case_sensitive, normalize
+from maestral.utils.path import (
+    delete,
+    move,
+    is_fs_case_sensitive,
+    normalize,
+    fs_max_lengths_for_path,
+)
+from maestral.errors import PathError
 
 from .conftest import assert_synced, wait_for_idle, resources
 
@@ -856,6 +863,27 @@ def test_local_permission_error(m):
     assert not m.fatal_errors
 
 
+def test_long_path_error(m):
+    """Tests error handling on local PermissionError."""
+
+    max_path_length, _ = fs_max_lengths_for_path()
+
+    # Create a remote folder with a path name longer than locally allowed.
+    test_path = m.test_folder_dbx + "/nested" * (max_path_length // 6)
+
+    try:
+        m.client.upload(f"{resources}/file.txt", test_path)
+    except PathError:
+        pytest.skip(f"Cannot create path with {len(test_path)} chars on Dropbox")
+
+    wait_for_idle(m)
+
+    assert len(m.sync_errors) > 0
+    assert any(err["dbx_path"] == test_path for err in m.sync_errors)
+    assert all(err["type"] == "PathError" for err in m.sync_errors)
+    assert normalize(test_path) in m.sync.download_errors
+
+
 def test_download_sync_issues(m):
     """
     Tests error handling for issues during download sync. This is done by attempting to
@@ -1070,9 +1098,7 @@ def test_unknown_path_encoding(m, capsys):
 
 
 def test_sync_event_conversion_performance(m):
-    """
-    Tests the performance of converting remote file changes to SyncEvents.
-    """
+    """Tests the performance of converting remote file changes to SyncEvents."""
 
     # generate tree with 5 entries
     shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
@@ -1123,6 +1149,7 @@ def test_invalid_pending_download(m):
 
 
 def test_out_of_order_indexing(m):
+    """Tests applying remote events when children are synced before their parents."""
 
     m.stop_sync()
 

@@ -432,3 +432,32 @@ def content_hash(
         return None, None
     finally:
         del hasher
+
+
+def fs_max_lengths_for_path(path: str = "/") -> Tuple[int, int]:
+    """
+    Return the maximum length of file names and paths allowed on a file system.
+
+    :param path: Path to check. This can be specified because different paths may be
+        residing on different file systems. If the given path does not exist, the first
+        existing parent directory in the tree be taken.
+    :returns: Tuple giving the maximum file name and total path lengths.
+    """
+
+    path = osp.abspath(path)
+    dirname = osp.dirname(path)
+
+    while True:
+        try:
+            max_char_path = os.pathconf(dirname, "PC_PATH_MAX")
+            max_char_name = os.pathconf(dirname, "PC_NAME_MAX")
+            return max_char_path, max_char_name
+        except (FileNotFoundError, NotADirectoryError):
+            dirname = osp.dirname(dirname)
+        except ValueError:
+            raise RuntimeError("Cannot get file length limits.")
+        except OSError as exc:
+            if exc.errno == errno.EINVAL:
+                raise RuntimeError("Cannot get file length limits.")
+            else:
+                dirname = "/"

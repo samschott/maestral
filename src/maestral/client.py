@@ -77,6 +77,7 @@ from .errors import (
 from .config import MaestralState
 from .constants import DROPBOX_APP_KEY
 from .utils import natural_size, chunks, clamp
+from .utils.path import fs_max_lengths_for_path
 
 if TYPE_CHECKING:
     from .database import SyncEvent
@@ -1314,9 +1315,20 @@ def os_to_maestral_error(
         title = "Could not create local folder"
         text = "The given path refers to a file."
     elif exc.errno == errno.ENAMETOOLONG:
+
         err_cls = PathError  # subclass of SyncError
         title = "Could not create local file"
-        text = "The file name (including path) is too long."
+
+        try:
+            max_name, max_path = fs_max_lengths_for_path(local_path or "/")
+        except RuntimeError:
+            text = "The file name or path is too long."
+        else:
+            text = (
+                "The file name is too long. File names and paths must be shorter "
+                f"than {max_name} and {max_path} characters on your file system, "
+                f"respectively."
+            )
     elif exc.errno == errno.EINVAL:
         err_cls = PathError  # subclass of SyncError
         title = "Could not create local file"

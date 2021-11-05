@@ -4,6 +4,7 @@
 
 * Fixes an issue where the output of CLI commands would get truncated to 80 chars when
   piped to another command and not attached to an interactive stream such as a terminal.
+* Improve handling of OSErrors when determining the ctime of a local file.
 
 ## v1.5.1
 
