@@ -26,7 +26,7 @@ def test_invalid_config(m):
     assert result.exit_code == 1
     assert (
         result.output == "! Configuration 'non-existent-config' does not exist. "
-        "Use 'maestral configs' to list all configurations.\n"
+        "Use 'maestral config-files' to list all configurations.\n"
     )
 
 
