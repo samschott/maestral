@@ -555,7 +555,7 @@ def start_maestral_daemon_process(
 
 
 def stop_maestral_daemon_process(
-    config_name: str = "maestral", timeout: float = 20
+    config_name: str = "maestral", timeout: float = 10
 ) -> Stop:
     """Stops a maestral daemon process by finding its PID and shutting it down.
 
