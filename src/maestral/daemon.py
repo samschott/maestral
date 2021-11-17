@@ -382,24 +382,24 @@ def start_maestral_daemon(
 
     dlogger.info("Starting daemon")
 
+    # ==== Process and thread management ===========================================
+
+    if threading.current_thread() is not threading.main_thread():
+        dlogger.error("Must run daemon in main thread")
+        return
+
+    dlogger.debug("Environment:\n%s", pformat(os.environ.copy()))
+
     # Acquire PID lock file.
     lock = maestral_lock(config_name)
 
+    if lock.acquire():
+        dlogger.debug("Acquired daemon lock: %r", lock.path)
+    else:
+        dlogger.error("Could not acquire lock, daemon is already running")
+        return
+
     try:
-
-        # ==== Process and thread management ===========================================
-
-        if threading.current_thread() is not threading.main_thread():
-            dlogger.error("Must run daemon in main thread")
-            raise RuntimeError("Must run daemon in main thread")
-
-        dlogger.debug("Environment:\n%s", pformat(os.environ.copy()))
-
-        if lock.acquire():
-            dlogger.debug("Acquired daemon lock: %r", lock.path)
-        else:
-            dlogger.error("Could not acquire lock, daemon is already running")
-            return
 
         # Nice ourselves to give other processes priority.
         os.nice(10)
