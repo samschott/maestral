@@ -6,6 +6,7 @@
   piped to another command and not attached to an interactive stream such as a terminal.
 * Improve handling of OSErrors when determining the ctime of a local file.
 * Python 3.10 compatibility of Linux (Qt) GUI, thanks to @raffaem.
+* Fixes an issue where the CLI fails to install on Apple Silicon Macs.
 
 ## v1.5.1
 
