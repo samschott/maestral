@@ -1,4 +1,8 @@
-## v1.5.2.dev
+## v1.5.2
+
+#### Changed:
+
+* Improved GUI dialog on Linux when the Linux GUI is missing.
 
 #### Fixed:
 
@@ -7,6 +11,7 @@
 * Improve handling of OSErrors when determining the ctime of a local file.
 * Python 3.10 compatibility of Linux (Qt) GUI, thanks to @raffaem.
 * Fixes an issue where the CLI fails to install on Apple Silicon Macs.
+* Fixes a startup loop of the Linux GUI when the local Dropbox folder is missing.
 
 ## v1.5.1
 
