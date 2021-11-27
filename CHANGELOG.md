@@ -2,14 +2,15 @@
 
 #### Changed:
 
-* Improved GUI dialog on Linux when the Linux GUI is missing.
+* Improved dialog flow on Linux when the local Dropbox folder is missing.
+* Improved error handling when determining the change time (ctime) of a local file fails.
 
 #### Fixed:
 
-* Fixes an issue where the output of CLI commands would get truncated to 80 chars when
-  piped to another command and not attached to an interactive stream such as a terminal.
-* Improve handling of OSErrors when determining the ctime of a local file.
-* Python 3.10 compatibility of Linux (Qt) GUI, thanks to @raffaem.
+* Fixes an issue where the output of CLI commands would get truncated to 80 characters
+  when piped to another command and not attached to an interactive stream such as a
+  terminal.
+* Fixes Python 3.10 compatibility of Linux (Qt) GUI, thanks to @raffaem.
 * Fixes an issue where the CLI fails to install on Apple Silicon Macs.
 * Fixes a startup loop of the Linux GUI when the local Dropbox folder is missing.
 
