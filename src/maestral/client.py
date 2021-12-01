@@ -1347,9 +1347,12 @@ def os_to_maestral_error(
     elif exc.errno == errno.ENOMEM:
         err_cls = OutOfMemoryError  # subclass of MaestralApiError
         text = "Out of memory. Please reduce the number of memory consuming processes."
-    else:
+    elif exc.errno is not None:
         err_cls = FileReadError
         text = f"Could not access file. Errno {exc.errno}: {os.strerror(exc.errno)}."
+    else:
+        err_cls = MaestralApiError
+        text = str(exc)
 
     local_path = local_path or exc.filename
 
