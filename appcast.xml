@@ -8,7 +8,7 @@
         <item>
         <title>v1.5.2 available</title>
         <pubDate>2021-11-27T11:22:30Z</pubDate>
-        <sparkle:version>45</sparkle:version>
+        <sparkle:version>46</sparkle:version>
         <sparkle:shortVersionString>1.5.2</sparkle:shortVersionString>
         <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
         <description><![CDATA[
@@ -107,7 +107,7 @@
         </description>
         <enclosure
             url="https://github.com/SamSchott/maestral/releases/download/v1.5.2/Maestral-1.5.2.dmg"
-            sparkle:edSignature="32rzLq3b0xJxZEZ284qDO6lQOVpLmXHyKIxeDX3ZDsPQhw3vmu3FM5Dold+KhORti/q/1WSpx0zVw6VqeKSMBg==" length="17804598"
+            sparkle:edSignature="5Dp/Q87hsE8TpikHN6DO4DeA7QSEHJlI0s5bgJstYn4+zZnG8JknMpnD4R1c68pUfEyyxuZ/kIqL0DcfeBImDQ==" length="17944034"
             type="application/octet-stream"
         />
     </item>
