@@ -6,7 +6,7 @@ from setuptools import setup, find_packages  # type: ignore
 
 # proceed with actual install
 install_requires = [
-    "click>=8.0.0",
+    "click>=8.0.2",
     "desktop-notifier>=3.3.0",
     "dropbox>=10.9.0,<12.0",
     "fasteners>=0.15",
