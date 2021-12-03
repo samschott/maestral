@@ -33,14 +33,14 @@ class DropboxContentHasher:
 
     BLOCK_SIZE = 4 * 1024 * 1024
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._overall_hasher = hashlib.sha256()
         self._block_hasher = hashlib.sha256()
         self._block_pos = 0
 
         self.digest_size = self._overall_hasher.digest_size
 
-    def update(self, new_data):
+    def update(self, new_data: bytes) -> None:
         if self._overall_hasher is None:
             raise RuntimeError(
                 "can't use this object anymore; you already called digest()"
@@ -66,7 +66,8 @@ class DropboxContentHasher:
     def _finish(self):
         if self._overall_hasher is None:
             raise RuntimeError(
-                "can't use this object anymore; you already called digest() or hexdigest()"
+                "Can't use this object anymore; "
+                "you already called digest() or hexdigest()"
             )
 
         if self._block_pos > 0:
@@ -76,13 +77,13 @@ class DropboxContentHasher:
         self._overall_hasher = None  # Make sure we can't use this object anymore.
         return h
 
-    def digest(self):
+    def digest(self) -> bytes:
         return self._finish().digest()
 
-    def hexdigest(self):
+    def hexdigest(self) -> str:
         return self._finish().hexdigest()
 
-    def copy(self):
+    def copy(self) -> "DropboxContentHasher":
         c = DropboxContentHasher.__new__(DropboxContentHasher)
         c._overall_hasher = self._overall_hasher.copy()
         c._block_hasher = self._block_hasher.copy()
