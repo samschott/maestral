@@ -15,7 +15,7 @@ during installation or upgrade. This will install the `maestral-qt` frontend and
 on Linux and `maestral-cocoa` on macOS:
 
 ```console
-$ python3 -m pip install --upgrade maestral[gui]
+$ python3 -m pip install --upgrade 'maestral[gui]'
 ```
 
 Please refer to the [download]({{ site.baseurl }}/download) page for links and a
