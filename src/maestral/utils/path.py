@@ -396,13 +396,13 @@ def walk(
 
 
 def content_hash(
-    local_path: str, chunk_size: int = 1024
+    local_path: str, chunk_size: int = 65536
 ) -> Tuple[Optional[str], Optional[float]]:
     """
     Computes content hash of a local file.
 
     :param local_path: Absolute path on local drive.
-    :param chunk_size: Size of chunks to hash in bites.
+    :param chunk_size: Size of chunks to hash in bytes.
     :returns: Content hash to compare with Dropbox's content hash and mtime just before
         the hash was computed.
     """
