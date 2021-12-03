@@ -473,7 +473,7 @@ class SyncEngine:
     _case_conversion_cache: LRUCache
 
     _max_history = 1000
-    _num_threads = min(32, CPU_COUNT * 3)
+    _num_threads = min(64, CPU_COUNT * 4)
 
     def __init__(self, client: DropboxClient):
 
