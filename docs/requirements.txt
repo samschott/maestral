@@ -1,4 +1,4 @@
 m2r2
 sphinx==4.3.1
-sphinxext-opengraph==0.5.0
+sphinxext-opengraph==0.5.1
 sphinx_rtd_theme==1.0.0
