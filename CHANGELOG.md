@@ -10,8 +10,10 @@
 
 #### Fixed:
 
-* Fixed a crash of the `maestral activity` CLI command when run from the macOS App Bundle
+* Fixes a crash of the `maestral activity` CLI command when run from the macOS App Bundle
   due to a missing packaged library.
+* Fixes an issue which prevented the `maestral gui` command from working with the macOS
+  app bundle.
 
 ## v1.5.2
 
