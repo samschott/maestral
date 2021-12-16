@@ -2618,6 +2618,13 @@ class SyncEngine:
 
         md = client.get_metadata(event.dbx_path, include_deleted=True)
 
+        if not md:
+            self._logger.debug(
+                'Could not delete "%s": the item does not exist on Dropbox',
+                event.dbx_path,
+            )
+            return None
+
         if event.is_directory and isinstance(md, FileMetadata):
             self._logger.debug(
                 'Expected folder at "%s" but found a file instead, checking '
