@@ -1,3 +1,18 @@
+## v1.5.3.dev
+
+#### Changed:
+
+* The Dock icon no longer appears while the app is launching in macOS.
+* The Dock icon no longer appears when clicking on a desktop notification on macOS.
+* Clicking on a desktop notification will now show the file or folder which triggered the
+  notification. Previously, only clicking on the "Show" button of the notification
+  would open the file browser.
+
+#### Fixed:
+
+* Fixed a crash of the `maestral activity` CLI command when run from the macOS App Bundle
+  due to a missing packaged library.
+
 ## v1.5.2
 
 #### Changed:
