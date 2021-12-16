@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import sys
 import os
 import os.path as osp
@@ -316,7 +314,7 @@ def test_create_file_diff(m):
         wait_for_idle(m)
         old_rev = m.client.get_metadata(dbx_path_fail_ext).rev
         # Just some bytes
-        new_rev = write_and_get_rev(dbx_path_fail_ext, "hi".encode(), o="ab")
+        new_rev = write_and_get_rev(dbx_path_fail_ext, b"hi", o="ab")
         m.get_file_diff(old_rev, new_rev)
 
     old_rev = write_and_get_rev(dbx_path_success, "old")

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Module for content hashing."""
 
 # system imports
@@ -47,7 +46,7 @@ class DropboxContentHasher:
             )
 
         if not isinstance(new_data, bytes):
-            raise ValueError("Expecting a byte string, got {!r}".format(new_data))
+            raise ValueError(f"Expecting a byte string, got {new_data!r}")
 
         new_data_pos = 0
         while new_data_pos < len(new_data):

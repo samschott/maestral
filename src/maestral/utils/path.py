@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This module contains functions for common path operations.
 """
@@ -381,8 +380,7 @@ def walk(
             yield path, stat
 
             if S_ISDIR(stat.st_mode):
-                for res in walk(entry.path, listdir=listdir):
-                    yield res
+                yield from walk(entry.path, listdir=listdir)
 
         except OSError as exc:
             # Directory may have been deleted between finding it in the directory

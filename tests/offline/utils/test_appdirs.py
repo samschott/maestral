@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import platform
 
 from maestral.utils.appdirs import (

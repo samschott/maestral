@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This module defines functions to start and stop the sync daemon and retrieve proxy
 objects for a running daemon.

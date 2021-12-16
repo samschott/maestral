@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """This module defines custom logging records and handlers."""
 
 import os

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """This module contains the classes to coordinate sync threads."""
 
 # system imports

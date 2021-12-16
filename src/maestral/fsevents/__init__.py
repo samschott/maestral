@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This module provides a custom polling file system event emitter for the
 :obj:`watchdog` package that sorts file system events in an order which can be applied

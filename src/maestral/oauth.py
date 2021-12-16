@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This module is responsible for authorization and token store in the system keyring.
 """

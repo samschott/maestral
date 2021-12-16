@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import sys
 import time
@@ -15,7 +13,7 @@ version = "1.5.3.dev0"
 release = version
 project = "Maestral"
 title = "Maestral API Documentation"
-copyright = "{}, {}".format(time.localtime().tm_year, author)
+copyright = f"{time.localtime().tm_year}, {author}"
 
 # -- General configuration -------------------------------------------------------------
 

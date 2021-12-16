@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright © Spyder Project Contributors
 # Licensed under the terms of the MIT License
@@ -348,7 +347,7 @@ class UserConfig(DefaultsConfig):
                     self.set(section, option, default)
                     return default
 
-            raw_value: str = super(UserConfig, self).get(section, option, raw=True)
+            raw_value: str = super().get(section, option, raw=True)
             default_value = self.get_default(section, option)
             value: Any
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """This module contains the main syncing functionality."""
 
 # system imports

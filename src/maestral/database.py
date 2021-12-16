@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This module contains the definitions of our data base tables which store the index, sync
 history and cache of content hashes. Each table is defined by a subclass of

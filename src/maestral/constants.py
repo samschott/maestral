@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This module provides constants used throughout the maestral, the GUI and CLI. It should
 be kept free of memory heavy imports.
