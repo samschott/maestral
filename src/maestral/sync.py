@@ -3730,7 +3730,7 @@ class SyncEngine:
             self._db_manager_history.clear_cache()
 
     def _scandir_with_ignore(
-        self, path: Union[str, os.PathLike]
+        self, path: Union[str, "os.PathLike[str]"]
     ) -> Iterator[os.DirEntry]:
 
         with os.scandir(path) as it:
