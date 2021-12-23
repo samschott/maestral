@@ -46,7 +46,7 @@ jobs:
           pytest --cov=maestral --cov-report=xml tests/offline
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v2.1.0
         with:
           file: ./coverage.xml
           flags: pytest
@@ -115,7 +115,7 @@ jobs:
           pytest -v --cov=maestral --cov-report=xml tests/linked
 
       - name: Upload Code Coverage
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v2.1.0
         with:
           file: ./coverage.xml
           flags: pytest
