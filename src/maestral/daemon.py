@@ -145,7 +145,7 @@ for err_cls in (*SYNC_ERRORS, *GENERAL_ERRORS):
 
 
 class Lock:
-    """A inter-process and inter-thread lock
+    """An inter-process and inter-thread lock
 
     This internally uses :class:`fasteners.InterProcessLock` but provides non-blocking
     acquire. It also guarantees thread-safety when using the :meth:`singleton` class
@@ -184,7 +184,7 @@ class Lock:
         """
         Attempts to acquire the given lock.
 
-        :returns: Whether or not the acquisition succeeded.
+        :returns: Whether the acquisition succeeded.
         """
 
         with self._lock:
@@ -266,7 +266,7 @@ def _send_signal(pid: int, sig: int) -> None:
 def maestral_lock(config_name: str) -> Lock:
     """
     Returns an inter-process and inter-thread lock for Maestral. This is a wrapper
-    around :class:`Lock` which fills out the appropriate lockfile path for he given
+    around :class:`Lock` which fills out the appropriate lockfile path for the given
     config name.
 
     :param config_name: The name of the Maestral configuration.
@@ -616,8 +616,8 @@ class MaestralProxy:
         instead of a Proxy.
 
     :param config_name: The name of the Maestral configuration to use.
-    :param fallback: If ``True``, a new instance of Maestral will created in the current
-        process when the daemon is not running.
+    :param fallback: If ``True``, a new instance of Maestral will be created in the
+        current process when the daemon is not running.
     :raises CommunicationError: if the daemon is running but cannot be reached or if the
         daemon is not running and ``fallback`` is ``False``.
     """

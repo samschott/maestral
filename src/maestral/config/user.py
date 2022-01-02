@@ -85,7 +85,7 @@ class DefaultsConfig(cp.ConfigParser):
 
 class UserConfig(DefaultsConfig):
     """
-    UserConfig class, based on ConfigParser. This class is save to use from different
+    UserConfig class, based on ConfigParser. This class is safe to use from different
     threads but must not be used from different processes!
 
     :param path: Configuration file will be saved to this path.

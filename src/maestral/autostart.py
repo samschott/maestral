@@ -6,7 +6,7 @@ Note that launchd agents will not show as "login items" in macOS system preferen
 a result, the user does not have a convenient UI to remove Maestral autostart entries
 manually outside of Maestral itself. Login items however only support app bundles and
 provide no option to pass command line arguments to the app. They would therefore
-neither support pip installed packages or multiple configurations.
+neither support pip installed packages nor multiple configurations.
 """
 
 # system imports
@@ -68,7 +68,7 @@ class AutoStartSystemd(AutoStartBase):
     :param unit_dict: Dictionary of additional keys and values for the Unit section.
     :param service_dict: Dictionary of additional keys and values for the Service
         section.
-    :param install_dict: Dictionary of additional keys and values for the Install
+    :param install_dict: Dictionary of additional keys and values for the "Install"
         section.
     """
 
@@ -137,7 +137,7 @@ class AutoStartSystemd(AutoStartBase):
 class AutoStartLaunchd(AutoStartBase):
     """Autostart backend for launchd
 
-    :param bundle_id: Bundle ID for the, e.g., "com.google.calendar".
+    :param bundle_id: Bundle ID for the app, e.g., "com.google.calendar".
     :param start_cmd: Absolute path to executable and optional program arguments.
     :param kwargs: Additional key, value pairs to add to plist. Values may be strings,
         booleans, lists or dictionaries.

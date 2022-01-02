@@ -7,7 +7,7 @@ import hashlib
 class DropboxContentHasher:
     """
     Computes a hash using the same algorithm that the Dropbox API uses for the
-    the "content_hash" metadata field.
+    "content_hash" metadata field.
 
     The :meth:`digest` method returns a raw binary representation of the hash.  The
     :meth:`hexdigest` convenience method returns a hexadecimal-encoded version, which

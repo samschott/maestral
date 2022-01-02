@@ -538,7 +538,7 @@ class Maestral:
         :param local_path: Path to file on the local drive. May be relative to the
             current working directory.
         :returns: String indicating the sync status. Can be 'uploading', 'downloading',
-            'up to date', 'error', or 'unwatched' (for files outside of the Dropbox
+            'up to date', 'error', or 'unwatched' (for files outside the Dropbox
             directory). This will always be 'unwatched' if syncing is paused.
         """
         if not self.running:

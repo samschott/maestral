@@ -57,7 +57,7 @@ class OAuth2Session:
     corresponding Dropbox ID by calling :meth:`save_creds`. Supported keyring backends
     are, in order of preference:
 
-        * MacOS Keychain
+        * macOS Keychain
         * Any keyring implementing the SecretService Dbus specification
         * KWallet
         * Plain text storage
@@ -76,7 +76,7 @@ class OAuth2Session:
         saved in the config file and remembered until the user unlinks the account. This
         module will therefore never switch keyring backends while linked.
 
-    .. warning:: Unlike MacOS Keychain, Gnome Keyring and KWallet do not support
+    .. warning:: Unlike macOS Keychain, Gnome Keyring and KWallet do not support
         app-specific access to passwords. If the user unlocks those keyrings, we and any
         other application in the same user session get access to *all* saved passwords.
 
