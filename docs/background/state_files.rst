@@ -63,7 +63,7 @@ The state file has the following sections:
     # Time stamp of last update notification
     update_notification_last = 0.0
 
-    # Latest avilable release
+    # Latest available release
     latest_release = 1.2.0
 
     [sync]

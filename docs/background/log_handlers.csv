@@ -1,8 +1,8 @@
 ﻿Target,Log level,Enabled
-Log file,User defined (default: INFO),Alyways
+Log file,User defined (default: INFO),Always
 Stderr,User defined (default: INFO),If verbose flag is passed
 Systemd journal,User defined (default: INFO),If started as systemd service
 Systemd notify status,INFO,If started as systemd notify service
-:attr:`Maestral.status` API,INFO,Alyways
-Desktop notifications,WARNING,Alyways
-:attr:`Maestral.fatal_errors` API,ERROR,Alyways
+:attr:`Maestral.status` API,INFO,Always
+Desktop notifications,WARNING,Always
+:attr:`Maestral.fatal_errors` API,ERROR,Always

@@ -43,7 +43,7 @@ def error_to_dict(err: Exception) -> ErrorType:
 
     :param err: Exception to convert.
     :returns: Dictionary where all keys and values are strings. The following keys will
-        always be present but may contain emtpy strings: 'type', 'inherits', 'title',
+        always be present but may contain empty strings: 'type', 'inherits', 'title',
         'traceback', 'title', and 'message'.
     """
 

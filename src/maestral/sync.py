@@ -2893,7 +2893,7 @@ class SyncEngine:
         """
         Get remote changes since the last download sync, as specified by
         ``last_cursor``. If the ``last_cursor`` is from paginating through a previous
-        set of changes, continue where we left off. If ``last_cursor`` is an emtpy
+        set of changes, continue where we left off. If ``last_cursor`` is an empty
         string, tart a full indexing of the Dropbox folder.
 
         :param last_cursor: Cursor from last download sync.
