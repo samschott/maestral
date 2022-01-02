@@ -549,7 +549,7 @@ def _style_message(message: str) -> str:
     return f"{message} "
 
 
-def _syle_hint(hint: str) -> str:
+def _style_hint(hint: str) -> str:
     return f"{hint} " if hint else ""
 
 
@@ -586,7 +586,7 @@ def select(message: str, options: Sequence[str], hint="") -> int:
     import survey
 
     try:
-        styled_hint = _syle_hint(hint)
+        styled_hint = _style_hint(hint)
         styled_message = _style_message(message)
 
         index = survey.select(options, styled_message, hint=styled_hint)
@@ -602,7 +602,7 @@ def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
     import survey
 
     try:
-        styled_hint = _syle_hint(hint)
+        styled_hint = _style_hint(hint)
         styled_message = _style_message(message)
 
         kwargs = {"hint": styled_hint} if hint else {}

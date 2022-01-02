@@ -291,7 +291,7 @@ class FSEventHandler(FileSystemEventHandler):
 
     def _is_ignored(self, event: FileSystemEvent) -> bool:
         """
-        Checks if a file system event should been explicitly ignored because it was
+        Checks if a file system event should be explicitly ignored because it was
         triggered by Maestral itself.
 
         :param event: Local file system event.
@@ -1116,7 +1116,7 @@ class SyncEngine:
         """
         Removes all items in the cache directory.
 
-        :param raise_error: Whether errors should raised or only logged.
+        :param raise_error: Whether errors should be raised or only logged.
         """
 
         with self.sync_lock:
@@ -1163,7 +1163,7 @@ class SyncEngine:
         Converts a Dropbox path with correctly cased basename to a fully cased path.
         This is useful because the Dropbox API guarantees the correct casing for the
         basename only. In practice, casing of parent directories is often incorrect.
-        This method retrieves the correct casing of of all ancestors in the path, either
+        This method retrieves the correct casing of all ancestors in the path, either
         from our cache, our database, or from Dropbox servers.
 
         Performance may vary significantly with the number of parent folders and the
@@ -1176,7 +1176,7 @@ class SyncEngine:
            casing of directory's basename) is queried from Dropbox. This is used to
            construct a correctly cased path by calling :meth:`correct_case` again. At
            best, performance will be of O(2) if the parent directory is known to us, at
-           worst if will be of order O(n) involving queries to Dropbox servers for each
+           worst it will be of order O(n) involving queries to Dropbox servers for each
            parent directory.
 
         When calling :meth:`correct_case` repeatedly for paths from the same tree, it is
@@ -1253,7 +1253,7 @@ class SyncEngine:
 
         :param local_path: Absolute path on local drive.
         :returns: Relative path with respect to Dropbox folder.
-        :raises ValueError: When the path lies outside of the local Dropbox folder.
+        :raises ValueError: When the path lies outside the local Dropbox folder.
         """
 
         if not is_equal_or_child(local_path, self.dropbox_path):
@@ -1268,7 +1268,7 @@ class SyncEngine:
 
         :param local_path: Absolute path on local drive.
         :returns: Relative path with respect to Dropbox folder.
-        :raises ValueError: When the path lies outside of the local Dropbox folder.
+        :raises ValueError: When the path lies outside the local Dropbox folder.
         """
         return normalize(self.to_dbx_path(local_path))
 
@@ -1420,7 +1420,7 @@ class SyncEngine:
 
     def is_mignore(self, event: SyncEvent) -> bool:
         """
-        Check if local file change has been excluded by an mignore pattern.
+        Check if local file change has been excluded by a mignore pattern.
 
         :param event: SyncEvent for local file event.
         :returns: Whether the path is excluded from upload syncing by the user.
@@ -1667,7 +1667,7 @@ class SyncEngine:
 
             last_sync = max(last_sync, self.local_cursor)
 
-            # Check if item was created or modified since last sync
+            # Check if item was created or modified since the last sync,
             # but before we started the FileEventHandler (~snapshot_time).
 
             mtime_check = snapshot_time > stat.st_mtime > last_sync
@@ -2692,7 +2692,7 @@ class SyncEngine:
         If it refers to a single file, the download will be performed by
         :meth:`_create_local_entry`.
 
-        This method can be used to fetch individual items outside of the regular sync
+        This method can be used to fetch individual items outside the regular sync
         cycle, for instance when including a previously excluded file or folder.
 
         :param dbx_path: Path relative to Dropbox folder.
@@ -2810,7 +2810,7 @@ class SyncEngine:
         self._logger.debug("Waiting for remote changes since cursor:\n%s", last_cursor)
         has_changes = client.wait_for_remote_changes(last_cursor, timeout=timeout)
 
-        # For for 2 sec. This delay is typically only necessary folders are shared /
+        # Wait for 2 sec. This delay is typically only necessary folders are shared /
         # un-shared with other Dropbox accounts.
         time.sleep(2)
 
@@ -2893,8 +2893,8 @@ class SyncEngine:
         """
         Get remote changes since the last download sync, as specified by
         ``last_cursor``. If the ``last_cursor`` is from paginating through a previous
-        set of changes, continue where we left off. If ``last_cursor`` is an emtpy
-        string, tart a full indexing of the Dropbox folder.
+        set of changes, continue where we left off. If ``last_cursor`` is an empty
+        string, perform a full indexing of the Dropbox folder.
 
         :param last_cursor: Cursor from last download sync.
         :param client: Client instance to use. If not given, use the instance provided
@@ -3060,7 +3060,7 @@ class SyncEngine:
         if n_changed == 0:
             return
 
-        # find out who changed the item(s), show the user name if its only a single user
+        # find out who changed the item(s), show the username if it's only a single user
         user_name: Optional[str]
         dbid_list = {e.change_dbid for e in changes if e.change_dbid is not None}
         if len(dbid_list) == 1:
@@ -3079,7 +3079,7 @@ class SyncEngine:
             user_name = None
 
         if n_changed == 1:
-            # display user name, file name, and type of change
+            # display username, file name, and type of change
             event = changes[0]
             file_name = osp.basename(event.dbx_path)
             change_type = event.change_type.value
@@ -3206,7 +3206,7 @@ class SyncEngine:
         """
 
         if self.is_excluded(local_path):
-            # excluded names such as .DS_Store etc never count as unsynced changes
+            # excluded names such as .DS_Store etc. never count as unsynced changes
             return False
 
         dbx_path_lower = self.to_dbx_path_lower(local_path)
@@ -3249,7 +3249,7 @@ class SyncEngine:
         """
         Returns the ctime of a local item or -1.0 if there is nothing at the path. If
         the item is a directory, return the largest ctime of it and its children. Items
-        which are excluded from syncing (eg., .DS_Store files) are ignored.
+        which are excluded from syncing (e.g., .DS_Store files) are ignored.
 
         :param local_path: Absolute path on local drive.
         :returns: Ctime or -1.0.
@@ -3850,7 +3850,7 @@ def validate_encoding(local_path: str) -> None:
 
         error = PathError(
             "Could not upload item",
-            f"The file name contains characters outside of the "
+            f"The file name contains characters outside the "
             f"{fs_encoding} encoding of your file system",
         )
 
