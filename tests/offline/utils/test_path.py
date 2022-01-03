@@ -5,49 +5,46 @@ import pytest
 from maestral.utils.path import (
     normalized_path_exists,
     equivalent_path_candidates,
-    denormalize_path,
     is_fs_case_sensitive,
     is_child,
 )
 from maestral.utils.appdirs import get_home_dir
 
 
-def test_path_exists_case_insensitive():
+def test_normalized_path_exists(tmp_path):
 
-    # choose a path which exists on all Unix systems
-    path = "/usr/local/share"
+    # Assert that an existing path is found, even when a different casing is used.
 
-    assert denormalize_path(path) == path
-    assert denormalize_path(path.title()) == path
-    assert denormalize_path(path.upper()) == path
+    path = str(tmp_path)
 
-    # choose a random path that likely does not exist
-    path = "/usr/local/share/test_folder/path_928"
-    if not osp.exists(path):
-        assert not normalized_path_exists(path)
+    assert normalized_path_exists(path)
+    assert normalized_path_exists(path.title())
+    assert normalized_path_exists(path.upper())
 
-    # choose a random parent that likely does not exist
-    path = "/test_folder/path_928"
-    root = "/usr"
-    if not osp.exists(root):
-        assert not normalized_path_exists(path, root)
+    # Assert that a non-existent path is identified.
+    path = str(tmp_path / "path_928")
+    assert not normalized_path_exists(path)
+
+    # Assert that specifying a non-existing root returns False.
+    child_path = str(tmp_path / "path_928" / "content")
+    assert not normalized_path_exists(child_path, root=path)
 
 
-def test_cased_path_candidates():
+def test_cased_path_candidates(tmp_path):
 
-    # test that we can find a unique correctly cased path
-    # starting from a candidate with scrambled casing
+    # Test that we can find a unique correctly cased path
+    # starting from a candidate with scrambled casing.
 
-    path = "/usr/local/share".upper()
-    candidates = equivalent_path_candidates(path)
+    path = str(tmp_path)
 
-    assert len(candidates) == 1
-    assert "/usr/local/share" in candidates
+    candidates = equivalent_path_candidates(path.upper())
 
-    candidates = equivalent_path_candidates("/test", root="/usr/local/share")
+    assert candidates == [path]
+
+    candidates = equivalent_path_candidates("/test", root=path)
 
     assert len(candidates) == 1
-    assert "/usr/local/share/test" in candidates
+    assert f"{path}/test" in candidates
 
 
 @pytest.mark.skipif(
