@@ -128,7 +128,10 @@ class OAuth2Session:
 
     @property
     def keyring(self) -> KeyringBackend:
-        """The keyring backend currently being used to store auth tokens."""
+        """
+        The keyring backend currently being used to store auth tokens. If set to None,
+        the best viable backend will be determined automatically.
+        """
 
         if not self._keyring:
             self._keyring = self._get_keyring_backend()
@@ -136,7 +139,17 @@ class OAuth2Session:
         return self._keyring
 
     @keyring.setter
-    def keyring(self, ring: KeyringBackend) -> None:
+    def keyring(self, ring: Optional[KeyringBackend]) -> None:
+
+        if not ring:
+            self._conf.set("auth", "keyring", "automatic")
+        else:
+            self._conf.set(
+                "auth",
+                "keyring",
+                f"{ring.__class__.__module__}.{ring.__class__.__name__}",
+            )
+
         self._keyring = ring
 
     def _get_keyring_backend(self) -> KeyringBackend:
@@ -400,7 +413,6 @@ class OAuth2Session:
             except Exception:
                 # switch to plain text keyring if we cannot access preferred backend
                 self.keyring = keyrings.alt.file.PlaintextKeyring()
-                self._conf.set("auth", "keyring", "keyrings.alt.file.PlaintextKeyring")
                 self.save_creds()
 
     def delete_creds(self) -> None:
@@ -436,9 +448,10 @@ class OAuth2Session:
                 self._logger.error(title, exc_info=exc_info_tuple(new_exc))
                 raise new_exc
 
+            self.keyring = None
+
             self._conf.set("auth", "account_id", "")
             self._state.set("auth", "token_access_type", "")
-            self._conf.set("auth", "keyring", "automatic")
 
             self._account_id = None
             self._access_token = None
