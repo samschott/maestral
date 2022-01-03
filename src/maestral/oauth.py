@@ -17,7 +17,7 @@ import keyrings.alt.file  # type: ignore
 import keyring.backends.kwallet  # type: ignore
 from keyring.backend import KeyringBackend  # type: ignore
 from keyring.core import load_keyring  # type: ignore
-from keyring.errors import KeyringLocked, KeyringError, PasswordDeleteError, InitError  # type: ignore
+from keyring.errors import KeyringLocked, PasswordDeleteError, InitError  # type: ignore
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect  # type: ignore
 
 # local imports
@@ -325,7 +325,7 @@ class OAuth2Session:
             new_exc = KeyringAccessError(title, msg)
             self._logger.error(title, exc_info=exc_info_tuple(new_exc))
             raise new_exc
-        except KeyringError as e:
+        except Exception as e:
             title = "Could not load auth token"
             new_exc = KeyringAccessError(title, e.args[0])
             self._logger.error(title, exc_info=exc_info_tuple(new_exc))
@@ -391,12 +391,13 @@ class OAuth2Session:
 
             try:
                 self.keyring.set_password("Maestral", self._get_accessor(), token)
-                cli.ok("Credentials written")
+
                 if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
                     cli.warn(
                         "No supported keyring found, credentials stored in plain text"
                     )
-            except KeyringError:
+                cli.ok("Credentials written")
+            except Exception:
                 # switch to plain text keyring if we cannot access preferred backend
                 self.keyring = keyrings.alt.file.PlaintextKeyring()
                 self._conf.set("auth", "keyring", "keyrings.alt.file.PlaintextKeyring")
@@ -429,7 +430,7 @@ class OAuth2Session:
             except PasswordDeleteError as exc:
                 # password does not exist in keyring
                 self._logger.info(exc.args[0])
-            except KeyringError as e:
+            except Exception as e:
                 title = "Could not delete auth token"
                 new_exc = KeyringAccessError(title, e.args[0])
                 self._logger.error(title, exc_info=exc_info_tuple(new_exc))
