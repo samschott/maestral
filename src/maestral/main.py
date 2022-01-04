@@ -1532,6 +1532,7 @@ class Maestral:
 
                 try:
                     await self._loop.run_in_executor(self._pool, self.get_profile_pic)
+                    await self._loop.run_in_executor(self._pool, self.get_account_info)
                 except (ConnectionError, MaestralApiError):
                     await sleep_rand(60 * 10)
                 else:
