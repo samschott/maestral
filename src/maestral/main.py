@@ -144,7 +144,7 @@ class Maestral:
         )
 
         self._schedule_task(self._periodic_refresh_info())
-        self._schedule_task(self._period_reindexing())
+        self._schedule_task(self._periodic_reindexing())
 
         # Create a future which will return once `shutdown_daemon` is called.
         # This can be used by an event loop wait until maestral has been stopped.
@@ -1540,7 +1540,7 @@ class Maestral:
                 else:
                     await sleep_rand(60 * 45)
 
-    async def _period_reindexing(self) -> None:
+    async def _periodic_reindexing(self) -> None:
         """
         Trigger periodic reindexing, determined by the 'reindex_interval' setting. Don't
         reindex if we are running on battery power.
