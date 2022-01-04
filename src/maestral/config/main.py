@@ -59,7 +59,6 @@ DEFAULTS_STATE: DefaultsType = {
     "app": {  # app state
         "updated_scripts_completed": __version__,
         "update_notification_last": 0.0,
-        "latest_release": "0.0.0",
     },
     "sync": {  # sync state, updated by monitor
         "cursor": "",  # remote cursor: represents last state synced from dropbox
@@ -89,7 +88,7 @@ for section_name, section_values in DEFAULTS_CONFIG.items():
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = Version("16.0.0")
+CONF_VERSION = Version("17.0.0")
 
 
 # =============================================================================
