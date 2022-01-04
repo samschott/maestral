@@ -152,33 +152,6 @@ def link_dialog(m: Union["MaestralProxy", "Maestral"]) -> None:
             cli.warn("Could not connect to Dropbox, please try again")
 
 
-def check_for_updates() -> None:
-    """
-    Checks if updates are available by reading the cached release number from the
-    config file and notifies the user. Prints an update note to the command line.
-    """
-    from packaging.version import Version
-    from .config import MaestralConfig, MaestralState
-
-    conf = MaestralConfig("maestral")
-    state = MaestralState("maestral")
-
-    interval = conf.get("app", "update_notification_interval")
-    last_update_check = state.get("app", "update_notification_last")
-    latest_release = state.get("app", "latest_release")
-
-    if interval == 0 or time.time() - last_update_check < interval:
-        return
-
-    has_update = Version(__version__) < Version(latest_release)
-
-    if has_update:
-        cli.echo(
-            f"Update available v{__version__} → v{latest_release}. "
-            f"Please use your package manager to update."
-        )
-
-
 def check_for_fatal_errors(m: Union["MaestralProxy", "Maestral"]) -> bool:
     """
     Checks the given Maestral instance for fatal errors such as revoked Dropbox access,
@@ -569,8 +542,6 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         CommunicationError,
     )
 
-    check_for_updates()
-
     if is_running(config_name):
         click.echo("Daemon is already running.")
         return
@@ -925,8 +896,6 @@ def sharelink_list(dropbox_path: Optional[str], config_name: str) -> None:
 def status(config_name: str) -> None:
 
     from .daemon import MaestralProxy, CommunicationError
-
-    check_for_updates()
 
     try:
         with MaestralProxy(config_name) as m:
