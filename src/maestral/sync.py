@@ -273,7 +273,7 @@ class FSEventHandler(FileSystemEventHandler):
                     recursive=recursive and e.is_directory,
                 )
             )
-        self._ignored_events.update(new_ignores)  # this is atomic
+        self._ignored_events.update(new_ignores)
 
         try:
             yield
@@ -300,7 +300,7 @@ class FSEventHandler(FileSystemEventHandler):
 
         for ignore in self._ignored_events.copy():
 
-            # check for expired events
+            # Check for expired events.
             if ignore.ttl and ignore.ttl < time.time():
                 self._ignored_events.discard(ignore)
                 continue
@@ -337,19 +337,19 @@ class FSEventHandler(FileSystemEventHandler):
         :param event: Watchdog file event.
         """
 
-        # ignore events if asked to do so
+        # Ignore events if asked to do so.
         if not self._enabled:
             return
 
-        # handle only whitelisted dir event types
+        # Handle only whitelisted dir event types.
         if event.is_directory and event.event_type not in self.dir_event_types:
             return
 
-        # handle only whitelisted file event types
+        # Handle only whitelisted file event types.
         if not event.is_directory and event.event_type not in self.file_event_types:
             return
 
-        # check if event should be ignored
+        # Check if event should be ignored.
         if self._is_ignored(event):
             return
 
@@ -490,18 +490,19 @@ class SyncEngine:
 
         self.desktop_notifier = notify.MaestralDesktopNotifier(self.config_name)
 
-        # upload_errors / download_errors: contains failed uploads / downloads
-        # (from sync errors) to retry later
+        # Upload_errors and download_errors contain failed uploads and downloads,
+        # respectively, to retry later
         self.upload_errors = PersistentStateMutableSet(
             self.config_name, section="sync", option="upload_errors"
         )
         self.download_errors = PersistentStateMutableSet(
             self.config_name, section="sync", option="download_errors"
         )
-        # pending_uploads / pending_downloads: contains interrupted uploads / downloads
-        # to retry later. Running uploads / downloads can be stored in these lists to be
-        # resumed if Maestral quits unexpectedly. This used for downloads which are not
-        # part of the regular sync cycle and are therefore not restarted automatically.
+        # Pending_uploads and pending_downloads contain interrupted uploads and
+        # downloads, respectively. to retry later. Running uploads / downloads can be
+        # stored in these lists to be resumed if Maestral quits unexpectedly. This used
+        # for downloads which are not part of the regular sync cycle and are therefore
+        # not restarted automatically.
         self.pending_downloads = PersistentStateMutableSet(
             self.config_name, section="sync", option="pending_downloads"
         )
@@ -509,18 +510,18 @@ class SyncEngine:
             self.config_name, section="sync", option="pending_uploads"
         )
 
-        # data structures for internal communication
+        # Data structures for internal communication.
         self.sync_errors = set()
         self._cancel_requested = Event()
 
-        # data structures for user information
+        # Data structures for user information.
         self.syncing = {}
 
-        # initialize SQLite database
+        # Initialize SQLite database.
         self._db_path = get_data_path("maestral", f"{self.config_name}.db")
 
         if not osp.exists(self._db_path):
-            # reset sync state if DB is missing
+            # Reset the sync state if DB is missing.
             self.remote_cursor = ""
             self.local_cursor = 0.0
 
@@ -529,10 +530,10 @@ class SyncEngine:
         self._db_manager_history = Manager(self._db, SyncEvent)
         self._db_manager_hash_cache = Manager(self._db, HashCacheEntry)
 
-        # caches
+        # Caches.
         self._case_conversion_cache = LRUCache(capacity=5000)
 
-        # clean our file cache
+        # Clean our file cache-
         self.clean_cache_dir(raise_error=False)
 
     def reload_cached_config(self) -> None:
@@ -552,7 +553,7 @@ class SyncEngine:
 
         self.load_mignore_file()
 
-    # ==== config access ===============================================================
+    # ==== Config access ===============================================================
 
     @property
     def dropbox_path(self) -> str:
@@ -616,10 +617,10 @@ class SyncEngine:
         :returns: Cleaned up items.
         """
 
-        # remove duplicate entries by creating set, strip trailing '/'
+        # Remove duplicate entries by creating set, strip trailing '/'.
         folder_set = {normalize(f).rstrip("/") for f in folder_list}
 
-        # remove all children of excluded folders
+        # Remove all children of excluded folders.
         clean_list = list(folder_set)
         for folder in folder_set:
             clean_list = [f for f in clean_list if not is_child(f, folder)]
@@ -641,7 +642,7 @@ class SyncEngine:
         self._max_cpu_percent = percent
         self._conf.set("sync", "max_cpu_percent", percent // CPU_COUNT)
 
-    # ==== sync state ==================================================================
+    # ==== Sync state ==================================================================
 
     @property
     def remote_cursor(self) -> str:
@@ -725,7 +726,7 @@ class SyncEngine:
 
         self._logger.debug("Sync state reset")
 
-    # ==== index management ============================================================
+    # ==== Index management ============================================================
 
     def get_index(self) -> List[IndexEntry]:
         """
@@ -814,7 +815,7 @@ class SyncEngine:
         try:
             stat = os.stat(local_path)
         except (FileNotFoundError, NotADirectoryError):
-            # remove any existing cache entries for path
+            # Remove any existing cache entries for path.
             with self._database_access():
                 cache_entry = self._db_manager_hash_cache.get(local_path)
                 cache_entry = cast(Optional[HashCacheEntry], cache_entry)
@@ -825,13 +826,12 @@ class SyncEngine:
             raise os_to_maestral_error(err)
 
         if S_ISDIR(stat.st_mode):
-            # take shortcut: return 'folder'
             return "folder"
 
         mtime: Optional[float] = stat.st_mtime
 
         with self._database_access():
-            # check cache for an up-to-date content hash and return if it exists
+            # Check cache for an up-to-date content hash and return if it exists.
             cache_entry = self._db_manager_hash_cache.get(local_path)
             cache_entry = cast(Optional[HashCacheEntry], cache_entry)
 
@@ -902,21 +902,21 @@ class SyncEngine:
 
         with self._database_access():
 
-            # remove any entries for deleted or moved items
+            # Remove any entries for deleted or moved items.
 
             if event.change_type is ChangeType.Removed:
                 self.remove_node_from_index(dbx_path_lower)
             elif event.change_type is ChangeType.Moved:
                 self.remove_node_from_index(event.dbx_path_from_lower)
 
-            # add or update entries for created or modified items
+            # Add or update entries for created or modified items.
 
             if event.change_type is not ChangeType.Removed:
 
                 entry = self.get_index_entry(dbx_path_lower)
 
                 if entry:
-                    # update existing entry
+                    # Update existing entry.
                     entry.dbx_id = event.dbx_id
                     entry.dbx_path_cased = event.dbx_path
                     entry.item_type = event.item_type
@@ -927,7 +927,7 @@ class SyncEngine:
                     self._db_manager_index.update(entry)
 
                 else:
-                    # create new entry
+                    # Create new entry.
                     entry = IndexEntry(
                         dbx_path_cased=event.dbx_path,
                         dbx_path_lower=dbx_path_lower,
@@ -969,10 +969,10 @@ class SyncEngine:
                     hash_str = "folder"
                     item_type = ItemType.Folder
 
-                # construct correct display path from ancestors
+                # Construct correct display path from ancestors.
                 dbx_path_cased = self.correct_case(md.path_display, client)
 
-                # update existing / create new entry
+                # Update existing entry or create new entry.
                 entry = self.get_index_entry(md.path_lower)
 
                 if entry:
@@ -1029,7 +1029,7 @@ class SyncEngine:
             self._db_manager_index.clear_cache()
             self._db_manager_index.create_table()
 
-    # ==== mignore management ==========================================================
+    # ==== Mignore management ==========================================================
 
     @property
     def mignore_path(self) -> str:
@@ -1057,7 +1057,7 @@ class SyncEngine:
 
         self._mignore_rules = PathSpec.from_lines("gitwildmatch", spec.splitlines())
 
-    # ==== helper functions ============================================================
+    # ==== Helper functions ============================================================
 
     def ensure_dropbox_folder_present(self) -> None:
         """
@@ -1200,7 +1200,7 @@ class SyncEngine:
         dirname_cased = self._correct_case_helper(dirname, dirname_lower, client)
         path_cased = osp.join(dirname_cased, basename)
 
-        # add our result to the cache
+        # Add our result to the cache.
         self._case_conversion_cache.put(dbx_path_lower, path_cased)
 
         return path_cased
@@ -1215,33 +1215,33 @@ class SyncEngine:
         :returns: Correctly cased Dropbox path.
         """
 
-        # check for root folder
+        # Check for root folder.
         if dbx_path == "/":
             return dbx_path
 
-        # check in our conversion cache
+        # Check in our conversion cache.
         dbx_path_cased = self._case_conversion_cache.get(dbx_path_lower)
 
         if dbx_path_cased:
             return dbx_path_cased
 
-        # try to get casing from our index, this is slower
+        # Try to get casing from our index, this is slower.
         with self._database_access():
             entry = self.get_index_entry(dbx_path_lower)
 
         if entry:
             dbx_path_cased = entry.dbx_path_cased
         else:
-            # fall back to querying from server
+            # Fall back to querying from server.
             md = client.get_metadata(dbx_path)
             if md:
-                # recurse over parent directories
+                # Recurse over parent directories.
                 dbx_path_cased = self.correct_case(md.path_display, client)
             else:
-                # give up
+                # Give up.
                 dbx_path_cased = dbx_path
 
-        # add our result to the cache
+        # Add our result to the cache.
         self._case_conversion_cache.put(dbx_path_lower, dbx_path_cased)
 
         return dbx_path_cased
@@ -1381,28 +1381,30 @@ class SyncEngine:
         :returns: Whether the path is excluded from syncing.
         """
 
-        # is root folder?
+        # Is root folder?
         if path in ("/", ""):
             return True
 
         dirname, basename = osp.split(path)
-        # in excluded files?
+
+        # Is in excluded files?
         if basename in EXCLUDED_FILE_NAMES:
             return True
 
-        # in excluded dirs?
+        # Is in excluded dirs?
         root_dir = next(iter(part for part in dirname.split("/", 2) if part), "")
 
         if root_dir in EXCLUDED_DIR_NAMES:
             return True
 
-        if "~" in basename:  # is temporary file?
-            # 1) office temporary files
+        # Is temporary file?
+        if "~" in basename:
+            # 1) Office temporary files
             if basename.startswith("~$"):
                 return True
             if basename.startswith(".~"):
                 return True
-            # 2) other temporary files
+            # 2) Other temporary files
             if basename.startswith("~") and basename.endswith(".tmp"):
                 return True
 
@@ -1501,21 +1503,21 @@ class SyncEngine:
         :param direction: The sync direction (up or down) for which the error occurred.
         """
 
-        # fill out missing dbx_path or local_path
+        # Fill in missing dbx_path or local_path.
         if err.dbx_path and not err.local_path:
             err.local_path = self.to_local_path_from_cased(err.dbx_path)
         if err.local_path and not err.dbx_path:
             err.dbx_path = self.to_dbx_path(err.local_path)
 
-        # fill out missing dbx_path_dst or local_path_dst
+        # Fill in missing dbx_path_dst or local_path_dst.
         if err.dbx_path_dst and not err.local_path_dst:
             err.local_path_dst = self.to_local_path_from_cased(err.dbx_path_dst)
         if err.local_path_dst and not err.dbx_path_dst:
             err.dbx_path_dst = self.to_dbx_path(err.local_path_dst)
 
         if err.dbx_path:
-            # we have a file / folder associated with the sync error
-            # use sanitised path so that the error can be printed to the terminal, etc
+            # We have a file / folder associated with the sync error.
+            # Use sanitised path so that the error can be printed to the terminal, etc.
             file_name = sanitize_string(osp.basename(err.dbx_path))
 
             self._logger.info("Could not sync %s", file_name, exc_info=True)
@@ -1535,7 +1537,7 @@ class SyncEngine:
             )
             self.sync_errors.add(err)
 
-            # save download errors to retry later
+            # Save download errors to retry later.
             if direction == SyncDirection.Down:
                 self.download_errors.add(normalize(err.dbx_path))
             elif direction == SyncDirection.Up:
@@ -1672,7 +1674,7 @@ class SyncEngine:
 
             mtime_check = snapshot_time > stat.st_mtime > last_sync
 
-            # always upload untracked items, check ctime of tracked items
+            # Always upload untracked items, check ctime of tracked items.
             is_modified = mtime_check and not is_new
 
             if is_new:
@@ -1773,7 +1775,7 @@ class SyncEngine:
         events = []
         local_cursor = time.time()
 
-        # keep collecting events until idle for `delay`
+        # Keep collecting events until idle for `delay`.
         while True:
             try:
                 event = self.fs_events.local_file_event_queue.get(timeout=delay)
@@ -2243,7 +2245,7 @@ class SyncEngine:
         finally:
             self.syncing.pop(event.local_path, None)
 
-        # add to history database
+        # Add events to history database.
         if event.status == SyncStatus.Done:
             with self._database_access():
                 self._db_manager_history.save(event)
@@ -2292,7 +2294,7 @@ class SyncEngine:
         if event.local_path_from == self.dropbox_path:
             self.ensure_dropbox_folder_present()
 
-        # fail fast on badly decoded paths
+        # Fail fast on badly decoded paths.
         validate_encoding(event.local_path)
 
         if self._handle_selective_sync_conflict(event):
@@ -2324,7 +2326,7 @@ class SyncEngine:
 
         if md_to_new.name != osp.basename(event.local_path):
             # TODO: test this
-            # conflicting copy created during upload, mirror remote changes locally
+            # Conflicting copy created during upload, mirror remote changes locally.
             local_path_cc = self.to_local_path(md_to_new.path_display, client)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
@@ -2372,7 +2374,7 @@ class SyncEngine:
 
         client = client or self.client
 
-        # fail fast on badly decoded paths
+        # Fail fast on badly decoded paths.
         validate_encoding(event.local_path)
 
         if self._handle_selective_sync_conflict(event):
@@ -2426,25 +2428,25 @@ class SyncEngine:
                 md_new = client.make_dir(event.dbx_path, autorename=True)
 
         else:
-            # check if file already exists with identical content
+            # Check if file already exists with identical content.
             md_old = client.get_metadata(event.dbx_path)
             if isinstance(md_old, FileMetadata):
                 if event.content_hash == md_old.content_hash:
-                    # file hashes are identical, do not upload
+                    # File hashes are identical, do not upload.
                     self.update_index_from_dbx_metadata(md_old, client)
                     return None
 
             local_entry = self.get_index_entry(event.dbx_path_lower)
 
             if not local_entry:
-                # file is new to us, let Dropbox rename it if something is in the way
+                # File is new to us, let Dropbox rename it if something is in the way.
                 mode = WriteMode.add
             elif local_entry.is_directory:
-                # try to overwrite the destination, this will fail...
+                # Try to overwrite the destination, this will fail...
                 mode = WriteMode.overwrite
             else:
-                # file has been modified, update remote if matching rev,
-                # create conflict otherwise
+                # File has been modified, update remote if matching rev,
+                # create conflict otherwise.
                 self._logger.debug(
                     '"%s" appears to have been created but we are '
                     "already tracking it",
@@ -2466,14 +2468,14 @@ class SyncEngine:
                 return None
 
         if md_new.name != osp.basename(event.local_path):
-            # conflicting copy created during upload, mirror remote changes locally
+            # Conflicting copy created during upload, mirror remote changes locally.
             local_path_cc = self.to_local_path(md_new.path_display, client)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
                 with convert_api_errors():
                     move(event.local_path, local_path_cc, raise_error=True)
 
-            # Delete entry of old path
+            # Delete entry of old path.
             self.remove_node_from_index(event.dbx_path_lower)
             self._logger.debug(
                 'Upload conflict: renamed "%s" to "%s"',
@@ -2503,16 +2505,17 @@ class SyncEngine:
 
         client = client or self.client
 
-        if event.is_directory:  # ignore directory modified events
+        # Ignore directory modified events.
+        if event.is_directory:
             return None
 
         self._wait_for_creation(event.local_path)
 
-        # check if item already exists with identical content
+        # Check if item already exists with identical content.
         md_old = client.get_metadata(event.dbx_path)
         if isinstance(md_old, FileMetadata):
             if event.content_hash == md_old.content_hash:
-                # file hashes are identical, do not upload
+                # File hashes are identical, do not upload.
                 self.update_index_from_dbx_metadata(md_old, client)
                 self._logger.debug(
                     'Modification of "%s" detected but file content is '
@@ -2567,7 +2570,7 @@ class SyncEngine:
                 md_new.path_display,
             )
         else:
-            # everything went well
+            # Everything went well.
             self._logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
 
         self.update_index_from_dbx_metadata(md_new, client)
@@ -2630,7 +2633,7 @@ class SyncEngine:
                 "which one is newer",
                 md.path_display,
             )
-            # don't delete a remote file if it was modified since last sync
+            # Don't delete a remote file if it was modified since last sync.
             if md.server_modified.timestamp() >= self.get_last_sync(
                 event.dbx_path_lower
             ):
@@ -2639,12 +2642,12 @@ class SyncEngine:
                     "since last sync",
                     md.path_display,
                 )
-                # mark local folder as untracked
+                # Mark local folder as untracked.
                 self.remove_node_from_index(event.dbx_path_lower)
                 return None
 
         if event.is_file and isinstance(md, FolderMetadata):
-            # don't delete a remote folder if we were expecting a file
+            # Don't delete a remote folder if we were expecting a file.
             # TODO: Delete the folder if its children did not change since last sync.
             #   Is there a way of achieving this without listing the folder or listing
             #   all changes and checking when they occurred?
@@ -2653,12 +2656,12 @@ class SyncEngine:
                 "folder instead",
                 md.path_display,
             )
-            # mark local file as untracked
+            # Mark local file as untracked.
             self.remove_node_from_index(event.dbx_path_lower)
             return None
 
         try:
-            # will only perform delete if Dropbox remote rev matches `local_rev`
+            # Will only perform delete if Dropbox remote rev matches `local_rev`.
             md_deleted = client.remove(
                 event.dbx_path, parent_rev=local_rev if event.is_file else None
             )
@@ -2675,7 +2678,7 @@ class SyncEngine:
             )
             md_deleted = None
 
-        # remove revision metadata
+        # Remove revision metadata.
         self.remove_node_from_index(event.dbx_path_lower)
 
         return md_deleted
@@ -2712,7 +2715,7 @@ class SyncEngine:
             dbx_path_lower = normalize(dbx_path)
 
             if md is None:
-                # create a fake deleted event
+                # Create a fake deleted event.
                 index_entry = self.get_index_entry(dbx_path_lower)
                 cased_path = index_entry.dbx_path_cased if index_entry else dbx_path
 
@@ -2756,7 +2759,7 @@ class SyncEngine:
 
                 idx = 0
 
-                # iterate over index and download results
+                # Iterate over index and download results.
                 list_iter = client.list_folder_iterator(dbx_path, recursive=True)
 
                 for res in list_iter:
@@ -2768,7 +2771,7 @@ class SyncEngine:
 
                     res.entries.sort(key=lambda x: x.path_lower.count("/"))
 
-                    # convert metadata to sync_events
+                    # Convert metadata to sync_events.
                     sync_events = [
                         SyncEvent.from_dbx_metadata(md, self) for md in res.entries
                     ]
@@ -3054,17 +3057,17 @@ class SyncEngine:
 
         changes = [e for e in sync_events if e.status != SyncStatus.Skipped]
 
-        # get number of remote changes
+        # Get number of remote changes.
         n_changed = len(changes)
 
         if n_changed == 0:
             return
 
-        # find out who changed the item(s), show the username if it's only a single user
+        # Find out who changed the item(s).
         user_name: Optional[str]
         dbid_list = {e.change_dbid for e in changes if e.change_dbid is not None}
         if len(dbid_list) == 1:
-            # all files have been modified by the same user
+            # All files have been modified by the same user
             dbid = dbid_list.pop()
             if dbid == client.account_info.account_id:
                 user_name = "You"
@@ -3076,10 +3079,11 @@ class SyncEngine:
                 else:
                     user_name = account_info.name.display_name
         else:
+            # Don't display multiple usernames in notification.
             user_name = None
 
         if n_changed == 1:
-            # display username, file name, and type of change
+            # Display the username, file name, and type of change in notification.
             event = changes[0]
             file_name = osp.basename(event.dbx_path)
             change_type = event.change_type.value
@@ -3090,6 +3094,9 @@ class SyncEngine:
             buttons = {"Show": callback}
 
         else:
+
+            # Display the number of files changed and potentially the type of change in
+            # notification.
 
             if all(e.change_type == sync_events[0].change_type for e in sync_events):
                 change_type = sync_events[0].change_type.value
@@ -3111,7 +3118,7 @@ class SyncEngine:
         if change_type == ChangeType.Removed.value:
 
             def callback():
-                # show dropbox website with deleted files
+                # Show Dropbox website with deleted files.
                 click.launch("https://www.dropbox.com/deleted_files")
 
             buttons = {"Show": callback}
@@ -3206,28 +3213,28 @@ class SyncEngine:
         """
 
         if self.is_excluded(local_path):
-            # excluded names such as .DS_Store etc. never count as unsynced changes
+            # Excluded names such as .DS_Store etc. never count as unsynced changes.
             return False
 
         dbx_path_lower = self.to_dbx_path_lower(local_path)
         index_entry = self.get_index_entry(dbx_path_lower)
 
-        with convert_api_errors():  # catch OSErrors
+        with convert_api_errors():  # Catch OSErrors.
 
             try:
                 stat = os.stat(local_path)
             except (FileNotFoundError, NotADirectoryError):
-                # don't check ctime for deleted items (os won't give stat info)
-                # but confirm absence from index
+                # Don't check ctime for deleted items (os won't give stat info)
+                # but confirm absence from index.
                 return index_entry is not None
 
             if S_ISDIR(stat.st_mode):
 
-                # don't check ctime for folders but compare to index entry type
+                # Don't check ctime for folders but compare to index entry type.
                 if index_entry is None or index_entry.is_file:
                     return True
 
-                # recurse over children
+                # Recurse over children.
                 with os.scandir(local_path) as it:
                     for entry in it:
                         if entry.is_dir():
@@ -3378,7 +3385,7 @@ class SyncEngine:
         finally:
             self.syncing.pop(event.local_path, None)
 
-        # add to history database
+        # Add events to history database.
         if event.status == SyncStatus.Done:
             with self._database_access():
                 self._db_manager_history.save(event)
@@ -3451,19 +3458,19 @@ class SyncEngine:
         # Ensure that parent folders are synced.
         self._ensure_parent(event, client)
 
-        # we download to a temporary file first (this may take some time)
+        # We download to a temporary file first (this may take some time).
         tmp_fname = self._new_tmp_file()
 
         try:
             md = client.download(f"rev:{event.rev}", tmp_fname, sync_event=event)
             event = SyncEvent.from_dbx_metadata(md, self)
         except SyncError as err:
-            # replace rev number with path
+            # Replace rev number with path.
             err.dbx_path = event.dbx_path
             raise err
 
-        # re-check for conflict and move the conflict
-        # out of the way if anything has changed
+        # Re-check for conflict and move the conflict
+        # out of the way if anything has changed.
 
         local_path = event.local_path
 
@@ -3499,10 +3506,10 @@ class SyncEngine:
                 ignore_events.append(FileModifiedEvent(local_path))
 
         if osp.isfile(local_path):
-            # ignore FileDeletedEvent when replacing old file
+            # Ignore FileDeletedEvent when replacing old file.
             ignore_events.append(FileDeletedEvent(local_path))
 
-        # move the downloaded file to its destination
+        # Move the downloaded file to its destination.
         with self.fs_events.ignore(*ignore_events):
 
             mtime = os.stat(tmp_fname).st_mtime
@@ -3673,7 +3680,7 @@ class SyncEngine:
         elif osp.isdir(local_path):
             self.fs_events.queue_event(DirCreatedEvent(local_path))
 
-            # add created and deleted events of children as appropriate
+            # Add created and deleted events of children as appropriate.
 
             for path, stat in walk(local_path, self._scandir_with_ignore):
 
@@ -3682,7 +3689,7 @@ class SyncEngine:
                 else:
                     self.fs_events.queue_event(FileModifiedEvent(path))
 
-            # add deleted events
+            # Add deleted events.
 
             local_path_lower = normalize(local_path)
 
@@ -3719,7 +3726,7 @@ class SyncEngine:
 
         with self._database_access():
 
-            # drop all entries older than keep_history
+            # Drop all entries older than keep_history.
             now = time.time()
             keep_history = self._conf.get("sync", "keep_history")
 
