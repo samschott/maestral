@@ -91,7 +91,6 @@ __all__ = [
 ]
 
 
-# type definitions
 LocalError = Union[MaestralApiError, OSError]
 PaginationResultType = Union[sharing.ListSharedLinksResult, files.ListFolderResult]
 FT = TypeVar("FT", bound=Callable[..., Any])
@@ -196,7 +195,7 @@ class DropboxClient:
         self._namespace_id = self._state.get("account", "path_root_nsid")
         self._is_team_space = self._state.get("account", "path_root_type") == "team"
 
-    # ---- linking API -----------------------------------------------------------------
+    # ---- Linking API -----------------------------------------------------------------
 
     @property
     def dbx_base(self) -> Dropbox:
@@ -230,7 +229,7 @@ class DropboxClient:
         if self._dbx and self._dbx_base:
             return True
 
-        elif self.auth.linked:  # this will trigger keyring access on first call
+        elif self.auth.linked:  # This will trigger keyring access on first call.
 
             if self.auth.token_access_type == "legacy":
                 self._init_sdk_with_token(access_token=self.auth.access_token)
@@ -360,7 +359,7 @@ class DropboxClient:
         Space."""
         return self._is_team_space
 
-    # ---- session management ----------------------------------------------------------
+    # ---- Session management ----------------------------------------------------------
 
     def close(self) -> None:
         """Cleans up all resources like the request session/network connection."""
@@ -1276,7 +1275,7 @@ class DropboxClient:
         return results_flattened
 
 
-# ==== conversion functions to generate error messages and types =======================
+# ==== Conversion functions to generate error messages and types =======================
 
 
 def os_to_maestral_error(
@@ -1470,7 +1469,7 @@ def dropbox_to_maestral_error(
         elif isinstance(error, files.UploadError):
             title = "Could not upload file"
             if error.is_path():
-                write_error = error.get_path().reason  # returns UploadWriteFailed
+                write_error = error.get_path().reason  # Returns UploadWriteFailed.
                 text, err_cls = _get_write_error_msg(write_error)
             elif error.is_properties_error():
                 # Occurs only for programming error in maestral.
@@ -1763,7 +1762,7 @@ def dropbox_to_maestral_error(
         text = "Please grant Maestral access to your Dropbox to start syncing."
 
     # ---- Bad input errors ------------------------------------------------------------
-    # should only occur due to user input from console scripts
+    # Should only occur due to user input from console scripts.
     elif isinstance(exc, (exceptions.BadInputError, ValidationError)):
         err_cls = BadInputError
         title = "Bad input to API call"
