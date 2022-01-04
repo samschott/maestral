@@ -143,7 +143,7 @@ class Maestral:
             max_workers=2,
         )
 
-        self._schedule_task(self._periodic_refresh_info())
+        self._schedule_task(self._periodic_refresh_profile())
         self._schedule_task(self._periodic_reindexing())
 
         # Create a future which will return once `shutdown_daemon` is called.
@@ -1397,8 +1397,6 @@ class Maestral:
         except Exception:
             error_msg = "Something when wrong. Please try again later."
 
-        self._state.set("app", "latest_release", new_version or current_version)
-
         return {
             "update_available": bool(new_version),
             "latest_release": new_version or current_version,
@@ -1520,7 +1518,7 @@ class Maestral:
         task = self._loop.create_task(coro)
         self._tasks.add(task)
 
-    async def _periodic_refresh_info(self) -> None:
+    async def _periodic_refresh_profile(self) -> None:
         """Periodically refresh some infos."""
 
         await asyncio.sleep(60 * 5)
@@ -1534,7 +1532,6 @@ class Maestral:
 
                 try:
                     await self._loop.run_in_executor(self._pool, self.get_profile_pic)
-                    await self._loop.run_in_executor(self._pool, self.check_for_updates)
                 except (ConnectionError, MaestralApiError):
                     await sleep_rand(60 * 10)
                 else:
