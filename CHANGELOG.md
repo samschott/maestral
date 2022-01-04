@@ -7,6 +7,7 @@
 * Clicking on a desktop notification will now show the file or folder which triggered the
   notification. Previously, only clicking on the "Show" button of the notification
   would open the file browser.
+* Removed update notifications by the CLI.
 
 #### Fixed:
 
