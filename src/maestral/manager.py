@@ -636,7 +636,7 @@ class SyncManager:
                         self.sync.download_sync_cycle(client)
                         self._logger.info(IDLE)
 
-                        client.get_space_usage()  # update space usage
+                        client.get_space_usage()
 
         _free_memory()
 
@@ -665,7 +665,7 @@ class SyncManager:
                 except Empty:
                     pass
                 else:
-                    # protect against crashes
+                    # Protect against crashes.
                     self.sync.pending_downloads.add(dbx_path.lower())
 
                     if not running.is_set():
