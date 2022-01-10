@@ -270,6 +270,34 @@ def test_mignore(m):
     assert not m.fatal_errors
 
 
+def test_move_to_existing_file(m):
+
+    # create two local files
+
+    path0 = m.test_folder_local + "/file0.txt"
+    path1 = m.test_folder_local + "/file1.txt"
+
+    with open(path0, "a") as f:
+        f.write("c0")
+
+    with open(path1, "a") as f:
+        f.write("c1")
+
+    wait_for_idle(m)
+
+    # move file0 to file1
+
+    shutil.move(path0, path1)
+
+    wait_for_idle(m)
+
+    # check that move was successful
+
+    assert_synced(m)
+    assert_exists(m, m.test_folder_dbx, "file1.txt")
+    assert_child_count(m, m.test_folder_dbx, 1)
+
+
 # ==== test conflict resolution ========================================================
 
 

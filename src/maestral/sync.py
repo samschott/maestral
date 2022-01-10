@@ -2315,15 +2315,31 @@ class SyncEngine:
             return None
 
         dbx_path_from = cast(str, event.dbx_path_from)
-        md_from_old = client.get_metadata(dbx_path_from)
 
-        # If not on Dropbox, e.g., because its old name was invalid,
-        # create it instead of moving it.
-        if not md_from_old:
+        # If a file at the destination should be replaced, remove it first, but only if
+        # its rev matches the rev of the local overwritten file.
+        # The Dropbox API does not allow overwriting a destination file during a move.
+        local_entry = self.get_index_entry(event.dbx_path_lower)
 
+        if local_entry and local_entry.is_file:
+            try:
+                client.remove(local_entry.dbx_path_lower, parent_rev=local_entry.rev)
+            except (NotFoundError, FileConflictError):
+                pass
+            else:
+                self._logger.debug(
+                    'Replacing existing file "%s" by move', local_entry.dbx_path_lower
+                )
+
+        # Perform the move.
+        try:
+            md_to_new = client.move(dbx_path_from, event.dbx_path, autorename=True)
+        except NotFoundError:
+            # If not on Dropbox, e.g., because its old name was invalid,
+            # create it instead of moving it.
             self._logger.debug(
-                "Could not move '%s' -> '%s' on Dropbox, source does not exists. "
-                "Creating '%s' instead",
+                'Could not move "%s" -> "%s" on Dropbox, source does not exists. '
+                'Creating "%s" instead',
                 event.dbx_path_from,
                 event.dbx_path,
                 event.dbx_path,
@@ -2332,12 +2348,9 @@ class SyncEngine:
             self.rescan(event.local_path)
             return None
 
-        md_to_new = client.move(dbx_path_from, event.dbx_path, autorename=True)
-
         self.remove_node_from_index(event.dbx_path_from_lower)
 
         if md_to_new.name != osp.basename(event.local_path):
-            # TODO: test this
             # Conflicting copy created during upload, mirror remote changes locally.
             local_path_cc = self.to_local_path(md_to_new.path_display, client)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
