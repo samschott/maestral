@@ -815,12 +815,15 @@ class SyncEngine:
         try:
             stat = os.stat(local_path)
         except (FileNotFoundError, NotADirectoryError):
-            # Remove any existing cache entries for path.
+            # Remove all cache entries for local_path and return None.
             with self._database_access():
-                cache_entry = self._db_manager_hash_cache.get(local_path)
-                cache_entry = cast(Optional[HashCacheEntry], cache_entry)
-                if cache_entry:
-                    self._db_manager_hash_cache.delete(cache_entry)
+                try:
+                    self._db.execute(
+                        "DELETE FROM hash_cache WHERE local_path = ?", local_path
+                    )
+                except UnicodeEncodeError:
+                    pass
+            self._db_manager_hash_cache.clear_cache()
             return None
         except OSError as err:
             raise os_to_maestral_error(err)
@@ -832,7 +835,7 @@ class SyncEngine:
 
         with self._database_access():
             # Check cache for an up-to-date content hash and return if it exists.
-            cache_entry = self._db_manager_hash_cache.get(local_path)
+            cache_entry = self._db_manager_hash_cache.get(stat.st_ino)
             cache_entry = cast(Optional[HashCacheEntry], cache_entry)
 
             if cache_entry and cache_entry.mtime == mtime:
@@ -841,16 +844,21 @@ class SyncEngine:
         with convert_api_errors():
             hash_str, mtime = content_hash(local_path)
 
-        self._save_local_hash(local_path, hash_str, mtime)
+        self._save_local_hash(stat.st_ino, local_path, hash_str, mtime)
 
         return hash_str
 
     def _save_local_hash(
-        self, local_path: str, hash_str: Optional[str], mtime: Optional[float]
+        self,
+        inode: int,
+        local_path: str,
+        hash_str: Optional[str],
+        mtime: Optional[float],
     ) -> None:
         """
         Save the content hash for a file in our cache.
 
+        :param inode: Inode of the file.
         :param local_path: Absolute path on local drive.
         :param hash_str: Hash string to save. If None, the existing cache entry will be
             deleted.
@@ -859,12 +867,13 @@ class SyncEngine:
 
         with self._database_access():
 
-            cache_entry = self._db_manager_hash_cache.get(local_path)
+            cache_entry = self._db_manager_hash_cache.get(inode)
             cache_entry = cast(Optional[HashCacheEntry], cache_entry)
 
             if hash_str:
 
                 if cache_entry:
+                    cache_entry.local_path = local_path
                     cache_entry.hash_str = hash_str
                     cache_entry.mtime = mtime
 
@@ -872,7 +881,10 @@ class SyncEngine:
 
                 else:
                     cache_entry = HashCacheEntry(
-                        local_path=local_path, hash_str=hash_str, mtime=mtime
+                        inode=inode,
+                        local_path=local_path,
+                        hash_str=hash_str,
+                        mtime=mtime,
                     )
                     self._db_manager_hash_cache.save(cache_entry)
             else:
@@ -3524,7 +3536,7 @@ class SyncEngine:
         # Move the downloaded file to its destination.
         with self.fs_events.ignore(*ignore_events):
 
-            mtime = os.stat(tmp_fname).st_mtime
+            stat = os.stat(tmp_fname)
 
             with convert_api_errors(dbx_path=event.dbx_path, local_path=local_path):
                 move(
@@ -3535,7 +3547,9 @@ class SyncEngine:
                 )
 
         self.update_index_from_sync_event(event)
-        self._save_local_hash(event.local_path, event.content_hash, mtime)
+        self._save_local_hash(
+            stat.st_ino, event.local_path, event.content_hash, stat.st_mtime
+        )
 
         self._logger.debug('Created local file "%s"', event.dbx_path)
 
