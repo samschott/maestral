@@ -126,6 +126,7 @@ class Column(property):
     :param unique: If ``True``, sets a unique constraint on the column.
     :param primary_key: If ``True``, marks this column as a primary key column.
         Currently, only a single primary key column is supported.
+    :param index: If ``True``, create an index on this column.
     :param default: Default value for the column. Set to :class:`NoDefault` if no
         default value should be used. Note than None / NULL is a valid default for an
         SQLite column.
@@ -137,6 +138,7 @@ class Column(property):
         nullable: bool = True,
         unique: bool = False,
         primary_key: bool = False,
+        index: bool = False,
         default: DefaultColumnValueType = None,
     ):
         super().__init__(fget=self._fget, fset=self._fset)
@@ -145,6 +147,7 @@ class Column(property):
         self.nullable = nullable
         self.unique = unique
         self.primary_key = primary_key
+        self.index = index
 
         self.default: DefaultColumnValueType
 
@@ -357,6 +360,12 @@ class Manager:
         sql = f"CREATE TABLE {self.model.__tablename__} ({column_defs_str});"
 
         self.db.executescript(sql)
+
+        for column in columns(self.model):
+            if column.index:
+                idx_name = f"idx_{self.model.__tablename__}_{column.name}"
+                sql = f"CREATE INDEX {idx_name} ON {self.model.__tablename__} ({column.name});"
+                self.db.executescript(sql)
 
     def clear_cache(self) -> None:
         """Clears our cache."""
