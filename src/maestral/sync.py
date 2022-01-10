@@ -2338,8 +2338,8 @@ class SyncEngine:
             # If not on Dropbox, e.g., because its old name was invalid,
             # create it instead of moving it.
             self._logger.debug(
-                "Could not move '%s' -> '%s' on Dropbox, source does not exists. "
-                "Creating '%s' instead",
+                'Could not move "%s" -> "%s" on Dropbox, source does not exists. '
+                'Creating "%s" instead',
                 event.dbx_path_from,
                 event.dbx_path,
                 event.dbx_path,
