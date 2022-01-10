@@ -1834,7 +1834,7 @@ class SyncEngine:
             self.syncing[event.local_path] = event
 
         self._logger.debug("Filtered deleted events:\n%s", pf_repr(deleted))
-        self._logger.debug("Filtered dir moved events:\n%s", pf_repr(deleted))
+        self._logger.debug("Filtered dir moved events:\n%s", pf_repr(dir_moved))
         self._logger.debug("Filtered other events:\n%s", pf_repr(other))
 
         # Apply deleted events first, folder moved events second.
