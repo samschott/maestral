@@ -462,7 +462,7 @@ class IndexEntry(Model):
 
     __tablename__ = "'index'"
 
-    dbx_path_lower = Column(SqlPath(), nullable=False, primary_key=True)
+    dbx_path_lower = Column(SqlPath(), primary_key=True)
     """
     Dropbox path of the item in lower case. This acts as a primary key for the SQLites
     database since there can only be one entry per case-insensitive Dropbox path.
@@ -515,11 +515,14 @@ class IndexEntry(Model):
 class HashCacheEntry(Model):
     """Represents an entry in our cache of content hashes"""
 
-    __slots__ = ["_local_path", "_hash_str", "_mtime"]
+    __slots__ = ["_inode", "_local_path", "_hash_str", "_mtime"]
 
     __tablename__ = "hash_cache"
 
-    local_path = Column(SqlPath(), nullable=False, primary_key=True)
+    inode = Column(SqlInt(), primary_key=True)
+    """The inode of the item."""
+
+    local_path = Column(SqlPath(), nullable=False)
     """The local path of the item."""
 
     hash_str = Column(SqlString())
@@ -527,6 +530,6 @@ class HashCacheEntry(Model):
 
     mtime = Column(SqlFloat())
     """
-    The mtime of the item just before the hash was computed. When the current ctime is
+    The mtime of the item just before the hash was computed. When the current mtime is
     newer, the hash will need to be recalculated.
     """

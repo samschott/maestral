@@ -1453,6 +1453,8 @@ class Maestral:
             self._update_from_pre_v1_4_5()
         if Version(updated_from) < Version("1.4.8"):
             self._update_from_pre_v1_4_8()
+        if Version(updated_from) < Version("1.5.3.dev0"):
+            self._update_from_pre_v1_5_3()
 
         self._state.set("app", "updated_scripts_completed", __version__)
 
@@ -1508,7 +1510,16 @@ class Maestral:
                 value = self._state.get(sections["old"], key)
                 self._state.set(sections["new"], key, value)
 
-    # ==== Periodic async jobs ===========================================================
+    def _update_from_pre_v1_5_3(self) -> None:
+
+        self._logger.info("Clearing hash cache after update from pre v1.5.3.dev0")
+
+        db_path = get_data_path("maestral", f"{self.config_name}.db")
+        db = Database(db_path, check_same_thread=False)
+        db.execute("DROP TABLE hash_cache")
+        db.close()
+
+    # ==== Periodic async jobs =========================================================
 
     def _schedule_task(self, coro: Awaitable) -> None:
         """Schedules a task in our asyncio loop."""
