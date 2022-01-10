@@ -28,7 +28,7 @@ if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.en
     pytest.skip("Requires auth token", allow_module_level=True)
 
 
-# test functions
+# ==== test basic sync =================================================================
 
 
 def test_setup(m):
@@ -80,6 +80,197 @@ def test_file_lifecycle(m):
 
     # check for fatal errors
     assert not m.fatal_errors
+
+
+def test_folder_tree_local(m):
+    """Tests the upload sync of a nested local folder structure."""
+
+    # test creating tree
+
+    shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
+
+    snap = DirectorySnapshot(resources + "/test_folder")
+    num_items = len([p for p in snap.paths if not m.sync.is_excluded(p)])
+
+    wait_for_idle(m, 10)
+
+    assert_synced(m)
+    assert_child_count(m, m.test_folder_dbx, num_items)
+
+    # test deleting tree
+
+    delete(m.test_folder_local + "/test_folder")
+
+    wait_for_idle(m)
+    assert_synced(m)
+    assert_child_count(m, m.test_folder_dbx, 0)
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+def test_folder_tree_remote(m):
+    """Tests the download sync of a nested remote folder structure."""
+
+    # test creating remote tree
+
+    for i in range(1, 11):
+        path = m.test_folder_dbx + i * "/nested_folder"
+        m.client.make_dir(path)
+
+    wait_for_idle(m)
+
+    assert_synced(m)
+    assert_child_count(m, m.test_folder_dbx, 10)
+
+    # test deleting remote tree
+
+    m.client.remove(f"{m.test_folder_dbx}/nested_folder")
+    wait_for_idle(m, 15)
+
+    assert_synced(m)
+    assert_child_count(m, m.test_folder_dbx, 0)
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+def test_local_indexing(m):
+    """Tests the upload sync of a nested local folder structure."""
+
+    m.stop_sync()
+    wait_for_idle(m)
+
+    # create local tree
+
+    shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
+
+    snap = DirectorySnapshot(resources + "/test_folder")
+    num_items = len([p for p in snap.paths if not m.sync.is_excluded(p)])
+
+    m.start_sync()
+    wait_for_idle(m, 10)
+
+    assert_synced(m)
+    assert_child_count(m, m.test_folder_dbx, num_items)
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+def test_case_change_local(m):
+    """
+    Tests the upload sync of local rename which only changes the casing of the local
+    file name.
+    """
+
+    # start with nested folders
+    os.mkdir(m.test_folder_local + "/folder")
+    os.mkdir(m.test_folder_local + "/folder/Subfolder")
+    wait_for_idle(m)
+
+    assert_synced(m)
+
+    # rename to parent folder to upper case
+    shutil.move(m.test_folder_local + "/folder", m.test_folder_local + "/FOLDER")
+    wait_for_idle(m)
+
+    assert osp.isdir(m.test_folder_local + "/FOLDER")
+    assert osp.isdir(m.test_folder_local + "/FOLDER/Subfolder")
+    assert (
+        m.client.get_metadata(f"{m.test_folder_dbx}/folder").name == "FOLDER"
+    ), "casing was not propagated to Dropbox"
+
+    assert_synced(m)
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+def test_case_change_remote(m):
+    """
+    Tests the download sync of remote rename which only changes the casing of the remote
+    file name.
+    """
+
+    # start with nested folders
+    os.mkdir(m.test_folder_local + "/folder")
+    os.mkdir(m.test_folder_local + "/folder/Subfolder")
+    wait_for_idle(m)
+
+    assert_synced(m)
+
+    # rename remote folder
+    m.client.move(
+        f"{m.test_folder_dbx}/folder", f"{m.test_folder_dbx}/FOLDER", autorename=True
+    )
+
+    wait_for_idle(m)
+
+    assert osp.isdir(m.test_folder_local + "/FOLDER")
+    assert osp.isdir(m.test_folder_local + "/FOLDER/Subfolder")
+    assert (
+        m.client.get_metadata(f"{m.test_folder_dbx}/folder").name == "FOLDER"
+    ), "casing was not propagated to local folder"
+    assert_synced(m)
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+def test_mignore(m):
+    """Tests the exclusion of local items by an mignore file."""
+
+    # 1) test changes have no effect when sync is running
+
+    os.mkdir(m.test_folder_local + "/bar")
+    os.mkdir(m.test_folder_local + "/folder")
+    wait_for_idle(m)
+
+    with open(m.sync.mignore_path, "w") as f:
+        f.write("foo/\n")  # ignore folder "foo"
+        f.write("bar\n")  # ignore file or folder "bar"
+        f.write("build\n")  # ignore file or folder "build"
+
+    wait_for_idle(m)
+
+    assert_synced(m)
+    assert_exists(m, m.test_folder_dbx, "bar")
+
+    # 2) test that items are removed after restart
+
+    m.stop_sync()
+    wait_for_idle(m)
+    m.start_sync()
+
+    os.mkdir(m.test_folder_local + "/foo")
+    wait_for_idle(m)
+
+    assert not m.client.get_metadata(f"{m.test_folder_dbx}/foo")
+    assert not m.client.get_metadata(f"{m.test_folder_dbx}/bar")
+
+    # 3) test that renaming an item excludes it
+
+    move(m.test_folder_local + "/folder", m.test_folder_local + "/build")
+    wait_for_idle(m)
+
+    assert not m.client.get_metadata(f"{m.test_folder_dbx}/build")
+
+    # 4) test that renaming an item includes it
+
+    move(m.test_folder_local + "/build", m.test_folder_local + "/folder")
+    wait_for_idle(m)
+
+    assert_exists(m, m.test_folder_dbx, "folder")
+
+    clean_local(m)
+    wait_for_idle(m)
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+# ==== test conflict resolution ========================================================
 
 
 def test_file_conflict_modified(m):
@@ -140,242 +331,6 @@ def test_file_conflict_created(m):
     assert_exists(m, m.test_folder_dbx, "file.txt")
     assert_conflict(m, m.test_folder_dbx, "file.txt")
     assert_child_count(m, m.test_folder_dbx, 2)
-
-    # check for fatal errors
-    assert not m.fatal_errors
-
-
-def test_parallel_deletion_when_paused(m):
-    """Tests parallel remote and local deletions of an item."""
-
-    # create a local file
-    shutil.copy(resources + "/file.txt", m.test_folder_local)
-
-    wait_for_idle(m)
-    assert_synced(m)
-
-    m.stop_sync()
-    wait_for_idle(m)
-
-    # delete local file
-    delete(m.test_folder_local + "/file.txt")
-
-    # delete remote file
-    m.client.remove(f"{m.test_folder_dbx}/file.txt")
-
-    m.start_sync()
-    wait_for_idle(m)
-
-    assert_synced(m)
-    assert_child_count(m, m.test_folder_dbx, 0)
-
-    # check for fatal errors
-    assert not m.fatal_errors
-
-
-def test_local_and_remote_creation_with_equal_content(m):
-    """Tests parallel and equal remote and local changes of an item."""
-
-    m.stop_sync()
-    wait_for_idle(m)
-
-    # create local file
-    shutil.copy(resources + "/file.txt", m.test_folder_local)
-    # create remote file with equal content
-    m.client.upload(resources + "/file.txt", f"{m.test_folder_dbx}/file.txt")
-
-    m.start_sync()
-    wait_for_idle(m)
-
-    assert_synced(m)
-    assert_exists(m, m.test_folder_dbx, "file.txt")
-    assert_child_count(m, m.test_folder_dbx, 1)
-
-    # check for fatal errors
-    assert not m.fatal_errors
-
-
-def test_local_and_remote_creation_with_different_content(m):
-    """Tests parallel and different remote and local changes of an item."""
-
-    m.stop_sync()
-    wait_for_idle(m)
-
-    # create local file
-    shutil.copy(resources + "/file.txt", m.test_folder_local)
-    # create remote file with different content
-    m.client.upload(resources + "/file1.txt", f"{m.test_folder_dbx}/file.txt")
-
-    m.start_sync()
-    wait_for_idle(m)
-
-    assert_synced(m)
-    assert_exists(m, m.test_folder_dbx, "file.txt")
-    assert_conflict(m, m.test_folder_dbx, "file.txt")
-    assert_child_count(m, m.test_folder_dbx, 2)
-
-    # check for fatal errors
-    assert not m.fatal_errors
-
-
-def test_local_deletion_during_upload(m):
-    """Tests the case where a local item is deleted during the upload."""
-
-    # we mimic a deletion during upload by queueing a fake FileCreatedEvent
-    fake_created_event = FileCreatedEvent(m.test_folder_local + "/file.txt")
-    m.manager.sync.fs_events.queue_event(fake_created_event)
-
-    wait_for_idle(m)
-
-    assert_synced(m)
-    assert_child_count(m, m.test_folder_dbx, 0)
-
-    # check for fatal errors
-    assert not m.fatal_errors
-
-
-def test_rapid_local_changes(m):
-    """Tests local changes to the content of a file with varying intervals."""
-
-    for t in (0.1, 0.1, 0.5, 0.5, 1.0, 1.0, 2.0, 2.0):
-        time.sleep(t)
-        with open(m.test_folder_local + "/file.txt", "a") as f:
-            f.write(f" {t} ")
-
-    wait_for_idle(m)
-
-    assert_synced(m)
-    assert_exists(m, m.test_folder_dbx, "file.txt")
-    assert_child_count(m, m.test_folder_dbx, 1)
-
-    # check for fatal errors
-    assert not m.fatal_errors
-
-
-def test_rapid_remote_changes(m):
-    """Tests remote changes to the content of a file with varying intervals."""
-
-    shutil.copy(resources + "/file.txt", m.test_folder_local)
-    wait_for_idle(m)
-
-    md = m.client.get_metadata(f"{m.test_folder_dbx}/file.txt")
-
-    for t in (0.1, 0.1, 0.5, 0.5, 1.0, 1.0, 2.0, 2.0):
-        time.sleep(t)
-        with open(resources + "/file.txt", "a") as f:
-            f.write(f" {t} ")
-        md = m.client.upload(
-            resources + "/file.txt",
-            f"{m.test_folder_dbx}/file.txt",
-            mode=WriteMode.update(md.rev),
-        )
-
-    # reset file content
-    with open(resources + "/file.txt", "w") as f:
-        f.write("content")
-
-    wait_for_idle(m, 5)
-
-    assert_synced(m)
-    assert_exists(m, m.test_folder_dbx, "file.txt")
-    assert_child_count(m, m.test_folder_dbx, 1)
-
-    # check for fatal errors
-    assert not m.fatal_errors
-
-
-def test_folder_tree_local(m):
-    """Tests the upload sync of a nested local folder structure."""
-
-    # test creating tree
-
-    shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
-
-    snap = DirectorySnapshot(resources + "/test_folder")
-    num_items = len([p for p in snap.paths if not m.sync.is_excluded(p)])
-
-    wait_for_idle(m, 10)
-
-    assert_synced(m)
-    assert_child_count(m, m.test_folder_dbx, num_items)
-
-    # test deleting tree
-
-    delete(m.test_folder_local + "/test_folder")
-
-    wait_for_idle(m)
-    assert_synced(m)
-    assert_child_count(m, m.test_folder_dbx, 0)
-
-    # check for fatal errors
-    assert not m.fatal_errors
-
-
-def test_local_indexing(m):
-    """Tests the upload sync of a nested local folder structure."""
-
-    m.stop_sync()
-    wait_for_idle(m)
-
-    # create local tree
-
-    shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
-
-    snap = DirectorySnapshot(resources + "/test_folder")
-    num_items = len([p for p in snap.paths if not m.sync.is_excluded(p)])
-
-    m.start_sync()
-    wait_for_idle(m, 10)
-
-    assert_synced(m)
-    assert_child_count(m, m.test_folder_dbx, num_items)
-
-    # check for fatal errors
-    assert not m.fatal_errors
-
-
-def test_local_indexing_error(m):
-    """Tests handling of PermissionError during local indexing."""
-
-    shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
-    wait_for_idle(m)
-
-    m.stop_sync()
-    wait_for_idle(m)
-
-    # change permissions of local folder
-    subfolder = m.test_folder_local + "/test_folder/sub_folder_2"
-    os.chmod(subfolder, 0o000)
-
-    m.start_sync()
-    wait_for_idle(m)
-
-    # check for fatal errors
-    assert len(m.fatal_errors) == 1
-    assert m.fatal_errors[0]["local_path"] == subfolder
-
-
-def test_folder_tree_remote(m):
-    """Tests the download sync of a nested remote folder structure."""
-
-    # test creating remote tree
-
-    for i in range(1, 11):
-        path = m.test_folder_dbx + i * "/nested_folder"
-        m.client.make_dir(path)
-
-    wait_for_idle(m)
-
-    assert_synced(m)
-    assert_child_count(m, m.test_folder_dbx, 10)
-
-    # test deleting remote tree
-
-    m.client.remove(f"{m.test_folder_dbx}/nested_folder")
-    wait_for_idle(m, 15)
-
-    assert_synced(m)
-    assert_child_count(m, m.test_folder_dbx, 0)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -686,113 +641,143 @@ def test_unicode_conflict(m):
     assert not m.fatal_errors
 
 
-def test_case_change_local(m):
-    """
-    Tests the upload sync of local rename which only changes the casing of the local
-    file name.
-    """
+# ==== test race conditions ============================================================
 
-    # start with nested folders
-    os.mkdir(m.test_folder_local + "/folder")
-    os.mkdir(m.test_folder_local + "/folder/Subfolder")
+
+def test_parallel_deletion_when_paused(m):
+    """Tests parallel remote and local deletions of an item."""
+
+    # create a local file
+    shutil.copy(resources + "/file.txt", m.test_folder_local)
+
     wait_for_idle(m)
-
     assert_synced(m)
-
-    # rename to parent folder to upper case
-    shutil.move(m.test_folder_local + "/folder", m.test_folder_local + "/FOLDER")
-    wait_for_idle(m)
-
-    assert osp.isdir(m.test_folder_local + "/FOLDER")
-    assert osp.isdir(m.test_folder_local + "/FOLDER/Subfolder")
-    assert (
-        m.client.get_metadata(f"{m.test_folder_dbx}/folder").name == "FOLDER"
-    ), "casing was not propagated to Dropbox"
-
-    assert_synced(m)
-
-    # check for fatal errors
-    assert not m.fatal_errors
-
-
-def test_case_change_remote(m):
-    """
-    Tests the download sync of remote rename which only changes the casing of the remote
-    file name.
-    """
-
-    # start with nested folders
-    os.mkdir(m.test_folder_local + "/folder")
-    os.mkdir(m.test_folder_local + "/folder/Subfolder")
-    wait_for_idle(m)
-
-    assert_synced(m)
-
-    # rename remote folder
-    m.client.move(
-        f"{m.test_folder_dbx}/folder", f"{m.test_folder_dbx}/FOLDER", autorename=True
-    )
-
-    wait_for_idle(m)
-
-    assert osp.isdir(m.test_folder_local + "/FOLDER")
-    assert osp.isdir(m.test_folder_local + "/FOLDER/Subfolder")
-    assert (
-        m.client.get_metadata(f"{m.test_folder_dbx}/folder").name == "FOLDER"
-    ), "casing was not propagated to local folder"
-    assert_synced(m)
-
-    # check for fatal errors
-    assert not m.fatal_errors
-
-
-def test_mignore(m):
-    """Tests the exclusion of local items by an mignore file."""
-
-    # 1) test changes have no effect when sync is running
-
-    os.mkdir(m.test_folder_local + "/bar")
-    os.mkdir(m.test_folder_local + "/folder")
-    wait_for_idle(m)
-
-    with open(m.sync.mignore_path, "w") as f:
-        f.write("foo/\n")  # ignore folder "foo"
-        f.write("bar\n")  # ignore file or folder "bar"
-        f.write("build\n")  # ignore file or folder "build"
-
-    wait_for_idle(m)
-
-    assert_synced(m)
-    assert_exists(m, m.test_folder_dbx, "bar")
-
-    # 2) test that items are removed after restart
 
     m.stop_sync()
     wait_for_idle(m)
+
+    # delete local file
+    delete(m.test_folder_local + "/file.txt")
+
+    # delete remote file
+    m.client.remove(f"{m.test_folder_dbx}/file.txt")
+
     m.start_sync()
-
-    os.mkdir(m.test_folder_local + "/foo")
     wait_for_idle(m)
 
-    assert not m.client.get_metadata(f"{m.test_folder_dbx}/foo")
-    assert not m.client.get_metadata(f"{m.test_folder_dbx}/bar")
+    assert_synced(m)
+    assert_child_count(m, m.test_folder_dbx, 0)
 
-    # 3) test that renaming an item excludes it
+    # check for fatal errors
+    assert not m.fatal_errors
 
-    move(m.test_folder_local + "/folder", m.test_folder_local + "/build")
+
+def test_local_and_remote_creation_with_equal_content(m):
+    """Tests parallel and equal remote and local changes of an item."""
+
+    m.stop_sync()
     wait_for_idle(m)
 
-    assert not m.client.get_metadata(f"{m.test_folder_dbx}/build")
+    # create local file
+    shutil.copy(resources + "/file.txt", m.test_folder_local)
+    # create remote file with equal content
+    m.client.upload(resources + "/file.txt", f"{m.test_folder_dbx}/file.txt")
 
-    # 4) test that renaming an item includes it
-
-    move(m.test_folder_local + "/build", m.test_folder_local + "/folder")
+    m.start_sync()
     wait_for_idle(m)
 
-    assert_exists(m, m.test_folder_dbx, "folder")
+    assert_synced(m)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 1)
 
-    clean_local(m)
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+def test_local_and_remote_creation_with_different_content(m):
+    """Tests parallel and different remote and local changes of an item."""
+
+    m.stop_sync()
     wait_for_idle(m)
+
+    # create local file
+    shutil.copy(resources + "/file.txt", m.test_folder_local)
+    # create remote file with different content
+    m.client.upload(resources + "/file1.txt", f"{m.test_folder_dbx}/file.txt")
+
+    m.start_sync()
+    wait_for_idle(m)
+
+    assert_synced(m)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_conflict(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 2)
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+def test_local_deletion_during_upload(m):
+    """Tests the case where a local item is deleted during the upload."""
+
+    # we mimic a deletion during upload by queueing a fake FileCreatedEvent
+    fake_created_event = FileCreatedEvent(m.test_folder_local + "/file.txt")
+    m.manager.sync.fs_events.queue_event(fake_created_event)
+
+    wait_for_idle(m)
+
+    assert_synced(m)
+    assert_child_count(m, m.test_folder_dbx, 0)
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+def test_rapid_local_changes(m):
+    """Tests local changes to the content of a file with varying intervals."""
+
+    for t in (0.1, 0.1, 0.5, 0.5, 1.0, 1.0, 2.0, 2.0):
+        time.sleep(t)
+        with open(m.test_folder_local + "/file.txt", "a") as f:
+            f.write(f" {t} ")
+
+    wait_for_idle(m)
+
+    assert_synced(m)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 1)
+
+    # check for fatal errors
+    assert not m.fatal_errors
+
+
+def test_rapid_remote_changes(m):
+    """Tests remote changes to the content of a file with varying intervals."""
+
+    shutil.copy(resources + "/file.txt", m.test_folder_local)
+    wait_for_idle(m)
+
+    md = m.client.get_metadata(f"{m.test_folder_dbx}/file.txt")
+
+    for t in (0.1, 0.1, 0.5, 0.5, 1.0, 1.0, 2.0, 2.0):
+        time.sleep(t)
+        with open(resources + "/file.txt", "a") as f:
+            f.write(f" {t} ")
+        md = m.client.upload(
+            resources + "/file.txt",
+            f"{m.test_folder_dbx}/file.txt",
+            mode=WriteMode.update(md.rev),
+        )
+
+    # reset file content
+    with open(resources + "/file.txt", "w") as f:
+        f.write("content")
+
+    wait_for_idle(m, 5)
+
+    assert_synced(m)
+    assert_exists(m, m.test_folder_dbx, "file.txt")
+    assert_child_count(m, m.test_folder_dbx, 1)
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -826,6 +811,30 @@ def test_local_path_error(m):
 
     # check for fatal errors
     assert not m.fatal_errors
+
+
+# ==== test error handling =============================================================
+
+
+def test_local_indexing_error(m):
+    """Tests handling of PermissionError during local indexing."""
+
+    shutil.copytree(resources + "/test_folder", m.test_folder_local + "/test_folder")
+    wait_for_idle(m)
+
+    m.stop_sync()
+    wait_for_idle(m)
+
+    # change permissions of local folder
+    subfolder = m.test_folder_local + "/test_folder/sub_folder_2"
+    os.chmod(subfolder, 0o000)
+
+    m.start_sync()
+    wait_for_idle(m)
+
+    # check for fatal errors
+    assert len(m.fatal_errors) == 1
+    assert m.fatal_errors[0]["local_path"] == subfolder
 
 
 def test_local_permission_error(m):
@@ -1095,6 +1104,9 @@ def test_unknown_path_encoding(m, capsys):
     assert normalize(test_path_dbx) not in m.sync.upload_errors
 
 
+# ==== performance tests ===============================================================
+
+
 def test_sync_event_conversion_performance(m):
     """Tests the performance of converting remote file changes to SyncEvents."""
 
@@ -1121,6 +1133,9 @@ def test_sync_event_conversion_performance(m):
     duration = timeit.timeit(stmt=generate_sync_events, setup=setup, number=n_loops)
 
     assert duration < 4  # expected ~ 1.8 sec
+
+
+# ==== test recovery from inconsistent state ===========================================
 
 
 def test_invalid_pending_download(m):
