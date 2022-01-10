@@ -2315,12 +2315,12 @@ class SyncEngine:
             return None
 
         dbx_path_from = cast(str, event.dbx_path_from)
-        md_from_old = client.get_metadata(dbx_path_from)
 
-        # If not on Dropbox, e.g., because its old name was invalid,
-        # create it instead of moving it.
-        if not md_from_old:
-
+        try:
+            md_to_new = client.move(dbx_path_from, event.dbx_path, autorename=True)
+        except NotFoundError:
+            # If not on Dropbox, e.g., because its old name was invalid,
+            # create it instead of moving it.
             self._logger.debug(
                 "Could not move '%s' -> '%s' on Dropbox, source does not exists. "
                 "Creating '%s' instead",
@@ -2332,12 +2332,9 @@ class SyncEngine:
             self.rescan(event.local_path)
             return None
 
-        md_to_new = client.move(dbx_path_from, event.dbx_path, autorename=True)
-
         self.remove_node_from_index(event.dbx_path_from_lower)
 
         if md_to_new.name != osp.basename(event.local_path):
-            # TODO: test this
             # Conflicting copy created during upload, mirror remote changes locally.
             local_path_cc = self.to_local_path(md_to_new.path_display, client)
             event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
