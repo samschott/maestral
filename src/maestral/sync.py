@@ -2316,6 +2316,22 @@ class SyncEngine:
 
         dbx_path_from = cast(str, event.dbx_path_from)
 
+        # If a file at the destination should be replaced, remove it first, but only if
+        # its rev matches the rev of the local overwritten file.
+        # The Dropbox API does not allow overwriting a destination file during a move.
+        local_entry = self.get_index_entry(event.dbx_path_lower)
+
+        if local_entry and local_entry.is_file:
+            try:
+                client.remove(local_entry.dbx_path_lower, parent_rev=local_entry.rev)
+            except (NotFoundError, FileConflictError):
+                pass
+            else:
+                self._logger.debug(
+                    'Replacing existing file "%s" by move', local_entry.dbx_path_lower
+                )
+
+        # Perform the move.
         try:
             md_to_new = client.move(dbx_path_from, event.dbx_path, autorename=True)
         except NotFoundError:
