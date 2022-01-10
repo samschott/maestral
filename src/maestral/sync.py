@@ -2593,6 +2593,18 @@ class SyncEngine:
 
         client = client or self.client
 
+        # Return early on invalid encoding. We don't raise an error here because the
+        # file cannot exist on the server.
+
+        try:
+            validate_encoding(event.local_path)
+        except PathError:
+            self._logger.debug(
+                'Could not delete "%s": the item does not exist on Dropbox',
+                event.dbx_path,
+            )
+            return None
+
         # We intercept any attempts to delete the home folder here instead of waiting
         # for an error from the Dropbox API. This allows us to provide a better error
         # message.
