@@ -107,6 +107,7 @@ from .utils.path import (
     delete,
     is_child,
     is_equal_or_child,
+    is_fs_case_sensitive,
     content_hash,
     walk,
     normalize,
@@ -544,6 +545,7 @@ class SyncEngine:
         """
 
         self._dropbox_path = self._conf.get("sync", "path")
+        self._is_fs_case_sensitive = is_fs_case_sensitive(self._dropbox_path)
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
 
@@ -573,9 +575,15 @@ class SyncEngine:
 
         with self.sync_lock:
             self._dropbox_path = path
+            self._is_fs_case_sensitive = is_fs_case_sensitive(path)
             self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
             self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
             self._conf.set("sync", "path", path)
+
+    @property
+    def is_fs_case_sensitive(self) -> bool:
+        """Whether the local Dropbox directory lies on a case-sensitive file system."""
+        return self._is_fs_case_sensitive
 
     @property
     def database_path(self) -> str:
