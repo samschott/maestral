@@ -76,6 +76,10 @@ def is_fs_case_sensitive(path: str) -> bool:
     :param path: Path to check.
     :returns: Whether ``path`` lies on a partition with a case-sensitive file system.
     """
+
+    if path == osp.pathsep:
+        raise ValueError(f"Cannot check '{osp.pathsep}'")
+
     if path.islower():
         check_path = path.upper()
     else:
