@@ -546,7 +546,6 @@ class SyncEngine:
         """
 
         self._dropbox_path = self._conf.get("sync", "path")
-        self._is_fs_case_sensitive = is_fs_case_sensitive(self._dropbox_path)
         self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
 
@@ -554,7 +553,17 @@ class SyncEngine:
         self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
         self._local_cursor = self._state.get("sync", "lastsync")
 
+        self._is_fs_case_sensitive = self._check_fs_case_sensitive()
+
         self.load_mignore_file()
+
+    def _check_fs_case_sensitive(self) -> bool:
+
+        try:
+            return is_fs_case_sensitive(self._dropbox_path)
+        except (FileNotFoundError, NotADirectoryError):
+            # Fall back to the assumption of a case-sensitive file system.
+            return True
 
     # ==== Config access ===============================================================
 
@@ -576,10 +585,11 @@ class SyncEngine:
 
         with self.sync_lock:
             self._dropbox_path = path
-            self._is_fs_case_sensitive = is_fs_case_sensitive(path)
             self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
             self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
             self._conf.set("sync", "path", path)
+
+            self._is_fs_case_sensitive = self._check_fs_case_sensitive()
 
     @property
     def is_fs_case_sensitive(self) -> bool:
