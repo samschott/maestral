@@ -1401,10 +1401,6 @@ class SyncEngine:
         :returns: Whether the path is excluded from syncing.
         """
 
-        # Is root folder?
-        if path in ("/", ""):
-            return True
-
         dirname, basename = osp.split(path)
 
         # Is in excluded files?
