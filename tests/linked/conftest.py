@@ -171,7 +171,13 @@ def assert_synced(m: Maestral):
     # with the same content hash
     for e in listing.entries:
         dbx_path = e.path_display
-        local_path = to_existing_unnormalized_path(str(dbx_path), root=m.dropbox_path)
+
+        try:
+            local_path = to_existing_unnormalized_path(
+                str(dbx_path), root=m.dropbox_path
+            )
+        except (FileNotFoundError, NotADirectoryError):
+            raise AssertionError(f"'{dbx_path}' not found locally")
 
         remote_hash = e.content_hash if isinstance(e, FileMetadata) else "folder"
         assert (
