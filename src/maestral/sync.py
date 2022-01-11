@@ -1415,8 +1415,7 @@ class SyncEngine:
         self.upload_errors.clear()
         self.download_errors.clear()
 
-    @staticmethod
-    def is_excluded(path: str) -> bool:
+    def is_excluded(self, path: str) -> bool:
         """
         Checks if a file is excluded from sync. Certain file names are always excluded
         from syncing, following the Dropbox support article:
@@ -1439,7 +1438,14 @@ class SyncEngine:
             return True
 
         # Is in excluded dirs?
-        root_dir = next(iter(part for part in dirname.split("/", 2) if part), "")
+
+        try:
+            dbx_dirname = self.to_dbx_path(dirname)
+        except ValueError:
+            # Path is already relative to Dropbox.
+            dbx_dirname = dirname
+
+        root_dir = next(iter(part for part in dbx_dirname.split("/", 2) if part), "")
 
         if root_dir in EXCLUDED_DIR_NAMES:
             return True
