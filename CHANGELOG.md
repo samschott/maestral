@@ -17,6 +17,8 @@
   app bundle.
 * Fixes an issue where moving a local file to overwrite another file, for example with mv
   in the terminal, could generate an incorrect conflicting copy during upload sync.
+* Properly handle when the local Dropbox directory is renamed by changing the casing only
+  on case-insensitive file systems such as APFS on macOS.
 
 ## v1.5.2
 
