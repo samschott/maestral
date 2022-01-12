@@ -11,7 +11,7 @@ from functools import wraps
 from queue import Empty, Queue
 from threading import Event, RLock, Thread
 from tempfile import TemporaryDirectory
-from typing import Iterator, Optional, cast, Dict, List, Type, TypeVar, Callable, Any
+from typing import Iterator, Optional, cast, Dict, List, TypeVar, Callable, Any
 
 # external imports
 from dropbox.common import TeamRootInfo, UserRootInfo
@@ -42,7 +42,7 @@ from .errors import (
 from .sync import SyncEngine
 from .fsevents import Observer
 from .logging import scoped_logger
-from .utils import exc_info_tuple, removeprefix
+from .utils import removeprefix
 from .utils.integration import check_connection, get_inotify_limits
 from .utils.path import move, delete, is_equal_or_child, is_child, normalize
 
@@ -213,7 +213,10 @@ class SyncManager:
                 name="maestral-folder-download",
             )
 
-        if self._conf.get("sync", "upload"):
+        enable_upload = self._conf.get("sync", "upload")
+        enable_download = self._conf.get("sync", "download")
+
+        if enable_upload:
 
             self.upload_thread = Thread(
                 target=self.upload_worker,
@@ -227,16 +230,23 @@ class SyncManager:
             )
 
             if not self.local_observer_thread:
-                self.local_observer_thread = self._create_observer()
+                try:
+                    self.local_observer_thread = self._create_observer()
+                except MaestralApiError as exc:
+                    self._logger.error(exc.title, exc_info=True)
+                    self.sync.desktop_notifier.notify(
+                        exc.title, exc.message, level=notify.ERROR
+                    )
+                    return
 
         self.running.set()
         self.autostart.set()
 
-        if self._conf.get("sync", "upload"):
+        if enable_upload:
             self.sync.fs_events.enable()
             self.upload_thread.start()
 
-        if self._conf.get("sync", "download"):
+        if enable_download:
             self.download_thread.start()
             self.download_thread_added_folder.start()
 
@@ -247,7 +257,7 @@ class SyncManager:
     def _create_observer(self) -> Observer:
 
         local_observer_thread = Observer(timeout=40)
-        local_observer_thread.setName("maestral-fsobserver")
+        local_observer_thread.name = "maestral-fsobserver"
         local_observer_thread.schedule(
             self.sync.fs_events, self.sync.dropbox_path, recursive=True
         )
@@ -260,10 +270,7 @@ class SyncManager:
             local_observer_thread.start()
         except OSError as exc:
 
-            err_cls: Type[MaestralApiError]
-
             if exc.errno in (errno.ENOSPC, errno.EMFILE):
-                title = "Inotify limit reached"
 
                 try:
                     max_user_watches, max_user_instances, _ = get_inotify_limits()
@@ -275,38 +282,42 @@ class SyncManager:
                 if exc.errno == errno.ENOSPC:
                     n_new = max(2 ** 19, 2 * max_user_watches)
 
-                    msg = (
+                    raise InotifyError(
+                        "Inotify limit reached",
                         "Changes to your Dropbox folder cannot be monitored because it "
                         "contains too many items. Please increase "
                         f"fs.inotify.max_user_watches to {n_new}. See {url} for more "
-                        "information."
+                        "information.",
                     )
 
                 else:
                     n_new = max(2 ** 10, 2 * max_user_instances)
 
-                    msg = (
+                    raise InotifyError(
+                        "Inotify limit reached",
                         "Changes to your Dropbox folder cannot be monitored because "
                         "there are too many activity inotify instances. Please "
                         f"increase fs.inotify.max_user_instances to {n_new}. See "
-                        f"{url} for more information."
+                        f"{url} for more information.",
                     )
 
-                err_cls = InotifyError
-
             elif exc.errno in (errno.EPERM, errno.EACCES):
-                title = "Insufficient permissions to monitor local changes"
-                msg = "Please check the permissions for your local Dropbox folder"
-                err_cls = InotifyError
+                raise InotifyError(
+                    "Insufficient permissions to monitor local changes",
+                    "Please check the permissions for your local Dropbox folder",
+                )
 
+            elif exc.errno in (errno.ENOENT, errno.ENOTDIR):
+                raise NoDropboxDirError(
+                    "Dropbox folder missing",
+                    "Please move the Dropbox folder back to its original location "
+                    "or restart Maestral to set up a new folder.",
+                )
             else:
-                title = "Could not start watch of local directory"
-                msg = exc.strerror
-                err_cls = MaestralApiError
-
-            new_error = err_cls(title, msg)
-            self._logger.error(title, exc_info=exc_info_tuple(new_error))
-            self.sync.desktop_notifier.notify(title, msg, level=notify.ERROR)
+                raise MaestralApiError(
+                    "Could not start watch of local directory",
+                    exc.strerror,
+                )
 
         return local_observer_thread
 
