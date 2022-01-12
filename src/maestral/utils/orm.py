@@ -444,6 +444,27 @@ class Manager:
         except KeyError:
             pass
 
+    def delete_primary_key(self, primary_key: ColumnValueType) -> None:
+        """
+        Delete a model object / row from database by primary key.
+
+        :param primary_key: Primary key for row.
+        """
+
+        pk_sql = self.pk_column.py_to_sql(primary_key)
+        sql = f"DELETE from {self.table_name} WHERE {self.pk_column.name} = ?"
+
+        try:
+            self.db.execute(sql, pk_sql)
+        except UnicodeEncodeError:
+            # Item was not in the database in the first place.
+            pass
+
+        try:
+            del self._cache[pk_sql]
+        except KeyError:
+            pass
+
     def get(self, primary_key: ColumnValueType) -> Optional["Model"]:
         """
         Gets a model object from database by its primary key. This will return a cached
