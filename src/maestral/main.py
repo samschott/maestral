@@ -976,19 +976,19 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
-        dbx_path = dbx_path.lower().rstrip("/")
+        dbx_path_lower = normalize(dbx_path.rstrip("/"))
 
         # ---- input validation --------------------------------------------------------
 
-        md = self.client.get_metadata(dbx_path)
+        md = self.client.get_metadata(dbx_path_lower)
 
         if not md:
             raise NotFoundError(
-                "Cannot exclude item", f'"{dbx_path}" does not exist on Dropbox'
+                "Cannot exclude item", f'"{dbx_path_lower}" does not exist on Dropbox'
             )
 
-        if self.sync.is_excluded_by_user(dbx_path):
-            self._logger.info("%s was already excluded", dbx_path)
+        if self.sync.is_excluded_by_user(dbx_path_lower):
+            self._logger.info("%s was already excluded", dbx_path_lower)
             self._logger.info(IDLE)
             return
 
@@ -999,15 +999,15 @@ class Maestral:
                 # ---- update excluded items list --------------------------------------
 
                 excluded_items = self.sync.excluded_items
-                excluded_items.append(dbx_path)
+                excluded_items.append(dbx_path_lower)
 
                 self.sync.excluded_items = excluded_items
 
                 # ---- remove item from local Dropbox ----------------------------------
 
-                self._remove_after_excluded(dbx_path)
+                self._remove_after_excluded(dbx_path_lower)
 
-                self._logger.info("Excluded %s", dbx_path)
+                self._logger.info("Excluded %s", dbx_path_lower)
                 self._logger.info(IDLE)
             finally:
                 self.sync.sync_lock.release()
@@ -1076,20 +1076,20 @@ class Maestral:
         self._check_linked()
         self._check_dropbox_dir()
 
-        dbx_path = dbx_path.lower().rstrip("/")
+        dbx_path_lower = normalize(dbx_path.rstrip("/"))
 
         # ---- input validation --------------------------------------------------------
 
-        md = self.client.get_metadata(dbx_path)
+        md = self.client.get_metadata(dbx_path_lower)
 
         if not md:
             raise NotFoundError(
                 "Cannot include item",
-                f"'{dbx_path}' does not exist on Dropbox",
+                f"'{dbx_path_lower}' does not exist on Dropbox",
             )
 
-        if not self.sync.is_excluded_by_user(dbx_path):
-            self._logger.info("'%s' is already included, nothing to do", dbx_path)
+        if not self.sync.is_excluded_by_user(dbx_path_lower):
+            self._logger.info("'%s' is already included, nothing to do", dbx_path_lower)
             self._logger.info(IDLE)
             return
 
@@ -1099,7 +1099,7 @@ class Maestral:
 
         # Remove dbx_path from list.
         try:
-            excluded_items.remove(dbx_path)
+            excluded_items.remove(dbx_path_lower)
         except KeyError:
             pass
 
@@ -1108,19 +1108,19 @@ class Maestral:
         for folder in excluded_items.copy():
 
             # Include all parents which are required to download dbx_path.
-            if is_child(dbx_path, folder):
+            if is_child(dbx_path_lower, folder):
                 # Remove parent folders from excluded list.
                 excluded_items.remove(folder)
                 # Re-add their children (except parents of dbx_path).
                 for res in self.client.list_folder_iterator(folder):
                     for entry in res.entries:
-                        if not is_equal_or_child(dbx_path, entry.path_lower):
+                        if not is_equal_or_child(dbx_path_lower, entry.path_lower):
                             excluded_items.add(entry.path_lower)
 
                 excluded_parent = folder
 
             # Include all children of dbx_path.
-            if is_child(folder, dbx_path):
+            if is_child(folder, dbx_path_lower):
                 excluded_items.remove(folder)
 
         if self.sync.sync_lock.acquire(blocking=False):
@@ -1132,11 +1132,13 @@ class Maestral:
                 # ---- download item from Dropbox --------------------------------------
 
                 if excluded_parent:
-                    self._logger.info("Included '%s' and parent directories", dbx_path)
+                    self._logger.info(
+                        "Included '%s' and parent directories", dbx_path_lower
+                    )
                     self.manager.added_item_queue.put(excluded_parent)
                 else:
-                    self._logger.info("Included '%s'", dbx_path)
-                    self.manager.added_item_queue.put(dbx_path)
+                    self._logger.info("Included '%s'", dbx_path_lower)
+                    self.manager.added_item_queue.put(dbx_path_lower)
             finally:
                 self.sync.sync_lock.release()
 
@@ -1155,11 +1157,11 @@ class Maestral:
 
         self._check_linked()
 
-        dbx_path = dbx_path.lower().rstrip("/")
+        dbx_path_lower = normalize(dbx_path.rstrip("/"))
 
-        if any(is_equal_or_child(dbx_path, f) for f in self.sync.excluded_items):
+        if any(is_equal_or_child(dbx_path_lower, f) for f in self.sync.excluded_items):
             return "excluded"
-        elif any(is_child(f, dbx_path) for f in self.sync.excluded_items):
+        elif any(is_child(f, dbx_path_lower) for f in self.sync.excluded_items):
             return "partially excluded"
         else:
             return "included"
