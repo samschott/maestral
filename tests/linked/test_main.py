@@ -450,14 +450,8 @@ def test_inotify_error(m):
         wait_for_idle(m)
         m.start_sync()
 
-        assert len(m.fatal_errors) > 0
-
-        last_error = m.fatal_errors[-1]
-
-        assert last_error["type"] == "InotifyError"
-        assert not m.manager.local_observer_thread.is_alive()
-        assert m.manager.upload_thread.is_alive()
-        assert m.manager.download_thread.is_alive()
+        assert len(m.fatal_errors) == 1
+        assert m.fatal_errors[0]["type"] == "InotifyError"
 
     finally:
         subprocess.check_call(

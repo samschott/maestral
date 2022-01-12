@@ -107,12 +107,14 @@ from .utils.path import (
     delete,
     is_child,
     is_equal_or_child,
+    is_fs_case_sensitive,
     content_hash,
     walk,
     normalize,
     normalize_case,
     normalize_unicode,
     equivalent_path_candidates,
+    to_existing_unnormalized_path,
 )
 from .utils.orm import Database, Manager
 from .utils.appdirs import get_data_path
@@ -551,7 +553,17 @@ class SyncEngine:
         self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
         self._local_cursor = self._state.get("sync", "lastsync")
 
+        self._is_fs_case_sensitive = self._check_fs_case_sensitive()
+
         self.load_mignore_file()
+
+    def _check_fs_case_sensitive(self) -> bool:
+
+        try:
+            return is_fs_case_sensitive(self._dropbox_path)
+        except (FileNotFoundError, NotADirectoryError):
+            # Fall back to the assumption of a case-sensitive file system.
+            return True
 
     # ==== Config access ===============================================================
 
@@ -576,6 +588,13 @@ class SyncEngine:
             self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
             self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
             self._conf.set("sync", "path", path)
+
+            self._is_fs_case_sensitive = self._check_fs_case_sensitive()
+
+    @property
+    def is_fs_case_sensitive(self) -> bool:
+        """Whether the local Dropbox directory lies on a case-sensitive file system."""
+        return self._is_fs_case_sensitive
 
     @property
     def database_path(self) -> str:
@@ -1078,13 +1097,33 @@ class SyncEngine:
         :raises NoDropboxDirError: When local Dropbox directory does not exist.
         """
 
+        exception = NoDropboxDirError(
+            "Dropbox folder missing",
+            "Please move the Dropbox folder back to its original location "
+            "or restart Maestral to set up a new folder.",
+        )
+
         if not osp.isdir(self.dropbox_path):
-            title = "Dropbox folder missing"
-            msg = (
-                "Please move the Dropbox folder back to its original location "
-                "or restart Maestral to set up a new folder."
-            )
-            raise NoDropboxDirError(title, msg)
+            raise exception
+
+        # If the file system is not case-sensitive but preserving, a path which was
+        # renamed with a case change only will still exist at the old location. We
+        # therefore explicitly check for case changes here.
+
+        if not self.is_fs_case_sensitive:
+
+            try:
+                cased_path = to_existing_unnormalized_path(self.dropbox_path)
+            except (FileNotFoundError, NotADirectoryError):
+                raise exception
+
+            if cased_path != self.dropbox_path:
+                title = "Dropbox folder renamed"
+                msg = (
+                    "Please move the Dropbox folder back to its original location "
+                    "or restart Maestral to set up a new folder."
+                )
+                raise NoDropboxDirError(title, msg)
 
     def ensure_cache_dir_present(self) -> None:
         """
@@ -1376,8 +1415,7 @@ class SyncEngine:
         self.upload_errors.clear()
         self.download_errors.clear()
 
-    @staticmethod
-    def is_excluded(path: str) -> bool:
+    def is_excluded(self, path: str) -> bool:
         """
         Checks if a file is excluded from sync. Certain file names are always excluded
         from syncing, following the Dropbox support article:
@@ -1393,10 +1431,6 @@ class SyncEngine:
         :returns: Whether the path is excluded from syncing.
         """
 
-        # Is root folder?
-        if path in ("/", ""):
-            return True
-
         dirname, basename = osp.split(path)
 
         # Is in excluded files?
@@ -1404,7 +1438,14 @@ class SyncEngine:
             return True
 
         # Is in excluded dirs?
-        root_dir = next(iter(part for part in dirname.split("/", 2) if part), "")
+
+        try:
+            dbx_dirname = self.to_dbx_path(dirname)
+        except ValueError:
+            # Path is already relative to Dropbox.
+            dbx_dirname = dirname
+
+        root_dir = next(iter(part for part in dbx_dirname.split("/", 2) if part), "")
 
         if root_dir in EXCLUDED_DIR_NAMES:
             return True

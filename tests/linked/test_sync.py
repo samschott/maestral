@@ -28,6 +28,8 @@ if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.en
     pytest.skip("Requires auth token", allow_module_level=True)
 
 
+HOME = get_home_dir()
+
 # ==== test basic sync =================================================================
 
 
@@ -617,7 +619,7 @@ def test_selective_sync_conflict(m):
 
 
 @pytest.mark.skipif(
-    not is_fs_case_sensitive("/home"), reason="file system is not case sensitive"
+    not is_fs_case_sensitive(HOME), reason="file system is not case sensitive"
 )
 def test_case_conflict(m):
     """
@@ -1013,7 +1015,7 @@ def test_unix_permissions(m):
     wait_for_idle(m)
 
     # create a local file and compare its permissions to the new download
-    reference_file = osp.join(get_home_dir(), "reference")
+    reference_file = osp.join(HOME, "reference")
 
     try:
         open(reference_file, "ab").close()
@@ -1130,6 +1132,44 @@ def test_unknown_path_encoding(m, capsys):
     assert len(m.fatal_errors) == 0
     assert len(m.sync_errors) == 0
     assert normalize(test_path_dbx) not in m.sync.upload_errors
+
+
+def test_dropbox_dir_delete_during_sync(m):
+
+    delete(m.dropbox_path)
+
+    wait_for_idle(m)
+
+    assert len(m.fatal_errors) == 1
+    assert m.fatal_errors[-1]["type"] == "NoDropboxDirError"
+
+
+@pytest.mark.skipif(is_fs_case_sensitive(HOME), reason="file system is case sensitive")
+def test_dropbox_dir_rename_during_sync(m):
+
+    dirname, basename = osp.split(m.dropbox_path)
+
+    # Move the directory to a new location with a different casing.
+    shutil.move(m.dropbox_path, osp.join(dirname, basename.upper()))
+
+    wait_for_idle(m)
+
+    assert len(m.fatal_errors) == 1
+    assert m.fatal_errors[-1]["type"] == "NoDropboxDirError"
+
+
+def test_dropbox_dir_delete_during_pause(m):
+
+    m.stop_sync()
+
+    delete(m.dropbox_path)
+
+    m.start_sync()
+
+    wait_for_idle(m)
+
+    assert len(m.fatal_errors) == 1
+    assert m.fatal_errors[-1]["type"] == "NoDropboxDirError"
 
 
 # ==== performance tests ===============================================================
