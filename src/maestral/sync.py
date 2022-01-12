@@ -887,31 +887,17 @@ class SyncEngine:
 
         with self._database_access():
 
-            cache_entry = self._db_manager_hash_cache.get(inode)
-            cache_entry = cast(Optional[HashCacheEntry], cache_entry)
-
             if hash_str:
+                cache_entry = HashCacheEntry(
+                    inode=inode,
+                    local_path=local_path,
+                    hash_str=hash_str,
+                    mtime=mtime,
+                )
+                self._db_manager_hash_cache.update(cache_entry)
 
-                if cache_entry:
-                    cache_entry.local_path = local_path
-                    cache_entry.hash_str = hash_str
-                    cache_entry.mtime = mtime
-
-                    self._db_manager_hash_cache.update(cache_entry)
-
-                else:
-                    cache_entry = HashCacheEntry(
-                        inode=inode,
-                        local_path=local_path,
-                        hash_str=hash_str,
-                        mtime=mtime,
-                    )
-                    self._db_manager_hash_cache.save(cache_entry)
             else:
-                if cache_entry:
-                    self._db_manager_hash_cache.delete(cache_entry)
-                else:
-                    pass
+                self._db_manager_hash_cache.delete_primary_key(inode)
 
     def clear_hash_cache(self) -> None:
         """Clears the sync history."""
@@ -945,32 +931,18 @@ class SyncEngine:
 
             if event.change_type is not ChangeType.Removed:
 
-                entry = self.get_index_entry(dbx_path_lower)
+                # Create or update entry.
+                entry = IndexEntry(
+                    dbx_path_cased=event.dbx_path,
+                    dbx_path_lower=dbx_path_lower,
+                    dbx_id=event.dbx_id,
+                    item_type=event.item_type,
+                    last_sync=self._get_ctime(event.local_path),
+                    rev=event.rev,
+                    content_hash=event.content_hash,
+                )
 
-                if entry:
-                    # Update existing entry.
-                    entry.dbx_id = event.dbx_id
-                    entry.dbx_path_cased = event.dbx_path
-                    entry.item_type = event.item_type
-                    entry.last_sync = self._get_ctime(event.local_path)
-                    entry.rev = event.rev
-                    entry.content_hash = event.content_hash
-
-                    self._db_manager_index.update(entry)
-
-                else:
-                    # Create new entry.
-                    entry = IndexEntry(
-                        dbx_path_cased=event.dbx_path,
-                        dbx_path_lower=dbx_path_lower,
-                        dbx_id=event.dbx_id,
-                        item_type=event.item_type,
-                        last_sync=self._get_ctime(event.local_path),
-                        rev=event.rev,
-                        content_hash=event.content_hash,
-                    )
-
-                    self._db_manager_index.save(entry)
+                self._db_manager_index.update(entry)
 
     def update_index_from_dbx_metadata(
         self, md: Metadata, client: Optional[DropboxClient] = None
@@ -1005,30 +977,17 @@ class SyncEngine:
                 dbx_path_cased = self.correct_case(md.path_display, client)
 
                 # Update existing entry or create new entry.
-                entry = self.get_index_entry(md.path_lower)
+                entry = IndexEntry(
+                    dbx_path_cased=dbx_path_cased,
+                    dbx_path_lower=md.path_lower,
+                    dbx_id=md.id,
+                    item_type=item_type,
+                    last_sync=None,
+                    rev=rev,
+                    content_hash=hash_str,
+                )
 
-                if entry:
-                    entry.dbx_id = md.id
-                    entry.dbx_path_cased = dbx_path_cased
-                    entry.item_type = item_type
-                    entry.last_sync = None
-                    entry.rev = rev
-                    entry.content_hash = hash_str
-
-                    self._db_manager_index.update(entry)
-
-                else:
-                    entry = IndexEntry(
-                        dbx_path_cased=dbx_path_cased,
-                        dbx_path_lower=md.path_lower,
-                        dbx_id=md.id,
-                        item_type=item_type,
-                        last_sync=None,
-                        rev=rev,
-                        content_hash=hash_str,
-                    )
-
-                    self._db_manager_index.save(entry)
+                self._db_manager_index.save(entry)
 
     def remove_node_from_index(self, dbx_path_lower: str) -> None:
         """
