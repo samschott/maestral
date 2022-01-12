@@ -481,9 +481,12 @@ class Manager:
         :param primary_key: The primary key.
         :returns: Whether the corresponding row exists in the table.
         """
+
+        pk_sql = self.pk_column.py_to_sql(primary_key)
         sql = f"SELECT {self.pk_column.name} FROM {self.table_name} WHERE {self.pk_column.name} = ?"
+
         try:
-            result = self.db.execute(sql, primary_key)
+            result = self.db.execute(sql, pk_sql)
         except UnicodeEncodeError:
             # Item cannot be in the table.
             return False
