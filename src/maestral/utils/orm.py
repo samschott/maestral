@@ -426,7 +426,7 @@ class Manager:
 
     def delete(self, obj: "Model") -> None:
         """
-        Delete a model object / row from database
+        Delete a model object / row from database.
 
         :param obj: Object / row to delete.
         """
@@ -526,8 +526,7 @@ class Manager:
         pk_sql = self.get_primary_key(obj)
 
         if self.has(pk_sql):
-            msg = f"Object with primary key {pk_sql} is already registered"
-            raise ValueError(msg)
+            raise ValueError(f"Object with primary key {pk_sql} is already registered")
 
         py_values = column_value_dict(obj).values()
         sql_values = (col.py_to_sql(val) for col, val in zip(self._columns, py_values))
