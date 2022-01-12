@@ -136,7 +136,7 @@ class Maestral:
         self.sync = self.manager.sync
 
         # Schedule background tasks.
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_event_loop_policy().get_event_loop()
         self._tasks: Set[asyncio.Task] = set()
         self._pool = ThreadPoolExecutor(
             thread_name_prefix="maestral-thread-pool",
