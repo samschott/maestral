@@ -1015,34 +1015,32 @@ class Maestral:
         else:
             raise BusyError("Cannot exclude item", "Please try again when idle.")
 
-    def _remove_after_excluded(self, dbx_path: str) -> None:
+    def _remove_after_excluded(self, dbx_path_lower: str) -> None:
 
         # Perform housekeeping.
-        self.sync.remove_node_from_index(dbx_path)
+        self.sync.remove_node_from_index(dbx_path_lower)
 
         for error in self.sync.sync_errors.copy():
 
             if not error.dbx_path:
                 continue
 
-            if is_equal_or_child(normalize(error.dbx_path), dbx_path):
+            if is_equal_or_child(normalize(error.dbx_path), dbx_path_lower):
                 self.sync.sync_errors.discard(error)
 
         for path in list(self.sync.download_errors):
-            if is_equal_or_child(path, dbx_path):
+            if is_equal_or_child(path, dbx_path_lower):
                 self.sync.download_errors.discard(path)
 
         for path in list(self.sync.upload_errors):
-            if is_equal_or_child(path, dbx_path):
+            if is_equal_or_child(path, dbx_path_lower):
                 self.sync.upload_errors.discard(path)
 
         # Remove folder from local drive.
-        local_path = self.sync.to_local_path_from_cased(dbx_path)
+        local_path_uncased = f"{self.dropbox_path}{dbx_path_lower}"
 
-        # `dbx_path` will be lower-case, we therefore explicitly run
-        # `to_existing_unnormalized_path`.
         try:
-            local_path = to_existing_unnormalized_path(local_path)
+            local_path = to_existing_unnormalized_path(local_path_uncased)
         except FileNotFoundError:
             return
 
