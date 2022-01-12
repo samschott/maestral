@@ -492,14 +492,15 @@ class SyncEngine:
 
         self.desktop_notifier = notify.MaestralDesktopNotifier(self.config_name)
 
-        # Upload_errors and download_errors contain failed uploads and downloads,
-        # respectively, to retry later
+        # Upload_errors and download_errors contain paths of failed uploads and
+        # downloads, respectively, to retry later.
         self.upload_errors = PersistentStateMutableSet(
             self.config_name, section="sync", option="upload_errors"
         )
         self.download_errors = PersistentStateMutableSet(
             self.config_name, section="sync", option="download_errors"
         )
+
         # Pending_uploads and pending_downloads contain interrupted uploads and
         # downloads, respectively. to retry later. Running uploads / downloads can be
         # stored in these lists to be resumed if Maestral quits unexpectedly. This used
@@ -1590,7 +1591,7 @@ class SyncEngine:
             )
             self.sync_errors.add(err)
 
-            # Save download errors to retry later.
+            # Save sync error paths to retry later.
             if direction == SyncDirection.Down:
                 self.download_errors.add(normalize(err.dbx_path))
             elif direction == SyncDirection.Up:
