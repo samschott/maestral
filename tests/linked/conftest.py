@@ -167,34 +167,33 @@ def assert_synced(m: Maestral):
     listing = m.client.list_folder("/", recursive=True)
     local_snapshot = DirectorySnapshot(m.dropbox_path)
 
-    # assert that all items from server are present locally
-    # with the same content hash
+    # Assert that all items from server are present locally with the same content hash.
     for e in listing.entries:
-        dbx_path = e.path_display
-        local_path = to_existing_unnormalized_path(str(dbx_path), root=m.dropbox_path)
+
+        if m.sync.is_excluded_by_user(e.path_lower):
+            continue
+
+        local_path = m.to_local_path(e.path_display)
 
         remote_hash = e.content_hash if isinstance(e, FileMetadata) else "folder"
-        assert (
-            m.sync.get_local_hash(local_path) == remote_hash
-        ), f'different file content for "{dbx_path}"'
+        local_hash = m.sync.get_local_hash(local_path)
 
-    # assert that all local items are present on server
+        assert local_hash, f"'{e.path_display}' not found locally"
+        assert local_hash == remote_hash, f'different content for "{e.path_display}"'
+
+    # Assert that all local items are present on server.
     for path in local_snapshot.paths:
         if not m.sync.is_excluded(path) and is_child(path, m.dropbox_path):
             if not m.sync.is_excluded(path):
-                dbx_path = m.sync.to_dbx_path(path).lower()
-                matching_items = [
-                    e for e in listing.entries if e.path_lower == dbx_path
-                ]
-                assert (
-                    len(matching_items) == 1
-                ), f'local item "{path}" does not exist on dbx'
+                dbx_path = m.sync.to_dbx_path_lower(path)
+                has_match = any(e for e in listing.entries if e.path_lower == dbx_path)
+                assert has_match, f'local item "{path}" does not exist on dbx'
 
-    # check that our index is correct
+    # Check that our index is correct.
     for index_entry in m.sync.get_index():
 
         if is_child(index_entry.dbx_path_lower, "/"):
-            # check that there is a match on the server
+            # Check that there is a match on the server.
             matching_items = [
                 e for e in listing.entries if e.path_lower == index_entry.dbx_path_lower
             ]
@@ -205,12 +204,12 @@ def assert_synced(m: Maestral):
             e = matching_items[0]
             remote_rev = e.rev if isinstance(e, FileMetadata) else "folder"
 
-            # check if revs are equal on server and locally
+            # Check if revs are equal on server and locally.
             assert (
                 index_entry.rev == remote_rev
             ), f'different revs for "{index_entry.dbx_path_lower}"'
 
-            # check if casing on drive is the same as in index
+            # Check if casing on drive is the same as in index.
             local_path_expected_casing = m.dropbox_path + index_entry.dbx_path_cased
             local_path_actual_casing = to_existing_unnormalized_path(
                 local_path_expected_casing
