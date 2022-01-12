@@ -3656,10 +3656,10 @@ class SyncEngine:
         self._ensure_parent(event, client)
 
         if osp.isfile(event.local_path):
-            event_cls = (
-                DirDeletedEvent if osp.isdir(event.local_path) else FileDeletedEvent
-            )
-            with self.fs_events.ignore(event_cls(event.local_path)):
+            with self.fs_events.ignore(
+                FileModifiedEvent(event.local_path),  # May be emitted on macOS.
+                FileDeletedEvent(event.local_path),
+            ):
                 delete(event.local_path)
 
         try:
