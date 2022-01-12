@@ -631,7 +631,7 @@ class SyncEngine:
     def clean_excluded_items_list(folder_list: List[str]) -> List[str]:
         """
         Removes all duplicates and children of excluded items from the excluded items
-        list.
+        list. Normalises all paths to lower case.
 
         :param folder_list: Dropbox paths to exclude.
         :returns: Cleaned up items.
