@@ -551,10 +551,18 @@ class Manager:
 
         :param obj: The object to update.
         """
-        py_values = column_value_dict(obj).values()
-        sql_values = (col.py_to_sql(val) for col, val in zip(self._columns, py_values))
+
         pk_sql = self.get_primary_key(obj)
-        self.db.execute(self._sql_update_template, *(list(sql_values) + [pk_sql]))
+
+        if pk_sql is None:
+            raise ValueError("Primary key is required to update row")
+
+        if self.has(pk_sql):
+            py_vals = column_value_dict(obj).values()
+            sql_vals = (col.py_to_sql(val) for col, val in zip(self._columns, py_vals))
+            self.db.execute(self._sql_update_template, *(list(sql_vals) + [pk_sql]))
+        else:
+            self.save(obj)
 
     def query_to_objects(self, sql: str, *args) -> List["Model"]:
         """
