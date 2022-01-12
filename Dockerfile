@@ -1,4 +1,4 @@
-FROM python:3.9.1-alpine3.13
+FROM python:3.10.1-alpine3.15
 
 ARG UID=1000
 ARG VERSION
