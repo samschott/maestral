@@ -99,7 +99,7 @@ class MaestralDesktopNotifier:
     def __init__(self, config_name: str) -> None:
         self._conf = MaestralConfig(config_name)
         self._snooze = 0.0
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_event_loop_policy().get_event_loop()
 
     @property
     def notify_level(self) -> int:
