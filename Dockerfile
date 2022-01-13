@@ -3,8 +3,6 @@ FROM python:3.10.1-alpine3.15
 ARG UID=1000
 ARG VERSION
 
-ENV CRYPTOGRAPHY_DONT_BUILD_RUST=1
-
 RUN set -eux ; \
   adduser -D -u ${UID} -h /dropbox dropbox ; \
   apk add --no-cache --virtual .build-deps \
