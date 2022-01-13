@@ -527,8 +527,7 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m):
     assert_child_count(m, m.test_folder_dbx, 2)
 
     assert_synced(m)
-    # TODO: Ensure that sync errors are cleared.
-    # assert_no_errors(m)
+    assert_no_errors(m)
 
 
 def test_remote_folder_replaced_by_file(m):
@@ -589,8 +588,7 @@ def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m):
     assert_child_count(m, m.test_folder_dbx, 3)
 
     assert_synced(m)
-    # TODO: Ensure that sync errors are cleared.
-    # assert_no_errors(m)
+    assert_no_errors(m)
 
 
 def test_local_folder_replaced_by_file(m):
