@@ -6,7 +6,6 @@ on:
       # run tests only when the python code has changed
       - 'src/**.py'
       - 'tests/**.py'
-
   workflow_dispatch:
 
 jobs:
