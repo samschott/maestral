@@ -98,6 +98,8 @@ from .database import (
     SyncEvent,
     HashCacheEntry,
     IndexEntry,
+    UploadSyncErrorEntry,
+    DownloadSyncErrorEntry,
     SyncDirection,
     SyncStatus,
     ItemType,
@@ -405,74 +407,6 @@ class FSEventHandler(FileSystemEventHandler):
             return self.local_file_event_queue.qsize() > 0
 
 
-class PersistentStateMutableSet(abc.MutableSet):
-    """Wraps a list in our state file as a MutableSet
-
-    :param config_name: Name of config (determines name of state file).
-    :param section: Section name in state file.
-    :param option: Option name in state file.
-    """
-
-    def __init__(self, config_name: str, section: str, option: str) -> None:
-        super().__init__()
-        self.config_name = config_name
-        self.section = section
-        self.option = option
-        self._state = MaestralState(config_name)
-        self._lock = RLock()
-
-    def __iter__(self) -> Iterator[Any]:
-        with self._lock:
-            return iter(self._state.get(self.section, self.option))
-
-    def __contains__(self, entry: Any) -> bool:
-        with self._lock:
-            return entry in self._state.get(self.section, self.option)
-
-    def __len__(self):
-        with self._lock:
-            return len(self._state.get(self.section, self.option))
-
-    def add(self, entry: Any) -> None:
-        with self._lock:
-            state_list = self._state.get(self.section, self.option)
-            state_list = set(state_list)
-            state_list.add(entry)
-            self._state.set(self.section, self.option, list(state_list))
-
-    def discard(self, entry: Any) -> None:
-        with self._lock:
-            state_list = self._state.get(self.section, self.option)
-            state_list = set(state_list)
-            state_list.discard(entry)
-            self._state.set(self.section, self.option, list(state_list))
-
-    def update(self, *others: Any) -> None:
-        with self._lock:
-            state_list = self._state.get(self.section, self.option)
-            state_list = set(state_list)
-            state_list.update(*others)
-            self._state.set(self.section, self.option, list(state_list))
-
-    def difference_update(self, *others: Any) -> None:
-        with self._lock:
-            state_list = self._state.get(self.section, self.option)
-            state_list = set(state_list)
-            state_list.difference_update(*others)
-            self._state.set(self.section, self.option, list(state_list))
-
-    def clear(self) -> None:
-        """Clears all elements."""
-        with self._lock:
-            self._state.set(self.section, self.option, [])
-
-    def __repr__(self) -> str:
-        return (
-            f"<{self.__class__.__name__}(section='{self.section}',"
-            f"option='{self.option}', entries={list(self)})>"
-        )
-
-
 class SyncEngine:
     """Class that handles syncing with Dropbox
 
@@ -505,15 +439,6 @@ class SyncEngine:
 
         self.desktop_notifier = notify.MaestralDesktopNotifier(self.config_name)
 
-        # Upload_errors and download_errors contain paths of failed uploads and
-        # downloads, respectively, to retry later.
-        self.upload_errors = PersistentStateMutableSet(
-            self.config_name, section="sync", option="upload_errors"
-        )
-        self.download_errors = PersistentStateMutableSet(
-            self.config_name, section="sync", option="download_errors"
-        )
-
         # Pending_uploads and pending_downloads contain interrupted uploads and
         # downloads, respectively. to retry later. Running uploads / downloads can be
         # stored in these lists to be resumed if Maestral quits unexpectedly. This used
@@ -545,6 +470,8 @@ class SyncEngine:
         self._db_manager_index = Manager(self._db, IndexEntry)
         self._db_manager_history = Manager(self._db, SyncEvent)
         self._db_manager_hash_cache = Manager(self._db, HashCacheEntry)
+        self._db_manager_upload_error = Manager(self._db, UploadSyncErrorEntry)
+        self._db_manager_download_error = Manager(self._db, DownloadSyncErrorEntry)
 
         # Caches.
         self._case_conversion_cache = LRUCache(capacity=5000)
@@ -1376,52 +1303,75 @@ class SyncEngine:
         :param event: Successfully applied sync event.
         """
 
-        self.upload_errors.discard(event.dbx_path_lower)
-        self.download_errors.discard(event.dbx_path_lower)
+        with self._database_access():
 
-        recursive = event.is_deleted or event.is_moved or event.is_file
+            self._db_manager_upload_error.delete_primary_key(event.dbx_path_lower)
+            self._db_manager_download_error.delete_primary_key(event.dbx_path_lower)
 
-        if event.is_moved:
-            self.upload_errors.discard(event.dbx_path_from_lower)
-            self.download_errors.discard(event.dbx_path_from_lower)
+            recursive = event.is_deleted or event.is_moved or event.is_file
 
-        for error in self.sync_errors.copy():
+            if event.is_moved:
+                self._db_manager_upload_error.delete_primary_key(
+                    event.dbx_path_from_lower
+                )
+                self._db_manager_download_error.delete_primary_key(
+                    event.dbx_path_from_lower
+                )
 
-            if not error.dbx_path:
-                continue
+            for error in self.sync_errors.copy():
 
-            error_path_lower = normalize(error.dbx_path)
+                if not error.dbx_path:
+                    continue
 
-            if error_path_lower == event.dbx_path_lower:
-                self.sync_errors.discard(error)
+                error_path_lower = normalize(error.dbx_path)
 
-            if recursive and is_child(error_path_lower, event.dbx_path_lower):
-                self.sync_errors.discard(error)
+                if error_path_lower == event.dbx_path_lower:
+                    self.sync_errors.discard(error)
 
-            if event.is_moved and is_child(error_path_lower, event.dbx_path_from_lower):
-                self.sync_errors.discard(error)
+                if recursive and is_child(error_path_lower, event.dbx_path_lower):
+                    self.sync_errors.discard(error)
 
-        if recursive:
+                if event.is_moved and is_child(
+                    error_path_lower, event.dbx_path_from_lower
+                ):
+                    self.sync_errors.discard(error)
 
-            for path in list(self.upload_errors):
-                if is_child(path, event.dbx_path_lower):
-                    self.upload_errors.discard(path)
+            if recursive:
 
-                if event.is_moved and is_child(path, event.dbx_path_from_lower):
-                    self.upload_errors.discard(path)
+                self._db.execute(
+                    "DELETE FROM upload_errors WHERE dbx_path_lower LIKE ?",
+                    f"{event.dbx_path_lower}/%",
+                )
+                self._db.execute(
+                    "DELETE FROM download_errors WHERE dbx_path_lower LIKE ?",
+                    f"{event.dbx_path_lower}/%",
+                )
 
-            for path in list(self.download_errors):
-                if is_child(path, event.dbx_path_lower):
-                    self.download_errors.discard(path)
+                if event.is_moved:
+                    self._db.execute(
+                        "DELETE FROM upload_errors WHERE dbx_path_lower LIKE ?",
+                        f"{event.dbx_path_from_lower}/%",
+                    )
+                    self._db.execute(
+                        "DELETE FROM download_errors WHERE dbx_path_lower LIKE ?",
+                        f"{event.dbx_path_from_lower}/%",
+                    )
 
-                if event.is_moved and is_child(path, event.dbx_path_from_lower):
-                    self.download_errors.discard(path)
+                # Clear cache after direct database manipulation.
+                self._db_manager_upload_error.clear_cache()
+                self._db_manager_download_error.clear_cache()
 
     def clear_sync_errors(self) -> None:
         """Clears all sync errors."""
         self.sync_errors.clear()
-        self.upload_errors.clear()
-        self.download_errors.clear()
+
+        with self._database_access():
+            self._db.execute("DROP TABLE upload_errors")
+            self._db.execute("DROP TABLE download_errors")
+
+            # Clear cache after direct database manipulation.
+            self._db_manager_upload_error.clear_cache()
+            self._db_manager_download_error.clear_cache()
 
     def is_excluded(self, path: str) -> bool:
         """
@@ -1599,10 +1549,24 @@ class SyncEngine:
             self.sync_errors.add(err)
 
             # Save sync error paths to retry later.
-            if direction == SyncDirection.Down:
-                self.download_errors.add(normalize(err.dbx_path))
-            elif direction == SyncDirection.Up:
-                self.upload_errors.add(normalize(err.dbx_path))
+
+            with self._database_access():
+                dbx_path_lower = normalize(err.dbx_path)
+
+                if direction == SyncDirection.Up:
+                    self._db_manager_upload_error.delete_primary_key(dbx_path_lower)
+                    self._db_manager_upload_error.save(
+                        UploadSyncErrorEntry(
+                            dbx_path_lower=dbx_path_lower, dbx_path=err.dbx_path
+                        )
+                    )
+                elif direction == SyncDirection.Down:
+                    self._db_manager_download_error.delete_primary_key(dbx_path_lower)
+                    self._db_manager_download_error.save(
+                        DownloadSyncErrorEntry(
+                            dbx_path_lower=dbx_path_lower, dbx_path=err.dbx_path
+                        )
+                    )
 
     @contextmanager
     def _database_access(self, raise_error: bool = True) -> Iterator[None]:

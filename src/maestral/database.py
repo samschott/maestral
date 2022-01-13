@@ -39,6 +39,8 @@ __all__ = [
     "SyncEvent",
     "IndexEntry",
     "HashCacheEntry",
+    "UploadSyncErrorEntry",
+    "DownloadSyncErrorEntry",
 ]
 
 
@@ -563,4 +565,44 @@ class HashCacheEntry(Model):
     """
     The mtime of the item just before the hash was computed. When the current mtime is
     newer, the hash will need to be recalculated.
+    """
+
+
+class DownloadSyncErrorEntry(Model):
+    """Represents a path with a sync error during download"""
+
+    __tablename__ = "download_errors"
+
+    dbx_path = Column(SqlPath(), nullable=False)
+    """
+    Correctly cased Dropbox path of the item to sync. If the sync represents a move
+    operation, this will be the destination path. Follows the casing from the
+    path_display attribute of Dropbox metadata.
+    """
+
+    dbx_path_lower = Column(SqlPath(), primary_key=True)
+    """
+    Dropbox path of the item to sync. If the sync represents a move operation, this will
+    be the destination path. This is normalised as the path_lower attribute of Dropbox
+    metadata.
+    """
+
+
+class UploadSyncErrorEntry(Model):
+    """Represents a path with a sync error during upload"""
+
+    __tablename__ = "upload_errors"
+
+    dbx_path = Column(SqlPath(), nullable=False)
+    """
+    Correctly cased Dropbox path of the item to sync. If the sync represents a move
+    operation, this will be the destination path. Follows the casing from the
+    path_display attribute of Dropbox metadata.
+    """
+
+    dbx_path_lower = Column(SqlPath(), primary_key=True)
+    """
+    Dropbox path of the item to sync. If the sync represents a move operation, this will
+    be the destination path. This is normalised as the path_lower attribute of Dropbox
+    metadata.
     """
