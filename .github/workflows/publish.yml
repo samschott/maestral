@@ -26,7 +26,7 @@ jobs:
           python setup.py sdist bdist_wheel
           twine upload --skip-existing dist/*
 
-  docker-build:
+  docker-hub:
     runs-on: ubuntu-latest
     needs: pypi
     steps:
