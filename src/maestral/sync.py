@@ -77,6 +77,7 @@ from .errors import (
     NotFoundError,
     FileConflictError,
     FolderConflictError,
+    IsAFolderError,
     InvalidDbidError,
     DatabaseError,
 )
@@ -631,7 +632,7 @@ class SyncEngine:
     def clean_excluded_items_list(folder_list: List[str]) -> List[str]:
         """
         Removes all duplicates and children of excluded items from the excluded items
-        list.
+        list. Normalises all paths to lower case.
 
         :param folder_list: Dropbox paths to exclude.
         :returns: Cleaned up items.
@@ -887,31 +888,17 @@ class SyncEngine:
 
         with self._database_access():
 
-            cache_entry = self._db_manager_hash_cache.get(inode)
-            cache_entry = cast(Optional[HashCacheEntry], cache_entry)
-
             if hash_str:
+                cache_entry = HashCacheEntry(
+                    inode=inode,
+                    local_path=local_path,
+                    hash_str=hash_str,
+                    mtime=mtime,
+                )
+                self._db_manager_hash_cache.update(cache_entry)
 
-                if cache_entry:
-                    cache_entry.local_path = local_path
-                    cache_entry.hash_str = hash_str
-                    cache_entry.mtime = mtime
-
-                    self._db_manager_hash_cache.update(cache_entry)
-
-                else:
-                    cache_entry = HashCacheEntry(
-                        inode=inode,
-                        local_path=local_path,
-                        hash_str=hash_str,
-                        mtime=mtime,
-                    )
-                    self._db_manager_hash_cache.save(cache_entry)
             else:
-                if cache_entry:
-                    self._db_manager_hash_cache.delete(cache_entry)
-                else:
-                    pass
+                self._db_manager_hash_cache.delete_primary_key(inode)
 
     def clear_hash_cache(self) -> None:
         """Clears the sync history."""
@@ -945,32 +932,18 @@ class SyncEngine:
 
             if event.change_type is not ChangeType.Removed:
 
-                entry = self.get_index_entry(dbx_path_lower)
+                # Create or update entry.
+                entry = IndexEntry(
+                    dbx_path_cased=event.dbx_path,
+                    dbx_path_lower=dbx_path_lower,
+                    dbx_id=event.dbx_id,
+                    item_type=event.item_type,
+                    last_sync=self._get_ctime(event.local_path),
+                    rev=event.rev,
+                    content_hash=event.content_hash,
+                )
 
-                if entry:
-                    # Update existing entry.
-                    entry.dbx_id = event.dbx_id
-                    entry.dbx_path_cased = event.dbx_path
-                    entry.item_type = event.item_type
-                    entry.last_sync = self._get_ctime(event.local_path)
-                    entry.rev = event.rev
-                    entry.content_hash = event.content_hash
-
-                    self._db_manager_index.update(entry)
-
-                else:
-                    # Create new entry.
-                    entry = IndexEntry(
-                        dbx_path_cased=event.dbx_path,
-                        dbx_path_lower=dbx_path_lower,
-                        dbx_id=event.dbx_id,
-                        item_type=event.item_type,
-                        last_sync=self._get_ctime(event.local_path),
-                        rev=event.rev,
-                        content_hash=event.content_hash,
-                    )
-
-                    self._db_manager_index.save(entry)
+                self._db_manager_index.update(entry)
 
     def update_index_from_dbx_metadata(
         self, md: Metadata, client: Optional[DropboxClient] = None
@@ -1005,30 +978,17 @@ class SyncEngine:
                 dbx_path_cased = self.correct_case(md.path_display, client)
 
                 # Update existing entry or create new entry.
-                entry = self.get_index_entry(md.path_lower)
+                entry = IndexEntry(
+                    dbx_path_cased=dbx_path_cased,
+                    dbx_path_lower=md.path_lower,
+                    dbx_id=md.id,
+                    item_type=item_type,
+                    last_sync=None,
+                    rev=rev,
+                    content_hash=hash_str,
+                )
 
-                if entry:
-                    entry.dbx_id = md.id
-                    entry.dbx_path_cased = dbx_path_cased
-                    entry.item_type = item_type
-                    entry.last_sync = None
-                    entry.rev = rev
-                    entry.content_hash = hash_str
-
-                    self._db_manager_index.update(entry)
-
-                else:
-                    entry = IndexEntry(
-                        dbx_path_cased=dbx_path_cased,
-                        dbx_path_lower=md.path_lower,
-                        dbx_id=md.id,
-                        item_type=item_type,
-                        last_sync=None,
-                        rev=rev,
-                        content_hash=hash_str,
-                    )
-
-                    self._db_manager_index.save(entry)
+                self._db_manager_index.update(entry)
 
     def remove_node_from_index(self, dbx_path_lower: str) -> None:
         """
@@ -1372,7 +1332,7 @@ class SyncEngine:
         self.upload_errors.discard(event.dbx_path_lower)
         self.download_errors.discard(event.dbx_path_lower)
 
-        recursive = event.is_deleted or event.is_moved
+        recursive = event.is_deleted or event.is_moved or event.is_file
 
         if event.is_moved:
             self.upload_errors.discard(event.dbx_path_from_lower)
@@ -2392,27 +2352,10 @@ class SyncEngine:
 
         self.remove_node_from_index(event.dbx_path_from_lower)
 
-        if md_to_new.name != osp.basename(event.local_path):
-            # Conflicting copy created during upload, mirror remote changes locally.
-            local_path_cc = self.to_local_path(md_to_new.path_display, client)
-            event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
-            with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
-                with convert_api_errors():
-                    move(event.local_path, local_path_cc, raise_error=True)
-
-            # Delete entry of old path.
-            self.remove_node_from_index(event.dbx_path_lower)
-            self._logger.info(
-                'Upload conflict: renamed "%s" to "%s"',
-                event.dbx_path,
-                md_to_new.path_display,
-            )
-
-        else:
+        if not self._handle_upload_conflict(md_to_new, event, client):
             self._logger.debug(
                 'Moved "%s" to "%s" on Dropbox', dbx_path_from, event.dbx_path
             )
-
         self._update_index_recursive(md_to_new, client)
 
         return md_to_new
@@ -2528,28 +2471,13 @@ class SyncEngine:
                     mode=mode,
                     sync_event=event,
                 )
-            except NotFoundError:
+            except (NotFoundError, IsAFolderError):
                 self._logger.debug(
-                    'Could not upload "%s": the item does not exist', event.local_path
+                    'Could not upload "%s": the file does not exist', event.local_path
                 )
                 return None
 
-        if md_new.name != osp.basename(event.local_path):
-            # Conflicting copy created during upload, mirror remote changes locally.
-            local_path_cc = self.to_local_path(md_new.path_display, client)
-            event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
-            with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
-                with convert_api_errors():
-                    move(event.local_path, local_path_cc, raise_error=True)
-
-            # Delete entry of old path.
-            self.remove_node_from_index(event.dbx_path_lower)
-            self._logger.debug(
-                'Upload conflict: renamed "%s" to "%s"',
-                event.dbx_path,
-                md_new.path_display,
-            )
-        else:
+        if not self._handle_upload_conflict(md_new, event, client):
             self._logger.debug('Created "%s" on Dropbox', event.dbx_path)
 
         self.update_index_from_dbx_metadata(md_new, client)
@@ -2613,32 +2541,14 @@ class SyncEngine:
                 mode=mode,
                 sync_event=event,
             )
-        except NotFoundError:
+        except (NotFoundError, IsAFolderError):
             self._logger.debug(
                 'Could not upload "%s": the item does not exist', event.dbx_path
             )
             return None
 
-        if md_new.name != osp.basename(event.local_path):
-            # Conflicting copy created during upload, mirror remote changes locally.
-            local_path_cc = self.to_local_path(md_new.path_display, client)
-            with self.fs_events.ignore(FileMovedEvent(event.local_path, local_path_cc)):
-                try:
-                    os.rename(event.local_path, local_path_cc)
-                except OSError:
-                    with self.fs_events.ignore(FileDeletedEvent(event.local_path)):
-                        delete(event.local_path)
-
-            # Delete revs of old path.
-            self.remove_node_from_index(event.dbx_path_lower)
-            self._logger.debug(
-                'Upload conflict: renamed "%s" to "%s"',
-                event.dbx_path,
-                md_new.path_display,
-            )
-        else:
-            # Everything went well.
-            self._logger.debug('Uploaded modified "%s" to Dropbox', md_new.path_lower)
+        if not self._handle_upload_conflict(md_new, event, client):
+            self._logger.debug('Uploaded modified "%s" to Dropbox', event.dbx_path)
 
         self.update_index_from_dbx_metadata(md_new, client)
 
@@ -2761,6 +2671,46 @@ class SyncEngine:
         self.remove_node_from_index(event.dbx_path_lower)
 
         return md_deleted
+
+    def _handle_upload_conflict(
+        self, md_new: Metadata, event: SyncEvent, client: DropboxClient
+    ) -> bool:
+        """
+        If a conflicting copy was created by Dropbox during the upload, we mirror the
+        remote changes locally. This method can only be used for added, changed and
+        moved events.
+
+        :param md_new: Metadata of item after upload.
+        :param event: Original upload sync event which.
+        :param client: Client instance to use.
+        :returns: Whether a conflicting copy was created.
+        """
+
+        if event.is_deleted:
+            raise ValueError("Cannot process deleted event.")
+
+        if md_new.name == osp.basename(event.local_path):
+            # No conflicting copy was created.
+            return False
+
+        # Get new local path corresponding to created entry.
+        local_path_cc = self.to_local_path(md_new.path_display, client)
+
+        # Move the local item.
+        event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
+        with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
+            with convert_api_errors():
+                move(event.local_path, local_path_cc, raise_error=True)
+
+        # Delete entry of old path.
+        self.remove_node_from_index(event.dbx_path_lower)
+        self._logger.debug(
+            'Upload conflict: renamed "%s" to "%s"',
+            event.dbx_path,
+            md_new.path_display,
+        )
+
+        return True
 
     # ==== Download sync ===============================================================
 

@@ -19,6 +19,8 @@
   in the terminal, could generate an incorrect conflicting copy during upload sync.
 * Properly handle when the local Dropbox directory is renamed by changing the casing only
   on case-insensitive file systems such as APFS on macOS.
+* Fixes an issue which could result in sync errors not being cleared after the successful
+  sync of an item under some circumstances.
 
 ## v1.5.2
 

@@ -672,12 +672,12 @@ class SyncManager:
             with self._handle_sync_thread_errors(running, autostart):
 
                 try:
-                    dbx_path = self.added_item_queue.get(timeout=40)
+                    dbx_path_lower = self.added_item_queue.get(timeout=40)
                 except Empty:
                     pass
                 else:
                     # Protect against crashes.
-                    self.sync.pending_downloads.add(dbx_path.lower())
+                    self.sync.pending_downloads.add(dbx_path_lower)
 
                     if not running.is_set():
                         return
@@ -685,9 +685,9 @@ class SyncManager:
                     with self.sync.sync_lock:
 
                         with self.sync.client.clone_with_new_session() as client:
-                            self.sync.get_remote_item(dbx_path, client)
+                            self.sync.get_remote_item(dbx_path_lower, client)
 
-                        self.sync.pending_downloads.discard(dbx_path)
+                        self.sync.pending_downloads.discard(dbx_path_lower)
 
                         self._logger.info(IDLE)
 

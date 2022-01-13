@@ -1,5 +1,5 @@
 """
-This module contains the definitions of our data base tables which store the index, sync
+This module contains the definitions of our database tables which store the index, sync
 history and cache of content hashes. Each table is defined by a subclass of
 :class:`maestral.utils.orm.Model` with properties representing database columns. Class
 instances then represent table rows.
@@ -135,7 +135,7 @@ class SyncEvent(Model):
 
     dbx_path = Column(SqlPath(), nullable=False)
     """
-    Upper case Dropbox path of the item to sync. If the sync represents a move
+    Correctly cased Dropbox path of the item to sync. If the sync represents a move
     operation, this will be the destination path. Follows the casing from the
     path_display attribute of Dropbox metadata.
     """
