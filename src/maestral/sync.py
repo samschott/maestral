@@ -987,7 +987,7 @@ class SyncEngine:
                     content_hash=hash_str,
                 )
 
-                self._db_manager_index.save(entry)
+                self._db_manager_index.update(entry)
 
     def remove_node_from_index(self, dbx_path_lower: str) -> None:
         """
@@ -1331,7 +1331,7 @@ class SyncEngine:
         self.upload_errors.discard(event.dbx_path_lower)
         self.download_errors.discard(event.dbx_path_lower)
 
-        recursive = event.is_deleted or event.is_moved
+        recursive = event.is_deleted or event.is_moved or event.is_file
 
         if event.is_moved:
             self.upload_errors.discard(event.dbx_path_from_lower)
