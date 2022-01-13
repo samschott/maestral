@@ -80,7 +80,12 @@ apt-get install python3-systemd
 ## Docker image
 
 A Docker image is available for x86, arm/v7 (32bit) and arm64 platforms. You can do
-everything that you supposed to do in the command line, except running the GUI.
+everything that you supposed to do in the command line, except running the GUI. It can
+be installed with:
+
+```console
+$ docker pull maestraldbx/maestral
+```
 
 For the first run, get access to the shell within the Docker container
 
@@ -88,7 +93,7 @@ For the first run, get access to the shell within the Docker container
 $ docker run -it -v /mnt/dropbox:/dropbox maestraldbx/maestral:latest ash
 ```
 
-where `/mnt/dropbox` is the directory that which contains the `Dropbox` directory.
+where `/mnt/dropbox` is the directory which contains the `Dropbox` directory.
 Maestral runs with `UID` 1000, make sure that the user owns `/mnt/dropbox` and the
 contents within (`chown -R 1000 /mnt/dropbox`).
 
