@@ -77,6 +77,7 @@ from .errors import (
     NotFoundError,
     FileConflictError,
     FolderConflictError,
+    IsAFolderError,
     InvalidDbidError,
     DatabaseError,
 )
@@ -2487,9 +2488,9 @@ class SyncEngine:
                     mode=mode,
                     sync_event=event,
                 )
-            except NotFoundError:
+            except (NotFoundError, IsAFolderError):
                 self._logger.debug(
-                    'Could not upload "%s": the item does not exist', event.local_path
+                    'Could not upload "%s": the file does not exist', event.local_path
                 )
                 return None
 
@@ -2572,7 +2573,7 @@ class SyncEngine:
                 mode=mode,
                 sync_event=event,
             )
-        except NotFoundError:
+        except (NotFoundError, IsAFolderError):
             self._logger.debug(
                 'Could not upload "%s": the item does not exist', event.dbx_path
             )
