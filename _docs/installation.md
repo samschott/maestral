@@ -79,9 +79,8 @@ apt-get install python3-systemd
 
 ## Docker image
 
-A Docker image is available for x86, arm/v7 (32bit) and arm64 platforms. You can do
-everything that you supposed to do in the command line, except running the GUI. It can
-be installed with:
+A Docker image is available for x86 and arm64 platforms. You can do everything that you
+supposed to do in the command line, except running the GUI. It can be installed with:
 
 ```console
 $ docker pull maestraldbx/maestral
