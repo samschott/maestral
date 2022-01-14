@@ -37,8 +37,15 @@ from typing import (
 # external imports
 import click
 from pathspec import PathSpec
-from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata, WriteMode, ListFolderResult  # type: ignore
-from watchdog.events import FileSystemEventHandler  # type: ignore
+from dropbox.files import (
+    Metadata,
+    DeletedMetadata,
+    FileMetadata,
+    FolderMetadata,
+    WriteMode,
+    ListFolderResult,
+)
+from watchdog.events import FileSystemEventHandler
 from watchdog.events import (
     EVENT_TYPE_CREATED,
     EVENT_TYPE_DELETED,
