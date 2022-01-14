@@ -28,7 +28,7 @@ from typing import (
 
 # external imports
 import requests
-from watchdog.events import DirDeletedEvent, FileDeletedEvent  # type: ignore
+from watchdog.events import DirDeletedEvent, FileDeletedEvent
 from packaging.version import Version
 from datetime import datetime, timezone
 from dropbox.files import FileMetadata

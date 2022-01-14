@@ -26,7 +26,7 @@ from typing import (
 
 # external imports
 import requests
-from dropbox import (  # type: ignore
+from dropbox import (
     Dropbox,
     create_session,
     files,

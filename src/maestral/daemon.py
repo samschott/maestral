@@ -21,11 +21,11 @@ from typing import Optional, Any, Union, Dict, Iterable, Type, TYPE_CHECKING
 from types import TracebackType
 
 # external imports
-import Pyro5  # type: ignore
-from Pyro5.errors import CommunicationError  # type: ignore
-from Pyro5.api import Daemon, Proxy, expose, register_dict_to_class  # type: ignore
-import sdnotify  # type: ignore
-from fasteners import InterProcessLock  # type: ignore
+import Pyro5
+from Pyro5.errors import CommunicationError
+from Pyro5.api import Daemon, Proxy, expose, register_dict_to_class
+import sdnotify
+from fasteners import InterProcessLock
 
 # local imports
 from .errors import SYNC_ERRORS, GENERAL_ERRORS, MaestralApiError

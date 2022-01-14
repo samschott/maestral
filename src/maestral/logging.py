@@ -14,7 +14,7 @@ except ImportError:
     # Python 3.7 and lower
     InvalidStateError = RuntimeError  # type: ignore
 
-import sdnotify  # type: ignore
+import sdnotify
 
 try:
     from systemd import journal  # type: ignore

@@ -10,15 +10,15 @@ from datetime import datetime
 
 # external imports
 import requests
-import keyring.backends  # type: ignore
-import keyring.backends.macOS  # type: ignore
-import keyring.backends.SecretService  # type: ignore
-import keyrings.alt.file  # type: ignore
-import keyring.backends.kwallet  # type: ignore
-from keyring.backend import KeyringBackend  # type: ignore
-from keyring.core import load_keyring  # type: ignore
-from keyring.errors import KeyringLocked, PasswordDeleteError, InitError  # type: ignore
-from dropbox.oauth import DropboxOAuth2FlowNoRedirect  # type: ignore
+import keyring.backends
+import keyring.backends.macOS
+import keyring.backends.SecretService
+import keyrings.alt.file
+import keyring.backends.kwallet
+from keyring.backend import KeyringBackend
+from keyring.core import load_keyring
+from keyring.errors import KeyringLocked, PasswordDeleteError, InitError
+from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 
 # local imports
 from .config import MaestralConfig, MaestralState

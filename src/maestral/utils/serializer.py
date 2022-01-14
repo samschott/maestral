@@ -10,8 +10,8 @@ from enum import Enum
 from typing import Dict, Union, Sequence, TYPE_CHECKING
 
 # external imports
-from dropbox.stone_serializers import json_encode  # type: ignore
-from dropbox.stone_validators import Struct  # type: ignore
+from dropbox.stone_serializers import json_encode
+from dropbox.stone_validators import Struct
 
 # local imports
 from . import sanitize_string

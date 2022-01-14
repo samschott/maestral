@@ -13,7 +13,7 @@ from datetime import timezone
 from typing import Optional, TYPE_CHECKING
 
 # external imports
-from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata  # type: ignore
+from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata
 from watchdog.events import (
     FileSystemEvent,
     EVENT_TYPE_CREATED,
