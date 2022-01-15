@@ -60,6 +60,7 @@ from .errors import (
     NotAFolderError,
     IsAFolderError,
     FileSizeError,
+    SymlinkError,
     OutOfMemoryError,
     BadInputError,
     DropboxAuthError,
@@ -1337,6 +1338,10 @@ def os_to_maestral_error(
         err_cls = FileSizeError  # subclass of SyncError
         title = "Could not download file"
         text = "The file size too large."
+    elif exc.errno == errno.ELOOP:
+        err_cls = SymlinkError  # subclass of SyncError
+        title = "Cannot upload symlink"
+        text = "Symlinks are not currently supported by the public Dropbox API."
     elif exc.errno == errno.ENOSPC:
         err_cls = InsufficientSpaceError  # subclass of SyncError
         title = "Could not download file"
