@@ -110,6 +110,10 @@ from .utils.integration import (
     CPU_COUNT,
 )
 from .utils.path import (
+    exists,
+    isfile,
+    isdir,
+    getsize,
     generate_cc_name,
     move,
     delete,
@@ -531,7 +535,7 @@ class SyncEngine:
         # Initialize SQLite database.
         self._db_path = get_data_path("maestral", f"{self.config_name}.db")
 
-        if not osp.exists(self._db_path):
+        if not exists(self._db_path):
             # Reset the sync state if DB is missing.
             self.remote_cursor = ""
             self.local_cursor = 0.0
@@ -841,7 +845,7 @@ class SyncEngine:
         """
 
         try:
-            stat = os.stat(local_path)
+            stat = os.stat(local_path, follow_symlinks=False)
         except (FileNotFoundError, NotADirectoryError):
             # Remove all cache entries for local_path and return None.
             with self._database_access():
@@ -1071,7 +1075,7 @@ class SyncEngine:
             "or restart Maestral to set up a new folder.",
         )
 
-        if not osp.isdir(self.dropbox_path):
+        if not isdir(self.dropbox_path):
             raise exception
 
         # If the file system is not case-sensitive but preserving, a path which was
@@ -1103,7 +1107,7 @@ class SyncEngine:
         retries = 0
         max_retries = 10
 
-        while not osp.isdir(self.file_cache_path):
+        while not isdir(self.file_cache_path):
             try:
                 # This will raise FileExistsError if file_cache_path
                 # exists but is a file instead of a directory.
@@ -1726,7 +1730,7 @@ class SyncEngine:
             local_path = self.to_local_path_from_cased(entry.dbx_path_cased)
             is_mignore = self._is_mignore_path(entry.dbx_path_cased, entry.is_directory)
 
-            if is_mignore or not osp.exists(local_path):
+            if is_mignore or not exists(local_path):
                 if entry.is_directory:
                     event = DirDeletedEvent(local_path)
                 else:
@@ -2169,7 +2173,7 @@ class SyncEngine:
                 suffix=suffix,
             )
 
-            event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
+            event_cls = DirMovedEvent if isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
                 with convert_api_errors():
                     move(event.local_path, local_path_cc, raise_error=True)
@@ -2204,7 +2208,7 @@ class SyncEngine:
                 suffix="selective sync conflict",
             )
 
-            event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
+            event_cls = DirMovedEvent if isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
                 with convert_api_errors():
                     move(event.local_path, local_path_cc, raise_error=True)
@@ -2282,9 +2286,9 @@ class SyncEngine:
         """
         try:
             while True:
-                size1 = osp.getsize(local_path)
+                size1 = getsize(local_path)
                 time.sleep(0.2)
-                size2 = osp.getsize(local_path)
+                size2 = getsize(local_path)
                 if size1 == size2:
                     return
         except OSError:
@@ -2704,7 +2708,7 @@ class SyncEngine:
         local_path_cc = self.to_local_path(md_new.path_display, client)
 
         # Move the local item.
-        event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
+        event_cls = DirMovedEvent if isdir(event.local_path) else FileMovedEvent
         with self.fs_events.ignore(event_cls(event.local_path, local_path_cc)):
             with convert_api_errors():
                 move(event.local_path, local_path_cc, raise_error=True)
@@ -3258,7 +3262,7 @@ class SyncEngine:
         with convert_api_errors():  # Catch OSErrors.
 
             try:
-                stat = os.stat(local_path)
+                stat = os.stat(local_path, follow_symlinks=False)
             except (FileNotFoundError, NotADirectoryError):
                 # Don't check ctime for deleted items (os won't give stat info)
                 # but confirm absence from index.
@@ -3271,14 +3275,15 @@ class SyncEngine:
                     return True
 
                 # Recurse over children.
+                # TODO: Handle symlinks with entry.is_symlink()
                 with os.scandir(local_path) as it:
                     for entry in it:
-                        if entry.is_dir():
+                        if entry.is_dir(follow_symlinks=False):
                             if self._ctime_newer_than_last_sync(entry.path):
                                 return True
                         elif not self.is_excluded(entry.name):
                             child_dbx_path_lower = self.to_dbx_path_lower(entry.path)
-                            ctime = entry.stat().st_ctime
+                            ctime = entry.stat(follow_symlinks=False).st_ctime
                             if ctime > self.get_last_sync(child_dbx_path_lower):
                                 return True
 
@@ -3299,15 +3304,15 @@ class SyncEngine:
         """
 
         try:
-            stat = os.stat(local_path)
+            stat = os.stat(local_path, follow_symlinks=False)
             if S_ISDIR(stat.st_mode):
                 ctime = stat.st_ctime
                 with os.scandir(local_path) as it:
                     for entry in it:
-                        if entry.is_dir():
+                        if entry.is_dir(follow_symlinks=False):
                             child_ctime = self._get_ctime(entry.path)
                         elif not self.is_excluded(entry.name):
-                            child_ctime = entry.stat().st_ctime
+                            child_ctime = entry.stat(follow_symlinks=False).st_ctime
                         else:
                             child_ctime = -1.0
 
@@ -3512,7 +3517,7 @@ class SyncEngine:
 
         if self._check_download_conflict(event) == Conflict.Conflict:
             new_local_path = generate_cc_name(local_path)
-            event_cls = DirMovedEvent if osp.isdir(local_path) else FileMovedEvent
+            event_cls = DirMovedEvent if isdir(local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path, new_local_path)):
                 with convert_api_errors():
                     move(local_path, new_local_path, raise_error=True)
@@ -3522,7 +3527,7 @@ class SyncEngine:
             )
             self.rescan(new_local_path)
 
-        if osp.isdir(local_path):
+        if isdir(local_path):
             with self.fs_events.ignore(DirDeletedEvent(local_path)):
                 delete(local_path)
 
@@ -3541,16 +3546,14 @@ class SyncEngine:
             if IS_MACOS:
                 ignore_events.append(FileModifiedEvent(local_path))
 
-        if osp.isfile(local_path):
+        if isfile(local_path):
             # Ignore FileDeletedEvent when replacing old file.
             ignore_events.append(FileDeletedEvent(local_path))
 
         # Move the downloaded file to its destination.
         with self.fs_events.ignore(*ignore_events):
-
-            stat = os.stat(tmp_fname)
-
             with convert_api_errors(dbx_path=event.dbx_path, local_path=local_path):
+                stat = os.stat(tmp_fname, follow_symlinks=False)
                 move(
                     tmp_fname,
                     local_path,
@@ -3598,7 +3601,7 @@ class SyncEngine:
 
         if conflict_check == Conflict.Conflict:
             new_local_path = generate_cc_name(event.local_path)
-            event_cls = DirMovedEvent if osp.isdir(event.local_path) else FileMovedEvent
+            event_cls = DirMovedEvent if isdir(event.local_path) else FileMovedEvent
             with self.fs_events.ignore(event_cls(event.local_path, new_local_path)):
                 with convert_api_errors():
                     move(event.local_path, new_local_path, raise_error=True)
@@ -3613,7 +3616,7 @@ class SyncEngine:
         # Ensure that parent folders are synced.
         self._ensure_parent(event, client)
 
-        if osp.isfile(event.local_path):
+        if isfile(event.local_path):
             with self.fs_events.ignore(
                 FileModifiedEvent(event.local_path),  # May be emitted on macOS.
                 FileDeletedEvent(event.local_path),
@@ -3659,7 +3662,7 @@ class SyncEngine:
         elif conflict_check is Conflict.LocalNewerOrIdentical:
             return None
 
-        event_cls = DirDeletedEvent if osp.isdir(event.local_path) else FileDeletedEvent
+        event_cls = DirDeletedEvent if isdir(event.local_path) else FileDeletedEvent
         with self.fs_events.ignore(event_cls(event.local_path)):
             exc = delete(event.local_path)
 
@@ -3691,7 +3694,7 @@ class SyncEngine:
 
             local_path_old = self.to_local_path_from_cased(entry.dbx_path_cased)
 
-            event_cls = DirMovedEvent if osp.isdir(local_path_old) else FileMovedEvent
+            event_cls = DirMovedEvent if isdir(local_path_old) else FileMovedEvent
             with self.fs_events.ignore(event_cls(local_path_old, event.local_path)):
                 move(local_path_old, event.local_path)
 
@@ -3712,10 +3715,10 @@ class SyncEngine:
 
         self._logger.debug('Rescanning "%s"', local_path)
 
-        if osp.isfile(local_path):
+        if isfile(local_path):
             self.fs_events.queue_event(FileModifiedEvent(local_path))
 
-        elif osp.isdir(local_path):
+        elif isdir(local_path):
             self.fs_events.queue_event(DirCreatedEvent(local_path))
 
             # Add created and deleted events of children as appropriate.
@@ -3741,13 +3744,13 @@ class SyncEngine:
             for entry in entries:
                 entry = cast(IndexEntry, entry)
                 child_path = self.to_local_path_from_cased(entry.dbx_path_cased)
-                if not osp.exists(child_path):
+                if not exists(child_path):
                     if entry.is_directory:
                         self.fs_events.queue_event(DirDeletedEvent(child_path))
                     else:
                         self.fs_events.queue_event(FileDeletedEvent(child_path))
 
-        elif not osp.exists(local_path):
+        elif not exists(local_path):
             dbx_path_lower = self.to_dbx_path_lower(local_path)
 
             local_entry = self.get_index_entry(dbx_path_lower)
@@ -3782,7 +3785,7 @@ class SyncEngine:
             for entry in it:
                 dbx_path = self.to_dbx_path(entry.path)
                 if not self.is_excluded(entry.path) and not self._is_mignore_path(
-                    dbx_path, entry.is_dir()
+                    dbx_path, entry.is_dir(follow_symlinks=False)
                 ):
                     yield entry
 
