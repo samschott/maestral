@@ -22,6 +22,9 @@ def _path_components(path: str) -> List[str]:
     return cleaned_components
 
 
+Path = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
+
+
 def normalize_case(string: str) -> str:
     """
     Converts a string to lower case. Todo: Follow Python 2.5 / Dropbox conventions.
@@ -466,3 +469,56 @@ def fs_max_lengths_for_path(path: str = "/") -> Tuple[int, int]:
                 raise RuntimeError("Cannot get file length limits.")
             else:
                 dirname = "/"
+
+
+# ==== symlink-proof os methods ========================================================
+
+
+def opener_no_symlink(path: Path, flags: int) -> int:
+    """
+    Opener that does not follow symlinks. Uses :meth:`os.open` under the hood.
+
+    :param path: Path to open.
+    :param flags: Flags passed to :meth:`os.open`. O_NOFOLLOW will be added.
+    :return: Open file descriptor.
+    """
+    flags |= os.O_NOFOLLOW
+    return os.open(path, flags=flags)
+
+
+def _get_stats_no_symlink(path: Path) -> Optional[os.stat_result]:
+    try:
+        return os.stat(path, follow_symlinks=False)
+    except (FileNotFoundError, NotADirectoryError):
+        return None
+
+
+def exists(path: Path) -> bool:
+    """Returns whether an item exists at the path. Returns True for symlinks."""
+    return _get_stats_no_symlink(path) is not None
+
+
+def isfile(path: Path) -> bool:
+    """Returns whether a file exists at the path. Returns True for symlinks."""
+    stat = _get_stats_no_symlink(path)
+
+    if stat is None:
+        return False
+    else:
+        return not S_ISDIR(stat.st_mode)
+
+
+def isdir(path: Path) -> bool:
+    """Returns whether a folder exists at the path. Returns False for symlinks."""
+    stat = _get_stats_no_symlink(path)
+
+    if stat is None:
+        return False
+    else:
+        return S_ISDIR(stat.st_mode)
+
+
+def getsize(path: Path) -> int:
+    """Returns the size. Returns False for symlinks."""
+    stat = os.stat(path, follow_symlinks=False)
+    return stat.st_size
