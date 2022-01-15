@@ -120,6 +120,10 @@ class FileReadError(SyncError):
     """Raised when reading a local file failed."""
 
 
+class SymlinkError(SyncError):
+    """Raised when we cannot sync a symlink."""
+
+
 # ==== errors which are not related to a specific sync event ===========================
 
 
