@@ -123,7 +123,7 @@ def is_fs_case_sensitive(path: str) -> bool:
     else:
         check_path = path.lower()
 
-    if osp.exists(path) and not osp.exists(check_path):
+    if exists(path) and not exists(check_path):
         return True
     else:
         return not osp.samefile(path, check_path)
@@ -238,7 +238,7 @@ def to_existing_unnormalized_path(path: str, root: str = osp.sep) -> str:
     candidates = equivalent_path_candidates(path, root)
 
     for candidate in candidates:
-        if osp.exists(candidate):
+        if exists(candidate):
             return candidate
 
     raise FileNotFoundError(f'No matches with different casing found in "{root}"')
@@ -259,7 +259,7 @@ def normalized_path_exists(path: str, root: str = osp.sep) -> bool:
     candidates = equivalent_path_candidates(path, root)
 
     for c in candidates:
-        if osp.exists(c):
+        if exists(c):
             return True
 
     return False
@@ -300,7 +300,7 @@ def generate_cc_name(path: str, suffix: str = "conflicting copy") -> str:
 
 def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
     """
-    Deletes a file or folder at ``path``.
+    Deletes a file or folder at ``path``. Symlinks will not be followed.
 
     :param path: Path of item to delete.
     :param raise_error: Whether to raise errors or return them.
@@ -309,7 +309,7 @@ def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
     err = None
 
     try:
-        shutil.rmtree(path)
+        shutil.rmtree(path)  # Will raise OSError when it finds a symlink.
     except OSError:
         try:
             os.unlink(path)
@@ -349,7 +349,7 @@ def move(
     if preserve_dest_permissions:
         # save dest permissions
         try:
-            orig_mode = os.stat(dest_path).st_mode & 0o777
+            orig_mode = os.stat(dest_path, follow_symlinks=False).st_mode & 0o777
         except FileNotFoundError:
             pass
 
@@ -392,7 +392,7 @@ def walk(
 
         try:
             path = entry.path
-            stat = entry.stat()
+            stat = entry.stat(follow_symlinks=False)
 
             yield path, stat
 
@@ -429,10 +429,10 @@ def content_hash(
     hasher = DropboxContentHasher()
 
     try:
-        mtime = os.stat(local_path).st_mtime
+        mtime = os.stat(local_path, follow_symlinks=False).st_mtime
 
         try:
-            with open(local_path, "rb") as f:
+            with open(local_path, "rb", opener=opener_no_symlink) as f:
                 while True:
                     chunk = f.read(chunk_size)
                     if len(chunk) == 0:
@@ -441,8 +441,14 @@ def content_hash(
 
         except IsADirectoryError:
             return "folder", mtime
-        else:
-            return str(hasher.hexdigest()), mtime
+
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                hasher.update(b"")  # use empty file for symlinks
+            else:
+                raise exc
+
+        return str(hasher.hexdigest()), mtime
 
     except FileNotFoundError:
         return None, None
