@@ -3550,8 +3550,13 @@ class SyncEngine:
             # Ignore FileDeletedEvent when replacing old file.
             ignore_events.append(FileDeletedEvent(local_path))
 
+        is_symlink = event.symlink_target is not None
+
+        if is_symlink:
+            ignore_events.append(DirMovedEvent(tmp_fname, local_path))
+
         # Move the downloaded file to its destination.
-        with self.fs_events.ignore(*ignore_events):
+        with self.fs_events.ignore(*ignore_events, recursive=is_symlink):
             with convert_api_errors(dbx_path=event.dbx_path, local_path=local_path):
                 stat = os.stat(tmp_fname, follow_symlinks=False)
                 move(
