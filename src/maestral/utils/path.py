@@ -24,6 +24,41 @@ def _path_components(path: str) -> List[str]:
 
 Path = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
 
+# ==== path relationships ==============================================================
+
+
+def is_child(path: str, parent: str) -> bool:
+    """
+    Checks if ``path`` semantically is inside ``parent``. Neither path needs to
+    refer to an actual item on the drive. This function is case-sensitive.
+
+    :param path: Item path.
+    :param parent: Parent path.
+    :returns: Whether ``path`` semantically lies inside ``parent``.
+    """
+
+    parent = parent.rstrip(osp.sep) + osp.sep
+    path = path.rstrip(osp.sep)
+
+    return path.startswith(parent)
+
+
+def is_equal_or_child(path: str, parent: str) -> bool:
+    """
+    Checks if ``path`` semantically is inside ``parent`` or equals ``parent``. Neither
+    path needs to refer to an actual item on the drive. This function is case-sensitive.
+
+    :param path: Item path.
+    :param parent: Parent path.
+    :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
+        ``path == parent``.
+    """
+
+    return is_child(path, parent) or path == parent
+
+
+# ==== case sensitivity and normalization ==============================================
+
 
 def normalize_case(string: str) -> str:
     """
@@ -92,36 +127,6 @@ def is_fs_case_sensitive(path: str) -> bool:
         return True
     else:
         return not osp.samefile(path, check_path)
-
-
-def is_child(path: str, parent: str) -> bool:
-    """
-    Checks if ``path`` semantically is inside ``parent``. Neither path needs to
-    refer to an actual item on the drive. This function is case-sensitive.
-
-    :param path: Item path.
-    :param parent: Parent path.
-    :returns: Whether ``path`` semantically lies inside ``parent``.
-    """
-
-    parent = parent.rstrip(osp.sep) + osp.sep
-    path = path.rstrip(osp.sep)
-
-    return path.startswith(parent)
-
-
-def is_equal_or_child(path: str, parent: str) -> bool:
-    """
-    Checks if ``path`` semantically is inside ``parent`` or equals ``parent``. Neither
-    path needs to refer to an actual item on the drive. This function is case-sensitive.
-
-    :param path: Item path.
-    :param parent: Parent path.
-    :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
-        ``path == parent``.
-    """
-
-    return is_child(path, parent) or path == parent
 
 
 def equivalent_path_candidates(
@@ -290,6 +295,9 @@ def generate_cc_name(path: str, suffix: str = "conflicting copy") -> str:
     return osp.join(dirname, cc_candidate)
 
 
+# ==== higher level file operations ====================================================
+
+
 def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
     """
     Deletes a file or folder at ``path``.
@@ -401,6 +409,9 @@ def walk(
                 return
             else:
                 raise
+
+
+# ==== miscellaneous utilities =========================================================
 
 
 def content_hash(
