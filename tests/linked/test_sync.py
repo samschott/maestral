@@ -1154,6 +1154,40 @@ def test_unknown_path_encoding(m, capsys):
     assert_no_errors(m)
 
 
+def test_symlink_error(m):
+
+    dbx_path = m.test_folder_dbx + "/link"
+    local_path = m.test_folder_local + "/link"
+
+    os.symlink("to_nowhere", local_path)
+    wait_for_idle(m)
+
+    assert len(m.fatal_errors) == 0
+    assert len(m.sync_errors) == 1
+    assert m.sync_errors[0]["local_path"] == local_path
+    assert m.sync_errors[0]["type"] == "SymlinkError"
+    assert normalize(dbx_path) in m.sync.upload_errors
+
+
+def test_symlink_indexing_error(m):
+
+    m.stop_sync()
+
+    dbx_path = m.test_folder_dbx + "/link"
+    local_path = m.test_folder_local + "/link"
+
+    os.symlink("to_nowhere", local_path)
+
+    m.start_sync()
+    wait_for_idle(m)
+
+    assert len(m.fatal_errors) == 0
+    assert len(m.sync_errors) == 1
+    assert m.sync_errors[0]["local_path"] == local_path
+    assert m.sync_errors[0]["type"] == "SymlinkError"
+    assert normalize(dbx_path) in m.sync.upload_errors
+
+
 def test_dropbox_dir_delete_during_sync(m):
 
     delete(m.dropbox_path)
