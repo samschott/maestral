@@ -619,14 +619,24 @@ class DropboxClient:
 
             md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
 
-            chunksize = 2 ** 13
+            if md.symlink_info is not None:
+                # Don't download but reproduce symlink locally.
+                http_resp.close()
+                try:
+                    os.unlink(local_path)
+                except FileNotFoundError:
+                    pass
+                os.symlink(md.symlink_info.target, local_path)
 
-            with open(local_path, "wb", opener=opener_no_symlink) as f:
-                with contextlib.closing(http_resp):
-                    for c in http_resp.iter_content(chunksize):
-                        f.write(c)
-                        if sync_event:
-                            sync_event.completed = f.tell()
+            else:
+                chunksize = 2 ** 13
+
+                with open(local_path, "wb", opener=opener_no_symlink) as f:
+                    with contextlib.closing(http_resp):
+                        for c in http_resp.iter_content(chunksize):
+                            f.write(c)
+                            if sync_event:
+                                sync_event.completed = f.tell()
 
             # Dropbox SDK provides naive datetime in UTC.
             client_mod = md.client_modified.replace(tzinfo=timezone.utc)
