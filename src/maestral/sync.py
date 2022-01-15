@@ -2252,8 +2252,10 @@ class SyncEngine:
         try:
 
             with self.client.clone_with_new_session() as client:
-                if event.is_added:
-                    res = self._on_local_created(event, client)
+                if event.is_added and event.is_file:
+                    res = self._on_local_file_created(event, client)
+                elif event.is_added and event.is_directory:
+                    res = self._on_local_folder_created(event, client)
                 elif event.is_moved:
                     res = self._on_local_moved(event, client)
                 elif event.is_changed:
@@ -2384,11 +2386,11 @@ class SyncEngine:
             for md in result.entries:
                 self.update_index_from_dbx_metadata(md, client)
 
-    def _on_local_created(
+    def _on_local_file_created(
         self, event: SyncEvent, client: Optional[DropboxClient] = None
     ) -> Optional[Metadata]:
         """
-        Call when a local item is created.
+        Call when a local file is created.
 
         :param event: SyncEvent corresponding to local created event.
         :param client: Client instance to use. If not given, use the instance provided
@@ -2409,88 +2411,117 @@ class SyncEngine:
 
         self._wait_for_creation(event.local_path)
 
-        if event.is_directory:
-            try:
-                if client.is_team_space and event.dbx_path.count("/") == 1:
-                    # We create the folder as a shared folder immediately to prevent
-                    # race conditions when it is created, unmounted, and remounted as a
-                    # shared folder in a Team Space. We then retrieve the metadata in a
-                    # second `get_metadata` call. Note: This is also racy because the
-                    # shared folder may no longer exist at the point of the get_metadata
-                    # call. However, this is easier for us to deal with.
-                    shared_md = client.share_dir(event.dbx_path)
-                    md_new = client.get_metadata(f"ns:{shared_md.shared_folder_id}")
-
-                    if not md_new:
-                        # Remote folder has been deleted after creating. Reflect changes
-                        # locally and return.
-                        self._logger.debug(
-                            '"%s" on Dropbox was deleted after creation, '
-                            "deleting local copy",
-                            event.dbx_path,
-                        )
-                        err = delete(event.local_path)
-
-                        if err:
-                            raise os_to_maestral_error(err)
-
-                        return None
-                else:
-                    md_new = client.make_dir(event.dbx_path, autorename=False)
-            except FolderConflictError:
-                self._logger.debug(
-                    'No conflict for "%s": the folder already exists', event.local_path
-                )
-                try:
-                    md = client.get_metadata(event.dbx_path)
-                    if isinstance(md, FolderMetadata):
-                        self.update_index_from_dbx_metadata(md, client)
-                except NotFoundError:
-                    pass
-
+        # Check if file already exists with identical content.
+        md_old = client.get_metadata(event.dbx_path)
+        if isinstance(md_old, FileMetadata):
+            if event.content_hash == md_old.content_hash:
+                # File hashes are identical, do not upload.
+                self.update_index_from_dbx_metadata(md_old, client)
                 return None
-            except FileConflictError:
-                md_new = client.make_dir(event.dbx_path, autorename=True)
 
+        local_entry = self.get_index_entry(event.dbx_path_lower)
+
+        if not local_entry:
+            # File is new to us, let Dropbox rename it if something is in the way.
+            mode = WriteMode.add
+        elif local_entry.is_directory:
+            # Try to overwrite the destination, this will fail...
+            mode = WriteMode.overwrite
         else:
-            # Check if file already exists with identical content.
-            md_old = client.get_metadata(event.dbx_path)
-            if isinstance(md_old, FileMetadata):
-                if event.content_hash == md_old.content_hash:
-                    # File hashes are identical, do not upload.
-                    self.update_index_from_dbx_metadata(md_old, client)
+            # File has been modified, update remote if matching rev,
+            # create conflict otherwise.
+            self._logger.debug(
+                '"%s" appears to have been created but we are ' "already tracking it",
+                event.dbx_path,
+            )
+            mode = WriteMode.update(local_entry.rev)
+        try:
+            md_new = client.upload(
+                event.local_path,
+                event.dbx_path,
+                autorename=True,
+                mode=mode,
+                sync_event=event,
+            )
+        except (NotFoundError, IsAFolderError):
+            self._logger.debug(
+                'Could not upload "%s": the file does not exist', event.local_path
+            )
+            return None
+
+        if not self._handle_upload_conflict(md_new, event, client):
+            self._logger.debug('Created "%s" on Dropbox', event.dbx_path)
+
+        self.update_index_from_dbx_metadata(md_new, client)
+
+        return md_new
+
+    def _on_local_folder_created(
+        self, event: SyncEvent, client: Optional[DropboxClient] = None
+    ) -> Optional[Metadata]:
+        """
+        Call when a local folder is created.
+
+        :param event: SyncEvent corresponding to local created event.
+        :param client: Client instance to use. If not given, use the instance provided
+            in the constructor.
+        :returns: Metadata for created item or None if no remote item is created.
+        :raises MaestralApiError: For any issues when syncing the item.
+        """
+
+        client = client or self.client
+
+        # Fail fast on badly decoded paths.
+        validate_encoding(event.local_path)
+
+        if self._handle_selective_sync_conflict(event):
+            return None
+        if self._handle_normalization_conflict(event):
+            return None
+
+        self._wait_for_creation(event.local_path)
+
+        try:
+            if client.is_team_space and event.dbx_path.count("/") == 1:
+                # We create the folder as a shared folder immediately to prevent
+                # race conditions when it is created, unmounted, and remounted as a
+                # shared folder in a Team Space. We then retrieve the metadata in a
+                # second `get_metadata` call. Note: This is also racy because the
+                # shared folder may no longer exist at the point of the get_metadata
+                # call. However, this is easier for us to deal with.
+                shared_md = client.share_dir(event.dbx_path)
+                md_new = client.get_metadata(f"ns:{shared_md.shared_folder_id}")
+
+                if not md_new:
+                    # Remote folder has been deleted after creating. Reflect changes
+                    # locally and return.
+                    self._logger.debug(
+                        '"%s" on Dropbox was deleted after creation, '
+                        "deleting local copy",
+                        event.dbx_path,
+                    )
+                    err = delete(event.local_path)
+
+                    if err:
+                        raise os_to_maestral_error(err)
+
                     return None
-
-            local_entry = self.get_index_entry(event.dbx_path_lower)
-
-            if not local_entry:
-                # File is new to us, let Dropbox rename it if something is in the way.
-                mode = WriteMode.add
-            elif local_entry.is_directory:
-                # Try to overwrite the destination, this will fail...
-                mode = WriteMode.overwrite
             else:
-                # File has been modified, update remote if matching rev,
-                # create conflict otherwise.
-                self._logger.debug(
-                    '"%s" appears to have been created but we are '
-                    "already tracking it",
-                    event.dbx_path,
-                )
-                mode = WriteMode.update(local_entry.rev)
+                md_new = client.make_dir(event.dbx_path, autorename=False)
+        except FolderConflictError:
+            self._logger.debug(
+                'No conflict for "%s": the folder already exists', event.local_path
+            )
             try:
-                md_new = client.upload(
-                    event.local_path,
-                    event.dbx_path,
-                    autorename=True,
-                    mode=mode,
-                    sync_event=event,
-                )
-            except (NotFoundError, IsAFolderError):
-                self._logger.debug(
-                    'Could not upload "%s": the file does not exist', event.local_path
-                )
-                return None
+                md = client.get_metadata(event.dbx_path)
+                if isinstance(md, FolderMetadata):
+                    self.update_index_from_dbx_metadata(md, client)
+            except NotFoundError:
+                pass
+
+            return None
+        except FileConflictError:
+            md_new = client.make_dir(event.dbx_path, autorename=True)
 
         if not self._handle_upload_conflict(md_new, event, client):
             self._logger.debug('Created "%s" on Dropbox', event.dbx_path)
