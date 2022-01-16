@@ -1433,6 +1433,10 @@ class SyncEngine:
             if basename.startswith("~") and basename.endswith(".tmp"):
                 return True
 
+        # Is a child of a symlinked path:
+        if osp.realpath(dirname) != dirname:
+            return True
+
         return False
 
     def is_excluded_by_user(self, dbx_path_lower: str) -> bool:
@@ -1844,7 +1848,7 @@ class SyncEngine:
 
         for event in sync_events:
 
-            if self.is_excluded(event.dbx_path) or self.is_mignore(event):
+            if self.is_excluded(event.local_path) or self.is_mignore(event):
                 continue
 
             if event.is_deleted:
