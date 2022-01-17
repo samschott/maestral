@@ -4,6 +4,7 @@
 import os
 import os.path as osp
 import shutil
+import sqlite3
 import time
 import warnings
 import logging.handlers
@@ -72,6 +73,22 @@ from .constants import IDLE, PAUSED, CONNECTING, FileStatus, GITHUB_RELEASES_API
 
 
 __all__ = ["Maestral"]
+
+
+def _sql_add_column(db: Database, table: str, column: str, affinity: str) -> None:
+    try:
+        db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {affinity};")
+    except sqlite3.OperationalError:
+        # column already exists
+        pass
+
+
+def _sql_drop_table(db: Database, table: str) -> None:
+    try:
+        db.execute(f"DROP TABLE {table};")
+    except sqlite3.OperationalError:
+        # table does not exist
+        pass
 
 
 # ======================================================================================
@@ -1453,7 +1470,7 @@ class Maestral:
             self._update_from_pre_v1_4_5()
         if Version(updated_from) < Version("1.4.8"):
             self._update_from_pre_v1_4_8()
-        if Version(updated_from) < Version("1.5.3.dev0"):
+        if Version(updated_from) < Version("1.5.3"):
             self._update_from_pre_v1_5_3()
 
         self._state.set("app", "updated_scripts_completed", __version__)
@@ -1478,7 +1495,7 @@ class Maestral:
 
         db_path = get_data_path("maestral", f"{self.config_name}.db")
         db = Database(db_path, check_same_thread=False)
-        db.execute("DROP TABLE history")
+        _sql_drop_table(db, "history")
         db.close()
 
     def _update_from_pre_v1_4_8(self) -> None:
@@ -1512,11 +1529,15 @@ class Maestral:
 
     def _update_from_pre_v1_5_3(self) -> None:
 
-        self._logger.info("Clearing hash cache after update from pre v1.5.3.dev0")
+        self._logger.info("Migrating database after update from pre v1.5.3")
 
         db_path = get_data_path("maestral", f"{self.config_name}.db")
         db = Database(db_path, check_same_thread=False)
-        db.execute("DROP TABLE hash_cache")
+
+        _sql_drop_table(db, "hash_cache")
+        _sql_add_column(db, "history", "symlink_target", "TEXT")
+        _sql_add_column(db, "'index'", "symlink_target", "TEXT")
+
         db.close()
 
     # ==== Periodic async jobs =========================================================
