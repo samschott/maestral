@@ -859,6 +859,10 @@ class SyncEngine:
             self._db_manager_hash_cache.clear_cache()
             return None
         except OSError as err:
+
+            if err.errno == errno.ENAMETOOLONG:
+                return None
+
             raise os_to_maestral_error(err)
 
         if S_ISDIR(stat.st_mode):
@@ -897,6 +901,11 @@ class SyncEngine:
         except OSError as err:
 
             if err.errno == errno.EINVAL:
+                # File is not a symlink.
+                return None
+
+            if err.errno == errno.ENAMETOOLONG:
+                # Path cannot exist on this filesystem.
                 return None
 
             raise os_to_maestral_error(err)
