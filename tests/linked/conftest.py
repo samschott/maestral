@@ -177,9 +177,15 @@ def assert_synced(m: Maestral):
 
         remote_hash = e.content_hash if isinstance(e, FileMetadata) else "folder"
         local_hash = m.sync.get_local_hash(local_path)
+        local_symlink_target = m.sync.get_local_symlink_target(local_path)
 
         assert local_hash, f"'{e.path_display}' not found locally"
         assert local_hash == remote_hash, f'different content for "{e.path_display}"'
+
+        if isinstance(e, FileMetadata) and e.symlink_info:
+            assert (
+                e.symlink_info.target == local_symlink_target
+            ), f'different symlink targets for "{e.path_display}"'
 
     # Assert that all local items are present on server.
     for path in local_snapshot.paths:
