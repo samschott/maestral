@@ -674,7 +674,7 @@ class DropboxClient:
 
         with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
 
-            stat = os.stat(local_path, follow_symlinks=False)
+            stat = os.lstat(local_path)
 
             # Dropbox SDK takes naive datetime in UTC/
             mtime_dt = datetime.utcfromtimestamp(stat.st_mtime)

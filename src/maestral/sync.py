@@ -846,7 +846,7 @@ class SyncEngine:
         """
 
         try:
-            stat = os.stat(local_path, follow_symlinks=False)
+            stat = os.lstat(local_path)
         except (FileNotFoundError, NotADirectoryError):
             # Remove all cache entries for local_path and return None.
             with self._database_access():
@@ -3338,7 +3338,7 @@ class SyncEngine:
         with convert_api_errors():  # Catch OSErrors.
 
             try:
-                stat = os.stat(local_path, follow_symlinks=False)
+                stat = os.lstat(local_path)
             except (FileNotFoundError, NotADirectoryError):
                 # Don't check ctime for deleted items (os won't give stat info)
                 # but confirm absence from index.
@@ -3380,7 +3380,7 @@ class SyncEngine:
         """
 
         try:
-            stat = os.stat(local_path, follow_symlinks=False)
+            stat = os.lstat(local_path)
             if S_ISDIR(stat.st_mode):
                 ctime = stat.st_ctime
                 with os.scandir(local_path) as it:
@@ -3634,7 +3634,7 @@ class SyncEngine:
         # Move the downloaded file to its destination.
         with self.fs_events.ignore(*ignore_events, recursive=is_symlink):
             with convert_api_errors(dbx_path=event.dbx_path, local_path=local_path):
-                stat = os.stat(tmp_fname, follow_symlinks=False)
+                stat = os.lstat(tmp_fname)
                 move(
                     tmp_fname,
                     local_path,
