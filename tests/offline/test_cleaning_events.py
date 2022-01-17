@@ -247,7 +247,6 @@ def test_nested_events(sync):
     group="local-event-processing",
     min_time=0.1,
     max_time=5,
-    min_rounds=4,
 )
 def test_performance(sync, benchmark):
 
