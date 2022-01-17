@@ -1,6 +1,7 @@
 """This module contains the main syncing functionality."""
 
 # system imports
+import errno
 import sys
 import os
 import os.path as osp
@@ -879,6 +880,26 @@ class SyncEngine:
         self._save_local_hash(stat.st_ino, local_path, hash_str, mtime)
 
         return hash_str
+
+    def get_local_symlink_target(self, local_path: str) -> Optional[str]:
+        """
+        Gets the symlink target of a local file.
+
+        :param local_path: Absolute path on local drive.
+        :returns: Symlink target of local file. None if the local path does not refer to
+            a symlink or does not exist.
+        """
+
+        try:
+            return os.readlink(local_path)
+        except (FileNotFoundError, NotADirectoryError):
+            return None
+        except OSError as err:
+
+            if err.errno == errno.EINVAL:
+                return None
+
+            raise os_to_maestral_error(err)
 
     def _save_local_hash(
         self,
@@ -2560,8 +2581,18 @@ class SyncEngine:
 
         # Check if item already exists with identical content.
         md_old = client.get_metadata(event.dbx_path)
+
         if isinstance(md_old, FileMetadata):
-            if event.content_hash == md_old.content_hash:
+
+            if md_old.symlink_info:
+                md_symlink_target = md_old.symlink_info.target
+            else:
+                md_symlink_target = None
+
+            if (
+                event.content_hash == md_old.content_hash
+                and event.symlink_target == md_symlink_target
+            ):
                 # File hashes are identical, do not upload.
                 self.update_index_from_dbx_metadata(md_old, client)
                 self._logger.debug(
@@ -3232,6 +3263,7 @@ class SyncEngine:
         """
 
         local_rev = self.get_local_rev(event.dbx_path_lower)
+        local_symlink_target = self.get_local_symlink_target(event.local_path)
 
         if event.rev == local_rev:
             # Local change has the same rev. The local item (or deletion) must be newer
@@ -3243,7 +3275,10 @@ class SyncEngine:
             )
             return Conflict.LocalNewerOrIdentical
 
-        elif event.content_hash == self.get_local_hash(event.local_path):
+        elif (
+            event.content_hash == self.get_local_hash(event.local_path)
+            and event.symlink_target == local_symlink_target
+        ):
             # Content hashes are equal, therefore items are identical. Folders will
             # have a content hash of 'folder'.
             self._logger.debug(
