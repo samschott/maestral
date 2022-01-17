@@ -478,6 +478,7 @@ class IndexEntry(Model):
         "_last_sync",
         "_rev",
         "_content_hash",
+        "_symlink_target",
     ]
 
     __tablename__ = "'index'"
@@ -515,15 +516,25 @@ class IndexEntry(Model):
     ``None`` if not yet calculated.
     """
 
+    symlink_target = Column(SqlPath())
+    """
+    If the file is a symlink, its target path. This should only be set for files.
+    """
+
     @property
     def is_file(self) -> bool:
-        """Returns True for file changes"""
+        """Returns True for files"""
         return self.item_type == ItemType.File
 
     @property
     def is_directory(self) -> bool:
-        """Returns True for folder changes"""
+        """Returns True for folders"""
         return self.item_type == ItemType.Folder
+
+    @property
+    def is_symlink(self) -> bool:
+        """Returns True for symlinks"""
+        return self.symlink_target is not None
 
     def __repr__(self):
         return (
