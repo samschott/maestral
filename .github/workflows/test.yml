@@ -42,7 +42,7 @@ jobs:
 
       - name: Test with pytest
         run: |
-          pytest --cov=maestral --cov-report=xml tests/offline
+          python -m pytest --cov=maestral --cov-report=xml tests/offline
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2.1.0
