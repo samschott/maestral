@@ -3259,7 +3259,6 @@ class SyncEngine:
         """
 
         local_rev = self.get_local_rev(event.dbx_path_lower)
-        local_symlink_target = self.get_local_symlink_target(event.local_path)
 
         if event.rev == local_rev:
             # Local change has the same rev. The local item (or deletion) must be newer
@@ -3271,10 +3270,9 @@ class SyncEngine:
             )
             return Conflict.LocalNewerOrIdentical
 
-        elif (
-            event.content_hash == self.get_local_hash(event.local_path)
-            and event.symlink_target == local_symlink_target
-        ):
+        elif event.content_hash == self.get_local_hash(
+            event.local_path
+        ) and event.symlink_target == self.get_local_symlink_target(event.local_path):
             # Content hashes are equal, therefore items are identical. Folders will
             # have a content hash of 'folder'.
             self._logger.debug(
