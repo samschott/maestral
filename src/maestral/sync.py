@@ -952,6 +952,7 @@ class SyncEngine:
                     last_sync=self._get_ctime(event.local_path),
                     rev=event.rev,
                     content_hash=event.content_hash,
+                    symlink_target=event.symlink_target,
                 )
 
                 self._db_manager_index.update(entry)
@@ -976,10 +977,14 @@ class SyncEngine:
 
             else:
 
+                symlink_target: Optional[str] = None
+
                 if isinstance(md, FileMetadata):
                     rev = md.rev
                     hash_str = md.content_hash
                     item_type = ItemType.File
+                    if md.symlink_info:
+                        symlink_target = md.symlink_info.target
                 else:
                     rev = "folder"
                     hash_str = "folder"
@@ -997,6 +1002,7 @@ class SyncEngine:
                     last_sync=None,
                     rev=rev,
                     content_hash=hash_str,
+                    symlink_target=symlink_target,
                 )
 
                 self._db_manager_index.update(entry)
