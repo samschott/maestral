@@ -2290,8 +2290,8 @@ class SyncEngine:
                     res = self._on_local_folder_created(event, client)
                 elif event.is_moved:
                     res = self._on_local_moved(event, client)
-                elif event.is_changed:
-                    res = self._on_local_modified(event, client)
+                elif event.is_changed and event.is_file:
+                    res = self._on_local_file_modified(event, client)
                 elif event.is_deleted:
                     res = self._on_local_deleted(event, client)
                 else:
@@ -2562,11 +2562,11 @@ class SyncEngine:
 
         return md_new
 
-    def _on_local_modified(
+    def _on_local_file_modified(
         self, event: SyncEvent, client: Optional[DropboxClient] = None
     ) -> Optional[Metadata]:
         """
-        Call when local item is modified.
+        Call when a local file is modified.
 
         :param event: SyncEvent for local modified event.
         :param client: Client instance to use. If not given, use the instance provided
@@ -2577,10 +2577,6 @@ class SyncEngine:
         """
 
         client = client or self.client
-
-        # Ignore directory modified events.
-        if event.is_directory:
-            return None
 
         self._wait_for_creation(event.local_path)
 
