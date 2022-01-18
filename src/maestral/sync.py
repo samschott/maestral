@@ -2619,7 +2619,7 @@ class SyncEngine:
         self, event: SyncEvent, client: Optional[DropboxClient] = None
     ) -> Optional[Metadata]:
         """
-        Call when local item is deleted. We try not to delete remote items which have
+        Call when a local item is deleted. We try not to delete remote items which have
         been modified since the last sync.
 
         :param event: SyncEvent for local deletion.
@@ -2742,7 +2742,7 @@ class SyncEngine:
         moved events.
 
         :param md_new: Metadata of item after upload.
-        :param event: Original upload sync event which.
+        :param event: Original upload sync event which triggered the upload.
         :param client: Client instance to use.
         :returns: Whether a conflicting copy was created.
         """
