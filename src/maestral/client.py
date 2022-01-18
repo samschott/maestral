@@ -60,6 +60,7 @@ from .errors import (
     NotAFolderError,
     IsAFolderError,
     FileSizeError,
+    SymlinkError,
     OutOfMemoryError,
     BadInputError,
     DropboxAuthError,
@@ -76,7 +77,7 @@ from .errors import (
 from .config import MaestralState
 from .constants import DROPBOX_APP_KEY
 from .utils import natural_size, chunks, clamp
-from .utils.path import fs_max_lengths_for_path
+from .utils.path import fs_max_lengths_for_path, opener_no_symlink
 
 if TYPE_CHECKING:
     from .database import SyncEvent
@@ -618,14 +619,24 @@ class DropboxClient:
 
             md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
 
-            chunksize = 2 ** 13
+            if md.symlink_info is not None:
+                # Don't download but reproduce symlink locally.
+                http_resp.close()
+                try:
+                    os.unlink(local_path)
+                except FileNotFoundError:
+                    pass
+                os.symlink(md.symlink_info.target, local_path)
 
-            with open(local_path, "wb") as f:
-                with contextlib.closing(http_resp):
-                    for c in http_resp.iter_content(chunksize):
-                        f.write(c)
-                        if sync_event:
-                            sync_event.completed = f.tell()
+            else:
+                chunksize = 2 ** 13
+
+                with open(local_path, "wb", opener=opener_no_symlink) as f:
+                    with contextlib.closing(http_resp):
+                        for c in http_resp.iter_content(chunksize):
+                            f.write(c)
+                            if sync_event:
+                                sync_event.completed = f.tell()
 
             # Dropbox SDK provides naive datetime in UTC.
             client_mod = md.client_modified.replace(tzinfo=timezone.utc)
@@ -634,7 +645,7 @@ class DropboxClient:
             # Enforce client_modified < server_modified.
             timestamp = min(client_mod.timestamp(), server_mod.timestamp(), time.time())
             # Set mtime of downloaded file.
-            os.utime(local_path, (time.time(), timestamp))
+            os.utime(local_path, (time.time(), timestamp), follow_symlinks=False)
 
         return md
 
@@ -663,14 +674,13 @@ class DropboxClient:
 
         with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
 
-            size = osp.getsize(local_path)
+            stat = os.lstat(local_path)
 
             # Dropbox SDK takes naive datetime in UTC/
-            mtime = osp.getmtime(local_path)
-            mtime_dt = datetime.utcfromtimestamp(mtime)
+            mtime_dt = datetime.utcfromtimestamp(stat.st_mtime)
 
-            if size <= chunk_size:
-                with open(local_path, "rb") as f:
+            if stat.st_size <= chunk_size:
+                with open(local_path, "rb", opener=opener_no_symlink) as f:
                     md = self.dbx.files_upload(
                         f.read(), dbx_path, client_modified=mtime_dt, **kwargs
                     )
@@ -681,7 +691,7 @@ class DropboxClient:
                 # Note: We currently do not support resuming interrupted uploads.
                 # Dropbox keeps upload sessions open for 48h so this could be done in
                 # the future.
-                with open(local_path, "rb") as f:
+                with open(local_path, "rb", opener=opener_no_symlink) as f:
                     data = f.read(chunk_size)
                     session_start = self.dbx.files_upload_session_start(data)
                     uploaded = f.tell()
@@ -699,7 +709,7 @@ class DropboxClient:
                     while True:
                         try:
 
-                            if size - f.tell() <= chunk_size:
+                            if stat.st_size - f.tell() <= chunk_size:
                                 # Finish upload session and return metadata.
                                 data = f.read(chunk_size)
                                 md = self.dbx.files_upload_session_finish(
@@ -1338,6 +1348,10 @@ def os_to_maestral_error(
         err_cls = FileSizeError  # subclass of SyncError
         title = "Could not download file"
         text = "The file size too large."
+    elif exc.errno == errno.ELOOP:
+        err_cls = SymlinkError  # subclass of SyncError
+        title = "Cannot upload symlink"
+        text = "Symlinks are not currently supported by the public Dropbox API."
     elif exc.errno == errno.ENOSPC:
         err_cls = InsufficientSpaceError  # subclass of SyncError
         title = "Could not download file"

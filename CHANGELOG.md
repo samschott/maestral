@@ -8,6 +8,10 @@
   notification. Previously, only clicking on the "Show" button of the notification
   would open the file browser.
 * Removed update notifications by the CLI.
+* Proper symlink handling: Remote items which are symlinks will now be synced as symlinks
+  instead of empty files. Local symlinks will no longer be followed during indexing or
+  silently ignored when syncing. Instead, attempting to upload a symlink will raise an
+  error because uploading symlinks is not currently supported by the public Dropbox API.
 
 #### Fixed:
 

@@ -22,6 +22,44 @@ def _path_components(path: str) -> List[str]:
     return cleaned_components
 
 
+Path = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
+
+# ==== path relationships ==============================================================
+
+
+def is_child(path: str, parent: str) -> bool:
+    """
+    Checks if ``path`` semantically is inside ``parent``. Neither path needs to
+    refer to an actual item on the drive. This function is case-sensitive.
+
+    :param path: Item path.
+    :param parent: Parent path.
+    :returns: Whether ``path`` semantically lies inside ``parent``.
+    """
+
+    parent = parent.rstrip(osp.sep) + osp.sep
+    path = path.rstrip(osp.sep)
+
+    return path.startswith(parent)
+
+
+def is_equal_or_child(path: str, parent: str) -> bool:
+    """
+    Checks if ``path`` semantically is inside ``parent`` or equals ``parent``. Neither
+    path needs to refer to an actual item on the drive. This function is case-sensitive.
+
+    :param path: Item path.
+    :param parent: Parent path.
+    :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
+        ``path == parent``.
+    """
+
+    return is_child(path, parent) or path == parent
+
+
+# ==== case sensitivity and normalization ==============================================
+
+
 def normalize_case(string: str) -> str:
     """
     Converts a string to lower case. Todo: Follow Python 2.5 / Dropbox conventions.
@@ -85,40 +123,10 @@ def is_fs_case_sensitive(path: str) -> bool:
     else:
         check_path = path.lower()
 
-    if osp.exists(path) and not osp.exists(check_path):
+    if exists(path) and not exists(check_path):
         return True
     else:
         return not osp.samefile(path, check_path)
-
-
-def is_child(path: str, parent: str) -> bool:
-    """
-    Checks if ``path`` semantically is inside ``parent``. Neither path needs to
-    refer to an actual item on the drive. This function is case-sensitive.
-
-    :param path: Item path.
-    :param parent: Parent path.
-    :returns: Whether ``path`` semantically lies inside ``parent``.
-    """
-
-    parent = parent.rstrip(osp.sep) + osp.sep
-    path = path.rstrip(osp.sep)
-
-    return path.startswith(parent)
-
-
-def is_equal_or_child(path: str, parent: str) -> bool:
-    """
-    Checks if ``path`` semantically is inside ``parent`` or equals ``parent``. Neither
-    path needs to refer to an actual item on the drive. This function is case-sensitive.
-
-    :param path: Item path.
-    :param parent: Parent path.
-    :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
-        ``path == parent``.
-    """
-
-    return is_child(path, parent) or path == parent
 
 
 def equivalent_path_candidates(
@@ -230,7 +238,7 @@ def to_existing_unnormalized_path(path: str, root: str = osp.sep) -> str:
     candidates = equivalent_path_candidates(path, root)
 
     for candidate in candidates:
-        if osp.exists(candidate):
+        if exists(candidate):
             return candidate
 
     raise FileNotFoundError(f'No matches with different casing found in "{root}"')
@@ -251,7 +259,7 @@ def normalized_path_exists(path: str, root: str = osp.sep) -> bool:
     candidates = equivalent_path_candidates(path, root)
 
     for c in candidates:
-        if osp.exists(c):
+        if exists(c):
             return True
 
     return False
@@ -287,9 +295,12 @@ def generate_cc_name(path: str, suffix: str = "conflicting copy") -> str:
     return osp.join(dirname, cc_candidate)
 
 
+# ==== higher level file operations ====================================================
+
+
 def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
     """
-    Deletes a file or folder at ``path``.
+    Deletes a file or folder at ``path``. Symlinks will not be followed.
 
     :param path: Path of item to delete.
     :param raise_error: Whether to raise errors or return them.
@@ -298,7 +309,7 @@ def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
     err = None
 
     try:
-        shutil.rmtree(path)
+        shutil.rmtree(path)  # Will raise OSError when it finds a symlink.
     except OSError:
         try:
             os.unlink(path)
@@ -338,7 +349,7 @@ def move(
     if preserve_dest_permissions:
         # save dest permissions
         try:
-            orig_mode = os.stat(dest_path).st_mode & 0o777
+            orig_mode = os.stat(dest_path, follow_symlinks=False).st_mode & 0o777
         except FileNotFoundError:
             pass
 
@@ -381,7 +392,7 @@ def walk(
 
         try:
             path = entry.path
-            stat = entry.stat()
+            stat = entry.stat(follow_symlinks=False)
 
             yield path, stat
 
@@ -400,6 +411,9 @@ def walk(
                 raise
 
 
+# ==== miscellaneous utilities =========================================================
+
+
 def content_hash(
     local_path: str, chunk_size: int = 65536
 ) -> Tuple[Optional[str], Optional[float]]:
@@ -415,10 +429,10 @@ def content_hash(
     hasher = DropboxContentHasher()
 
     try:
-        mtime = os.stat(local_path).st_mtime
+        mtime = os.stat(local_path, follow_symlinks=False).st_mtime
 
         try:
-            with open(local_path, "rb") as f:
+            with open(local_path, "rb", opener=opener_no_symlink) as f:
                 while True:
                     chunk = f.read(chunk_size)
                     if len(chunk) == 0:
@@ -427,8 +441,14 @@ def content_hash(
 
         except IsADirectoryError:
             return "folder", mtime
-        else:
-            return str(hasher.hexdigest()), mtime
+
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                hasher.update(b"")  # use empty file for symlinks
+            else:
+                raise exc
+
+        return str(hasher.hexdigest()), mtime
 
     except FileNotFoundError:
         return None, None
@@ -466,3 +486,56 @@ def fs_max_lengths_for_path(path: str = "/") -> Tuple[int, int]:
                 raise RuntimeError("Cannot get file length limits.")
             else:
                 dirname = "/"
+
+
+# ==== symlink-proof os methods ========================================================
+
+
+def opener_no_symlink(path: Path, flags: int) -> int:
+    """
+    Opener that does not follow symlinks. Uses :meth:`os.open` under the hood.
+
+    :param path: Path to open.
+    :param flags: Flags passed to :meth:`os.open`. O_NOFOLLOW will be added.
+    :return: Open file descriptor.
+    """
+    flags |= os.O_NOFOLLOW
+    return os.open(path, flags=flags)
+
+
+def _get_stats_no_symlink(path: Path) -> Optional[os.stat_result]:
+    try:
+        return os.stat(path, follow_symlinks=False)
+    except (FileNotFoundError, NotADirectoryError):
+        return None
+
+
+def exists(path: Path) -> bool:
+    """Returns whether an item exists at the path. Returns True for symlinks."""
+    return _get_stats_no_symlink(path) is not None
+
+
+def isfile(path: Path) -> bool:
+    """Returns whether a file exists at the path. Returns True for symlinks."""
+    stat = _get_stats_no_symlink(path)
+
+    if stat is None:
+        return False
+    else:
+        return not S_ISDIR(stat.st_mode)
+
+
+def isdir(path: Path) -> bool:
+    """Returns whether a folder exists at the path. Returns False for symlinks."""
+    stat = _get_stats_no_symlink(path)
+
+    if stat is None:
+        return False
+    else:
+        return S_ISDIR(stat.st_mode)
+
+
+def getsize(path: Path) -> int:
+    """Returns the size. Returns False for symlinks."""
+    stat = os.stat(path, follow_symlinks=False)
+    return stat.st_size

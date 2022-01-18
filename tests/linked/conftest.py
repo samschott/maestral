@@ -5,7 +5,6 @@ from datetime import datetime
 import uuid
 
 import pytest
-from watchdog.utils.dirsnapshot import DirectorySnapshot
 from dropbox.files import WriteMode, FileMetadata
 
 from maestral.main import Maestral
@@ -17,6 +16,7 @@ from maestral.utils.path import (
     delete,
     to_existing_unnormalized_path,
     is_child,
+    walk,
 )
 from maestral.utils.appdirs import get_home_dir
 from maestral.daemon import MaestralProxy
@@ -165,29 +165,32 @@ def assert_synced(m: Maestral):
     """Asserts that the `local_folder` and `remote_folder` are synced."""
 
     listing = m.client.list_folder("/", recursive=True)
-    local_snapshot = DirectorySnapshot(m.dropbox_path)
 
     # Assert that all items from server are present locally with the same content hash.
-    for e in listing.entries:
+    for md in listing.entries:
 
-        if m.sync.is_excluded_by_user(e.path_lower):
+        if m.sync.is_excluded_by_user(md.path_lower):
             continue
 
-        local_path = m.to_local_path(e.path_display)
+        local_path = m.to_local_path(md.path_display)
 
-        remote_hash = e.content_hash if isinstance(e, FileMetadata) else "folder"
+        remote_hash = md.content_hash if isinstance(md, FileMetadata) else "folder"
         local_hash = m.sync.get_local_hash(local_path)
+        local_symlink_target = m.sync.get_local_symlink_target(local_path)
 
-        assert local_hash, f"'{e.path_display}' not found locally"
-        assert local_hash == remote_hash, f'different content for "{e.path_display}"'
+        assert local_hash, f"'{md.path_display}' not found locally"
+        assert local_hash == remote_hash, f'different content for "{md.path_display}"'
+
+        if isinstance(md, FileMetadata) and md.symlink_info:
+            assert (
+                md.symlink_info.target == local_symlink_target
+            ), f'different symlink targets for "{md.path_display}"'
 
     # Assert that all local items are present on server.
-    for path in local_snapshot.paths:
-        if not m.sync.is_excluded(path) and is_child(path, m.dropbox_path):
-            if not m.sync.is_excluded(path):
-                dbx_path = m.sync.to_dbx_path_lower(path)
-                has_match = any(e for e in listing.entries if e.path_lower == dbx_path)
-                assert has_match, f'local item "{path}" does not exist on dbx'
+    for path, _ in walk(m.dropbox_path, m.sync._scandir_with_ignore):
+        dbx_path = m.sync.to_dbx_path_lower(path)
+        has_match = any(md for md in listing.entries if md.path_lower == dbx_path)
+        assert has_match, f'local item "{path}" does not exist on dbx'
 
     # Check that our index is correct.
     for index_entry in m.sync.get_index():

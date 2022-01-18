@@ -103,6 +103,7 @@ class SyncEvent(Model):
         "_local_path_from",
         "_rev",
         "_content_hash",
+        "_symlink_target",
         "_change_type",
         "_change_dbid",
         "_change_user_name",
@@ -183,6 +184,11 @@ class SyncEvent(Model):
     """
     A hash representing the file content. Will be ``'folder'`` for folders and ``None``
     for deletions. Set for both local and remote changes.
+    """
+
+    symlink_target = Column(SqlPath())
+    """
+    If the file is a symlink, its target path. This should only be set for files.
     """
 
     change_type = Column(SqlEnum(ChangeType), nullable=False)
@@ -271,11 +277,15 @@ class SyncEvent(Model):
         return self.direction == SyncDirection.Down
 
     def __repr__(self):
-        return (
-            f"<{self.__class__.__name__}(direction={self.direction.name}, "
-            f"change_type={self.change_type.name}, item_type={self.item_type}, "
-            f"dbx_path='{self.dbx_path}')>"
-        )
+
+        properties = ["direction", "change_type", "item_type", "dbx_path"]
+
+        if self.change_type is ChangeType.Moved:
+            properties.append("dbx_path_from")
+
+        prop_str = ", ".join(f"{p}={getattr(self, p)}" for p in properties)
+
+        return f"<{self.__class__.__name__}({prop_str})>"
 
     @classmethod
     def from_dbx_metadata(cls, md: Metadata, sync_engine: "SyncEngine") -> "SyncEvent":
@@ -294,6 +304,7 @@ class SyncEvent(Model):
             size = 0
             rev = None
             hash_str = None
+            symlink_target = None
             dbx_id = None
             change_dbid = None
 
@@ -312,6 +323,7 @@ class SyncEvent(Model):
             size = 0
             rev = "folder"
             hash_str = "folder"
+            symlink_target = None
             dbx_id = md.id
             change_time = None
             change_dbid = None
@@ -320,6 +332,7 @@ class SyncEvent(Model):
             item_type = ItemType.File
             rev = md.rev
             hash_str = md.content_hash
+            symlink_target = md.symlink_info.target if md.symlink_info else None
             dbx_id = md.id
             size = md.size
             change_time = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
@@ -348,6 +361,7 @@ class SyncEvent(Model):
             local_path=sync_engine.to_local_path_from_cased(dbx_path_cased),
             rev=rev,
             content_hash=hash_str,
+            symlink_target=symlink_target,
             change_type=change_type,
             change_time=change_time,
             change_dbid=change_dbid,
@@ -394,7 +408,7 @@ class SyncEvent(Model):
         stat: Optional[os.stat_result]
 
         try:
-            stat = os.stat(to_path)
+            stat = os.stat(to_path, follow_symlinks=False)
         except OSError:
             stat = None
 
@@ -410,10 +424,15 @@ class SyncEvent(Model):
                 change_time = stat.st_birthtime  # type: ignore
             except AttributeError:
                 change_time = None
+            symlink_target = None
         else:
             item_type = ItemType.File
             change_time = stat.st_ctime if stat else None
             size = stat.st_size if stat else 0
+            try:
+                symlink_target = os.readlink(event.src_path)
+            except OSError:
+                symlink_target = None
 
         dbx_path = sync_engine.to_dbx_path(to_path)
         dbx_path_lower = normalize(dbx_path)
@@ -438,6 +457,7 @@ class SyncEvent(Model):
             dbx_path_from_lower=dbx_path_from_lower,
             local_path_from=from_path,
             content_hash=content_hash,
+            symlink_target=symlink_target,
             change_type=change_type,
             change_time=change_time,
             change_dbid=change_dbid,
@@ -458,6 +478,7 @@ class IndexEntry(Model):
         "_last_sync",
         "_rev",
         "_content_hash",
+        "_symlink_target",
     ]
 
     __tablename__ = "'index'"
@@ -495,15 +516,25 @@ class IndexEntry(Model):
     ``None`` if not yet calculated.
     """
 
+    symlink_target = Column(SqlPath())
+    """
+    If the file is a symlink, its target path. This should only be set for files.
+    """
+
     @property
     def is_file(self) -> bool:
-        """Returns True for file changes"""
+        """Returns True for files"""
         return self.item_type == ItemType.File
 
     @property
     def is_directory(self) -> bool:
-        """Returns True for folder changes"""
+        """Returns True for folders"""
         return self.item_type == ItemType.Folder
+
+    @property
+    def is_symlink(self) -> bool:
+        """Returns True for symlinks"""
+        return self.symlink_target is not None
 
     def __repr__(self):
         return (
