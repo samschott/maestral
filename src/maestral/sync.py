@@ -2290,8 +2290,8 @@ class SyncEngine:
                     res = self._on_local_folder_created(event, client)
                 elif event.is_moved:
                     res = self._on_local_moved(event, client)
-                elif event.is_changed:
-                    res = self._on_local_modified(event, client)
+                elif event.is_changed and event.is_file:
+                    res = self._on_local_file_modified(event, client)
                 elif event.is_deleted:
                     res = self._on_local_deleted(event, client)
                 else:
@@ -2443,13 +2443,9 @@ class SyncEngine:
 
         self._wait_for_creation(event.local_path)
 
-        # Check if file already exists with identical content.
-        md_old = client.get_metadata(event.dbx_path)
-        if isinstance(md_old, FileMetadata):
-            if event.content_hash == md_old.content_hash:
-                # File hashes are identical, do not upload.
-                self.update_index_from_dbx_metadata(md_old, client)
-                return None
+        # Check if item already exists with identical content.
+        if not self._check_requires_upload(event, client):
+            return None
 
         local_entry = self.get_index_entry(event.dbx_path_lower)
 
@@ -2467,6 +2463,7 @@ class SyncEngine:
                 event.dbx_path,
             )
             mode = WriteMode.update(local_entry.rev)
+
         try:
             md_new = client.upload(
                 event.local_path,
@@ -2562,11 +2559,11 @@ class SyncEngine:
 
         return md_new
 
-    def _on_local_modified(
+    def _on_local_file_modified(
         self, event: SyncEvent, client: Optional[DropboxClient] = None
     ) -> Optional[Metadata]:
         """
-        Call when local item is modified.
+        Call when a local file is modified.
 
         :param event: SyncEvent for local modified event.
         :param client: Client instance to use. If not given, use the instance provided
@@ -2578,35 +2575,11 @@ class SyncEngine:
 
         client = client or self.client
 
-        # Ignore directory modified events.
-        if event.is_directory:
-            return None
-
         self._wait_for_creation(event.local_path)
 
         # Check if item already exists with identical content.
-        md_old = client.get_metadata(event.dbx_path)
-
-        if isinstance(md_old, FileMetadata):
-
-            if md_old.symlink_info:
-                md_symlink_target = md_old.symlink_info.target
-            else:
-                md_symlink_target = None
-
-            if (
-                event.content_hash == md_old.content_hash
-                and event.symlink_target == md_symlink_target
-            ):
-                # File hashes are identical, do not upload.
-                self.update_index_from_dbx_metadata(md_old, client)
-                self._logger.debug(
-                    'Modification of "%s" detected but file content is '
-                    "the same as on Dropbox",
-                    event.dbx_path,
-                )
-                self.update_index_from_dbx_metadata(md_old, client)
-                return None
+        if not self._check_requires_upload(event, client):
+            return None
 
         local_entry = self.get_index_entry(event.dbx_path_lower)
 
@@ -2646,7 +2619,7 @@ class SyncEngine:
         self, event: SyncEvent, client: Optional[DropboxClient] = None
     ) -> Optional[Metadata]:
         """
-        Call when local item is deleted. We try not to delete remote items which have
+        Call when a local item is deleted. We try not to delete remote items which have
         been modified since the last sync.
 
         :param event: SyncEvent for local deletion.
@@ -2769,7 +2742,7 @@ class SyncEngine:
         moved events.
 
         :param md_new: Metadata of item after upload.
-        :param event: Original upload sync event which.
+        :param event: Original upload sync event which triggered the upload.
         :param client: Client instance to use.
         :returns: Whether a conflicting copy was created.
         """
@@ -2797,6 +2770,48 @@ class SyncEngine:
             event.dbx_path,
             md_new.path_display,
         )
+
+        return True
+
+    def _check_requires_upload(self, event: SyncEvent, client: DropboxClient) -> bool:
+        """
+        Checks if a local file needs to be uploaded. This is determined by checking for
+        equal file contents. If no upload is required, the local index is updated with
+        the remote metadata. Note that conflict resolution in case of different content
+        will be handled by the server.
+
+        :param event: Local sync event of a file creation or modification.
+        :param client: Client instance to use.
+        :return: Whether the remote item has the same content as the local sync event.
+        """
+
+        if not (event.is_file and (event.is_changed or event.is_added)):
+            raise ValueError("Can only be called with added or modified files")
+
+        md_old = client.get_metadata(event.dbx_path)
+
+        if isinstance(md_old, FileMetadata):
+
+            if md_old.symlink_info:
+                md_symlink_target = md_old.symlink_info.target
+            else:
+                md_symlink_target = None
+
+            if (
+                event.content_hash == md_old.content_hash
+                and event.symlink_target == md_symlink_target
+            ):
+                # File contents are identical, do not upload.
+                change_type = "Modification" if event.is_changed else "Creation"
+                self._logger.debug(
+                    '%s of "%s" detected but file content is the same as on Dropbox',
+                    change_type,
+                    event.dbx_path,
+                )
+                self.update_index_from_dbx_metadata(md_old, client)
+                return False
+            else:
+                return True
 
         return True
 
