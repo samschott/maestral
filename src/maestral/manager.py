@@ -55,22 +55,21 @@ DROPBOX_API_HOSTNAME = "https://" + API_HOST
 
 FT = TypeVar("FT", bound=Callable[..., Any])
 
-malloc_trim: Optional[Callable]
+malloc_trim: Callable
 
 try:
     libc = ctypes.CDLL("libc.so.6")
     malloc_trim = libc.malloc_trim
 except (OSError, AttributeError):
-    malloc_trim = None
+
+    def malloc_trim(*args):
+        pass
 
 
 def _free_memory() -> None:
     """Give back memory"""
-
     gc.collect()
-
-    if malloc_trim:
-        malloc_trim(0)
+    malloc_trim(0)
 
 
 class SyncManager:
