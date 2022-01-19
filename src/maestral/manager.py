@@ -170,7 +170,7 @@ class SyncManager:
         if self.running.is_set():
             return
 
-        if not check_connection(DROPBOX_API_HOSTNAME):
+        if not check_connection(DROPBOX_API_HOSTNAME, logger=self._logger):
             # Schedule autostart when connection becomes available.
             self.autostart.set()
             self._logger.info(CONNECTING)
