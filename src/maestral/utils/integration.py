@@ -9,8 +9,9 @@ import enum
 import resource
 import requests
 import time
+import logging
 from pathlib import Path
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 from urllib.parse import urlparse
 
 __all__ = [
@@ -188,12 +189,16 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
         return round(single_cpu_percent, 1)
 
 
-def check_connection(hostname: str, timeout: int = 2) -> bool:
+def check_connection(
+    hostname: str, timeout: int = 2, logger: Optional[logging.Logger] = None
+) -> bool:
     """
     A low latency check for an internet connection.
 
     :param hostname: Hostname to use for connection check.
     :param timeout: Timeout in seconds for connection check.
+    :param logger: If provided, log output for connection failures will be logged to
+        this logger with the level DEBUG.
     :returns: Connection availability.
     """
     if urlparse(hostname).scheme not in ["http", "https"]:
@@ -202,4 +207,6 @@ def check_connection(hostname: str, timeout: int = 2) -> bool:
         requests.head(hostname, timeout=timeout)
         return True
     except Exception:
+        if logger:
+            logger.debug("Could not reach %s", hostname, exc_info=True)
         return False
