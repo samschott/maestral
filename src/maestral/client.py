@@ -1717,9 +1717,15 @@ def dropbox_to_maestral_error(
                 err_cls = DropboxAuthError
                 title = "Authentication error"
                 text = "Your user account has been suspended."
+            elif error.is_missing_scope():
+                scope_error = error.get_missing_scope()
+                required_scope = scope_error.required_scope
+                err_cls = InsufficientPermissionsError
+                title = "Insufficient permissions"
+                text = f"Performing this action requires the {required_scope} scope."
             else:
                 # Other tags are invalid_select_admin, invalid_select_user,
-                # missing_scope, route_access_denied. Neither should occur in our SDK
+                # route_access_denied. Neither should occur in our SDK
                 # usage.
                 pass
 
