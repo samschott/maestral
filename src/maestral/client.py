@@ -123,7 +123,7 @@ def convert_api_errors(
 
     try:
         yield
-    except (exceptions.DropboxException, ValidationError, requests.HTTPError) as exc:
+    except (exceptions.DropboxException, ValidationError) as exc:
         raise dropbox_to_maestral_error(exc, dbx_path, local_path)
     # Catch connection errors first, they may inherit from OSError.
     except CONNECTION_ERRORS:
