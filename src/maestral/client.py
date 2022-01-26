@@ -735,18 +735,16 @@ class DropboxClient:
                                 isinstance(error, files.UploadSessionFinishError)
                                 and error.is_lookup_failed()
                             ):
-                                session_lookup_error = error.get_lookup_failed()
+                                lookup_error = error.get_lookup_failed()
                             elif isinstance(error, files.UploadSessionLookupError):
-                                session_lookup_error = error
+                                lookup_error = error
                             else:
                                 raise exc
 
-                            if session_lookup_error.is_incorrect_offset():
+                            if lookup_error.is_incorrect_offset():
                                 # Reset position in file.
-                                offset = (
-                                    session_lookup_error.get_incorrect_offset().correct_offset
-                                )
-                                f.seek(offset)
+                                offset_error = lookup_error.get_incorrect_offset()
+                                f.seek(offset_error.correct_offset)
                                 cursor.offset = f.tell()
                             else:
                                 raise exc
@@ -1496,7 +1494,10 @@ def dropbox_to_maestral_error(
                 text = "Can not start a closed concurrent upload session."
             elif error.is_concurrent_session_data_not_allowed():
                 # Occurs only for programming error in maestral.
-                text = "Uploading data not allowed when starting concurrent upload session."
+                text = (
+                    "Uploading data not allowed when starting concurrent upload "
+                    "session."
+                )
 
         elif isinstance(error, files.UploadSessionFinishError):
             title = "Could not upload file"
