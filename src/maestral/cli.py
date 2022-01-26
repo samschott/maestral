@@ -1698,9 +1698,9 @@ def log():
     pass
 
 
-@log.command(name="show", help="Print logs to the console.")
+@log.command(name="show", help="View logs with a pager in the console.")
 @click.option(
-    "--external", "-e", is_flag=True, default=False, help="Open in external program."
+    "--external", "-e", is_flag=True, default=False, help="Open logs in a GUI."
 )
 @existing_config_option
 def log_show(external: bool, config_name: str) -> None:
