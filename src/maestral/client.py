@@ -1762,6 +1762,9 @@ def dropbox_to_maestral_error(
             "Something went wrong on Dropbox’s end. Please check on status.dropbox.com "
             "if their services are up and running and try again later."
         )
+    # ---- Errors which are passed through by the SDK ----------------------------------
+    elif isinstance(exc, exceptions.HttpError):
+        text = exc.body
 
     maestral_exc = err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
     maestral_exc.__cause__ = exc
