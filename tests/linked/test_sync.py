@@ -1030,6 +1030,7 @@ def test_long_path_error(m):
     assert normalize(test_path) in m.sync.download_errors
 
 
+@pytest.mark.skip(reason="Test file is no longer flagged as DMCA")
 def test_download_sync_issues(m):
     """
     Tests error handling for issues during download sync. This is done by attempting to
