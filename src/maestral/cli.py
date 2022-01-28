@@ -1427,6 +1427,7 @@ def move_dir(new_path: str, config_name: str) -> None:
     from .daemon import MaestralProxy
 
     new_path = new_path or select_dbx_path_dialog(config_name)
+    new_path = osp.realpath(osp.expanduser(new_path))
 
     with MaestralProxy(config_name, fallback=True) as m:
         m.move_dropbox_directory(new_path)
