@@ -1215,8 +1215,8 @@ class Maestral:
         was_syncing = self.running
         self.stop_sync()
 
-        # Move folder from old location or create a new one if no old folder exists.
         if osp.isdir(old_path):
+            # Will also create ancestors of new_path if required.
             shutil.move(old_path, new_path)
         else:
             os.makedirs(new_path)
