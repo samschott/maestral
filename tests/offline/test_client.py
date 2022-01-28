@@ -4,9 +4,7 @@
 import errno
 
 import pytest
-import requests
 from dropbox import exceptions
-from dropbox import oauth
 from dropbox.files import *
 from dropbox.async_ import *
 from dropbox.users import *
@@ -260,10 +258,13 @@ def test_dropbox_api_to_maestral_error(error, maestral_exc):
         (exceptions.AuthError("", AuthError.expired_access_token), TokenExpiredError),
         (exceptions.AuthError("", AuthError.invalid_access_token), TokenRevokedError),
         (exceptions.AuthError("", AuthError.user_suspended), DropboxAuthError),
+        (
+            exceptions.AuthError(
+                "", AuthError.missing_scope(TokenScopeError(required_scope="test"))
+            ),
+            InsufficientPermissionsError,
+        ),
         (exceptions.AuthError("", AuthError.other), MaestralApiError),
-        (requests.HTTPError(), DropboxServerError),
-        (oauth.BadStateException(), DropboxAuthError),
-        (oauth.NotApprovedException(), DropboxAuthError),
         (exceptions.BadInputError("", ""), BadInputError),
         (exceptions.InternalServerError("", "", ""), DropboxServerError),
         (exceptions.PathRootError("", PathRootError.no_permission), MPRE),

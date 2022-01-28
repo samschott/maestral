@@ -35,7 +35,6 @@ from dropbox import (
     exceptions,
     async_,
     auth,
-    oauth,
     common,
 )
 from dropbox.common import PathRoot
@@ -124,7 +123,7 @@ def convert_api_errors(
 
     try:
         yield
-    except (exceptions.DropboxException, ValidationError, requests.HTTPError) as exc:
+    except (exceptions.DropboxException, ValidationError) as exc:
         raise dropbox_to_maestral_error(exc, dbx_path, local_path)
     # Catch connection errors first, they may inherit from OSError.
     except CONNECTION_ERRORS:
@@ -1718,9 +1717,15 @@ def dropbox_to_maestral_error(
                 err_cls = DropboxAuthError
                 title = "Authentication error"
                 text = "Your user account has been suspended."
+            elif error.is_missing_scope():
+                scope_error = error.get_missing_scope()
+                required_scope = scope_error.required_scope
+                err_cls = InsufficientPermissionsError
+                title = "Insufficient permissions"
+                text = f"Performing this action requires the {required_scope} scope."
             else:
                 # Other tags are invalid_select_admin, invalid_select_user,
-                # missing_scope, route_access_denied. Neither should occur in our SDK
+                # route_access_denied. Neither should occur in our SDK
                 # usage.
                 pass
 
@@ -1743,39 +1748,6 @@ def dropbox_to_maestral_error(
             elif error.is_other():
                 text = "An unexpected error occurred with the given namespace."
 
-    # ---- OAuth2 flow errors ----------------------------------------------------------
-    elif isinstance(exc, requests.HTTPError):
-        # HTTPErrors are converted to a DropboxException by the SDK unless they occur
-        # when refreshing the access token. We therefore handle those manually.
-        # See https://github.com/dropbox/dropbox-sdk-python/issues/360
-        # and https://github.com/SamSchott/maestral/issues/388.
-
-        res = exc.response
-
-        if res and res.status_code == 400 and res.json()["error"] == "invalid_grant":
-            err_cls = DropboxAuthError
-            title = "Authentication failed"
-            text = "Please make sure that you entered the correct authentication code."
-
-        else:
-            err_cls = DropboxServerError
-            title = "Dropbox server error"
-            text = (
-                "Something went wrong on Dropbox’s end. Please check on "
-                "https://status.dropbox.com if their services are up and running and "
-                "try again later."
-            )
-
-    elif isinstance(exc, oauth.BadStateException):
-        err_cls = DropboxAuthError
-        title = "Authentication session expired."
-        text = "The authentication session expired. Please try again."
-
-    elif isinstance(exc, oauth.NotApprovedException):
-        err_cls = DropboxAuthError
-        title = "Not approved error"
-        text = "Please grant Maestral access to your Dropbox to start syncing."
-
     # ---- Bad input errors ------------------------------------------------------------
     # Should only occur due to user input from console scripts.
     elif isinstance(exc, (exceptions.BadInputError, ValidationError)):
@@ -1791,6 +1763,9 @@ def dropbox_to_maestral_error(
             "Something went wrong on Dropbox’s end. Please check on status.dropbox.com "
             "if their services are up and running and try again later."
         )
+    # ---- Errors which are passed through by the SDK ----------------------------------
+    elif isinstance(exc, exceptions.HttpError):
+        text = exc.body
 
     maestral_exc = err_cls(title, text, dbx_path=dbx_path, local_path=local_path)
     maestral_exc.__cause__ = exc

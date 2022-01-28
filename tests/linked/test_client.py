@@ -1,11 +1,9 @@
 import os
 
 import pytest
-import requests
 from dropbox.files import FolderMetadata
 
-from maestral.client import convert_api_errors
-from maestral.errors import NotFoundError, PathError, DropboxServerError
+from maestral.errors import NotFoundError, PathError
 from maestral.utils.path import normalize
 
 from .conftest import resources
@@ -58,12 +56,3 @@ def test_batch_methods(m, batch_size, force_async):
         assert res[i].path_lower == normalize(folders[i])
 
     assert isinstance(res[20], NotFoundError)
-
-
-def test_server_error():
-
-    with pytest.raises(DropboxServerError):
-
-        with convert_api_errors():
-            r = requests.get("https://httpstat.us/503")
-            r.raise_for_status()
