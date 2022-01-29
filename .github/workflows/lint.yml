@@ -12,4 +12,5 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-python@v2
+    - run:  python -m pip install -U .[dev]
     - uses: pre-commit/action@v2.0.3
