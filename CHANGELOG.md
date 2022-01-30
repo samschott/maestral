@@ -25,8 +25,9 @@
   on case-insensitive file systems such as APFS on macOS.
 * Fixes an issue which could result in sync errors not being cleared after the successful
   sync of an item under some circumstances.
-* Relative passed to `maestral move-dir` are now interpreted relative to the working
-  directory where the command is run instead of the working directory of the sync daemon.
+* Relative paths passed to `maestral move-dir` are now interpreted relative to the
+  working directory where the command is run instead of the working directory of the sync
+  daemon.
 
 ## v1.5.2
 
