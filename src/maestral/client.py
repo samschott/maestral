@@ -1405,26 +1405,26 @@ def dropbox_to_maestral_error(
                 err_cls = ConflictError
             elif error.is_cant_move_shared_folder():
                 text = "You cannot move the shared folder to the given destination."
-                err_cls = PathError
+                err_cls = SyncError
             elif error.is_cant_nest_shared_folder():
                 text = (
                     "Your move operation would result in nested shared folders. "
                     "This is not allowed."
                 )
-                err_cls = PathError
+                err_cls = SyncError
             elif error.is_cant_transfer_ownership():
                 text = (
                     "Your move operation would result in an ownership transfer. "
                     "Maestral does not currently support this. Please carry out "
                     "the move on the Dropbox website instead."
                 )
-                err_cls = PathError
+                err_cls = SyncError
             elif error.is_duplicated_or_nested_paths():
                 text = (
                     "There are duplicated/nested paths among the target and "
                     "destination folders."
                 )
-                err_cls = PathError
+                err_cls = SyncError
             elif error.is_from_lookup():
                 lookup_error = error.get_from_lookup()
                 text, err_cls = _get_lookup_error_msg(lookup_error)
