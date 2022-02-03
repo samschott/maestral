@@ -69,7 +69,7 @@ class InsufficientSpaceError(SyncError):
 
 class PathError(SyncError):
     """Raised when there is an issue with the provided file or folder path such as
-    invalid characters, a too long file name, etc."""
+    invalid characters or a too long file name."""
 
 
 class NotFoundError(SyncError):
