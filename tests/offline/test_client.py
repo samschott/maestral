@@ -119,7 +119,7 @@ def test_get_write_error_msg(error, maestral_exc):
         (UploadSessionLookupError.too_large, FileSizeError),
     ],
 )
-def test_get_write_error_msg(error, maestral_exc):
+def test_get_session_lookup_error_msg(error, maestral_exc):
     text, err_cls = _get_session_lookup_error_msg(error)
     assert err_cls is maestral_exc
 
@@ -129,10 +129,10 @@ def test_get_write_error_msg(error, maestral_exc):
     [
         (RelocationError.cant_copy_shared_folder, SyncError),
         (RelocationError.cant_move_folder_into_itself, ConflictError),
-        (RelocationError.cant_move_shared_folder, PathError),
-        (RelocationError.cant_nest_shared_folder, PathError),
-        (RelocationError.cant_transfer_ownership, PathError),
-        (RelocationError.duplicated_or_nested_paths, PathError),
+        (RelocationError.cant_move_shared_folder, SyncError),
+        (RelocationError.cant_nest_shared_folder, SyncError),
+        (RelocationError.cant_transfer_ownership, SyncError),
+        (RelocationError.duplicated_or_nested_paths, SyncError),
         (RelocationError.from_lookup(LookupError.not_found), NotFoundError),
         (RelocationError.from_write(WriteError.team_folder), SyncError),
         (RelocationError.to(WriteError.team_folder), SyncError),
@@ -243,6 +243,7 @@ def test_get_write_error_msg(error, maestral_exc):
         (ShareFolderError.bad_path(SharePathError.is_osx_package), SyncError),
         (ShareFolderError.bad_path(SharePathError.inside_osx_package), SyncError),
         (ShareFolderError.bad_path(SharePathError.is_vault), SyncError),
+        (ShareFolderError.bad_path(SharePathError.is_vault_locked), SyncError),
         (ShareFolderError.bad_path(SharePathError.is_family), SyncError),
         (ShareFolderError.other, MaestralApiError),
     ],
