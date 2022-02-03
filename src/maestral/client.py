@@ -1449,6 +1449,13 @@ def dropbox_to_maestral_error(
                     "request. Please try to move fewer items at once."
                 )
                 err_cls = SyncError
+            elif error.is_cant_move_into_vault():
+                vault_error = error.get_cant_move_into_vault()
+                if vault_error.is_is_shared_folder():
+                    text = "You cannot move a shared folder into the Dropbox Vault."
+                else:
+                    text = "You cannot move this folder into the Dropbox Vault."
+                err_cls = SyncError
 
         elif isinstance(error, (files.CreateFolderError, files.CreateFolderEntryError)):
             title = "Could not create folder"
@@ -1937,6 +1944,8 @@ def _get_bad_path_error_msg(
         text = "Cannot share folders inside macOS packages."
     elif path_error.is_is_vault():
         text = "Cannot share the Vault folder."
+    elif path_error.is_is_vault_locked():
+        text = "Cannot share a folder inside a locked Vault."
     elif path_error.is_is_family():
         text = "Cannot share the Family folder."
 
