@@ -1456,6 +1456,14 @@ def dropbox_to_maestral_error(
                 else:
                     text = "You cannot move this folder into the Dropbox Vault."
                 err_cls = SyncError
+            # TODO: uncomment when updating to dropbox >= 11.27.0
+            # elif error.is_cant_move_into_family():
+            #     family_error = error.get_cant_move_into_family()
+            #     if family_error.is_is_shared_folder():
+            #         text = "You cannot move a shared folder into the Family folder."
+            #     else:
+            #         text = "You cannot move this folder into the Family folder."
+            #     err_cls = SyncError
 
         elif isinstance(error, (files.CreateFolderError, files.CreateFolderEntryError)):
             title = "Could not create folder"
