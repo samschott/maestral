@@ -1535,7 +1535,7 @@ class SyncEngine:
                     direction=direction,
                     title=err.title,
                     message=err.message,
-                    err_type=err.__class__.__name__,
+                    type=err.__class__.__name__,
                 )
             )
 

@@ -579,4 +579,4 @@ class SyncErrorEntry(Model):
     direction = Column(SqlEnum(SyncDirection), nullable=False)
     title = Column(SqlString())
     message = Column(SqlString())
-    error_type = Column(SqlString())
+    type = Column(SqlString())
