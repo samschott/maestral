@@ -68,6 +68,15 @@ def test_share_dir_new(m):
     assert isinstance(md_shared, SharedFolderMetadata)
 
 
+def test_share_dir_new_async(m):
+    """Test creating a shared directory."""
+    md_old = m.client.get_metadata(f"{m.test_folder_dbx}/folder")
+    md_shared = m.client.share_dir(f"{m.test_folder_dbx}/folder", force_async=True)
+
+    assert md_old is None
+    assert isinstance(md_shared, SharedFolderMetadata)
+
+
 def test_share_dir_existing(m):
     """Test sharing an exisitng directory."""
     md = m.client.make_dir(f"{m.test_folder_dbx}/folder")
