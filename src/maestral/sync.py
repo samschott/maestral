@@ -469,7 +469,7 @@ class SyncEngine:
         self._db_manager_index = Manager(self._db, IndexEntry)
         self._db_manager_history = Manager(self._db, SyncEvent)
         self._db_manager_hash_cache = Manager(self._db, HashCacheEntry)
-        self._db_manager_sync_error = Manager(self._db, SyncErrorEntry)
+        self._db_manager_sync_errors = Manager(self._db, SyncErrorEntry)
 
         # Caches.
         self._case_conversion_cache = LRUCache(capacity=5000)
@@ -666,13 +666,13 @@ class SyncEngine:
     @property
     def sync_errors(self) -> List[SyncErrorEntry]:
         with self._database_access():
-            errors = self._db_manager_sync_error.all()
+            errors = self._db_manager_sync_errors.all()
             return cast(List[SyncErrorEntry], errors)
 
     @property
     def upload_errors(self) -> List[SyncErrorEntry]:
         with self._database_access():
-            errors = self._db_manager_sync_error.query_to_objects(
+            errors = self._db_manager_sync_errors.query_to_objects(
                 "SELECT * FROM ? WHERE direction = up"
             )
             return cast(List[SyncErrorEntry], errors)
@@ -680,7 +680,7 @@ class SyncEngine:
     @property
     def download_errors(self) -> List[SyncErrorEntry]:
         with self._database_access():
-            errors = self._db_manager_sync_error.query_to_objects(
+            errors = self._db_manager_sync_errors.query_to_objects(
                 "SELECT * FROM sync_errors WHERE direction = down"
             )
             return cast(List[SyncErrorEntry], errors)
@@ -698,7 +698,7 @@ class SyncEngine:
 
         with self._database_access():
             self._db.execute("DROP TABLE sync_errors")
-            self._db_manager_sync_error.clear_cache()
+            self._db_manager_sync_errors.clear_cache()
 
     def reset_sync_state(self) -> None:
         """Resets all saved sync state. Settings are not affected."""
@@ -1334,12 +1334,12 @@ class SyncEngine:
 
         with self._database_access():
 
-            self._db_manager_sync_error.delete_primary_key(event.dbx_path_lower)
+            self._db_manager_sync_errors.delete_primary_key(event.dbx_path_lower)
 
             recursive = event.is_deleted or event.is_moved or event.is_file
 
             if event.is_moved:
-                self._db_manager_sync_error.delete_primary_key(
+                self._db_manager_sync_errors.delete_primary_key(
                     event.dbx_path_from_lower
                 )
 
@@ -1357,7 +1357,7 @@ class SyncEngine:
                     )
 
                 # Clear cache after direct database manipulation.
-                self._db_manager_sync_error.clear_cache()
+                self._db_manager_sync_errors.clear_cache()
 
     def is_excluded(self, path: str) -> bool:
         """
@@ -1543,7 +1543,7 @@ class SyncEngine:
             else:
                 dbx_path_from_lower = None
 
-            self._db_manager_sync_error.update(
+            self._db_manager_sync_errors.update(
                 SyncErrorEntry(
                     dbx_path=err.dbx_path,
                     dbx_path_lower=dbx_path_lower,
