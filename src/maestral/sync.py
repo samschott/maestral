@@ -671,7 +671,7 @@ class SyncEngine:
     def upload_errors(self) -> List[SyncErrorEntry]:
         with self._database_access():
             errors = self._db_manager_sync_errors.query_to_objects(
-                "SELECT * FROM ? WHERE direction = up"
+                "SELECT * FROM ? WHERE direction = 'Up'"
             )
             return cast(List[SyncErrorEntry], errors)
 
@@ -679,7 +679,7 @@ class SyncEngine:
     def download_errors(self) -> List[SyncErrorEntry]:
         with self._database_access():
             errors = self._db_manager_sync_errors.query_to_objects(
-                "SELECT * FROM sync_errors WHERE direction = down"
+                "SELECT * FROM sync_errors WHERE direction = 'Down'"
             )
             return cast(List[SyncErrorEntry], errors)
 
@@ -692,10 +692,10 @@ class SyncEngine:
 
     def clear_sync_errors(self) -> None:
         """Clears all sync errors."""
-        self.sync_errors.clear()
 
         with self._database_access():
             self._db.execute("DROP TABLE sync_errors")
+            self._db_manager_sync_errors.create_table()
             self._db_manager_sync_errors.clear_cache()
 
     def reset_sync_state(self) -> None:
