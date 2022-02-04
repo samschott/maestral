@@ -663,6 +663,11 @@ class SyncEngine:
             )
             return cast(List[SyncEvent], sync_events)
 
+    @property
+    def sync_errors(self) -> List[SyncErrorEntry]:
+        with self._database_access():
+            return self._db_manager_sync_error.all()
+
     def clear_sync_history(self) -> None:
         """Clears the sync history."""
         with self._database_access():
