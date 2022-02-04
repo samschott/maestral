@@ -3254,7 +3254,8 @@ class SyncEngine:
             )
             return Conflict.Identical
         elif any(
-            is_equal_or_child(p, event.dbx_path_lower) for p in self.upload_errors
+            is_equal_or_child(p.dbx_path_lower, event.dbx_path_lower)
+            for p in self.upload_errors
         ):
             # Local version could not be uploaded due to a sync error. Do not over-
             # write unsynced changes but declare a conflict.
