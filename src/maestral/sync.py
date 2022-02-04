@@ -18,7 +18,7 @@ from pprint import pformat
 from threading import Event, Condition, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
-from collections import abc, defaultdict
+from collections import defaultdict
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
 from typing import (
@@ -98,8 +98,7 @@ from .database import (
     SyncEvent,
     HashCacheEntry,
     IndexEntry,
-    UploadSyncErrorEntry,
-    DownloadSyncErrorEntry,
+    SyncErrorEntry,
     SyncDirection,
     SyncStatus,
     ItemType,
@@ -470,8 +469,7 @@ class SyncEngine:
         self._db_manager_index = Manager(self._db, IndexEntry)
         self._db_manager_history = Manager(self._db, SyncEvent)
         self._db_manager_hash_cache = Manager(self._db, HashCacheEntry)
-        self._db_manager_upload_error = Manager(self._db, UploadSyncErrorEntry)
-        self._db_manager_download_error = Manager(self._db, DownloadSyncErrorEntry)
+        self._db_manager_sync_error = Manager(self._db, SyncErrorEntry)
 
         # Caches.
         self._case_conversion_cache = LRUCache(capacity=5000)
@@ -672,6 +670,14 @@ class SyncEngine:
             self._db_manager_history.create_table()
             self._db_manager_history.clear_cache()
 
+    def clear_sync_errors(self) -> None:
+        """Clears all sync errors."""
+        self.sync_errors.clear()
+
+        with self._database_access():
+            self._db.execute("DROP TABLE sync_errors")
+            self._db_manager_sync_error.clear_cache()
+
     def reset_sync_state(self) -> None:
         """Resets all saved sync state. Settings are not affected."""
 
@@ -680,6 +686,7 @@ class SyncEngine:
 
         self.clear_index()
         self.clear_sync_history()
+        self.clear_sync_errors()
 
         self._state.reset_to_defaults("sync")
         self.reload_cached_config()
@@ -1305,73 +1312,30 @@ class SyncEngine:
 
         with self._database_access():
 
-            self._db_manager_upload_error.delete_primary_key(event.dbx_path_lower)
-            self._db_manager_download_error.delete_primary_key(event.dbx_path_lower)
+            self._db_manager_sync_error.delete_primary_key(event.dbx_path_lower)
 
             recursive = event.is_deleted or event.is_moved or event.is_file
 
             if event.is_moved:
-                self._db_manager_upload_error.delete_primary_key(
+                self._db_manager_sync_error.delete_primary_key(
                     event.dbx_path_from_lower
                 )
-                self._db_manager_download_error.delete_primary_key(
-                    event.dbx_path_from_lower
-                )
-
-            for error in self.sync_errors.copy():
-
-                if not error.dbx_path:
-                    continue
-
-                error_path_lower = normalize(error.dbx_path)
-
-                if error_path_lower == event.dbx_path_lower:
-                    self.sync_errors.discard(error)
-
-                if recursive and is_child(error_path_lower, event.dbx_path_lower):
-                    self.sync_errors.discard(error)
-
-                if event.is_moved and is_child(
-                    error_path_lower, event.dbx_path_from_lower
-                ):
-                    self.sync_errors.discard(error)
 
             if recursive:
 
                 self._db.execute(
-                    "DELETE FROM upload_errors WHERE dbx_path_lower LIKE ?",
-                    f"{event.dbx_path_lower}/%",
-                )
-                self._db.execute(
-                    "DELETE FROM download_errors WHERE dbx_path_lower LIKE ?",
+                    "DELETE FROM sync_errors WHERE dbx_path_lower LIKE ?",
                     f"{event.dbx_path_lower}/%",
                 )
 
                 if event.is_moved:
                     self._db.execute(
-                        "DELETE FROM upload_errors WHERE dbx_path_lower LIKE ?",
-                        f"{event.dbx_path_from_lower}/%",
-                    )
-                    self._db.execute(
-                        "DELETE FROM download_errors WHERE dbx_path_lower LIKE ?",
+                        "DELETE FROM sync_errors WHERE dbx_path_lower LIKE ?",
                         f"{event.dbx_path_from_lower}/%",
                     )
 
                 # Clear cache after direct database manipulation.
-                self._db_manager_upload_error.clear_cache()
-                self._db_manager_download_error.clear_cache()
-
-    def clear_sync_errors(self) -> None:
-        """Clears all sync errors."""
-        self.sync_errors.clear()
-
-        with self._database_access():
-            self._db.execute("DROP TABLE upload_errors")
-            self._db.execute("DROP TABLE download_errors")
-
-            # Clear cache after direct database manipulation.
-            self._db_manager_upload_error.clear_cache()
-            self._db_manager_download_error.clear_cache()
+                self._db_manager_sync_error.clear_cache()
 
     def is_excluded(self, path: str) -> bool:
         """
@@ -1520,53 +1484,55 @@ class SyncEngine:
         if err.local_path and not err.dbx_path:
             err.dbx_path = self.to_dbx_path(err.local_path)
 
-        # Fill in missing dbx_path_dst or local_path_dst.
-        if err.dbx_path_dst and not err.local_path_dst:
-            err.local_path_dst = self.to_local_path_from_cased(err.dbx_path_dst)
-        if err.local_path_dst and not err.dbx_path_dst:
-            err.dbx_path_dst = self.to_dbx_path(err.local_path_dst)
+        # Fill in missing dbx_path_from or local_path_from.
+        if err.dbx_path_from and not err.local_path_from:
+            err.local_path_from = self.to_local_path_from_cased(err.dbx_path_from)
+        if err.local_path_from and not err.dbx_path_from:
+            err.dbx_path_from = self.to_dbx_path(err.local_path_from)
 
-        if err.dbx_path:
-            # We have a file / folder associated with the sync error.
-            # Use sanitised path so that the error can be printed to the terminal, etc.
-            file_name = sanitize_string(osp.basename(err.dbx_path))
+        if not err.dbx_path:
+            raise ValueError("Sync error has an unknown path")
 
-            self._logger.info("Could not sync %s", file_name, exc_info=True)
+        printable_file_name = sanitize_string(osp.basename(err.dbx_path))
 
-            def callback():
-                if err.local_path:
-                    click.launch(err.local_path, locate=True)
-                else:
-                    url_path = urllib.parse.quote(err.dbx_path)
-                    click.launch(f"https://www.dropbox.com/preview{url_path}")
+        self._logger.info("Could not sync %s", printable_file_name, exc_info=True)
 
-            self.desktop_notifier.notify(
-                "Sync error",
-                f"Could not sync {file_name}",
-                level=notify.SYNCISSUE,
-                actions={"Show": callback},
+        def callback():
+            if err.local_path:
+                click.launch(err.local_path, locate=True)
+            else:
+                url_path = urllib.parse.quote(err.dbx_path)
+                click.launch(f"https://www.dropbox.com/preview{url_path}")
+
+        self.desktop_notifier.notify(
+            "Sync error",
+            f"Could not {direction.value}load {printable_file_name}",
+            level=notify.SYNCISSUE,
+            actions={"Show": callback},
+            on_click=callback,
+        )
+
+        # Save sync errors to retry later.
+
+        with self._database_access():
+            dbx_path_lower = normalize(err.dbx_path)
+            if err.dbx_path_from:
+                dbx_path_from_lower = normalize(err.dbx_path_from)
+            else:
+                dbx_path_from_lower = None
+
+            self._db_manager_sync_error.update(
+                SyncErrorEntry(
+                    dbx_path=err.dbx_path,
+                    dbx_path_lower=dbx_path_lower,
+                    dbx_path_from=err.dbx_path_from,
+                    dbx_path_from_lower=dbx_path_from_lower,
+                    direction=direction,
+                    title=err.title,
+                    message=err.message,
+                    err_type=err.__class__.__name__,
+                )
             )
-            self.sync_errors.add(err)
-
-            # Save sync error paths to retry later.
-
-            with self._database_access():
-                dbx_path_lower = normalize(err.dbx_path)
-
-                if direction == SyncDirection.Up:
-                    self._db_manager_upload_error.delete_primary_key(dbx_path_lower)
-                    self._db_manager_upload_error.save(
-                        UploadSyncErrorEntry(
-                            dbx_path_lower=dbx_path_lower, dbx_path=err.dbx_path
-                        )
-                    )
-                elif direction == SyncDirection.Down:
-                    self._db_manager_download_error.delete_primary_key(dbx_path_lower)
-                    self._db_manager_download_error.save(
-                        DownloadSyncErrorEntry(
-                            dbx_path_lower=dbx_path_lower, dbx_path=err.dbx_path
-                        )
-                    )
 
     @contextmanager
     def _database_access(self, raise_error: bool = True) -> Iterator[None]:
