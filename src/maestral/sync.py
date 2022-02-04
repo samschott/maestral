@@ -1532,6 +1532,8 @@ class SyncEngine:
                     dbx_path_lower=dbx_path_lower,
                     dbx_path_from=err.dbx_path_from,
                     dbx_path_from_lower=dbx_path_from_lower,
+                    local_path=err.local_path,
+                    local_path_from=err.local_path_from,
                     direction=direction,
                     title=err.title,
                     message=err.message,

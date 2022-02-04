@@ -576,6 +576,8 @@ class SyncErrorEntry(Model):
     dbx_path_lower = Column(SqlPath(), primary_key=True)
     dbx_path_from = Column(SqlPath())
     dbx_path_from_lower = Column(SqlPath())
+    local_path = Column(SqlPath())
+    local_path_from = Column(SqlPath())
     direction = Column(SqlEnum(SyncDirection), nullable=False)
     title = Column(SqlString())
     message = Column(SqlString())
