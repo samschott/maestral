@@ -666,7 +666,24 @@ class SyncEngine:
     @property
     def sync_errors(self) -> List[SyncErrorEntry]:
         with self._database_access():
-            return self._db_manager_sync_error.all()
+            errors = self._db_manager_sync_error.all()
+            return cast(List[SyncErrorEntry], errors)
+
+    @property
+    def upload_errors(self) -> List[SyncErrorEntry]:
+        with self._database_access():
+            errors = self._db_manager_sync_error.query_to_objects(
+                "SELECT * FROM ? WHERE direction = up"
+            )
+            return cast(List[SyncErrorEntry], errors)
+
+    @property
+    def download_errors(self) -> List[SyncErrorEntry]:
+        with self._database_access():
+            errors = self._db_manager_sync_error.query_to_objects(
+                "SELECT * FROM sync_errors WHERE direction = down"
+            )
+            return cast(List[SyncErrorEntry], errors)
 
     def clear_sync_history(self) -> None:
         """Clears the sync history."""
