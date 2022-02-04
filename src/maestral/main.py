@@ -62,9 +62,8 @@ from .utils.path import (
 from .utils.serializer import (
     error_to_dict,
     dropbox_stone_to_dict,
-    sync_event_to_dict,
-    StoneType,
-    ErrorType,
+    orm_type_to_dict,
+    SerializedObjectType,
 )
 from .utils.appdirs import get_cache_path, get_data_path
 from .utils.integration import get_ac_state, ACState
@@ -486,7 +485,7 @@ class Maestral:
             return self._log_handler_info_cache.getLastMessage()
 
     @property
-    def sync_errors(self) -> List[ErrorType]:
+    def sync_errors(self) -> List[SerializedObjectType]:
         """
         A list of current sync errors as dicts (read only). This list is populated by
         the sync threads. The following keys will always be present but may contain
@@ -496,10 +495,10 @@ class Maestral:
         :raises NotLinkedError: if no Dropbox account is linked.
         """
 
-        return [error_to_dict(e) for e in self.sync.sync_errors]
+        return [orm_type_to_dict(e) for e in self.sync.sync_errors]
 
     @property
-    def fatal_errors(self) -> List[ErrorType]:
+    def fatal_errors(self) -> List[SerializedObjectType]:
         """
         Returns a list of fatal errors as dicts (read only). This does not include lost
         internet connections or file sync errors which only emit warnings and are
@@ -513,7 +512,7 @@ class Maestral:
         have ``exc_info`` attached.
         """
 
-        maestral_errors_dicts: List[ErrorType] = []
+        maestral_errors_dicts: List[SerializedObjectType] = []
 
         for r in self._log_handler_error_cache.cached_records:
             if r.exc_info:
@@ -587,7 +586,7 @@ class Maestral:
         else:
             return FileStatus.Unwatched.value
 
-    def get_activity(self, limit: Optional[int] = 100) -> List[StoneType]:
+    def get_activity(self, limit: Optional[int] = 100) -> List[SerializedObjectType]:
         """
         Returns the current upload / download activity.
 
@@ -601,11 +600,11 @@ class Maestral:
         self._check_linked()
 
         activity = list(self.manager.activity.values())[:limit]
-        serialized_activity = [sync_event_to_dict(event) for event in activity]
+        serialized_activity = [orm_type_to_dict(event) for event in activity]
 
         return serialized_activity
 
-    def get_history(self, limit: Optional[int] = 100) -> List[StoneType]:
+    def get_history(self, limit: Optional[int] = 100) -> List[SerializedObjectType]:
         """
         Returns the historic upload / download activity. Up to 1,000 sync events are
         kept in the database. Any events which occurred before the interval specified by
@@ -620,13 +619,13 @@ class Maestral:
 
         self._check_linked()
         if limit:
-            history = [sync_event_to_dict(e) for e in self.manager.history[-limit:]]
+            history = [orm_type_to_dict(e) for e in self.manager.history[-limit:]]
         else:
-            history = [sync_event_to_dict(e) for e in self.manager.history]
+            history = [orm_type_to_dict(e) for e in self.manager.history]
 
         return history
 
-    def get_account_info(self) -> StoneType:
+    def get_account_info(self) -> SerializedObjectType:
         """
         Returns the account information from Dropbox and returns it as a dictionary.
 
@@ -642,7 +641,7 @@ class Maestral:
         res = self.client.get_account_info()
         return dropbox_stone_to_dict(res)
 
-    def get_space_usage(self) -> StoneType:
+    def get_space_usage(self) -> SerializedObjectType:
         """
         Gets the space usage from Dropbox and returns it as a dictionary.
 
@@ -688,7 +687,7 @@ class Maestral:
             self._delete_old_profile_pics()
             return None
 
-    def get_metadata(self, dbx_path: str) -> Optional[StoneType]:
+    def get_metadata(self, dbx_path: str) -> Optional[SerializedObjectType]:
         """
         Returns metadata for a file or folder on Dropbox.
 
@@ -711,7 +710,7 @@ class Maestral:
         else:
             return dropbox_stone_to_dict(res)
 
-    def list_folder(self, dbx_path: str, **kwargs) -> List[StoneType]:
+    def list_folder(self, dbx_path: str, **kwargs) -> List[SerializedObjectType]:
         """
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
         passed on the Dropbox API call :meth:`client.DropboxClient.list_folder`.
@@ -737,7 +736,7 @@ class Maestral:
 
     def list_folder_iterator(
         self, dbx_path: str, **kwargs
-    ) -> Iterator[List[StoneType]]:
+    ) -> Iterator[List[SerializedObjectType]]:
         """
         Returns an iterator over items inside the folder given by ``dbx_path``. Keyword
         arguments are passed on the client call
@@ -768,7 +767,9 @@ class Maestral:
                 del entries
                 gc.collect()
 
-    def list_revisions(self, dbx_path: str, limit: int = 10) -> List[StoneType]:
+    def list_revisions(
+        self, dbx_path: str, limit: int = 10
+    ) -> List[SerializedObjectType]:
         """
         List revisions of old files at the given path ``dbx_path``. This will also
         return revisions if the file has already been deleted.
@@ -888,7 +889,7 @@ class Maestral:
             )
         )
 
-    def restore(self, dbx_path: str, rev: str) -> StoneType:
+    def restore(self, dbx_path: str, rev: str) -> SerializedObjectType:
         """
         Restore an old revision of a file.
 
@@ -1253,7 +1254,7 @@ class Maestral:
         visibility: str = "public",
         password: Optional[str] = None,
         expires: Optional[float] = None,
-    ) -> StoneType:
+    ) -> SerializedObjectType:
         """
         Creates a shared link for the given ``dbx_path``. Returns a dictionary with
         information regarding the link, including the URL, access permissions, expiry
@@ -1309,7 +1310,9 @@ class Maestral:
         self._check_linked()
         self.client.revoke_shared_link(url)
 
-    def list_shared_links(self, dbx_path: Optional[str] = None) -> List[StoneType]:
+    def list_shared_links(
+        self, dbx_path: Optional[str] = None
+    ) -> List[SerializedObjectType]:
         """
         Returns a list of all shared links for the given Dropbox path. If no path is
         given, return all shared links for the account, up to a maximum of 1,000 links.
