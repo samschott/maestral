@@ -1036,22 +1036,7 @@ class Maestral:
 
         # Perform housekeeping.
         self.sync.remove_node_from_index(dbx_path_lower)
-
-        for error in self.sync.sync_errors.copy():
-
-            if not error.dbx_path:
-                continue
-
-            if is_equal_or_child(normalize(error.dbx_path), dbx_path_lower):
-                self.sync.sync_errors.discard(error)
-
-        for path in list(self.sync.download_errors):
-            if is_equal_or_child(path, dbx_path_lower):
-                self.sync.download_errors.discard(path)
-
-        for path in list(self.sync.upload_errors):
-            if is_equal_or_child(path, dbx_path_lower):
-                self.sync.upload_errors.discard(path)
+        self.sync.clear_sync_error(dbx_path_lower)
 
         # Remove folder from local drive.
         local_path_uncased = f"{self.dropbox_path}{dbx_path_lower}"
