@@ -2,6 +2,7 @@ import os
 
 import pytest
 from dropbox.files import FolderMetadata
+from dropbox.sharing import SharedFolderMetadata
 
 from maestral.errors import NotFoundError, PathError
 from maestral.utils.path import normalize
@@ -56,3 +57,21 @@ def test_batch_methods(m, batch_size, force_async):
         assert res[i].path_lower == normalize(folders[i])
 
     assert isinstance(res[20], NotFoundError)
+
+
+def test_share_dir_new(m):
+    """Test creating a shared directory."""
+    md_old = m.client.get_metadata(f"{m.test_folder_dbx}/folder")
+    md_shared = m.client.share_dir(f"{m.test_folder_dbx}/folder")
+
+    assert md_old is None
+    assert isinstance(md_shared, SharedFolderMetadata)
+
+
+def test_share_dir_existing(m):
+    """Test sharing an exisitng directory."""
+    md = m.client.make_dir(f"{m.test_folder_dbx}/folder")
+    md_shared = m.client.share_dir(f"{m.test_folder_dbx}/folder")
+
+    assert md.sharing_info is None
+    assert isinstance(md_shared, SharedFolderMetadata)
