@@ -23,11 +23,11 @@ class MaestralApiError(Exception):
         GUI to give a short error summary.
     :param message: A more verbose description which can include instructions on how to
         proceed to fix the error.
-    :param dbx_path: Dropbox path of the file that caused the error.
-    :param dbx_path_dst: Dropbox destination path of the file that caused the error.
+    :param dbx_path: Dropbox path of the item that caused the error.
+    :param dbx_path_from: Dropbox origin path of the item that caused the error.
         This should be set for instance when error occurs when moving an item.
-    :param local_path: Local path of the file that caused the error.
-    :param local_path_dst: Local destination path of the file that caused the error.
+    :param local_path: Local path of the item that caused the error.
+    :param local_path_from: Local origin path of the item that caused the error.
         This should be set for instance when error occurs when moving an item.
     """
 
@@ -36,16 +36,16 @@ class MaestralApiError(Exception):
         title: str,
         message: str = "",
         dbx_path: Optional[str] = None,
-        dbx_path_dst: Optional[str] = None,
+        dbx_path_from: Optional[str] = None,
         local_path: Optional[str] = None,
-        local_path_dst: Optional[str] = None,
+        local_path_from: Optional[str] = None,
     ) -> None:
         self.title = title
         self.message = message
         self.dbx_path = dbx_path
-        self.dbx_path_dst = dbx_path_dst
+        self.dbx_path_from = dbx_path_from
         self.local_path = local_path
-        self.local_path_dst = local_path_dst
+        self.local_path_from = local_path_from
 
     def __str__(self) -> str:
         return ". ".join([self.title, self.message])
