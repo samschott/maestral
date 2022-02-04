@@ -1323,39 +1323,24 @@ class SyncEngine:
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
         return len(self.sync_errors) > 0
 
-    def clear_sync_error(self, event: SyncEvent) -> None:
+    def clear_sync_error(self, dbx_path_lower: str) -> None:
         """
-        Clears all sync errors after a successful sync event.
+        Clear all sync errors for a path and its children after a successful sync event.
 
-        :param event: Successfully applied sync event.
+        :param dbx_path_lower: Normalised path to clear.
         """
 
         with self._database_access():
 
-            self._db_manager_sync_errors.delete_primary_key(event.dbx_path_lower)
+            self._db_manager_sync_errors.delete_primary_key(dbx_path_lower)
 
-            recursive = event.is_deleted or event.is_moved or event.is_file
+            self._db.execute(
+                "DELETE FROM sync_errors WHERE dbx_path_lower LIKE ?",
+                f"{dbx_path_lower}/%",
+            )
 
-            if event.is_moved:
-                self._db_manager_sync_errors.delete_primary_key(
-                    event.dbx_path_from_lower
-                )
-
-            if recursive:
-
-                self._db.execute(
-                    "DELETE FROM sync_errors WHERE dbx_path_lower LIKE ?",
-                    f"{event.dbx_path_lower}/%",
-                )
-
-                if event.is_moved:
-                    self._db.execute(
-                        "DELETE FROM sync_errors WHERE dbx_path_lower LIKE ?",
-                        f"{event.dbx_path_from_lower}/%",
-                    )
-
-                # Clear cache after direct database manipulation.
-                self._db_manager_sync_errors.clear_cache()
+            # Clear cache after direct database manipulation.
+            self._db_manager_sync_errors.clear_cache()
 
     def is_excluded(self, path: str) -> bool:
         """
@@ -2228,7 +2213,10 @@ class SyncEngine:
 
         self._slow_down()
 
-        self.clear_sync_error(event)
+        self.clear_sync_error(event.dbx_path_lower)
+        if event.dbx_path_from_lower:
+            self.clear_sync_error(event.dbx_path_from_lower)
+
         event.status = SyncStatus.Syncing
 
         try:
@@ -3446,7 +3434,10 @@ class SyncEngine:
 
         self._slow_down()
 
-        self.clear_sync_error(event)
+        self.clear_sync_error(event.dbx_path_lower)
+        if event.dbx_path_from_lower:
+            self.clear_sync_error(event.dbx_path_from_lower)
+
         event.status = SyncStatus.Syncing
 
         try:
