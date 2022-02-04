@@ -67,7 +67,7 @@ from watchdog.events import (
 
 # local imports
 from . import notify
-from .config import MaestralConfig, MaestralState
+from .config import MaestralConfig, MaestralState, PersistentMutableSet
 from .constants import (
     IDLE,
     EXCLUDED_FILE_NAMES,
@@ -415,7 +415,6 @@ class SyncEngine:
     :param client: Dropbox API client instance.
     """
 
-    sync_errors: Set[SyncError]
     syncing: Dict[str, SyncEvent]
     _case_conversion_cache: LRUCache
 
@@ -443,15 +442,14 @@ class SyncEngine:
         # stored in these lists to be resumed if Maestral quits unexpectedly. This used
         # for downloads which are not part of the regular sync cycle and are therefore
         # not restarted automatically.
-        self.pending_downloads = PersistentStateMutableSet(
-            self.config_name, section="sync", option="pending_downloads"
+        self.pending_downloads = PersistentMutableSet(
+            self._state, section="sync", option="pending_downloads"
         )
-        self.pending_uploads = PersistentStateMutableSet(
-            self.config_name, section="sync", option="pending_uploads"
+        self.pending_uploads = PersistentMutableSet(
+            self._state, section="sync", option="pending_uploads"
         )
 
         # Data structures for internal communication.
-        self.sync_errors = set()
         self._cancel_requested = Event()
 
         # Data structures for user information.
