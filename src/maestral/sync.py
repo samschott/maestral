@@ -662,42 +662,12 @@ class SyncEngine:
             )
             return cast(List[SyncEvent], sync_events)
 
-    @property
-    def sync_errors(self) -> List[SyncErrorEntry]:
-        with self._database_access():
-            errors = self._db_manager_sync_errors.all()
-            return cast(List[SyncErrorEntry], errors)
-
-    @property
-    def upload_errors(self) -> List[SyncErrorEntry]:
-        with self._database_access():
-            errors = self._db_manager_sync_errors.query_to_objects(
-                "SELECT * FROM sync_errors WHERE direction = 'Up'"
-            )
-            return cast(List[SyncErrorEntry], errors)
-
-    @property
-    def download_errors(self) -> List[SyncErrorEntry]:
-        with self._database_access():
-            errors = self._db_manager_sync_errors.query_to_objects(
-                "SELECT * FROM sync_errors WHERE direction = 'Down'"
-            )
-            return cast(List[SyncErrorEntry], errors)
-
     def clear_sync_history(self) -> None:
         """Clears the sync history."""
         with self._database_access():
             self._db.execute("DROP TABLE history")
             self._db_manager_history.create_table()
             self._db_manager_history.clear_cache()
-
-    def clear_sync_errors(self) -> None:
-        """Clears all sync errors."""
-
-        with self._database_access():
-            self._db.execute("DROP TABLE sync_errors")
-            self._db_manager_sync_errors.create_table()
-            self._db_manager_sync_errors.clear_cache()
 
     def reset_sync_state(self) -> None:
         """Resets all saved sync state. Settings are not affected."""
@@ -713,6 +683,104 @@ class SyncEngine:
         self.reload_cached_config()
 
         self._logger.debug("Sync state reset")
+
+    # ==== Sync error management =======================================================
+
+    @property
+    def sync_errors(self) -> List[SyncErrorEntry]:
+        """Returns a list of all sync errors."""
+        with self._database_access():
+            errors = self._db_manager_sync_errors.all()
+            return cast(List[SyncErrorEntry], errors)
+
+    @property
+    def upload_errors(self) -> List[SyncErrorEntry]:
+        """Returns a list of all upload errors."""
+        with self._database_access():
+            errors = self._db_manager_sync_errors.query_to_objects(
+                "SELECT * FROM sync_errors WHERE direction = 'Up'"
+            )
+            return cast(List[SyncErrorEntry], errors)
+
+    @property
+    def download_errors(self) -> List[SyncErrorEntry]:
+        """Returns a list of all download errors."""
+        with self._database_access():
+            errors = self._db_manager_sync_errors.query_to_objects(
+                "SELECT * FROM sync_errors WHERE direction = 'Down'"
+            )
+            return cast(List[SyncErrorEntry], errors)
+
+    def has_sync_errors(self) -> bool:
+        """Returns ``True`` in case of sync errors, ``False`` otherwise."""
+        with self._database_access():
+            return self._db_manager_sync_errors.count() > 0
+
+    def sync_errors_for_path(
+        self, dbx_path_lower: str, direction: Optional[SyncDirection] = None
+    ) -> List[SyncErrorEntry]:
+        """
+        Returns a list of all sync errors for the given path and its children.
+
+        :param dbx_path_lower: Normalised Dropbox path.
+        :param direction: Direction to filter sync errors. If not given, both upload
+            and download errors will be returned.
+        :returns: List of sync errors.
+        """
+        with self._database_access():
+
+            if direction:
+                errors_path = self._db_manager_sync_errors.query_to_objects(
+                    "SELECT * FROM sync_errors WHERE dbx_path_lower = ? AND direction = ?",
+                    f"{dbx_path_lower}",
+                    direction.name,
+                )
+
+                errors_children = self._db_manager_sync_errors.query_to_objects(
+                    "SELECT * FROM sync_errors WHERE dbx_path_lower LIKE ? AND direction = ?",
+                    f"{dbx_path_lower}/%",
+                )
+
+            else:
+
+                errors_path = self._db_manager_sync_errors.query_to_objects(
+                    "SELECT * FROM sync_errors WHERE dbx_path_lower = ?",
+                    f"{dbx_path_lower}",
+                )
+
+                errors_children = self._db_manager_sync_errors.query_to_objects(
+                    "SELECT * FROM sync_errors WHERE dbx_path_lower LIKE ?",
+                    f"{dbx_path_lower}/%",
+                )
+
+            return cast(List[SyncErrorEntry], errors_path + errors_children)
+
+    def clear_sync_errors_for_path(self, dbx_path_lower: str) -> None:
+        """
+        Clear all sync errors for a path and its children after a successful sync event.
+
+        :param dbx_path_lower: Normalised Dropbox path to clear.
+        """
+
+        with self._database_access():
+
+            self._db_manager_sync_errors.delete_primary_key(dbx_path_lower)
+
+            self._db.execute(
+                "DELETE FROM sync_errors WHERE dbx_path_lower LIKE ?",
+                f"{dbx_path_lower}/%",
+            )
+
+            # Clear cache after direct database manipulation.
+            self._db_manager_sync_errors.clear_cache()
+
+    def clear_sync_errors(self) -> None:
+        """Clears all sync errors."""
+
+        with self._database_access():
+            self._db.execute("DROP TABLE sync_errors")
+            self._db_manager_sync_errors.create_table()
+            self._db_manager_sync_errors.clear_cache()
 
     # ==== Index access and management =================================================
 
@@ -1296,29 +1364,6 @@ class SyncEngine:
         dbx_path_cased = self.correct_case(dbx_path, client)
 
         return f"{self.dropbox_path}{dbx_path_cased}"
-
-    def has_sync_errors(self) -> bool:
-        """Returns ``True`` in case of sync errors, ``False`` otherwise."""
-        return len(self.sync_errors) > 0
-
-    def clear_sync_error(self, dbx_path_lower: str) -> None:
-        """
-        Clear all sync errors for a path and its children after a successful sync event.
-
-        :param dbx_path_lower: Normalised path to clear.
-        """
-
-        with self._database_access():
-
-            self._db_manager_sync_errors.delete_primary_key(dbx_path_lower)
-
-            self._db.execute(
-                "DELETE FROM sync_errors WHERE dbx_path_lower LIKE ?",
-                f"{dbx_path_lower}/%",
-            )
-
-            # Clear cache after direct database manipulation.
-            self._db_manager_sync_errors.clear_cache()
 
     def is_excluded(self, path: str) -> bool:
         """
@@ -2193,9 +2238,9 @@ class SyncEngine:
 
         self._slow_down()
 
-        self.clear_sync_error(event.dbx_path_lower)
+        self.clear_sync_errors_for_path(event.dbx_path_lower)
         if event.dbx_path_from_lower:
-            self.clear_sync_error(event.dbx_path_from_lower)
+            self.clear_sync_errors_for_path(event.dbx_path_from_lower)
 
         event.status = SyncStatus.Syncing
 
@@ -3225,9 +3270,13 @@ class SyncEngine:
                 'Equal content hashes for "%s": no conflict', event.dbx_path
             )
             return Conflict.Identical
-        elif any(
-            is_equal_or_child(p.dbx_path_lower, event.dbx_path_lower)
-            for p in self.upload_errors
+        elif (
+            len(
+                self.sync_errors_for_path(
+                    event.dbx_path_lower, direction=SyncDirection.Up
+                )
+            )
+            > 0
         ):
             # Local version could not be uploaded due to a sync error. Do not over-
             # write unsynced changes but declare a conflict.
@@ -3418,9 +3467,9 @@ class SyncEngine:
 
         self._slow_down()
 
-        self.clear_sync_error(event.dbx_path_lower)
+        self.clear_sync_errors_for_path(event.dbx_path_lower)
         if event.dbx_path_from_lower:
-            self.clear_sync_error(event.dbx_path_from_lower)
+            self.clear_sync_errors_for_path(event.dbx_path_from_lower)
 
         event.status = SyncStatus.Syncing
 

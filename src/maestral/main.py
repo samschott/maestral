@@ -561,7 +561,7 @@ class Maestral:
         local_path = osp.realpath(local_path)
 
         try:
-            dbx_path = self.sync.to_dbx_path(local_path)
+            dbx_path_lower = self.sync.to_dbx_path_lower(local_path)
         except ValueError:
             return FileStatus.Unwatched.value
 
@@ -579,9 +579,9 @@ class Maestral:
             return FileStatus.Uploading.value
         elif sync_event and sync_event.direction == SyncDirection.Down:
             return FileStatus.Downloading.value
-        elif any(dbx_path == err["dbx_path"] for err in self.sync_errors):
+        elif len(self.sync.sync_errors_for_path(dbx_path_lower)) > 0:
             return FileStatus.Error.value
-        elif dbx_path == "/" or self.sync.get_local_rev(normalize(dbx_path)):
+        elif dbx_path_lower == "/" or self.sync.get_local_rev(dbx_path_lower):
             return FileStatus.Synced.value
         else:
             return FileStatus.Unwatched.value
@@ -1037,7 +1037,7 @@ class Maestral:
 
         # Perform housekeeping.
         self.sync.remove_node_from_index(dbx_path_lower)
-        self.sync.clear_sync_error(dbx_path_lower)
+        self.sync.clear_sync_errors_for_path(dbx_path_lower)
 
         # Remove folder from local drive.
         local_path_uncased = f"{self.dropbox_path}{dbx_path_lower}"
