@@ -739,6 +739,7 @@ class SyncEngine:
                 errors_children = self._db_manager_sync_errors.query_to_objects(
                     "SELECT * FROM sync_errors WHERE dbx_path_lower LIKE ? AND direction = ?",
                     f"{dbx_path_lower}/%",
+                    direction.name,
                 )
 
             else:
