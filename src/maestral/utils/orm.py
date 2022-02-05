@@ -357,14 +357,14 @@ class Manager:
 
         column_defs = [col.render_column() for col in columns(self.model)]
         column_defs_str = ", ".join(column_defs)
-        sql = f"CREATE TABLE {self.model.__tablename__} ({column_defs_str});"
+        sql = f"CREATE TABLE {self.table_name} ({column_defs_str});"
 
         self.db.executescript(sql)
 
         for column in columns(self.model):
             if column.index:
-                idx_name = f"idx_{self.model.__tablename__}_{column.name}"
-                sql = f"CREATE INDEX {idx_name} ON {self.model.__tablename__} ({column.name});"
+                idx_name = f"idx_{self.table_name}_{column.name}"
+                sql = f"CREATE INDEX {idx_name} ON {self.table_name} ({column.name});"
                 self.db.executescript(sql)
 
     def clear_cache(self) -> None:
