@@ -1209,8 +1209,7 @@ def test_sync_event_conversion_performance(m):
     res = m.client.list_folder(m.test_folder_dbx, recursive=True)
 
     def setup():
-        m.sync.clear_index()
-        m.sync.clear_hash_cache()
+        m.sync.reset_sync_state()
         m.sync._case_conversion_cache.clear()
 
     def generate_sync_events():
