@@ -727,13 +727,13 @@ class SyncEngine:
             if direction:
                 errors_path = self._db_manager_sync_errors.query_to_objects(
                     "SELECT * FROM sync_errors WHERE dbx_path_lower = ? AND direction = ?",
-                    f"{dbx_path_lower}",
+                    os.fsencode(dbx_path_lower),
                     direction.name,
                 )
 
                 errors_children = self._db_manager_sync_errors.query_to_objects(
                     "SELECT * FROM sync_errors WHERE dbx_path_lower LIKE ? AND direction = ?",
-                    f"{dbx_path_lower}/%",
+                    os.fsencode(f"{dbx_path_lower}/%"),
                     direction.name,
                 )
 
@@ -741,12 +741,12 @@ class SyncEngine:
 
                 errors_path = self._db_manager_sync_errors.query_to_objects(
                     "SELECT * FROM sync_errors WHERE dbx_path_lower = ?",
-                    f"{dbx_path_lower}",
+                    os.fsencode(dbx_path_lower),
                 )
 
                 errors_children = self._db_manager_sync_errors.query_to_objects(
                     "SELECT * FROM sync_errors WHERE dbx_path_lower LIKE ?",
-                    f"{dbx_path_lower}/%",
+                    os.fsencode(f"{dbx_path_lower}/%"),
                 )
 
             return cast(List[SyncErrorEntry], errors_path + errors_children)
@@ -768,7 +768,7 @@ class SyncEngine:
             if recursive:
                 self._db.execute(
                     "DELETE FROM sync_errors WHERE dbx_path_lower LIKE ?",
-                    f"{dbx_path_lower}/%",
+                    os.fsencode(f"{dbx_path_lower}/%"),
                 )
 
             # Clear cache after direct database manipulation.
@@ -962,11 +962,12 @@ class SyncEngine:
 
             try:
                 self._db.execute(
-                    "DELETE FROM 'index' WHERE dbx_path_lower = ?", dbx_path_lower
+                    "DELETE FROM 'index' WHERE dbx_path_lower = ?",
+                    os.fsencode(dbx_path_lower),
                 )
                 self._db.execute(
                     "DELETE FROM 'index' WHERE dbx_path_lower LIKE ?",
-                    f"{dbx_path_lower}/%",
+                    os.fsencode(f"{dbx_path_lower}/%"),
                 )
             except UnicodeEncodeError:
                 return
@@ -991,7 +992,8 @@ class SyncEngine:
             with self._database_access():
                 try:
                     self._db.execute(
-                        "DELETE FROM hash_cache WHERE local_path = ?", local_path
+                        "DELETE FROM hash_cache WHERE local_path = ?",
+                        os.fsencode(local_path),
                     )
                 except UnicodeEncodeError:
                     pass
@@ -3778,7 +3780,7 @@ class SyncEngine:
         elif isdir(local_path):
             self.fs_events.queue_event(DirCreatedEvent(local_path))
 
-            # Add created and deleted events of children as appropriate.
+            # Add created and modified events for children as appropriate.
 
             for path, stat in walk(local_path, self._scandir_with_ignore):
 
@@ -3787,7 +3789,7 @@ class SyncEngine:
                 else:
                     self.fs_events.queue_event(FileModifiedEvent(path))
 
-            # Add deleted events.
+            # Add deleted events for children.
 
             local_path_lower = normalize(local_path)
 
@@ -3795,7 +3797,7 @@ class SyncEngine:
 
                 entries = self._db_manager_index.query_to_objects(
                     "SELECT * FROM 'index' WHERE dbx_path_lower LIKE ?",
-                    f"{local_path_lower}%",
+                    os.fsencode(f"{local_path_lower}/%"),
                 )
 
             for entry in entries:

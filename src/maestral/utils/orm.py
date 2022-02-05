@@ -6,6 +6,7 @@ Maestral. Many operations will still require explicit SQL statements. This modul
 alternative to fully featured ORMs such as sqlalchemy but may be useful when system
 memory is constrained.
 """
+import os
 import sqlite3
 from enum import Enum
 from weakref import WeakValueDictionary
@@ -48,13 +49,11 @@ class SqlType:
     sql_type = "TEXT"
     py_type: Type[ColumnValueType] = str
 
-    @staticmethod
-    def sql_to_py(value):
+    def sql_to_py(self, value):
         """Converts the return value from sqlite3 to the target Python type."""
         return value
 
-    @staticmethod
-    def py_to_sql(value):
+    def py_to_sql(self, value):
         """Converts a Python value to a type accepted by sqlite3."""
         return value
 
@@ -88,8 +87,20 @@ class SqlPath(SqlType):
     which can appear in badly encoded file names.
     """
 
-    sql_type = "TEXT"
+    sql_type = "BLOB"
     py_type = str
+
+    def sql_to_py(self, value: Optional[bytes]) -> Optional[str]:
+        if value is None:
+            return value
+
+        return os.fsdecode(value)
+
+    def py_to_sql(self, value: Optional[str]) -> Optional[bytes]:
+        if value is None:
+            return value
+
+        return os.fsencode(value)
 
 
 class SqlEnum(SqlType):
@@ -104,15 +115,14 @@ class SqlEnum(SqlType):
     def sql_to_py(self, value: Optional[str]) -> Optional[Enum]:  # type: ignore
         if value is None:
             return None
-        else:
-            return getattr(self.enum_type, value)
 
-    @staticmethod
-    def py_to_sql(value: Optional[Enum]) -> Optional[str]:
+        return getattr(self.enum_type, value)
+
+    def py_to_sql(self, value: Optional[Enum]) -> Optional[str]:
         if value is None:
             return None
-        else:
-            return value.name
+
+        return value.name
 
 
 class Column(property):
@@ -432,12 +442,7 @@ class Manager:
         """
         pk_sql = self.get_primary_key(obj)
         sql = f"DELETE from {self.table_name} WHERE {self.pk_column.name} = ?"
-
-        try:
-            self.db.execute(sql, pk_sql)
-        except UnicodeEncodeError:
-            # Item was not in the database in the first place.
-            pass
+        self.db.execute(sql, pk_sql)
 
         try:
             del self._cache[pk_sql]
@@ -453,12 +458,7 @@ class Manager:
 
         pk_sql = self.pk_column.py_to_sql(primary_key)
         sql = f"DELETE from {self.table_name} WHERE {self.pk_column.name} = ?"
-
-        try:
-            self.db.execute(sql, pk_sql)
-        except UnicodeEncodeError:
-            # Item was not in the database in the first place.
-            pass
+        self.db.execute(sql, pk_sql)
 
         try:
             del self._cache[pk_sql]
@@ -482,11 +482,7 @@ class Manager:
             pass
 
         sql = f"SELECT * FROM {self.table_name} WHERE {self.pk_column.name} = ?"
-
-        try:
-            result = self.db.execute(sql, pk_sql)
-        except UnicodeEncodeError:
-            return None
+        result = self.db.execute(sql, pk_sql)
 
         row = result.fetchone()
 
@@ -505,12 +501,7 @@ class Manager:
 
         pk_sql = self.pk_column.py_to_sql(primary_key)
         sql = f"SELECT {self.pk_column.name} FROM {self.table_name} WHERE {self.pk_column.name} = ?"
-
-        try:
-            result = self.db.execute(sql, pk_sql)
-        except UnicodeEncodeError:
-            # Item cannot be in the table.
-            return False
+        result = self.db.execute(sql, pk_sql)
 
         return bool(result.fetchone())
 
