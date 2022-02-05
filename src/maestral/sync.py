@@ -129,6 +129,7 @@ from .utils.path import (
     normalize_unicode,
     equivalent_path_candidates,
     to_existing_unnormalized_path,
+    get_symlink_target,
 )
 from .utils.orm import Database, Manager
 from .utils.appdirs import get_data_path
@@ -713,7 +714,7 @@ class SyncEngine:
 
         self._logger.debug("Sync state reset")
 
-    # ==== Index management ============================================================
+    # ==== Index access and management =================================================
 
     def get_index(self) -> List[IndexEntry]:
         """
@@ -723,6 +724,18 @@ class SyncEngine:
         """
         with self._database_access():
             return cast(List[IndexEntry], self._db_manager_index.all())
+
+    def get_index_entry(self, dbx_path_lower: str) -> Optional[IndexEntry]:
+        """
+        Gets the index entry for the given Dropbox path.
+
+        :param dbx_path_lower: Normalized lower case Dropbox path.
+        :returns: Index entry or ``None`` if no entry exists for the given path.
+        """
+
+        with self._database_access():
+            entry = self._db_manager_index.get(dbx_path_lower)
+            return cast(Optional[IndexEntry], entry)
 
     def iter_index(self) -> Iterator[IndexEntry]:
         """
@@ -777,130 +790,6 @@ class SyncEngine:
             last_sync = 0.0
 
         return max(last_sync, self.local_cursor)
-
-    def get_index_entry(self, dbx_path_lower: str) -> Optional[IndexEntry]:
-        """
-        Gets the index entry for the given Dropbox path.
-
-        :param dbx_path_lower: Normalized lower case Dropbox path.
-        :returns: Index entry or ``None`` if no entry exists for the given path.
-        """
-
-        with self._database_access():
-            entry = self._db_manager_index.get(dbx_path_lower)
-            return cast(Optional[IndexEntry], entry)
-
-    def get_local_hash(self, local_path: str) -> Optional[str]:
-        """
-        Computes content hash of a local file.
-
-        :param local_path: Absolute path on local drive.
-        :returns: Content hash to compare with Dropbox's content hash, or 'folder' if
-            the path points to a directory. ``None`` if there is nothing at the path.
-        """
-
-        try:
-            stat = os.lstat(local_path)
-        except (FileNotFoundError, NotADirectoryError):
-            # Remove all cache entries for local_path and return None.
-            with self._database_access():
-                try:
-                    self._db.execute(
-                        "DELETE FROM hash_cache WHERE local_path = ?", local_path
-                    )
-                except UnicodeEncodeError:
-                    pass
-            self._db_manager_hash_cache.clear_cache()
-            return None
-        except OSError as err:
-
-            if err.errno == errno.ENAMETOOLONG:
-                return None
-
-            raise os_to_maestral_error(err)
-
-        if S_ISDIR(stat.st_mode):
-            return "folder"
-
-        mtime: Optional[float] = stat.st_mtime
-
-        with self._database_access():
-            # Check cache for an up-to-date content hash and return if it exists.
-            cache_entry = self._db_manager_hash_cache.get(stat.st_ino)
-            cache_entry = cast(Optional[HashCacheEntry], cache_entry)
-
-            if cache_entry and cache_entry.mtime == mtime:
-                return cache_entry.hash_str
-
-        with convert_api_errors():
-            hash_str, mtime = content_hash(local_path)
-
-        self._save_local_hash(stat.st_ino, local_path, hash_str, mtime)
-
-        return hash_str
-
-    def get_local_symlink_target(self, local_path: str) -> Optional[str]:
-        """
-        Gets the symlink target of a local file.
-
-        :param local_path: Absolute path on local drive.
-        :returns: Symlink target of local file. None if the local path does not refer to
-            a symlink or does not exist.
-        """
-
-        try:
-            return os.readlink(local_path)
-        except (FileNotFoundError, NotADirectoryError):
-            return None
-        except OSError as err:
-
-            if err.errno == errno.EINVAL:
-                # File is not a symlink.
-                return None
-
-            if err.errno == errno.ENAMETOOLONG:
-                # Path cannot exist on this filesystem.
-                return None
-
-            raise os_to_maestral_error(err)
-
-    def _save_local_hash(
-        self,
-        inode: int,
-        local_path: str,
-        hash_str: Optional[str],
-        mtime: Optional[float],
-    ) -> None:
-        """
-        Save the content hash for a file in our cache.
-
-        :param inode: Inode of the file.
-        :param local_path: Absolute path on local drive.
-        :param hash_str: Hash string to save. If None, the existing cache entry will be
-            deleted.
-        :param mtime: Mtime of the file when the hash was computed.
-        """
-
-        with self._database_access():
-
-            if hash_str:
-                cache_entry = HashCacheEntry(
-                    inode=inode,
-                    local_path=local_path,
-                    hash_str=hash_str,
-                    mtime=mtime,
-                )
-                self._db_manager_hash_cache.update(cache_entry)
-
-            else:
-                self._db_manager_hash_cache.delete_primary_key(inode)
-
-    def clear_hash_cache(self) -> None:
-        """Clears the sync history."""
-        with self._database_access():
-            self._db.execute("DROP TABLE hash_cache")
-            self._db_manager_hash_cache.clear_cache()
-            self._db_manager_hash_cache.create_table()
 
     def update_index_from_sync_event(self, event: SyncEvent) -> None:
         """
@@ -1021,6 +910,95 @@ class SyncEngine:
             self._db.execute("DROP TABLE 'index'")
             self._db_manager_index.clear_cache()
             self._db_manager_index.create_table()
+
+    # ==== Content hashing =============================================================
+
+    def get_local_hash(self, local_path: str) -> Optional[str]:
+        """
+        Computes content hash of a local file.
+
+        :param local_path: Absolute path on local drive.
+        :returns: Content hash to compare with Dropbox's content hash, or 'folder' if
+            the path points to a directory. ``None`` if there is nothing at the path.
+        """
+
+        try:
+            stat = os.lstat(local_path)
+        except (FileNotFoundError, NotADirectoryError):
+            # Remove all cache entries for local_path and return None.
+            with self._database_access():
+                try:
+                    self._db.execute(
+                        "DELETE FROM hash_cache WHERE local_path = ?", local_path
+                    )
+                except UnicodeEncodeError:
+                    pass
+            self._db_manager_hash_cache.clear_cache()
+            return None
+        except OSError as err:
+
+            if err.errno == errno.ENAMETOOLONG:
+                return None
+
+            raise os_to_maestral_error(err)
+
+        if S_ISDIR(stat.st_mode):
+            return "folder"
+
+        mtime: Optional[float] = stat.st_mtime
+
+        with self._database_access():
+            # Check cache for an up-to-date content hash and return if it exists.
+            cache_entry = self._db_manager_hash_cache.get(stat.st_ino)
+            cache_entry = cast(Optional[HashCacheEntry], cache_entry)
+
+            if cache_entry and cache_entry.mtime == mtime:
+                return cache_entry.hash_str
+
+        with convert_api_errors():
+            hash_str, mtime = content_hash(local_path)
+
+        self._save_local_hash(stat.st_ino, local_path, hash_str, mtime)
+
+        return hash_str
+
+    def _save_local_hash(
+        self,
+        inode: int,
+        local_path: str,
+        hash_str: Optional[str],
+        mtime: Optional[float],
+    ) -> None:
+        """
+        Save the content hash for a file in our cache.
+
+        :param inode: Inode of the file.
+        :param local_path: Absolute path on local drive.
+        :param hash_str: Hash string to save. If None, the existing cache entry will be
+            deleted.
+        :param mtime: Mtime of the file when the hash was computed.
+        """
+
+        with self._database_access():
+
+            if hash_str:
+                cache_entry = HashCacheEntry(
+                    inode=inode,
+                    local_path=local_path,
+                    hash_str=hash_str,
+                    mtime=mtime,
+                )
+                self._db_manager_hash_cache.update(cache_entry)
+
+            else:
+                self._db_manager_hash_cache.delete_primary_key(inode)
+
+    def clear_hash_cache(self) -> None:
+        """Clears the sync history."""
+        with self._database_access():
+            self._db.execute("DROP TABLE hash_cache")
+            self._db_manager_hash_cache.clear_cache()
+            self._db_manager_hash_cache.create_table()
 
     # ==== Mignore management ==========================================================
 
@@ -3224,6 +3202,9 @@ class SyncEngine:
 
         local_rev = self.get_local_rev(event.dbx_path_lower)
 
+        with convert_api_errors(event.dbx_path, event.local_path):
+            local_symlink_target = get_symlink_target(event.local_path)
+
         if event.rev == local_rev:
             # Local change has the same rev. The local item (or deletion) must be newer
             # and not yet synced or identical to the remote state. Don't overwrite.
@@ -3234,9 +3215,10 @@ class SyncEngine:
             )
             return Conflict.LocalNewerOrIdentical
 
-        elif event.content_hash == self.get_local_hash(
-            event.local_path
-        ) and event.symlink_target == self.get_local_symlink_target(event.local_path):
+        elif (
+            event.content_hash == self.get_local_hash(event.local_path)
+            and event.symlink_target == local_symlink_target
+        ):
             # Content hashes are equal, therefore items are identical. Folders will
             # have a content hash of 'folder'.
             self._logger.debug(
