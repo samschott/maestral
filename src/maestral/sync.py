@@ -756,24 +756,37 @@ class SyncEngine:
 
             return cast(List[SyncErrorEntry], errors_path + errors_children)
 
-    def clear_sync_errors_for_path(self, dbx_path_lower: str) -> None:
+    def clear_sync_errors_for_path(
+        self, dbx_path_lower: str, recursive: bool = False
+    ) -> None:
         """
-        Clear all sync errors for a path and its children after a successful sync event.
+        Clear all sync errors for a path after a successful sync event.
 
         :param dbx_path_lower: Normalised Dropbox path to clear.
+        :param recursive: Whether to clear sync errors for children of the given path.
         """
 
         with self._database_access():
 
             self._db_manager_sync_errors.delete_primary_key(dbx_path_lower)
 
-            self._db.execute(
-                "DELETE FROM sync_errors WHERE dbx_path_lower LIKE ?",
-                f"{dbx_path_lower}/%",
-            )
+            if recursive:
+                self._db.execute(
+                    "DELETE FROM sync_errors WHERE dbx_path_lower LIKE ?",
+                    f"{dbx_path_lower}/%",
+                )
 
             # Clear cache after direct database manipulation.
             self._db_manager_sync_errors.clear_cache()
+
+    def clear_sync_errors_from_event(self, event: SyncEvent) -> None:
+        """Clears sync errors corresponding to a sync event."""
+
+        recursive = event.is_moved or event.is_deleted or event.is_file
+
+        self.clear_sync_errors_for_path(event.dbx_path_lower, recursive)
+        if event.dbx_path_from:
+            self.clear_sync_errors_for_path(event.dbx_path_from_lower, recursive)
 
     def clear_sync_errors(self) -> None:
         """Clears all sync errors."""
@@ -1543,13 +1556,13 @@ class SyncEngine:
 
         # Save sync errors to retry later.
 
-        with self._database_access():
-            dbx_path_lower = normalize(err.dbx_path)
-            if err.dbx_path_from:
-                dbx_path_from_lower = normalize(err.dbx_path_from)
-            else:
-                dbx_path_from_lower = None
+        dbx_path_lower = normalize(err.dbx_path)
+        if err.dbx_path_from:
+            dbx_path_from_lower = normalize(err.dbx_path_from)
+        else:
+            dbx_path_from_lower = None
 
+        with self._database_access():
             self._db_manager_sync_errors.update(
                 SyncErrorEntry(
                     dbx_path=err.dbx_path,
@@ -2239,9 +2252,7 @@ class SyncEngine:
 
         self._slow_down()
 
-        self.clear_sync_errors_for_path(event.dbx_path_lower)
-        if event.dbx_path_from_lower:
-            self.clear_sync_errors_for_path(event.dbx_path_from_lower)
+        self.clear_sync_errors_from_event(event)
 
         event.status = SyncStatus.Syncing
 
@@ -3468,9 +3479,7 @@ class SyncEngine:
 
         self._slow_down()
 
-        self.clear_sync_errors_for_path(event.dbx_path_lower)
-        if event.dbx_path_from_lower:
-            self.clear_sync_errors_for_path(event.dbx_path_from_lower)
+        self.clear_sync_errors_from_event(event)
 
         event.status = SyncStatus.Syncing
 
