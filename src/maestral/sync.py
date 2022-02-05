@@ -2252,8 +2252,6 @@ class SyncEngine:
 
         self._slow_down()
 
-        self.clear_sync_errors_from_event(event)
-
         event.status = SyncStatus.Syncing
 
         try:
@@ -2280,6 +2278,8 @@ class SyncEngine:
         except SyncError as err:
             self._handle_sync_error(err, direction=SyncDirection.Up)
             event.status = SyncStatus.Failed
+        else:
+            self.clear_sync_errors_from_event(event)
         finally:
             self.syncing.pop(event.local_path, None)
 
@@ -3479,8 +3479,6 @@ class SyncEngine:
 
         self._slow_down()
 
-        self.clear_sync_errors_from_event(event)
-
         event.status = SyncStatus.Syncing
 
         try:
@@ -3502,6 +3500,8 @@ class SyncEngine:
         except SyncError as e:
             self._handle_sync_error(e, direction=SyncDirection.Down)
             event.status = SyncStatus.Failed
+        else:
+            self.clear_sync_errors_from_event(event)
         finally:
             self.syncing.pop(event.local_path, None)
 
