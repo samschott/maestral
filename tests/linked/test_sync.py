@@ -921,6 +921,9 @@ def test_rapid_remote_changes(m):
     assert_no_errors(m)
 
 
+# ==== test error handling =============================================================
+
+
 def test_local_path_error(m):
     """Tests error handling for forbidden file names."""
 
@@ -933,24 +936,23 @@ def test_local_path_error(m):
     os.mkdir(test_path_local)
     wait_for_idle(m)
 
-    assert len(m.sync_errors) == 1
-    assert m.sync_errors[-1]["local_path"] == test_path_local
-    assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
-    assert m.sync_errors[-1]["type"] == "PathError"
-    assert normalize(test_path_dbx) in m.sync.upload_errors
+    sync_errors = m.sync_errors
+
+    assert len(sync_errors) == 1
+    assert sync_errors[0]["local_path"] == test_path_local
+    assert sync_errors[0]["dbx_path"] == test_path_dbx
+    assert sync_errors[0]["type"] == "PathError"
+    assert sync_errors[0]["direction"] == "up"
 
     # remove folder with invalid name and assert that sync issue is cleared
 
     delete(test_path_local)
     wait_for_idle(m)
 
-    assert normalize(test_path_dbx) not in m.sync.upload_errors
+    assert len(m.sync_errors) == 0
 
     assert_synced(m)
     assert_no_errors(m)
-
-
-# ==== test error handling =============================================================
 
 
 def test_local_indexing_error(m):
@@ -988,11 +990,13 @@ def test_local_permission_error(m):
     m.start_sync()
     wait_for_idle(m)
 
-    assert len(m.sync_errors) == 1
-    assert m.sync_errors[-1]["local_path"] == test_path_local
-    assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
-    assert m.sync_errors[-1]["type"] == "InsufficientPermissionsError"
-    assert normalize(test_path_dbx) in m.sync.upload_errors
+    sync_errors = m.sync_errors
+
+    assert len(sync_errors) == 1
+    assert sync_errors[0]["local_path"] == test_path_local
+    assert sync_errors[0]["dbx_path"] == test_path_dbx
+    assert sync_errors[0]["type"] == "InsufficientPermissionsError"
+    assert sync_errors[0]["direction"] == "up"
 
     # reset file permission
 
@@ -1002,7 +1006,7 @@ def test_local_permission_error(m):
 
     # check that error is cleared and file is uploaded
 
-    assert normalize(test_path_dbx) not in m.sync.upload_errors
+    assert len(m.sync_errors) == 0
     assert_exists(m, m.test_folder_dbx, "file")
 
     assert_synced(m)
@@ -1010,7 +1014,7 @@ def test_local_permission_error(m):
 
 
 def test_long_path_error(m):
-    """Tests error handling on local PermissionError."""
+    """Tests error handling on trying to download an item with a too long path."""
 
     max_path_length, _ = fs_max_lengths_for_path()
 
@@ -1024,56 +1028,12 @@ def test_long_path_error(m):
 
     wait_for_idle(m)
 
-    assert len(m.sync_errors) > 0
-    assert any(err["dbx_path"] == test_path for err in m.sync_errors)
-    assert all(err["type"] == "PathError" for err in m.sync_errors)
-    assert normalize(test_path) in m.sync.download_errors
+    sync_errors = m.sync_errors
 
-
-@pytest.mark.skip(reason="Test file is no longer flagged as DMCA")
-def test_download_sync_issues(m):
-    """
-    Tests error handling for issues during download sync. This is done by attempting to
-    download sync a file with a DMCA take down notice (not allowed through the public
-    API).
-    """
-
-    test_path_local = m.test_folder_local + "/dmca.gif"
-    test_path_dbx = f"{m.test_folder_dbx}/dmca.gif"
-
-    m.client.upload(resources + "/dmca.gif", test_path_dbx)
-
-    wait_for_idle(m)
-
-    # 1) Check that the sync issue is logged
-
-    assert len(m.sync_errors) == 1
-    assert m.sync_errors[-1]["local_path"] == test_path_local
-    assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
-    assert m.sync_errors[-1]["type"] == "RestrictedContentError"
-    assert normalize(test_path_dbx) in m.sync.download_errors
-
-    # 2) Check that the sync is retried after pause / resume
-
-    m.stop_sync()
-    m.start_sync()
-
-    wait_for_idle(m)
-
-    assert len(m.sync_errors) == 1
-    assert m.sync_errors[-1]["local_path"] == test_path_local
-    assert m.sync_errors[-1]["dbx_path"] == test_path_dbx
-    assert m.sync_errors[-1]["type"] == "RestrictedContentError"
-    assert normalize(test_path_dbx) in m.sync.download_errors
-
-    # 3) Check that the error is cleared when the file is deleted
-
-    m.client.remove(test_path_dbx)
-    wait_for_idle(m)
-
-    assert normalize(test_path_dbx) not in m.sync.download_errors
-
-    assert_no_errors(m)
+    assert len(sync_errors) > 0
+    assert sync_errors[-1]["dbx_path"] == test_path
+    assert sync_errors[-1]["type"] == "PathError"
+    assert sync_errors[-1]["direction"] == "down"
 
 
 @pytest.mark.parametrize(
@@ -1090,8 +1050,10 @@ def test_unicode_forbidden(m, name):
     os.mkdir(local_path)
     wait_for_idle(m)
 
-    assert len(m.sync_errors) == 1
-    assert m.sync_errors[-1]["local_path"] == local_path
+    sync_errors = m.sync_errors
+
+    assert len(sync_errors) == 1
+    assert sync_errors[0]["local_path"] == local_path
 
 
 @pytest.mark.skipif(
@@ -1117,12 +1079,14 @@ def test_unknown_path_encoding(m, capsys):
     # This requires that our sync logic from the emitted watchdog event all the
     # way to `SyncEngine._on_local_created` can handle strings with surrogate escapes.
 
+    sync_errors = m.sync_errors
+
     assert len(m.fatal_errors) == 0
-    assert len(m.sync_errors) == 1
-    assert m.sync_errors[-1]["local_path"] == sanitize_string(test_path_local)
-    assert m.sync_errors[-1]["dbx_path"] == sanitize_string(test_path_dbx)
-    assert m.sync_errors[-1]["type"] == "PathError"
-    assert normalize(test_path_dbx) in m.sync.upload_errors
+    assert len(sync_errors) == 1
+    assert sync_errors[0]["local_path"] == sanitize_string(test_path_local)
+    assert sync_errors[0]["dbx_path"] == sanitize_string(test_path_dbx)
+    assert sync_errors[0]["type"] == "PathError"
+    assert sync_errors[0]["direction"] == "up"
 
     # 2) Check that the sync is retried after pause / resume
 
@@ -1134,12 +1098,14 @@ def test_unknown_path_encoding(m, capsys):
 
     wait_for_idle(m)
 
+    sync_errors = m.sync_errors
+
     assert len(m.fatal_errors) == 0
-    assert len(m.sync_errors) == 1
-    assert m.sync_errors[-1]["local_path"] == sanitize_string(test_path_local)
-    assert m.sync_errors[-1]["dbx_path"] == sanitize_string(test_path_dbx)
-    assert m.sync_errors[-1]["type"] == "PathError"
-    assert normalize(test_path_dbx) in m.sync.upload_errors
+    assert len(sync_errors) == 1
+    assert sync_errors[0]["local_path"] == sanitize_string(test_path_local)
+    assert sync_errors[0]["dbx_path"] == sanitize_string(test_path_dbx)
+    assert sync_errors[0]["type"] == "PathError"
+    assert sync_errors[0]["direction"] == "up"
 
     # 3) Check that the error is cleared when the file is deleted
 
@@ -1157,24 +1123,24 @@ def test_unknown_path_encoding(m, capsys):
 
 def test_symlink_error(m):
 
-    dbx_path = m.test_folder_dbx + "/link"
     local_path = m.test_folder_local + "/link"
 
     os.symlink("to_nowhere", local_path)
     wait_for_idle(m)
 
+    sync_errors = m.sync_errors
+
     assert len(m.fatal_errors) == 0
-    assert len(m.sync_errors) == 1
-    assert m.sync_errors[0]["local_path"] == local_path
-    assert m.sync_errors[0]["type"] == "SymlinkError"
-    assert normalize(dbx_path) in m.sync.upload_errors
+    assert len(sync_errors) == 1
+    assert sync_errors[0]["local_path"] == local_path
+    assert sync_errors[0]["type"] == "SymlinkError"
+    assert sync_errors[0]["direction"] == "up"
 
 
 def test_symlink_indexing_error(m):
 
     m.stop_sync()
 
-    dbx_path = m.test_folder_dbx + "/link"
     local_path = m.test_folder_local + "/link"
 
     os.symlink("to_nowhere", local_path)
@@ -1182,11 +1148,13 @@ def test_symlink_indexing_error(m):
     m.start_sync()
     wait_for_idle(m)
 
+    sync_errors = m.sync_errors
+
     assert len(m.fatal_errors) == 0
     assert len(m.sync_errors) == 1
-    assert m.sync_errors[0]["local_path"] == local_path
-    assert m.sync_errors[0]["type"] == "SymlinkError"
-    assert normalize(dbx_path) in m.sync.upload_errors
+    assert sync_errors[0]["local_path"] == local_path
+    assert sync_errors[0]["type"] == "SymlinkError"
+    assert sync_errors[0]["direction"] == "up"
 
 
 def test_dropbox_dir_delete_during_sync(m):
@@ -1210,7 +1178,7 @@ def test_dropbox_dir_rename_during_sync(m):
     wait_for_idle(m)
 
     assert len(m.fatal_errors) == 1
-    assert m.fatal_errors[-1]["type"] == "NoDropboxDirError"
+    assert m.fatal_errors[0]["type"] == "NoDropboxDirError"
 
 
 def test_dropbox_dir_delete_during_pause(m):
@@ -1224,7 +1192,7 @@ def test_dropbox_dir_delete_during_pause(m):
     wait_for_idle(m)
 
     assert len(m.fatal_errors) == 1
-    assert m.fatal_errors[-1]["type"] == "NoDropboxDirError"
+    assert m.fatal_errors[0]["type"] == "NoDropboxDirError"
 
 
 # ==== performance tests ===============================================================
