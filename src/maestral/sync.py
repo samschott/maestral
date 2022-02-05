@@ -671,7 +671,7 @@ class SyncEngine:
     def upload_errors(self) -> List[SyncErrorEntry]:
         with self._database_access():
             errors = self._db_manager_sync_errors.query_to_objects(
-                "SELECT * FROM ? WHERE direction = 'Up'"
+                "SELECT * FROM sync_errors WHERE direction = 'Up'"
             )
             return cast(List[SyncErrorEntry], errors)
 
