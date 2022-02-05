@@ -1454,6 +1454,8 @@ class Maestral:
             self._update_from_pre_v1_4_8()
         if Version(updated_from) < Version("1.5.3"):
             self._update_from_pre_v1_5_3()
+        if Version(updated_from) < Version("1.6.0.dev0"):
+            self._update_from_pre_v1_6_0()
 
         self._state.set("app", "updated_scripts_completed", __version__)
 
@@ -1473,6 +1475,21 @@ class Maestral:
         _sql_drop_table(db, "hash_cache")
         _sql_add_column(db, "history", "symlink_target", "TEXT")
         _sql_add_column(db, "'index'", "symlink_target", "TEXT")
+
+        db.close()
+
+    def _update_from_pre_v1_6_0(self) -> None:
+
+        self._logger.info("Scheduling reindex after update from pre v1.6.0")
+
+        db_path = get_data_path("maestral", f"{self.config_name}.db")
+        db = Database(db_path, check_same_thread=False)
+
+        _sql_drop_table(db, "hash_cache")
+        _sql_drop_table(db, "'index'")
+        _sql_drop_table(db, "'history'")
+
+        self._state.reset_to_defaults("sync")
 
         db.close()
 
