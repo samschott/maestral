@@ -580,6 +580,12 @@ class Manager:
         counts = res.fetchone()
         return counts[0]
 
+    def clear(self):
+        """Delete all rows from table."""
+        self.db.execute(f"DROP TABLE {self.table_name}")
+        self.clear_cache()
+        self.create_table()
+
     def _has_table(self) -> bool:
         """Checks if entity model already has a database table."""
         sql = "SELECT name len FROM sqlite_master WHERE type = 'table' AND name = ?"

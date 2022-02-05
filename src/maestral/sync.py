@@ -662,22 +662,17 @@ class SyncEngine:
             )
             return cast(List[SyncEvent], sync_events)
 
-    def clear_sync_history(self) -> None:
-        """Clears the sync history."""
-        with self._database_access():
-            self._db.execute("DROP TABLE history")
-            self._db_manager_history.create_table()
-            self._db_manager_history.clear_cache()
-
     def reset_sync_state(self) -> None:
         """Resets all saved sync state. Settings are not affected."""
 
         if self.busy():
             raise RuntimeError("Cannot reset sync state while syncing.")
 
-        self.clear_index()
-        self.clear_sync_history()
-        self.clear_sync_errors()
+        with self._database_access():
+            self._db_manager_index.clear()
+            self._db_manager_history.clear()
+            self._db_manager_sync_errors.clear()
+            self._db_manager_hash_cache.clear()
 
         self._state.reset_to_defaults("sync")
         self.reload_cached_config()
@@ -787,14 +782,6 @@ class SyncEngine:
         self.clear_sync_errors_for_path(event.dbx_path_lower, recursive)
         if event.dbx_path_from:
             self.clear_sync_errors_for_path(event.dbx_path_from_lower, recursive)
-
-    def clear_sync_errors(self) -> None:
-        """Clears all sync errors."""
-
-        with self._database_access():
-            self._db.execute("DROP TABLE sync_errors")
-            self._db_manager_sync_errors.create_table()
-            self._db_manager_sync_errors.clear_cache()
 
     # ==== Index access and management =================================================
 
@@ -986,13 +973,6 @@ class SyncEngine:
 
             self._db_manager_index.clear_cache()
 
-    def clear_index(self) -> None:
-        """Clears the revision index."""
-        with self._database_access():
-            self._db.execute("DROP TABLE 'index'")
-            self._db_manager_index.clear_cache()
-            self._db_manager_index.create_table()
-
     # ==== Content hashing =============================================================
 
     def get_local_hash(self, local_path: str) -> Optional[str]:
@@ -1074,13 +1054,6 @@ class SyncEngine:
 
             else:
                 self._db_manager_hash_cache.delete_primary_key(inode)
-
-    def clear_hash_cache(self) -> None:
-        """Clears the sync history."""
-        with self._database_access():
-            self._db.execute("DROP TABLE hash_cache")
-            self._db_manager_hash_cache.clear_cache()
-            self._db_manager_hash_cache.create_table()
 
     # ==== Mignore management ==========================================================
 
