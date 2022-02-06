@@ -153,7 +153,7 @@ class Query:
 class PathTreeQuery(Query):
     def __init__(self, column: "Column", path: str):
 
-        if column.type is not SqlPath:
+        if not isinstance(column.type, SqlPath):
             raise ValueError("Only accepts columns with type SqlPath")
 
         self.column = column
