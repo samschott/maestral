@@ -1614,6 +1614,23 @@ class SyncEngine:
 
             self.local_cursor = local_cursor
 
+            # Prune upload errors from deleted items not in index. They may have been
+            # deleted or excluded from sync while we were inactive and therefore won't
+            # be automatically retried or cleared.
+
+            self._logger.debug("Pruning sync errors for items not in index")
+
+            with self._database_access():
+                query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Up)
+                upload_errors = self._db_manager_sync_errors.select(query)
+
+                for error in upload_errors:
+                    error = cast(SyncErrorEntry, error)
+                    if not self._db_manager_index.has(error.dbx_path_lower):
+                        self._db_manager_sync_errors.delete_primary_key(
+                            error.dbx_path_lower
+                        )
+
             self._clear_caches()
 
     def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
