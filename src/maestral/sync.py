@@ -699,18 +699,18 @@ class SyncEngine:
     def upload_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all upload errors."""
         with self._database_access():
-            errors = self._db_manager_sync_errors.select(
-                MatchQuery(column=SyncErrorEntry.direction, value=SyncDirection.Up)
-            )
+            query = MatchQuery(column=SyncErrorEntry.direction, value=SyncDirection.Up)
+            errors = self._db_manager_sync_errors.select(query)
             return cast(List[SyncErrorEntry], errors)
 
     @property
     def download_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all download errors."""
         with self._database_access():
-            errors = self._db_manager_sync_errors.select(
-                MatchQuery(column=SyncErrorEntry.direction, value=SyncDirection.Down)
+            query = MatchQuery(
+                column=SyncErrorEntry.direction, value=SyncDirection.Down
             )
+            errors = self._db_manager_sync_errors.select(query)
             return cast(List[SyncErrorEntry], errors)
 
     def has_sync_errors(self) -> bool:

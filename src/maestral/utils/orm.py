@@ -16,7 +16,6 @@ from typing import (
     Tuple,
     Sequence,
     Any,
-    Dict,
     Generator,
     List,
     Optional,
@@ -24,7 +23,6 @@ from typing import (
     Iterable,
     Iterator,
     FrozenSet,
-    overload,
 )
 
 
@@ -112,27 +110,11 @@ class SqlPath(SqlType):
     sql_type = "BLOB"
     py_type = str
 
-    @overload
-    def sql_to_py(self, value: None) -> None:
-        ...
-
-    @overload
-    def sql_to_py(self, value: bytes) -> str:
-        ...
-
     def sql_to_py(self, value: Optional[bytes]) -> Optional[str]:
         if value is None:
             return value
 
         return os.fsdecode(value)
-
-    @overload
-    def py_to_sql(self, value: None) -> None:
-        ...
-
-    @overload
-    def py_to_sql(self, value: str) -> bytes:
-        ...
 
     def py_to_sql(self, value: Optional[str]) -> Optional[bytes]:
         if value is None:
@@ -175,7 +157,7 @@ class PathTreeQuery(Query):
             raise ValueError("Only accepts columns with type SqlPath")
 
         self.column = column
-        self.file_blob = SqlPath().py_to_sql(path)
+        self.file_blob = os.fsencode(path)
         self.dir_blob = os.path.join(self.file_blob, b"")
 
     def clause(self):
@@ -306,6 +288,7 @@ class Column(property):
         self.unique = unique
         self.primary_key = primary_key
         self.index = index
+        self.name = ""
 
         self.default: DefaultColumnValueType
 
@@ -314,7 +297,7 @@ class Column(property):
         else:
             self.default = default
 
-    def __set_name__(self, owner: Any, name: str):
+    def __set_name__(self, owner: Any, name: str) -> None:
         self.name = name
         self.private_name = "_" + name
 
@@ -460,7 +443,7 @@ class Manager:
         self.db = db
         self.model = model
         self.table_name = model.__tablename__
-        self.pk_column = model.__pk__
+        self.pk_column = next(col for col in model.__columns__ if col.primary_key)
 
         self._cache: "WeakValueDictionary[SQLSafeType, Model]" = WeakValueDictionary()
 
@@ -509,13 +492,13 @@ class Manager:
     def delete(self, query: Query) -> None:
         clause, args = query.clause()
         sql = f"DELETE FROM {self.table_name} WHERE {clause}"
-        self.db.execute(sql, args)
+        self.db.execute(sql, *args)
         self.clear_cache()
 
     def select(self, query: Query) -> List["Model"]:
         clause, args = query.clause()
         sql = f"SELECT * FROM {self.table_name} WHERE {clause}"
-        result = self.db.execute(sql, args)
+        result = self.db.execute(sql, *args)
 
         return [self._item_from_kwargs(**row) for row in result.fetchall()]
 
@@ -524,7 +507,7 @@ class Manager:
     ) -> Generator[List["Model"], Any, None]:
         clause, args = query.clause()
         sql = f"SELECT * FROM {self.table_name} WHERE {clause}"
-        result = self.db.execute(sql, args)
+        result = self.db.execute(sql, *args)
         rows = result.fetchmany(size)
 
         while len(rows) > 0:
@@ -697,23 +680,30 @@ class Manager:
 class ModelBase(type):
     def __new__(mcs, name, bases, namespace, **kwargs):
 
-        columns: Dict[str, Column] = {}
+        columns: List[Column] = []
+        slots: List[str] = []
+
+        has_primary_key = False
 
         # Find all columns in namespace and identify primary key column, if any.
-        for name, value in namespace.copy().items():
+        for name, value in namespace.items():
             if isinstance(value, Column):
-                columns[name] = value
+                columns.append(value)
+                slots.append(f"_{name}")
 
                 if value.primary_key:
-                    namespace["__pk__"] = value
+                    has_primary_key = True
 
         # If there was now primary key column, use 'rowid' as primary key.
-        if "__pk__" not in namespace:
-            rowid = Column(SqlInt())
-            namespace["__pk__"] = rowid
-            namespace["rowid"] = rowid
 
-        namespace["__columns__"] = frozenset(columns.values())
+        if not has_primary_key:
+            rowid = Column(SqlInt(), primary_key=True)
+            namespace["rowid"] = rowid
+            columns.append(rowid)
+
+        # Add columns and slots to namespace.
+        namespace["__columns__"] = frozenset(columns)
+        namespace["__slots__"] = slots
 
         return super().__new__(mcs, name, bases, namespace, **kwargs)
 
@@ -735,9 +725,6 @@ class Model(metaclass=ModelBase):
     __columns__: FrozenSet[Column]
     """The columns of the database table"""
 
-    __pk__: Column
-    """The primary key column of the database table"""
-
     def __init__(self, **kwargs) -> None:
         """
         Initialise with keyword arguments corresponding to column names and values.
@@ -757,13 +744,13 @@ class Model(metaclass=ModelBase):
             if name in columns_names:
                 setattr(self, name, value)
             else:
-                raise TypeError(f"{self.__class__.__name__} has no column '{name}'")
+                raise TypeError(f"{self.__class__} has no column '{name}'")
 
         if len(missing_column_names) > 0:
-            raise TypeError(f"Column values missing for {missing_column_names}")
+            raise TypeError(f"Column values required for {missing_column_names}")
 
     def __repr__(self) -> str:
         attributes = ", ".join(
             f"{col.name}={getattr(self, col.name)}" for col in self.__columns__
         )
-        return f"<{type(self).__name__}({attributes})>"
+        return f"<{self.__class__.__name__}({attributes})>"
