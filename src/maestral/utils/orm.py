@@ -10,7 +10,18 @@ import os
 import sqlite3
 from enum import Enum
 from weakref import WeakValueDictionary
-from typing import Union, Type, Any, Dict, Generator, List, Optional, TypeVar, Iterable
+from typing import (
+    Union,
+    Type,
+    Any,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    TypeVar,
+    Iterable,
+    FrozenSet,
+)
 
 
 ColumnValueType = Union[str, int, float, Enum, None]
@@ -242,19 +253,13 @@ class Column(property):
         return self.type.sql_to_py(value)
 
 
-def columns(klass: Type["Model"]) -> List[Column]:
-    """Returns all columns of a :class:`Model` which represents a database table."""
-    return [attr for attr in vars(klass).values() if isinstance(attr, Column)]
-
-
 def column_value_dict(obj: "Model") -> Dict[str, Any]:
     """
     Return dictionary with column names and values for a :class:`Model` instance which
     represents a row in the database table.
     """
-    cols = columns(type(obj))
 
-    return {col.name: getattr(obj, col.name) for col in cols}
+    return {col.name: getattr(obj, col.name) for col in obj.__columns__}
 
 
 class Database:
@@ -327,12 +332,12 @@ class Manager:
         self.db = db
         self.model = model
         self.table_name = model.__tablename__
-        self.pk_column = self._find_primary_key(model)
+        self.pk_column = model.__pk__
 
         self._cache: "WeakValueDictionary[SQLSafeType, Model]" = WeakValueDictionary()
 
-        # Precompute expensive SQL query strings.
-        self._columns = columns(model)
+        # Precompute often-used SQL query strings.
+        self._columns = model.__columns__
 
         column_names = [col.name for col in self._columns]
         column_names_str = ", ".join(column_names)
@@ -354,24 +359,16 @@ class Manager:
         if not self._has_table():
             self.create_table()
 
-    @staticmethod
-    def _find_primary_key(model: Type["Model"]) -> Column:
-        for col in columns(model):
-            if col.primary_key:
-                return col
-
-        raise ValueError("Model has no primary key")
-
     def create_table(self) -> None:
         """Creates the table as defined by the model."""
 
-        column_defs = [col.render_column() for col in columns(self.model)]
+        column_defs = [col.render_column() for col in self.model.__columns__]
         column_defs_str = ", ".join(column_defs)
         sql = f"CREATE TABLE {self.table_name} ({column_defs_str});"
 
         self.db.executescript(sql)
 
-        for column in columns(self.model):
+        for column in self.model.__columns__:
             if column.index:
                 idx_name = f"idx_{self.table_name}_{column.name}"
                 sql = f"CREATE INDEX {idx_name} ON {self.table_name} ({column.name});"
@@ -584,7 +581,31 @@ class Manager:
         return bool(result.fetchall())
 
 
-class Model:
+class ModelBase(type):
+    def __new__(mcs, name, bases, namespace, **kwargs):
+
+        columns: Dict[str, Column] = {}
+
+        # Find all columns in namespace and identify primary key column, if any.
+        for name, value in namespace.copy().items():
+            if isinstance(value, Column):
+                columns[name] = value
+
+                if value.primary_key:
+                    namespace["__pk__"] = value
+
+        # If there was now primary key column, use 'rowid' as primary key.
+        if "__pk__" not in namespace:
+            rowid = Column(SqlInt())
+            namespace["__pk__"] = rowid
+            namespace["rowid"] = rowid
+
+        namespace["__columns__"] = frozenset(columns.values())
+
+        return super().__new__(mcs, name, bases, namespace, **kwargs)
+
+
+class Model(metaclass=ModelBase):
     """
     Abstract object model to represent an SQL table.
 
@@ -595,7 +616,14 @@ class Model:
     properties. Override the ``__tablename__`` attribute with the actual table name.
     """
 
-    __tablename__ = ""
+    __tablename__: str
+    """The name of the database table"""
+
+    __columns__: FrozenSet[Column]
+    """The columns of the database table"""
+
+    __pk__: Column
+    """The primary key column of the database table"""
 
     def __init__(self, **kwargs) -> None:
         """
@@ -604,8 +632,22 @@ class Model:
         :param kwargs: Keyword arguments assigning values to table columns.
         """
 
+        columns_names = {col.name for col in self.__columns__}
+        missing_column_names = {
+            col.name for col in self.__columns__ if not col.nullable
+        }
+
         for name, value in kwargs.items():
-            setattr(self, name, value)
+
+            missing_column_names.discard(name)
+
+            if name in columns_names:
+                setattr(self, name, value)
+            else:
+                raise TypeError(f"{self.__class__.__name__} has no column '{name}'")
+
+        if len(missing_column_names) > 0:
+            raise TypeError(f"Column values missing for {missing_column_names}")
 
     def __repr__(self) -> str:
         attributes = ", ".join(f"{k}={v}" for k, v in column_value_dict(self).items())
