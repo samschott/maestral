@@ -13,6 +13,8 @@ from weakref import WeakValueDictionary
 from typing import (
     Union,
     Type,
+    Tuple,
+    Sequence,
     Any,
     Dict,
     Generator,
@@ -20,6 +22,7 @@ from typing import (
     Optional,
     TypeVar,
     Iterable,
+    Iterator,
     FrozenSet,
 )
 
@@ -37,6 +40,13 @@ __all__ = [
     "SqlFloat",
     "SqlPath",
     "SqlEnum",
+    "Query",
+    "AllQuery",
+    "MatchQuery",
+    "PathTreeQuery",
+    "AndQuery",
+    "OrQuery",
+    "NotQuery",
     "Column",
     "NoDefault",
     "Database",
@@ -134,6 +144,114 @@ class SqlEnum(SqlType):
             return None
 
         return value.name
+
+
+class Query:
+    def clause(self) -> Tuple[str, Sequence[ColumnValueType]]:
+        raise NotImplementedError()
+
+
+class PathTreeQuery(Query):
+    def __init__(self, column: "Column", path: str):
+
+        if column.type is not SqlPath:
+            raise ValueError("Only accepts columns with type SqlPath")
+
+        self.column = column
+        self.file_blob = column.py_to_sql(path)
+        self.dir_blob = os.path.join(self.file_blob, "")
+
+    def clause(self):
+        query_part = f"({self.column.name} = ? || substr({self.column}, 1, ?) = ?)"
+        args = (self.file_blob, len(self.dir_blob), self.dir_blob)
+
+        return query_part, args
+
+
+class MatchQuery(Query):
+    def __init__(self, column: "Column", value: ColumnValueType):
+        self.column = column
+        self.value = value
+
+    def clause(self):
+        args = (self.column.py_to_sql(self.value),)
+        return f"{self.column.name} = ?", args
+
+
+class AllQuery(Query):
+    def clause(self):
+        return "TRUE", ()
+
+
+class CollectionQuery(Query):
+    """An abstract query class that aggregates other queries. Can be
+    indexed like a list to access the sub-queries.
+    """
+
+    def __init__(self, *subqueries: Query):
+        self.subqueries = subqueries
+
+    # Act like a sequence.
+
+    def __len__(self) -> int:
+        return len(self.subqueries)
+
+    def __getitem__(self, key: int) -> Query:
+        return self.subqueries[key]
+
+    def __iter__(self) -> Iterator[Query]:
+        return iter(self.subqueries)
+
+    def __contains__(self, item: Query) -> bool:
+        return item in self.subqueries
+
+    def clause_with_joiner(self, joiner: str) -> Tuple[str, Sequence[ColumnValueType]]:
+        """Return a clause created by joining together the clauses of
+        all subqueries with the string joiner (padded by spaces).
+        """
+        clause_parts = []
+        subvals = []
+        for subq in self.subqueries:
+            subq_clause, subq_subvals = subq.clause()
+            clause_parts.append('(' + subq_clause + ')')
+            subvals += subq_subvals
+        clause = (' ' + joiner + ' ').join(clause_parts)
+        return clause, subvals
+
+    def clause(self):
+        raise NotImplementedError()
+
+
+class AndQuery(CollectionQuery):
+    """A conjunction of a list of other queries."""
+
+    def clause(self):
+        return self.clause_with_joiner('AND')
+
+
+class OrQuery(CollectionQuery):
+    """A conjunction of a list of other queries."""
+
+    def clause(self):
+        return self.clause_with_joiner('OR')
+
+
+class NotQuery(Query):
+    """A query that matches the negation of its `subquery`, as a shorcut for
+    performing `not(subquery)` without using regular expressions.
+    """
+
+    def __init__(self, subquery: Query):
+        self.subquery = subquery
+
+    def clause(self):
+        clause, subvals = self.subquery.clause()
+        if clause:
+            return f'not ({clause})', subvals
+        else:
+            # If there is no clause, there is nothing to negate. All the logic
+            # is handled by match() for slow queries.
+            return clause, subvals
 
 
 class Column(property):
@@ -369,73 +487,39 @@ class Manager:
         """Clears our cache."""
         self._cache.clear()
 
-    def get_primary_key(self, obj: "Model") -> SQLSafeType:
-        """
-        Returns the primary key for a model object / row in the table.
+    def delete(self, query: Query) -> None:
+        clause, args = query.clause()
+        sql = f"DELETE FROM {self.table_name} WHERE {clause}"
+        self.db.execute(sql, args)
+        self.clear_cache()
 
-        :param obj: Model instance which represents the row.
-        :returns: Primary key for row.
-        """
-        pk_py = getattr(obj, self.pk_column.name)
-        return self.pk_column.py_to_sql(pk_py)
+    def select(self, query: Query) -> List["Model"]:
+        clause, args = query.clause()
+        sql = f"SELECT * FROM {self.table_name} WHERE {clause}"
+        result = self.db.execute(sql, args)
 
-    def all(self) -> List["Model"]:
-        """
-        Get all model objects / rows from database in a single query.
+        return [self._item_from_kwargs(**row) for row in result.fetchall()]
 
-        :returns: List of model objects.
-        """
-        result = self.db.execute(f"SELECT * FROM {self.table_name}")
-        return [self.create(**row) for row in result.fetchall()]
-
-    def iter_all(self, size: int = 1000) -> Generator[List["Model"], Any, None]:
-        """
-        Get all model objects / rows from database in multiple queries.
-
-        :param size: Number of rows to fetch in each query.
-        :returns: Iterator over lists of model objects.
-        """
-        result = self.db.execute(f"SELECT * FROM {self.table_name}")
+    def select_iter(self, query: Query, size: int = 1000) -> Generator[List["Model"], Any, None]:
+        clause, args = query.clause()
+        sql = f"SELECT * FROM {self.table_name} WHERE {clause}"
+        result = self.db.execute(sql, args)
         rows = result.fetchmany(size)
 
         while len(rows) > 0:
-            yield [self.create(**row) for row in rows]
+            yield [self._item_from_kwargs(**row) for row in rows]
             rows = result.fetchmany(size)
 
-    def create(self, **kwargs) -> "Model":
+    def select_sql(self, sql: str, *args) -> List["Model"]:
         """
-        Create a model object from SQL column values
+        Performs the given SQL query and converts any returned rows to model objects.
 
-        :param kwargs: Column values.
-        :returns: Model object.
+        :param sql: SQL statement to execute.
+        :param args: Parameters to substitute for placeholders in SQL statement.
+        :returns: List of model objects from the query.
         """
-
-        # Convert any types as appropriate.
-        for key, value in kwargs.items():
-            col = getattr(self.model, key)
-            kwargs[key] = col.sql_to_py(value)
-
-        obj = self.model(**kwargs)
-
-        pk_sql = self.get_primary_key(obj)
-        self._cache[pk_sql] = obj
-
-        return obj
-
-    def delete(self, obj: "Model") -> None:
-        """
-        Delete a model object / row from database.
-
-        :param obj: Object / row to delete.
-        """
-        pk_sql = self.get_primary_key(obj)
-        sql = f"DELETE from {self.table_name} WHERE {self.pk_column.name} = ?"
-        self.db.execute(sql, pk_sql)
-
-        try:
-            del self._cache[pk_sql]
-        except KeyError:
-            pass
+        result = self.db.execute(f"SELECT * FROM {self.table_name} {sql}", *args)
+        return [self._item_from_kwargs(**row) for row in result.fetchall()]
 
     def delete_primary_key(self, primary_key: ColumnValueType) -> None:
         """
@@ -477,7 +561,7 @@ class Manager:
         if not row:
             return None
 
-        return self.create(**row)
+        return self._item_from_kwargs(**row)
 
     def has(self, primary_key: ColumnValueType) -> bool:
         """
@@ -502,7 +586,7 @@ class Manager:
         :param obj: Model object to save.
         :returns: Saved model object.
         """
-        pk_sql = self.get_primary_key(obj)
+        pk_sql = self._get_primary_key(obj)
 
         if self.has(pk_sql):
             raise ValueError(f"Object with primary key {pk_sql} is already registered")
@@ -529,7 +613,7 @@ class Manager:
         :param obj: The object to update.
         """
 
-        pk_sql = self.get_primary_key(obj)
+        pk_sql = self._get_primary_key(obj)
 
         if pk_sql is None:
             raise ValueError("Primary key is required to update row")
@@ -539,17 +623,6 @@ class Manager:
             self.db.execute(self._sql_update_template, *(list(sql_vals) + [pk_sql]))
         else:
             self.save(obj)
-
-    def query_to_objects(self, sql: str, *args) -> List["Model"]:
-        """
-        Performs the given SQL query and converts any returned rows to model objects.
-
-        :param sql: SQL statement to execute.
-        :param args: Parameters to substitute for placeholders in SQL statement.
-        :returns: List of model objects from the query.
-        """
-        result = self.db.execute(sql, *args)
-        return [self.create(**row) for row in result.fetchall()]
 
     def count(self) -> int:
         """Returns the number of rows in the table."""
@@ -568,6 +641,36 @@ class Manager:
         sql = "SELECT name len FROM sqlite_master WHERE type = 'table' AND name = ?"
         result = self.db.execute(sql, self.table_name.strip("'\""))
         return bool(result.fetchall())
+
+    def _get_primary_key(self, obj: "Model") -> SQLSafeType:
+        """
+        Returns the primary key value for a model object / row in the table.
+
+        :param obj: Model instance which represents the row.
+        :returns: Primary key for row.
+        """
+        pk_py = getattr(obj, self.pk_column.name)
+        return self.pk_column.py_to_sql(pk_py)
+
+    def _item_from_kwargs(self, **kwargs) -> "Model":
+        """
+        Create a model object from SQL column values
+
+        :param kwargs: Column values.
+        :returns: Model object.
+        """
+
+        # Convert any types as appropriate.
+        for key, value in kwargs.items():
+            col = getattr(self.model, key)
+            kwargs[key] = col.sql_to_py(value)
+
+        obj = self.model(**kwargs)
+
+        pk_sql = self._get_primary_key(obj)
+        self._cache[pk_sql] = obj
+
+        return obj
 
 
 class ModelBase(type):

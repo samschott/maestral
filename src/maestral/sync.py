@@ -131,7 +131,14 @@ from .utils.path import (
     to_existing_unnormalized_path,
     get_symlink_target,
 )
-from .utils.orm import Database, Manager
+from .utils.orm import (
+    Database,
+    Manager,
+    MatchQuery,
+    PathTreeQuery,
+    AllQuery,
+    AndQuery,
+)
 from .utils.appdirs import get_data_path
 
 
@@ -657,8 +664,8 @@ class SyncEngine:
         but at most 1,000 events will be kept."""
         with self._database_access():
 
-            sync_events = self._db_manager_history.query_to_objects(
-                "SELECT * FROM history ORDER BY IFNULL(change_time, sync_time)"
+            sync_events = self._db_manager_history.select_sql(
+                "ORDER BY IFNULL(change_time, sync_time)"
             )
             return cast(List[SyncEvent], sync_events)
 
@@ -685,15 +692,15 @@ class SyncEngine:
     def sync_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all sync errors."""
         with self._database_access():
-            errors = self._db_manager_sync_errors.all()
+            errors = self._db_manager_sync_errors.select(AllQuery())
             return cast(List[SyncErrorEntry], errors)
 
     @property
     def upload_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all upload errors."""
         with self._database_access():
-            errors = self._db_manager_sync_errors.query_to_objects(
-                "SELECT * FROM sync_errors WHERE direction = 'Up'"
+            errors = self._db_manager_sync_errors.select(
+                MatchQuery(column=SyncErrorEntry.direction, value=SyncDirection.Up)
             )
             return cast(List[SyncErrorEntry], errors)
 
@@ -701,8 +708,8 @@ class SyncEngine:
     def download_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all download errors."""
         with self._database_access():
-            errors = self._db_manager_sync_errors.query_to_objects(
-                "SELECT * FROM sync_errors WHERE direction = 'Down'"
+            errors = self._db_manager_sync_errors.select(
+                MatchQuery(column=SyncErrorEntry.direction, value=SyncDirection.Down)
             )
             return cast(List[SyncErrorEntry], errors)
 
@@ -724,32 +731,22 @@ class SyncEngine:
         """
         with self._database_access():
 
+            path_tree_query = PathTreeQuery(
+                column=SyncErrorEntry.dbx_path_lower,
+                path=dbx_path_lower,
+            )
+
             if direction:
-                errors_path = self._db_manager_sync_errors.query_to_objects(
-                    "SELECT * FROM sync_errors WHERE dbx_path_lower = ? AND direction = ?",
-                    os.fsencode(dbx_path_lower),
-                    direction.name,
+                direction_query = MatchQuery(
+                    column=SyncErrorEntry.direction, value=direction
                 )
-
-                errors_children = self._db_manager_sync_errors.query_to_objects(
-                    "SELECT * FROM sync_errors WHERE dbx_path_lower LIKE ? AND direction = ?",
-                    os.fsencode(f"{dbx_path_lower}/%"),
-                    direction.name,
+                errors = self._db_manager_sync_errors.select(
+                    AndQuery(path_tree_query, direction_query)
                 )
-
             else:
+                errors = self._db_manager_sync_errors.select(path_tree_query)
 
-                errors_path = self._db_manager_sync_errors.query_to_objects(
-                    "SELECT * FROM sync_errors WHERE dbx_path_lower = ?",
-                    os.fsencode(dbx_path_lower),
-                )
-
-                errors_children = self._db_manager_sync_errors.query_to_objects(
-                    "SELECT * FROM sync_errors WHERE dbx_path_lower LIKE ?",
-                    os.fsencode(f"{dbx_path_lower}/%"),
-                )
-
-            return cast(List[SyncErrorEntry], errors_path + errors_children)
+            return cast(List[SyncErrorEntry], errors)
 
     def clear_sync_errors_for_path(
         self, dbx_path_lower: str, recursive: bool = False
@@ -766,13 +763,10 @@ class SyncEngine:
             self._db_manager_sync_errors.delete_primary_key(dbx_path_lower)
 
             if recursive:
-                self._db.execute(
-                    "DELETE FROM sync_errors WHERE dbx_path_lower LIKE ?",
-                    os.fsencode(f"{dbx_path_lower}/%"),
+                query = PathTreeQuery(
+                    column=SyncErrorEntry.dbx_path_lower, path=dbx_path_lower
                 )
-
-            # Clear cache after direct database manipulation.
-            self._db_manager_sync_errors.clear_cache()
+                self._db_manager_sync_errors.delete(query)
 
     def clear_sync_errors_from_event(self, event: SyncEvent) -> None:
         """Clears sync errors corresponding to a sync event."""
@@ -792,7 +786,8 @@ class SyncEngine:
         :returns: List of index entries.
         """
         with self._database_access():
-            return cast(List[IndexEntry], self._db_manager_index.all())
+            entries = self._db_manager_index.select(AllQuery())
+            return cast(List[IndexEntry], entries)
 
     def get_index_entry(self, dbx_path_lower: str) -> Optional[IndexEntry]:
         """
@@ -813,7 +808,7 @@ class SyncEngine:
         :returns: Iterator over index entries.
         """
         with self._database_access():
-            for entries in self._db_manager_index.iter_all():
+            for entries in self._db_manager_index.select_iter(AllQuery()):
                 for entry in entries:
                     yield cast(IndexEntry, entry)
 
@@ -957,22 +952,8 @@ class SyncEngine:
         """
 
         with self._database_access():
-
-            dbx_path_lower = dbx_path_lower.rstrip("/")
-
-            try:
-                self._db.execute(
-                    "DELETE FROM 'index' WHERE dbx_path_lower = ?",
-                    os.fsencode(dbx_path_lower),
-                )
-                self._db.execute(
-                    "DELETE FROM 'index' WHERE dbx_path_lower LIKE ?",
-                    os.fsencode(f"{dbx_path_lower}/%"),
-                )
-            except UnicodeEncodeError:
-                return
-
-            self._db_manager_index.clear_cache()
+            query = PathTreeQuery(column=IndexEntry.dbx_path_lower, path=dbx_path_lower)
+            self._db_manager_index.delete(query)
 
     # ==== Content hashing =============================================================
 
@@ -990,14 +971,8 @@ class SyncEngine:
         except (FileNotFoundError, NotADirectoryError):
             # Remove all cache entries for local_path and return None.
             with self._database_access():
-                try:
-                    self._db.execute(
-                        "DELETE FROM hash_cache WHERE local_path = ?",
-                        os.fsencode(local_path),
-                    )
-                except UnicodeEncodeError:
-                    pass
-            self._db_manager_hash_cache.clear_cache()
+                query = MatchQuery(column=HashCacheEntry.local_path, value=local_path)
+                self._db_manager_hash_cache.delete(query)
             return None
         except OSError as err:
 
@@ -3795,9 +3770,11 @@ class SyncEngine:
 
             with self._database_access():
 
-                entries = self._db_manager_index.query_to_objects(
-                    "SELECT * FROM 'index' WHERE dbx_path_lower LIKE ?",
-                    os.fsencode(f"{local_path_lower}/%"),
+                # TODO: fix me!!!
+                entries = self._db_manager_index.select(
+                    PathTreeQuery(
+                        column=IndexEntry.dbx_path_lower, path=local_path_lower
+                    )
                 )
 
             for entry in entries:
