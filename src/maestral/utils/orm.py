@@ -253,15 +253,6 @@ class Column(property):
         return self.type.sql_to_py(value)
 
 
-def column_value_dict(obj: "Model") -> Dict[str, Any]:
-    """
-    Return dictionary with column names and values for a :class:`Model` instance which
-    represents a row in the database table.
-    """
-
-    return {col.name: getattr(obj, col.name) for col in obj.__columns__}
-
-
 class Database:
     """Proxy class to access sqlite3.connect method."""
 
@@ -516,8 +507,7 @@ class Manager:
         if self.has(pk_sql):
             raise ValueError(f"Object with primary key {pk_sql} is already registered")
 
-        py_values = column_value_dict(obj).values()
-        sql_values = (col.py_to_sql(val) for col, val in zip(self._columns, py_values))
+        sql_values = (col.py_to_sql(getattr(obj, col.name)) for col in self._columns)
 
         self.db.execute(self._sql_insert_template, *sql_values)
 
@@ -545,8 +535,7 @@ class Manager:
             raise ValueError("Primary key is required to update row")
 
         if self.has(pk_sql):
-            py_vals = column_value_dict(obj).values()
-            sql_vals = (col.py_to_sql(val) for col, val in zip(self._columns, py_vals))
+            sql_vals = (col.py_to_sql(getattr(obj, col.name)) for col in self._columns)
             self.db.execute(self._sql_update_template, *(list(sql_vals) + [pk_sql]))
         else:
             self.save(obj)
@@ -650,5 +639,7 @@ class Model(metaclass=ModelBase):
             raise TypeError(f"Column values missing for {missing_column_names}")
 
     def __repr__(self) -> str:
-        attributes = ", ".join(f"{k}={v}" for k, v in column_value_dict(self).items())
+        attributes = ", ".join(
+            f"{col.name}={getattr(self, col.name)}" for col in self.__columns__
+        )
         return f"<{type(self).__name__}({attributes})>"
