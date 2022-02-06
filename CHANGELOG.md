@@ -1,4 +1,19 @@
-## v1.5.3.dev
+## v1.6.0.dev
+
+#### Changed:
+
+* Sync errors are now stored in a SQlite database table instead of a config file.
+* The CLI command `maestral filestatus PATH` will now return `error` if there is a sync
+  error for any child of the given path. This brings it in line with the `syncing` status.
+
+# Fixed:
+
+* Fixes an issue where upload sync errors could continue to be reported after the local
+  file was deleted if the deletion occurred while sync was not running.
+* Fixes an issue with the Linux Qt GUI where aborting the setup dialog after linking but
+  before choosing a local Dropbox folder would result in an inconsistent state.
+
+## v1.5.3
 
 #### Changed:
 
