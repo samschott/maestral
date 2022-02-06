@@ -161,7 +161,7 @@ class PathTreeQuery(Query):
         self.dir_blob = os.path.join(self.file_blob, b"")
 
     def clause(self):
-        query_part = f"({self.column.name} = ? || substr({self.column.name}, 1, ?) = ?)"
+        query_part = f"({self.column.name} = ? OR substr({self.column.name}, 1, ?) = ?)"
         args = (self.file_blob, len(self.dir_blob), self.dir_blob)
 
         return query_part, args
