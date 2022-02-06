@@ -472,10 +472,10 @@ class SyncEngine:
             self.local_cursor = 0.0
 
         self._db = Database(self._db_path, check_same_thread=False)
-        self._db_manager_index = Manager(self._db, IndexEntry)
-        self._db_manager_history = Manager(self._db, SyncEvent)
-        self._db_manager_hash_cache = Manager(self._db, HashCacheEntry)
-        self._db_manager_sync_errors = Manager(self._db, SyncErrorEntry)
+        self._index_table = Manager(self._db, IndexEntry)
+        self._history_table = Manager(self._db, SyncEvent)
+        self._hash_table = Manager(self._db, HashCacheEntry)
+        self._sync_errors_table = Manager(self._db, SyncErrorEntry)
 
         # Caches.
         self._case_conversion_cache = LRUCache(capacity=5000)
@@ -664,7 +664,7 @@ class SyncEngine:
         but at most 1,000 events will be kept."""
         with self._database_access():
 
-            sync_events = self._db_manager_history.select_sql(
+            sync_events = self._history_table.select_sql(
                 "ORDER BY IFNULL(change_time, sync_time)"
             )
             return cast(List[SyncEvent], sync_events)
@@ -676,10 +676,10 @@ class SyncEngine:
             raise RuntimeError("Cannot reset sync state while syncing.")
 
         with self._database_access():
-            self._db_manager_index.clear()
-            self._db_manager_history.clear()
-            self._db_manager_sync_errors.clear()
-            self._db_manager_hash_cache.clear()
+            self._index_table.clear()
+            self._history_table.clear()
+            self._sync_errors_table.clear()
+            self._hash_table.clear()
 
         self._state.reset_to_defaults("sync")
         self.reload_cached_config()
@@ -692,31 +692,29 @@ class SyncEngine:
     def sync_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all sync errors."""
         with self._database_access():
-            errors = self._db_manager_sync_errors.select(AllQuery())
+            errors = self._sync_errors_table.select(AllQuery())
             return cast(List[SyncErrorEntry], errors)
 
     @property
     def upload_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all upload errors."""
         with self._database_access():
-            query = MatchQuery(column=SyncErrorEntry.direction, value=SyncDirection.Up)
-            errors = self._db_manager_sync_errors.select(query)
+            query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Up)
+            errors = self._sync_errors_table.select(query)
             return cast(List[SyncErrorEntry], errors)
 
     @property
     def download_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all download errors."""
         with self._database_access():
-            query = MatchQuery(
-                column=SyncErrorEntry.direction, value=SyncDirection.Down
-            )
-            errors = self._db_manager_sync_errors.select(query)
+            query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Down)
+            errors = self._sync_errors_table.select(query)
             return cast(List[SyncErrorEntry], errors)
 
     def has_sync_errors(self) -> bool:
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
         with self._database_access():
-            return self._db_manager_sync_errors.count() > 0
+            return self._sync_errors_table.count() > 0
 
     def sync_errors_for_path(
         self, dbx_path_lower: str, direction: Optional[SyncDirection] = None
@@ -732,19 +730,15 @@ class SyncEngine:
         with self._database_access():
 
             path_tree_query = PathTreeQuery(
-                column=SyncErrorEntry.dbx_path_lower,
-                path=dbx_path_lower,
+                SyncErrorEntry.dbx_path_lower, dbx_path_lower
             )
 
             if direction:
-                direction_query = MatchQuery(
-                    column=SyncErrorEntry.direction, value=direction
-                )
-                errors = self._db_manager_sync_errors.select(
-                    AndQuery(path_tree_query, direction_query)
-                )
+                direction_query = MatchQuery(SyncErrorEntry.direction, direction)
+                joint_query = AndQuery(path_tree_query, direction_query)
+                errors = self._sync_errors_table.select(joint_query)
             else:
-                errors = self._db_manager_sync_errors.select(path_tree_query)
+                errors = self._sync_errors_table.select(path_tree_query)
 
             return cast(List[SyncErrorEntry], errors)
 
@@ -760,13 +754,11 @@ class SyncEngine:
 
         with self._database_access():
 
-            self._db_manager_sync_errors.delete_primary_key(dbx_path_lower)
+            self._sync_errors_table.delete_primary_key(dbx_path_lower)
 
             if recursive:
-                query = PathTreeQuery(
-                    column=SyncErrorEntry.dbx_path_lower, path=dbx_path_lower
-                )
-                self._db_manager_sync_errors.delete(query)
+                query = PathTreeQuery(SyncErrorEntry.dbx_path_lower, dbx_path_lower)
+                self._sync_errors_table.delete(query)
 
     def clear_sync_errors_from_event(self, event: SyncEvent) -> None:
         """Clears sync errors corresponding to a sync event."""
@@ -786,7 +778,7 @@ class SyncEngine:
         :returns: List of index entries.
         """
         with self._database_access():
-            entries = self._db_manager_index.select(AllQuery())
+            entries = self._index_table.select(AllQuery())
             return cast(List[IndexEntry], entries)
 
     def get_index_entry(self, dbx_path_lower: str) -> Optional[IndexEntry]:
@@ -798,7 +790,7 @@ class SyncEngine:
         """
 
         with self._database_access():
-            entry = self._db_manager_index.get(dbx_path_lower)
+            entry = self._index_table.get(dbx_path_lower)
             return cast(Optional[IndexEntry], entry)
 
     def iter_index(self) -> Iterator[IndexEntry]:
@@ -808,7 +800,7 @@ class SyncEngine:
         :returns: Iterator over index entries.
         """
         with self._database_access():
-            for entries in self._db_manager_index.select_iter(AllQuery()):
+            for entries in self._index_table.select_iter(AllQuery()):
                 for entry in entries:
                     yield cast(IndexEntry, entry)
 
@@ -820,7 +812,7 @@ class SyncEngine:
         """
 
         with self._database_access():
-            return self._db_manager_index.count()
+            return self._index_table.count()
 
     def get_local_rev(self, dbx_path_lower: str) -> Optional[str]:
         """
@@ -892,7 +884,7 @@ class SyncEngine:
                     symlink_target=event.symlink_target,
                 )
 
-                self._db_manager_index.update(entry)
+                self._index_table.update(entry)
 
     def update_index_from_dbx_metadata(
         self, md: Metadata, client: Optional[DropboxClient] = None
@@ -942,7 +934,7 @@ class SyncEngine:
                     symlink_target=symlink_target,
                 )
 
-                self._db_manager_index.update(entry)
+                self._index_table.update(entry)
 
     def remove_node_from_index(self, dbx_path_lower: str) -> None:
         """
@@ -952,8 +944,8 @@ class SyncEngine:
         """
 
         with self._database_access():
-            query = PathTreeQuery(column=IndexEntry.dbx_path_lower, path=dbx_path_lower)
-            self._db_manager_index.delete(query)
+            query = PathTreeQuery(IndexEntry.dbx_path_lower, dbx_path_lower)
+            self._index_table.delete(query)
 
     # ==== Content hashing =============================================================
 
@@ -971,8 +963,8 @@ class SyncEngine:
         except (FileNotFoundError, NotADirectoryError):
             # Remove all cache entries for local_path and return None.
             with self._database_access():
-                query = MatchQuery(column=HashCacheEntry.local_path, value=local_path)
-                self._db_manager_hash_cache.delete(query)
+                query = MatchQuery(HashCacheEntry.local_path, local_path)
+                self._hash_table.delete(query)
             return None
         except OSError as err:
 
@@ -988,7 +980,7 @@ class SyncEngine:
 
         with self._database_access():
             # Check cache for an up-to-date content hash and return if it exists.
-            cache_entry = self._db_manager_hash_cache.get(stat.st_ino)
+            cache_entry = self._hash_table.get(stat.st_ino)
             cache_entry = cast(Optional[HashCacheEntry], cache_entry)
 
             if cache_entry and cache_entry.mtime == mtime:
@@ -1027,10 +1019,10 @@ class SyncEngine:
                     hash_str=hash_str,
                     mtime=mtime,
                 )
-                self._db_manager_hash_cache.update(cache_entry)
+                self._hash_table.update(cache_entry)
 
             else:
-                self._db_manager_hash_cache.delete_primary_key(inode)
+                self._hash_table.delete_primary_key(inode)
 
     # ==== Mignore management ==========================================================
 
@@ -1513,7 +1505,7 @@ class SyncEngine:
             dbx_path_from_lower = None
 
         with self._database_access():
-            self._db_manager_sync_errors.update(
+            self._sync_errors_table.update(
                 SyncErrorEntry(
                     dbx_path=err.dbx_path,
                     dbx_path_lower=dbx_path_lower,
@@ -1589,6 +1581,16 @@ class SyncEngine:
 
         with self.sync_lock:
 
+            # Delete upload sync errors before starting indexing. This prevents errors
+            # from now deleted or ignored (.mignore) items from lingering on. All other
+            # sync errors will be retried automatically by comparing local items against
+            # our index.
+            self._logger.debug("Pruning sync errors")
+
+            with self._database_access():
+                query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Up)
+                self._sync_errors_table.delete(query)
+
             self._logger.info("Indexing local changes...")
 
             try:
@@ -1613,23 +1615,6 @@ class SyncEngine:
             gc.collect()
 
             self.local_cursor = local_cursor
-
-            # Prune upload errors from deleted items not in index. They may have been
-            # deleted or excluded from sync while we were inactive and therefore won't
-            # be automatically retried or cleared.
-
-            self._logger.debug("Pruning sync errors for items not in index")
-
-            with self._database_access():
-                query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Up)
-                upload_errors = self._db_manager_sync_errors.select(query)
-
-                for error in upload_errors:
-                    error = cast(SyncErrorEntry, error)
-                    if not self._db_manager_index.has(error.dbx_path_lower):
-                        self._db_manager_sync_errors.delete_primary_key(
-                            error.dbx_path_lower
-                        )
 
             self._clear_caches()
 
@@ -2253,7 +2238,7 @@ class SyncEngine:
         # Add events to history database.
         if event.status == SyncStatus.Done:
             with self._database_access():
-                self._db_manager_history.save(event)
+                self._history_table.save(event)
 
         return event
 
@@ -3475,7 +3460,7 @@ class SyncEngine:
         # Add events to history database.
         if event.status == SyncStatus.Done:
             with self._database_access():
-                self._db_manager_history.save(event)
+                self._history_table.save(event)
 
         return event
 
@@ -3751,7 +3736,7 @@ class SyncEngine:
 
             with self._database_access():
                 entry.dbx_path_cased = event.dbx_path
-                self._db_manager_index.update(entry)
+                self._index_table.update(entry)
 
             self._logger.debug('Renamed "%s" to "%s"', local_path_old, event.local_path)
 
@@ -3787,10 +3772,8 @@ class SyncEngine:
 
             with self._database_access():
 
-                query = PathTreeQuery(
-                    column=IndexEntry.dbx_path_lower, path=dbx_path_lower
-                )
-                entries = self._db_manager_index.select(query)
+                query = PathTreeQuery(IndexEntry.dbx_path_lower, dbx_path_lower)
+                entries = self._index_table.select(query)
 
             for entry in entries:
                 entry = cast(IndexEntry, entry)
@@ -3826,7 +3809,7 @@ class SyncEngine:
                 "DELETE FROM history WHERE IFNULL(change_time, sync_time) < ?",
                 now - keep_history,
             )
-            self._db_manager_history.clear_cache()
+            self._history_table.clear_cache()
 
     def _scandir_with_ignore(
         self, path: Union[str, "os.PathLike[str]"]
