@@ -3766,16 +3766,14 @@ class SyncEngine:
 
             # Add deleted events for children.
 
-            local_path_lower = normalize(local_path)
+            dbx_path_lower = self.to_dbx_path_lower(local_path)
 
             with self._database_access():
 
-                # TODO: fix me!!!
-                entries = self._db_manager_index.select(
-                    PathTreeQuery(
-                        column=IndexEntry.dbx_path_lower, path=local_path_lower
-                    )
+                query = PathTreeQuery(
+                    column=IndexEntry.dbx_path_lower, path=dbx_path_lower
                 )
+                entries = self._db_manager_index.select(query)
 
             for entry in entries:
                 entry = cast(IndexEntry, entry)
