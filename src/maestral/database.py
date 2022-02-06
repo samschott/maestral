@@ -484,7 +484,7 @@ class IndexEntry(Model):
 
     __tablename__ = "'index'"
 
-    dbx_path_lower = Column(SqlPath(), primary_key=True)
+    dbx_path_lower = Column(SqlPath(), primary_key=True, nullable=False)
     """
     Dropbox path of the item in lower case. This acts as a primary key for the SQLites
     database since there can only be one entry per case-insensitive Dropbox path.
@@ -551,7 +551,7 @@ class HashCacheEntry(Model):
 
     __tablename__ = "hash_cache"
 
-    inode = Column(SqlInt(), primary_key=True)
+    inode = Column(SqlInt(), primary_key=True, nullable=False)
     """The inode of the item."""
 
     local_path = Column(SqlPath(), nullable=False)
@@ -573,7 +573,7 @@ class SyncErrorEntry(Model):
     __tablename__ = "sync_errors"
 
     dbx_path = Column(SqlPath(), nullable=False)
-    dbx_path_lower = Column(SqlPath(), primary_key=True)
+    dbx_path_lower = Column(SqlPath(), primary_key=True, nullable=False)
     dbx_path_from = Column(SqlPath())
     dbx_path_from_lower = Column(SqlPath())
     local_path = Column(SqlPath())
