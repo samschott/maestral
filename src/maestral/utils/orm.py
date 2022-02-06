@@ -24,6 +24,7 @@ from typing import (
     Iterable,
     Iterator,
     FrozenSet,
+    overload,
 )
 
 
@@ -111,11 +112,27 @@ class SqlPath(SqlType):
     sql_type = "BLOB"
     py_type = str
 
+    @overload
+    def sql_to_py(self, value: None) -> None:
+        ...
+
+    @overload
+    def sql_to_py(self, value: bytes) -> str:
+        ...
+
     def sql_to_py(self, value: Optional[bytes]) -> Optional[str]:
         if value is None:
             return value
 
         return os.fsdecode(value)
+
+    @overload
+    def py_to_sql(self, value: None) -> None:
+        ...
+
+    @overload
+    def py_to_sql(self, value: str) -> bytes:
+        ...
 
     def py_to_sql(self, value: Optional[str]) -> Optional[bytes]:
         if value is None:
@@ -158,8 +175,8 @@ class PathTreeQuery(Query):
             raise ValueError("Only accepts columns with type SqlPath")
 
         self.column = column
-        self.file_blob = column.py_to_sql(path)
-        self.dir_blob = os.path.join(self.file_blob, "")
+        self.file_blob = SqlPath().py_to_sql(path)
+        self.dir_blob = os.path.join(self.file_blob, b"")
 
     def clause(self):
         query_part = f"({self.column.name} = ? || substr({self.column}, 1, ?) = ?)"
@@ -210,12 +227,14 @@ class CollectionQuery(Query):
         all subqueries with the string joiner (padded by spaces).
         """
         clause_parts = []
-        subvals = []
+        subvals: List[ColumnValueType] = []
+
         for subq in self.subqueries:
             subq_clause, subq_subvals = subq.clause()
-            clause_parts.append('(' + subq_clause + ')')
+            clause_parts.append("(" + subq_clause + ")")
             subvals += subq_subvals
-        clause = (' ' + joiner + ' ').join(clause_parts)
+
+        clause = (" " + joiner + " ").join(clause_parts)
         return clause, subvals
 
     def clause(self):
@@ -226,14 +245,14 @@ class AndQuery(CollectionQuery):
     """A conjunction of a list of other queries."""
 
     def clause(self):
-        return self.clause_with_joiner('AND')
+        return self.clause_with_joiner("AND")
 
 
 class OrQuery(CollectionQuery):
     """A conjunction of a list of other queries."""
 
     def clause(self):
-        return self.clause_with_joiner('OR')
+        return self.clause_with_joiner("OR")
 
 
 class NotQuery(Query):
@@ -247,7 +266,7 @@ class NotQuery(Query):
     def clause(self):
         clause, subvals = self.subquery.clause()
         if clause:
-            return f'not ({clause})', subvals
+            return f"not ({clause})", subvals
         else:
             # If there is no clause, there is nothing to negate. All the logic
             # is handled by match() for slow queries.
@@ -500,7 +519,9 @@ class Manager:
 
         return [self._item_from_kwargs(**row) for row in result.fetchall()]
 
-    def select_iter(self, query: Query, size: int = 1000) -> Generator[List["Model"], Any, None]:
+    def select_iter(
+        self, query: Query, size: int = 1000
+    ) -> Generator[List["Model"], Any, None]:
         clause, args = query.clause()
         sql = f"SELECT * FROM {self.table_name} WHERE {clause}"
         result = self.db.execute(sql, args)
