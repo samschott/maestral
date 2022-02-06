@@ -7,7 +7,7 @@ the daemon and frontends.
 import json
 import traceback
 from enum import Enum
-from typing import Dict, Union, Sequence, TYPE_CHECKING
+from typing import Dict, Union, List, TYPE_CHECKING
 
 # external imports
 from dropbox.stone_serializers import json_encode
@@ -15,28 +15,27 @@ from dropbox.stone_validators import Struct
 
 # local imports
 from . import sanitize_string
-from ..sync import SyncEvent
+from .orm import Model
 
 if TYPE_CHECKING:
     from dropbox.stone_base import Struct as StoneStruct
 
 
-StoneType = Dict[str, Union[str, float, bool, None]]
-ErrorType = Dict[str, Union[str, Sequence[str], None]]
+SerializedObjectType = Dict[str, Union[str, List[str], None]]
 
 
-def dropbox_stone_to_dict(obj: "StoneStruct") -> StoneType:
+def dropbox_stone_to_dict(obj: "StoneStruct") -> SerializedObjectType:
     """Converts the result of a Dropbox SDK call to a dictionary."""
 
     obj_string = json_encode(Struct(type(obj)), obj)
 
-    dictionary: StoneType = dict(type=type(obj).__name__)
+    dictionary: SerializedObjectType = dict(type=type(obj).__name__)
     dictionary.update(json.loads(obj_string))
 
     return dictionary
 
 
-def error_to_dict(err: Exception) -> ErrorType:
+def error_to_dict(err: Exception) -> SerializedObjectType:
     """
     Converts an exception to a dict. Keys will be strings and entries are native Python
     types.
@@ -47,7 +46,7 @@ def error_to_dict(err: Exception) -> ErrorType:
         'traceback', 'title', and 'message'.
     """
 
-    serialized: ErrorType = dict(
+    serialized: SerializedObjectType = dict(
         type=err.__class__.__name__,
         inherits=[base.__name__ for base in err.__class__.__bases__],
         traceback="".join(
@@ -68,7 +67,7 @@ def error_to_dict(err: Exception) -> ErrorType:
     return serialized
 
 
-def sync_event_to_dict(event: SyncEvent) -> StoneType:
+def orm_type_to_dict(event: Model) -> SerializedObjectType:
     """
     Converts a SyncEvent to a dict. Keys will be strings and entries are native Python
     types.

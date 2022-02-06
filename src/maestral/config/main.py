@@ -66,8 +66,6 @@ DEFAULTS_STATE: DefaultsType = {
         "last_reindex": 0.0,  # time-stamp of full last reindexing
         "indexing_counter": 0,  # counter for indexing progress between restarts
         "did_finish_indexing": False,  # indicates completed indexing
-        "upload_errors": [],  # failed uploads to retry on next sync
-        "download_errors": [],  # failed downloads to retry on next sync
         "pending_uploads": [],  # incomplete uploads to retry on next sync
         "pending_downloads": [],  # incomplete downloads to retry on next sync
     },
@@ -88,7 +86,7 @@ for section_name, section_values in DEFAULTS_CONFIG.items():
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = Version("17.0.0")
+CONF_VERSION = Version("18.0.0")
 
 
 # =============================================================================

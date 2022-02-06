@@ -539,3 +539,29 @@ def getsize(path: Path) -> int:
     """Returns the size. Returns False for symlinks."""
     stat = os.stat(path, follow_symlinks=False)
     return stat.st_size
+
+
+def get_symlink_target(local_path: str) -> Optional[str]:
+    """
+    Returns the symlink target of a file.
+
+    :param local_path: Absolute path on local drive.
+    :returns: Symlink target of local file. None if the local path does not refer to
+        a symlink or does not exist.
+    """
+
+    try:
+        return os.readlink(local_path)
+    except (FileNotFoundError, NotADirectoryError):
+        return None
+    except OSError as err:
+
+        if err.errno == errno.EINVAL:
+            # File is not a symlink.
+            return None
+
+        if err.errno == errno.ENAMETOOLONG:
+            # Path cannot exist on this filesystem.
+            return None
+
+        raise err

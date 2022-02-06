@@ -39,6 +39,7 @@ __all__ = [
     "SyncEvent",
     "IndexEntry",
     "HashCacheEntry",
+    "SyncErrorEntry",
 ]
 
 
@@ -90,27 +91,6 @@ class SyncEvent(Model):
     :class:`dropbox.files.Metadata` instance or a
     :class:`watchdog.events.FileSystemEvent` instance, respectively.
     """
-
-    __slots__ = [
-        "_id",
-        "_direction",
-        "_item_type",
-        "_sync_time",
-        "_dbx_id",
-        "_dbx_path",
-        "_local_path",
-        "_dbx_path_from",
-        "_local_path_from",
-        "_rev",
-        "_content_hash",
-        "_symlink_target",
-        "_change_type",
-        "_change_dbid",
-        "_change_user_name",
-        "_status",
-        "_size",
-        "_completed",
-    ]
 
     __tablename__ = "history"
 
@@ -470,20 +450,9 @@ class SyncEvent(Model):
 class IndexEntry(Model):
     """Represents an entry in our local sync index"""
 
-    __slots__ = [
-        "_dbx_path_lower",
-        "_dbx_path_cased",
-        "_dbx_id",
-        "_item_type",
-        "_last_sync",
-        "_rev",
-        "_content_hash",
-        "_symlink_target",
-    ]
-
     __tablename__ = "'index'"
 
-    dbx_path_lower = Column(SqlPath(), primary_key=True)
+    dbx_path_lower = Column(SqlPath(), primary_key=True, nullable=False)
     """
     Dropbox path of the item in lower case. This acts as a primary key for the SQLites
     database since there can only be one entry per case-insensitive Dropbox path.
@@ -546,11 +515,9 @@ class IndexEntry(Model):
 class HashCacheEntry(Model):
     """Represents an entry in our cache of content hashes"""
 
-    __slots__ = ["_inode", "_local_path", "_hash_str", "_mtime"]
-
     __tablename__ = "hash_cache"
 
-    inode = Column(SqlInt(), primary_key=True)
+    inode = Column(SqlInt(), primary_key=True, nullable=False)
     """The inode of the item."""
 
     local_path = Column(SqlPath(), nullable=False)
@@ -564,3 +531,20 @@ class HashCacheEntry(Model):
     The mtime of the item just before the hash was computed. When the current mtime is
     newer, the hash will need to be recalculated.
     """
+
+
+class SyncErrorEntry(Model):
+    """Table of sync errors"""
+
+    __tablename__ = "sync_errors"
+
+    dbx_path = Column(SqlPath(), nullable=False)
+    dbx_path_lower = Column(SqlPath(), primary_key=True, nullable=False)
+    dbx_path_from = Column(SqlPath())
+    dbx_path_from_lower = Column(SqlPath())
+    local_path = Column(SqlPath())
+    local_path_from = Column(SqlPath())
+    direction = Column(SqlEnum(SyncDirection), nullable=False)
+    title = Column(SqlString())
+    message = Column(SqlString())
+    type = Column(SqlString())

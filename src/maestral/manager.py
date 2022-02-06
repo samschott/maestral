@@ -677,7 +677,7 @@ class SyncManager:
                 except Empty:
                     pass
                 else:
-                    # Protect against crashes.
+                    # Guard against crashes.
                     self.sync.pending_downloads.add(dbx_path_lower)
 
                     if not running.is_set():
@@ -766,8 +766,8 @@ class SyncManager:
                 if len(self.sync.download_errors) > 0:
                     self._logger.info("Retrying failed syncs...")
 
-                for dbx_path in list(self.sync.download_errors):
-                    self.sync.get_remote_item(dbx_path, client)
+                for error in list(self.sync.download_errors):
+                    self.sync.get_remote_item(error.dbx_path_lower, client)
 
                 # Resume interrupted downloads.
                 if len(self.sync.pending_downloads) > 0:

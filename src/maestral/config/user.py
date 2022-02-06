@@ -16,7 +16,8 @@ import copy
 import logging
 import configparser as cp
 from threading import RLock
-from typing import Optional, Dict, Any
+from collections import abc
+from typing import Optional, Dict, Iterator, Any
 
 from packaging.version import Version
 
@@ -471,3 +472,75 @@ class UserConfig(DefaultsConfig):
                             os.remove(file.path)
                         except FileNotFoundError:
                             pass
+
+
+# ======================================================================================
+# Wrapper classes
+# ======================================================================================
+
+
+class PersistentMutableSet(abc.MutableSet):
+    """Wraps a list in our state file as a MutableSet
+
+    :param conf: UserConfig instance to store the set.
+    :param section: Section name in state file.
+    :param option: Option name in state file.
+    """
+
+    def __init__(self, conf: UserConfig, section: str, option: str) -> None:
+        super().__init__()
+        self.section = section
+        self.option = option
+        self._conf = conf
+        self._lock = RLock()
+
+    def __iter__(self) -> Iterator[Any]:
+        with self._lock:
+            return iter(self._conf.get(self.section, self.option))
+
+    def __contains__(self, entry: Any) -> bool:
+        with self._lock:
+            return entry in self._conf.get(self.section, self.option)
+
+    def __len__(self):
+        with self._lock:
+            return len(self._conf.get(self.section, self.option))
+
+    def add(self, entry: Any) -> None:
+        with self._lock:
+            state_list = self._conf.get(self.section, self.option)
+            state_list = set(state_list)
+            state_list.add(entry)
+            self._conf.set(self.section, self.option, list(state_list))
+
+    def discard(self, entry: Any) -> None:
+        with self._lock:
+            state_list = self._conf.get(self.section, self.option)
+            state_list = set(state_list)
+            state_list.discard(entry)
+            self._conf.set(self.section, self.option, list(state_list))
+
+    def update(self, *others: Any) -> None:
+        with self._lock:
+            state_list = self._conf.get(self.section, self.option)
+            state_list = set(state_list)
+            state_list.update(*others)
+            self._conf.set(self.section, self.option, list(state_list))
+
+    def difference_update(self, *others: Any) -> None:
+        with self._lock:
+            state_list = self._conf.get(self.section, self.option)
+            state_list = set(state_list)
+            state_list.difference_update(*others)
+            self._conf.set(self.section, self.option, list(state_list))
+
+    def clear(self) -> None:
+        """Clears all elements."""
+        with self._lock:
+            self._conf.set(self.section, self.option, [])
+
+    def __repr__(self) -> str:
+        return (
+            f"<{self.__class__.__name__}(section='{self.section}',"
+            f"option='{self.option}', entries={list(self)})>"
+        )

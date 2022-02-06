@@ -18,7 +18,7 @@ from pprint import pformat
 from threading import Event, Condition, RLock, current_thread
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
-from collections import abc, defaultdict
+from collections import defaultdict
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
 from typing import (
@@ -67,7 +67,7 @@ from watchdog.events import (
 
 # local imports
 from . import notify
-from .config import MaestralConfig, MaestralState
+from .config import MaestralConfig, MaestralState, PersistentMutableSet
 from .constants import (
     IDLE,
     EXCLUDED_FILE_NAMES,
@@ -98,6 +98,7 @@ from .database import (
     SyncEvent,
     HashCacheEntry,
     IndexEntry,
+    SyncErrorEntry,
     SyncDirection,
     SyncStatus,
     ItemType,
@@ -128,8 +129,16 @@ from .utils.path import (
     normalize_unicode,
     equivalent_path_candidates,
     to_existing_unnormalized_path,
+    get_symlink_target,
 )
-from .utils.orm import Database, Manager
+from .utils.orm import (
+    Database,
+    Manager,
+    MatchQuery,
+    PathTreeQuery,
+    AllQuery,
+    AndQuery,
+)
 from .utils.appdirs import get_data_path
 
 
@@ -405,74 +414,6 @@ class FSEventHandler(FileSystemEventHandler):
             return self.local_file_event_queue.qsize() > 0
 
 
-class PersistentStateMutableSet(abc.MutableSet):
-    """Wraps a list in our state file as a MutableSet
-
-    :param config_name: Name of config (determines name of state file).
-    :param section: Section name in state file.
-    :param option: Option name in state file.
-    """
-
-    def __init__(self, config_name: str, section: str, option: str) -> None:
-        super().__init__()
-        self.config_name = config_name
-        self.section = section
-        self.option = option
-        self._state = MaestralState(config_name)
-        self._lock = RLock()
-
-    def __iter__(self) -> Iterator[Any]:
-        with self._lock:
-            return iter(self._state.get(self.section, self.option))
-
-    def __contains__(self, entry: Any) -> bool:
-        with self._lock:
-            return entry in self._state.get(self.section, self.option)
-
-    def __len__(self):
-        with self._lock:
-            return len(self._state.get(self.section, self.option))
-
-    def add(self, entry: Any) -> None:
-        with self._lock:
-            state_list = self._state.get(self.section, self.option)
-            state_list = set(state_list)
-            state_list.add(entry)
-            self._state.set(self.section, self.option, list(state_list))
-
-    def discard(self, entry: Any) -> None:
-        with self._lock:
-            state_list = self._state.get(self.section, self.option)
-            state_list = set(state_list)
-            state_list.discard(entry)
-            self._state.set(self.section, self.option, list(state_list))
-
-    def update(self, *others: Any) -> None:
-        with self._lock:
-            state_list = self._state.get(self.section, self.option)
-            state_list = set(state_list)
-            state_list.update(*others)
-            self._state.set(self.section, self.option, list(state_list))
-
-    def difference_update(self, *others: Any) -> None:
-        with self._lock:
-            state_list = self._state.get(self.section, self.option)
-            state_list = set(state_list)
-            state_list.difference_update(*others)
-            self._state.set(self.section, self.option, list(state_list))
-
-    def clear(self) -> None:
-        """Clears all elements."""
-        with self._lock:
-            self._state.set(self.section, self.option, [])
-
-    def __repr__(self) -> str:
-        return (
-            f"<{self.__class__.__name__}(section='{self.section}',"
-            f"option='{self.option}', entries={list(self)})>"
-        )
-
-
 class SyncEngine:
     """Class that handles syncing with Dropbox
 
@@ -482,7 +423,6 @@ class SyncEngine:
     :param client: Dropbox API client instance.
     """
 
-    sync_errors: Set[SyncError]
     syncing: Dict[str, SyncEvent]
     _case_conversion_cache: LRUCache
 
@@ -505,29 +445,19 @@ class SyncEngine:
 
         self.desktop_notifier = notify.MaestralDesktopNotifier(self.config_name)
 
-        # Upload_errors and download_errors contain paths of failed uploads and
-        # downloads, respectively, to retry later.
-        self.upload_errors = PersistentStateMutableSet(
-            self.config_name, section="sync", option="upload_errors"
-        )
-        self.download_errors = PersistentStateMutableSet(
-            self.config_name, section="sync", option="download_errors"
-        )
-
         # Pending_uploads and pending_downloads contain interrupted uploads and
         # downloads, respectively. to retry later. Running uploads / downloads can be
         # stored in these lists to be resumed if Maestral quits unexpectedly. This used
         # for downloads which are not part of the regular sync cycle and are therefore
         # not restarted automatically.
-        self.pending_downloads = PersistentStateMutableSet(
-            self.config_name, section="sync", option="pending_downloads"
+        self.pending_downloads = PersistentMutableSet(
+            self._state, section="sync", option="pending_downloads"
         )
-        self.pending_uploads = PersistentStateMutableSet(
-            self.config_name, section="sync", option="pending_uploads"
+        self.pending_uploads = PersistentMutableSet(
+            self._state, section="sync", option="pending_uploads"
         )
 
         # Data structures for internal communication.
-        self.sync_errors = set()
         self._cancel_requested = Event()
 
         # Data structures for user information.
@@ -542,9 +472,10 @@ class SyncEngine:
             self.local_cursor = 0.0
 
         self._db = Database(self._db_path, check_same_thread=False)
-        self._db_manager_index = Manager(self._db, IndexEntry)
-        self._db_manager_history = Manager(self._db, SyncEvent)
-        self._db_manager_hash_cache = Manager(self._db, HashCacheEntry)
+        self._index_table = Manager(self._db, IndexEntry)
+        self._history_table = Manager(self._db, SyncEvent)
+        self._hash_table = Manager(self._db, HashCacheEntry)
+        self._sync_errors_table = Manager(self._db, SyncErrorEntry)
 
         # Caches.
         self._case_conversion_cache = LRUCache(capacity=5000)
@@ -733,17 +664,10 @@ class SyncEngine:
         but at most 1,000 events will be kept."""
         with self._database_access():
 
-            sync_events = self._db_manager_history.query_to_objects(
-                "SELECT * FROM history ORDER BY IFNULL(change_time, sync_time)"
+            sync_events = self._history_table.select_sql(
+                "ORDER BY IFNULL(change_time, sync_time)"
             )
             return cast(List[SyncEvent], sync_events)
-
-    def clear_sync_history(self) -> None:
-        """Clears the sync history."""
-        with self._database_access():
-            self._db.execute("DROP TABLE history")
-            self._db_manager_history.create_table()
-            self._db_manager_history.clear_cache()
 
     def reset_sync_state(self) -> None:
         """Resets all saved sync state. Settings are not affected."""
@@ -751,15 +675,101 @@ class SyncEngine:
         if self.busy():
             raise RuntimeError("Cannot reset sync state while syncing.")
 
-        self.clear_index()
-        self.clear_sync_history()
+        with self._database_access():
+            self._index_table.clear()
+            self._history_table.clear()
+            self._sync_errors_table.clear()
+            self._hash_table.clear()
 
         self._state.reset_to_defaults("sync")
         self.reload_cached_config()
 
         self._logger.debug("Sync state reset")
 
-    # ==== Index management ============================================================
+    # ==== Sync error management =======================================================
+
+    @property
+    def sync_errors(self) -> List[SyncErrorEntry]:
+        """Returns a list of all sync errors."""
+        with self._database_access():
+            errors = self._sync_errors_table.select(AllQuery())
+            return cast(List[SyncErrorEntry], errors)
+
+    @property
+    def upload_errors(self) -> List[SyncErrorEntry]:
+        """Returns a list of all upload errors."""
+        with self._database_access():
+            query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Up)
+            errors = self._sync_errors_table.select(query)
+            return cast(List[SyncErrorEntry], errors)
+
+    @property
+    def download_errors(self) -> List[SyncErrorEntry]:
+        """Returns a list of all download errors."""
+        with self._database_access():
+            query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Down)
+            errors = self._sync_errors_table.select(query)
+            return cast(List[SyncErrorEntry], errors)
+
+    def has_sync_errors(self) -> bool:
+        """Returns ``True`` in case of sync errors, ``False`` otherwise."""
+        with self._database_access():
+            return self._sync_errors_table.count() > 0
+
+    def sync_errors_for_path(
+        self, dbx_path_lower: str, direction: Optional[SyncDirection] = None
+    ) -> List[SyncErrorEntry]:
+        """
+        Returns a list of all sync errors for the given path and its children.
+
+        :param dbx_path_lower: Normalised Dropbox path.
+        :param direction: Direction to filter sync errors. If not given, both upload
+            and download errors will be returned.
+        :returns: List of sync errors.
+        """
+        with self._database_access():
+
+            path_tree_query = PathTreeQuery(
+                SyncErrorEntry.dbx_path_lower, dbx_path_lower
+            )
+
+            if direction:
+                direction_query = MatchQuery(SyncErrorEntry.direction, direction)
+                joint_query = AndQuery(path_tree_query, direction_query)
+                errors = self._sync_errors_table.select(joint_query)
+            else:
+                errors = self._sync_errors_table.select(path_tree_query)
+
+            return cast(List[SyncErrorEntry], errors)
+
+    def clear_sync_errors_for_path(
+        self, dbx_path_lower: str, recursive: bool = False
+    ) -> None:
+        """
+        Clear all sync errors for a path after a successful sync event.
+
+        :param dbx_path_lower: Normalised Dropbox path to clear.
+        :param recursive: Whether to clear sync errors for children of the given path.
+        """
+
+        with self._database_access():
+
+            self._sync_errors_table.delete_primary_key(dbx_path_lower)
+
+            if recursive:
+                query = PathTreeQuery(SyncErrorEntry.dbx_path_lower, dbx_path_lower)
+                self._sync_errors_table.delete(query)
+
+    def clear_sync_errors_from_event(self, event: SyncEvent) -> None:
+        """Clears sync errors corresponding to a sync event."""
+
+        recursive = event.is_moved or event.is_deleted or event.is_file
+
+        self.clear_sync_errors_for_path(event.dbx_path_lower, recursive)
+        if event.dbx_path_from:
+            self.clear_sync_errors_for_path(event.dbx_path_from_lower, recursive)
+
+    # ==== Index access and management =================================================
 
     def get_index(self) -> List[IndexEntry]:
         """
@@ -768,7 +778,20 @@ class SyncEngine:
         :returns: List of index entries.
         """
         with self._database_access():
-            return cast(List[IndexEntry], self._db_manager_index.all())
+            entries = self._index_table.select(AllQuery())
+            return cast(List[IndexEntry], entries)
+
+    def get_index_entry(self, dbx_path_lower: str) -> Optional[IndexEntry]:
+        """
+        Gets the index entry for the given Dropbox path.
+
+        :param dbx_path_lower: Normalized lower case Dropbox path.
+        :returns: Index entry or ``None`` if no entry exists for the given path.
+        """
+
+        with self._database_access():
+            entry = self._index_table.get(dbx_path_lower)
+            return cast(Optional[IndexEntry], entry)
 
     def iter_index(self) -> Iterator[IndexEntry]:
         """
@@ -777,7 +800,7 @@ class SyncEngine:
         :returns: Iterator over index entries.
         """
         with self._database_access():
-            for entries in self._db_manager_index.iter_all():
+            for entries in self._index_table.select_iter(AllQuery()):
                 for entry in entries:
                     yield cast(IndexEntry, entry)
 
@@ -789,7 +812,7 @@ class SyncEngine:
         """
 
         with self._database_access():
-            return self._db_manager_index.count()
+            return self._index_table.count()
 
     def get_local_rev(self, dbx_path_lower: str) -> Optional[str]:
         """
@@ -823,130 +846,6 @@ class SyncEngine:
             last_sync = 0.0
 
         return max(last_sync, self.local_cursor)
-
-    def get_index_entry(self, dbx_path_lower: str) -> Optional[IndexEntry]:
-        """
-        Gets the index entry for the given Dropbox path.
-
-        :param dbx_path_lower: Normalized lower case Dropbox path.
-        :returns: Index entry or ``None`` if no entry exists for the given path.
-        """
-
-        with self._database_access():
-            entry = self._db_manager_index.get(dbx_path_lower)
-            return cast(Optional[IndexEntry], entry)
-
-    def get_local_hash(self, local_path: str) -> Optional[str]:
-        """
-        Computes content hash of a local file.
-
-        :param local_path: Absolute path on local drive.
-        :returns: Content hash to compare with Dropbox's content hash, or 'folder' if
-            the path points to a directory. ``None`` if there is nothing at the path.
-        """
-
-        try:
-            stat = os.lstat(local_path)
-        except (FileNotFoundError, NotADirectoryError):
-            # Remove all cache entries for local_path and return None.
-            with self._database_access():
-                try:
-                    self._db.execute(
-                        "DELETE FROM hash_cache WHERE local_path = ?", local_path
-                    )
-                except UnicodeEncodeError:
-                    pass
-            self._db_manager_hash_cache.clear_cache()
-            return None
-        except OSError as err:
-
-            if err.errno == errno.ENAMETOOLONG:
-                return None
-
-            raise os_to_maestral_error(err)
-
-        if S_ISDIR(stat.st_mode):
-            return "folder"
-
-        mtime: Optional[float] = stat.st_mtime
-
-        with self._database_access():
-            # Check cache for an up-to-date content hash and return if it exists.
-            cache_entry = self._db_manager_hash_cache.get(stat.st_ino)
-            cache_entry = cast(Optional[HashCacheEntry], cache_entry)
-
-            if cache_entry and cache_entry.mtime == mtime:
-                return cache_entry.hash_str
-
-        with convert_api_errors():
-            hash_str, mtime = content_hash(local_path)
-
-        self._save_local_hash(stat.st_ino, local_path, hash_str, mtime)
-
-        return hash_str
-
-    def get_local_symlink_target(self, local_path: str) -> Optional[str]:
-        """
-        Gets the symlink target of a local file.
-
-        :param local_path: Absolute path on local drive.
-        :returns: Symlink target of local file. None if the local path does not refer to
-            a symlink or does not exist.
-        """
-
-        try:
-            return os.readlink(local_path)
-        except (FileNotFoundError, NotADirectoryError):
-            return None
-        except OSError as err:
-
-            if err.errno == errno.EINVAL:
-                # File is not a symlink.
-                return None
-
-            if err.errno == errno.ENAMETOOLONG:
-                # Path cannot exist on this filesystem.
-                return None
-
-            raise os_to_maestral_error(err)
-
-    def _save_local_hash(
-        self,
-        inode: int,
-        local_path: str,
-        hash_str: Optional[str],
-        mtime: Optional[float],
-    ) -> None:
-        """
-        Save the content hash for a file in our cache.
-
-        :param inode: Inode of the file.
-        :param local_path: Absolute path on local drive.
-        :param hash_str: Hash string to save. If None, the existing cache entry will be
-            deleted.
-        :param mtime: Mtime of the file when the hash was computed.
-        """
-
-        with self._database_access():
-
-            if hash_str:
-                cache_entry = HashCacheEntry(
-                    inode=inode,
-                    local_path=local_path,
-                    hash_str=hash_str,
-                    mtime=mtime,
-                )
-                self._db_manager_hash_cache.update(cache_entry)
-
-            else:
-                self._db_manager_hash_cache.delete_primary_key(inode)
-
-    def clear_hash_cache(self) -> None:
-        """Clears the sync history."""
-        with self._database_access():
-            self._db.execute("DROP TABLE hash_cache")
-            self._db_manager_hash_cache.clear_cache()
-            self._db_manager_hash_cache.create_table()
 
     def update_index_from_sync_event(self, event: SyncEvent) -> None:
         """
@@ -985,7 +884,7 @@ class SyncEngine:
                     symlink_target=event.symlink_target,
                 )
 
-                self._db_manager_index.update(entry)
+                self._index_table.update(entry)
 
     def update_index_from_dbx_metadata(
         self, md: Metadata, client: Optional[DropboxClient] = None
@@ -1035,7 +934,7 @@ class SyncEngine:
                     symlink_target=symlink_target,
                 )
 
-                self._db_manager_index.update(entry)
+                self._index_table.update(entry)
 
     def remove_node_from_index(self, dbx_path_lower: str) -> None:
         """
@@ -1045,28 +944,85 @@ class SyncEngine:
         """
 
         with self._database_access():
+            query = PathTreeQuery(IndexEntry.dbx_path_lower, dbx_path_lower)
+            self._index_table.delete(query)
 
-            dbx_path_lower = dbx_path_lower.rstrip("/")
+    # ==== Content hashing =============================================================
 
-            try:
-                self._db.execute(
-                    "DELETE FROM 'index' WHERE dbx_path_lower = ?", dbx_path_lower
-                )
-                self._db.execute(
-                    "DELETE FROM 'index' WHERE dbx_path_lower LIKE ?",
-                    f"{dbx_path_lower}/%",
-                )
-            except UnicodeEncodeError:
-                return
+    def get_local_hash(self, local_path: str) -> Optional[str]:
+        """
+        Computes content hash of a local file.
 
-            self._db_manager_index.clear_cache()
+        :param local_path: Absolute path on local drive.
+        :returns: Content hash to compare with Dropbox's content hash, or 'folder' if
+            the path points to a directory. ``None`` if there is nothing at the path.
+        """
 
-    def clear_index(self) -> None:
-        """Clears the revision index."""
+        try:
+            stat = os.lstat(local_path)
+        except (FileNotFoundError, NotADirectoryError):
+            # Remove all cache entries for local_path and return None.
+            with self._database_access():
+                query = MatchQuery(HashCacheEntry.local_path, local_path)
+                self._hash_table.delete(query)
+            return None
+        except OSError as err:
+
+            if err.errno == errno.ENAMETOOLONG:
+                return None
+
+            raise os_to_maestral_error(err)
+
+        if S_ISDIR(stat.st_mode):
+            return "folder"
+
+        mtime: Optional[float] = stat.st_mtime
+
         with self._database_access():
-            self._db.execute("DROP TABLE 'index'")
-            self._db_manager_index.clear_cache()
-            self._db_manager_index.create_table()
+            # Check cache for an up-to-date content hash and return if it exists.
+            cache_entry = self._hash_table.get(stat.st_ino)
+            cache_entry = cast(Optional[HashCacheEntry], cache_entry)
+
+            if cache_entry and cache_entry.mtime == mtime:
+                return cache_entry.hash_str
+
+        with convert_api_errors():
+            hash_str, mtime = content_hash(local_path)
+
+        self._save_local_hash(stat.st_ino, local_path, hash_str, mtime)
+
+        return hash_str
+
+    def _save_local_hash(
+        self,
+        inode: int,
+        local_path: str,
+        hash_str: Optional[str],
+        mtime: Optional[float],
+    ) -> None:
+        """
+        Save the content hash for a file in our cache.
+
+        :param inode: Inode of the file.
+        :param local_path: Absolute path on local drive.
+        :param hash_str: Hash string to save. If None, the existing cache entry will be
+            deleted.
+        :param mtime: Mtime of the file when the hash was computed.
+        """
+
+        with self._database_access():
+
+            if hash_str:
+                cache_entry = HashCacheEntry(
+                    inode=inode,
+                    local_path=local_path,
+                    hash_str=hash_str,
+                    mtime=mtime,
+                )
+                self._hash_table.update(cache_entry)
+
+            else:
+                self._hash_table.delete_primary_key(inode)
 
     # ==== Mignore management ==========================================================
 
@@ -1365,64 +1321,6 @@ class SyncEngine:
 
         return f"{self.dropbox_path}{dbx_path_cased}"
 
-    def has_sync_errors(self) -> bool:
-        """Returns ``True`` in case of sync errors, ``False`` otherwise."""
-        return len(self.sync_errors) > 0
-
-    def clear_sync_error(self, event: SyncEvent) -> None:
-        """
-        Clears all sync errors after a successful sync event.
-
-        :param event: Successfully applied sync event.
-        """
-
-        self.upload_errors.discard(event.dbx_path_lower)
-        self.download_errors.discard(event.dbx_path_lower)
-
-        recursive = event.is_deleted or event.is_moved or event.is_file
-
-        if event.is_moved:
-            self.upload_errors.discard(event.dbx_path_from_lower)
-            self.download_errors.discard(event.dbx_path_from_lower)
-
-        for error in self.sync_errors.copy():
-
-            if not error.dbx_path:
-                continue
-
-            error_path_lower = normalize(error.dbx_path)
-
-            if error_path_lower == event.dbx_path_lower:
-                self.sync_errors.discard(error)
-
-            if recursive and is_child(error_path_lower, event.dbx_path_lower):
-                self.sync_errors.discard(error)
-
-            if event.is_moved and is_child(error_path_lower, event.dbx_path_from_lower):
-                self.sync_errors.discard(error)
-
-        if recursive:
-
-            for path in list(self.upload_errors):
-                if is_child(path, event.dbx_path_lower):
-                    self.upload_errors.discard(path)
-
-                if event.is_moved and is_child(path, event.dbx_path_from_lower):
-                    self.upload_errors.discard(path)
-
-            for path in list(self.download_errors):
-                if is_child(path, event.dbx_path_lower):
-                    self.download_errors.discard(path)
-
-                if event.is_moved and is_child(path, event.dbx_path_from_lower):
-                    self.download_errors.discard(path)
-
-    def clear_sync_errors(self) -> None:
-        """Clears all sync errors."""
-        self.sync_errors.clear()
-        self.upload_errors.clear()
-        self.download_errors.clear()
-
     def is_excluded(self, path: str) -> bool:
         """
         Checks if a file is excluded from sync. Certain file names are always excluded
@@ -1570,39 +1468,57 @@ class SyncEngine:
         if err.local_path and not err.dbx_path:
             err.dbx_path = self.to_dbx_path(err.local_path)
 
-        # Fill in missing dbx_path_dst or local_path_dst.
-        if err.dbx_path_dst and not err.local_path_dst:
-            err.local_path_dst = self.to_local_path_from_cased(err.dbx_path_dst)
-        if err.local_path_dst and not err.dbx_path_dst:
-            err.dbx_path_dst = self.to_dbx_path(err.local_path_dst)
+        # Fill in missing dbx_path_from or local_path_from.
+        if err.dbx_path_from and not err.local_path_from:
+            err.local_path_from = self.to_local_path_from_cased(err.dbx_path_from)
+        if err.local_path_from and not err.dbx_path_from:
+            err.dbx_path_from = self.to_dbx_path(err.local_path_from)
 
-        if err.dbx_path:
-            # We have a file / folder associated with the sync error.
-            # Use sanitised path so that the error can be printed to the terminal, etc.
-            file_name = sanitize_string(osp.basename(err.dbx_path))
+        if not err.dbx_path:
+            raise ValueError("Sync error has an unknown path")
 
-            self._logger.info("Could not sync %s", file_name, exc_info=True)
+        printable_file_name = sanitize_string(osp.basename(err.dbx_path))
 
-            def callback():
-                if err.local_path:
-                    click.launch(err.local_path, locate=True)
-                else:
-                    url_path = urllib.parse.quote(err.dbx_path)
-                    click.launch(f"https://www.dropbox.com/preview{url_path}")
+        self._logger.info("Could not sync %s", printable_file_name, exc_info=True)
 
-            self.desktop_notifier.notify(
-                "Sync error",
-                f"Could not sync {file_name}",
-                level=notify.SYNCISSUE,
-                actions={"Show": callback},
+        def callback():
+            if err.local_path:
+                click.launch(err.local_path, locate=True)
+            else:
+                url_path = urllib.parse.quote(err.dbx_path)
+                click.launch(f"https://www.dropbox.com/preview{url_path}")
+
+        self.desktop_notifier.notify(
+            "Sync error",
+            f"Could not {direction.value}load {printable_file_name}",
+            level=notify.SYNCISSUE,
+            actions={"Show": callback},
+            on_click=callback,
+        )
+
+        # Save sync errors to retry later.
+
+        dbx_path_lower = normalize(err.dbx_path)
+        if err.dbx_path_from:
+            dbx_path_from_lower = normalize(err.dbx_path_from)
+        else:
+            dbx_path_from_lower = None
+
+        with self._database_access():
+            self._sync_errors_table.update(
+                SyncErrorEntry(
+                    dbx_path=err.dbx_path,
+                    dbx_path_lower=dbx_path_lower,
+                    dbx_path_from=err.dbx_path_from,
+                    dbx_path_from_lower=dbx_path_from_lower,
+                    local_path=err.local_path,
+                    local_path_from=err.local_path_from,
+                    direction=direction,
+                    title=err.title,
+                    message=err.message,
+                    type=err.__class__.__name__,
+                )
             )
-            self.sync_errors.add(err)
-
-            # Save sync error paths to retry later.
-            if direction == SyncDirection.Down:
-                self.download_errors.add(normalize(err.dbx_path))
-            elif direction == SyncDirection.Up:
-                self.upload_errors.add(normalize(err.dbx_path))
 
     @contextmanager
     def _database_access(self, raise_error: bool = True) -> Iterator[None]:
@@ -1664,6 +1580,16 @@ class SyncEngine:
         """
 
         with self.sync_lock:
+
+            # Delete upload sync errors before starting indexing. This prevents errors
+            # from now deleted or ignored (.mignore) items from lingering on. All other
+            # sync errors will be retried automatically by comparing local items against
+            # our index.
+            self._logger.debug("Pruning sync errors")
+
+            with self._database_access():
+                query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Up)
+                self._sync_errors_table.delete(query)
 
             self._logger.info("Indexing local changes...")
 
@@ -2278,7 +2204,6 @@ class SyncEngine:
 
         self._slow_down()
 
-        self.clear_sync_error(event)
         event.status = SyncStatus.Syncing
 
         try:
@@ -2305,13 +2230,15 @@ class SyncEngine:
         except SyncError as err:
             self._handle_sync_error(err, direction=SyncDirection.Up)
             event.status = SyncStatus.Failed
+        else:
+            self.clear_sync_errors_from_event(event)
         finally:
             self.syncing.pop(event.local_path, None)
 
         # Add events to history database.
         if event.status == SyncStatus.Done:
             with self._database_access():
-                self._db_manager_history.save(event)
+                self._history_table.save(event)
 
         return event
 
@@ -3284,6 +3211,9 @@ class SyncEngine:
 
         local_rev = self.get_local_rev(event.dbx_path_lower)
 
+        with convert_api_errors(event.dbx_path, event.local_path):
+            local_symlink_target = get_symlink_target(event.local_path)
+
         if event.rev == local_rev:
             # Local change has the same rev. The local item (or deletion) must be newer
             # and not yet synced or identical to the remote state. Don't overwrite.
@@ -3294,17 +3224,23 @@ class SyncEngine:
             )
             return Conflict.LocalNewerOrIdentical
 
-        elif event.content_hash == self.get_local_hash(
-            event.local_path
-        ) and event.symlink_target == self.get_local_symlink_target(event.local_path):
+        elif (
+            event.content_hash == self.get_local_hash(event.local_path)
+            and event.symlink_target == local_symlink_target
+        ):
             # Content hashes are equal, therefore items are identical. Folders will
             # have a content hash of 'folder'.
             self._logger.debug(
                 'Equal content hashes for "%s": no conflict', event.dbx_path
             )
             return Conflict.Identical
-        elif any(
-            is_equal_or_child(p, event.dbx_path_lower) for p in self.upload_errors
+        elif (
+            len(
+                self.sync_errors_for_path(
+                    event.dbx_path_lower, direction=SyncDirection.Up
+                )
+            )
+            > 0
         ):
             # Local version could not be uploaded due to a sync error. Do not over-
             # write unsynced changes but declare a conflict.
@@ -3495,7 +3431,6 @@ class SyncEngine:
 
         self._slow_down()
 
-        self.clear_sync_error(event)
         event.status = SyncStatus.Syncing
 
         try:
@@ -3517,13 +3452,15 @@ class SyncEngine:
         except SyncError as e:
             self._handle_sync_error(e, direction=SyncDirection.Down)
             event.status = SyncStatus.Failed
+        else:
+            self.clear_sync_errors_from_event(event)
         finally:
             self.syncing.pop(event.local_path, None)
 
         # Add events to history database.
         if event.status == SyncStatus.Done:
             with self._database_access():
-                self._db_manager_history.save(event)
+                self._history_table.save(event)
 
         return event
 
@@ -3799,7 +3736,7 @@ class SyncEngine:
 
             with self._database_access():
                 entry.dbx_path_cased = event.dbx_path
-                self._db_manager_index.update(entry)
+                self._index_table.update(entry)
 
             self._logger.debug('Renamed "%s" to "%s"', local_path_old, event.local_path)
 
@@ -3820,7 +3757,7 @@ class SyncEngine:
         elif isdir(local_path):
             self.fs_events.queue_event(DirCreatedEvent(local_path))
 
-            # Add created and deleted events of children as appropriate.
+            # Add created and modified events for children as appropriate.
 
             for path, stat in walk(local_path, self._scandir_with_ignore):
 
@@ -3829,16 +3766,14 @@ class SyncEngine:
                 else:
                     self.fs_events.queue_event(FileModifiedEvent(path))
 
-            # Add deleted events.
+            # Add deleted events for children.
 
-            local_path_lower = normalize(local_path)
+            dbx_path_lower = self.to_dbx_path_lower(local_path)
 
             with self._database_access():
 
-                entries = self._db_manager_index.query_to_objects(
-                    "SELECT * FROM 'index' WHERE dbx_path_lower LIKE ?",
-                    f"{local_path_lower}%",
-                )
+                query = PathTreeQuery(IndexEntry.dbx_path_lower, dbx_path_lower)
+                entries = self._index_table.select(query)
 
             for entry in entries:
                 entry = cast(IndexEntry, entry)
@@ -3874,7 +3809,7 @@ class SyncEngine:
                 "DELETE FROM history WHERE IFNULL(change_time, sync_time) < ?",
                 now - keep_history,
             )
-            self._db_manager_history.clear_cache()
+            self._history_table.clear_cache()
 
     def _scandir_with_ignore(
         self, path: Union[str, "os.PathLike[str]"]

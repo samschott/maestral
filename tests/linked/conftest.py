@@ -17,6 +17,7 @@ from maestral.utils.path import (
     to_existing_unnormalized_path,
     is_child,
     walk,
+    get_symlink_target,
 )
 from maestral.utils.appdirs import get_home_dir
 from maestral.daemon import MaestralProxy
@@ -176,7 +177,7 @@ def assert_synced(m: Maestral):
 
         remote_hash = md.content_hash if isinstance(md, FileMetadata) else "folder"
         local_hash = m.sync.get_local_hash(local_path)
-        local_symlink_target = m.sync.get_local_symlink_target(local_path)
+        local_symlink_target = get_symlink_target(local_path)
 
         assert local_hash, f"'{md.path_display}' not found locally"
         assert local_hash == remote_hash, f'different content for "{md.path_display}"'
