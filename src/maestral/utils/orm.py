@@ -678,34 +678,26 @@ class Manager:
 
 
 class ModelBase(type):
-    def __new__(mcs, name, bases, namespace, **kwargs):
+    def __new__(mcs, cls_name, bases, namespace, **kwargs):
 
         columns: List[Column] = []
         slots: List[str] = []
 
-        has_primary_key = False
-
-        # Find all columns in namespace and identify primary key column, if any.
+        # Find all columns in namespace.
         for name, value in namespace.items():
             if isinstance(value, Column):
                 columns.append(value)
                 slots.append(f"_{name}")
 
-                if value.primary_key:
-                    has_primary_key = True
-
-        # If there was now primary key column, use 'rowid' as primary key.
-
-        if not has_primary_key:
-            rowid = Column(SqlInt(), primary_key=True)
-            namespace["rowid"] = rowid
-            columns.append(rowid)
-
-        # Add columns and slots to namespace.
+        # Add __columns__ attribute to namespace.
         namespace["__columns__"] = frozenset(columns)
-        namespace["__slots__"] = slots
 
-        return super().__new__(mcs, name, bases, namespace, **kwargs)
+        # Add slots to namespace if we have declared columns. Otherwise, don't set slots
+        # because this prevents subclasses from having weakrefs.
+        if slots:
+            namespace["__slots__"] = slots
+
+        return super().__new__(mcs, cls_name, bases, namespace, **kwargs)
 
 
 class Model(metaclass=ModelBase):
@@ -733,21 +725,19 @@ class Model(metaclass=ModelBase):
         """
 
         columns_names = {col.name for col in self.__columns__}
-        missing_column_names = {
-            col.name for col in self.__columns__ if not col.nullable
-        }
+        missing_columns = {col.name for col in self.__columns__ if not col.nullable}
 
         for name, value in kwargs.items():
 
-            missing_column_names.discard(name)
+            missing_columns.discard(name)
 
             if name in columns_names:
                 setattr(self, name, value)
             else:
-                raise TypeError(f"{self.__class__} has no column '{name}'")
+                raise TypeError(f"{self.__class__.__name__} has no column '{name}'")
 
-        if len(missing_column_names) > 0:
-            raise TypeError(f"Column values required for {missing_column_names}")
+        if len(missing_columns) > 0:
+            raise TypeError(f"Column values required for {missing_columns}")
 
     def __repr__(self) -> str:
         attributes = ", ".join(
