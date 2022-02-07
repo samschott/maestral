@@ -15,7 +15,7 @@ from dropbox.stone_validators import Struct
 
 # local imports
 from . import sanitize_string
-from .orm import Model
+from ..database.orm import Model
 
 if TYPE_CHECKING:
     from dropbox.stone_base import Struct as StoneStruct

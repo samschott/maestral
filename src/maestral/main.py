@@ -37,10 +37,10 @@ from dropbox.sharing import RequestedVisibility
 
 # local imports
 from . import __version__
-from .client import CONNECTION_ERRORS, DropboxClient, convert_api_errors
+from .client import DropboxClient
 from .sync import SyncDirection
 from .manager import SyncManager
-from .errors import (
+from .exceptions import (
     MaestralApiError,
     NotLinkedError,
     NoDropboxDirError,
@@ -49,6 +49,7 @@ from .errors import (
     KeyringAccessError,
     UnsupportedFileTypeForDiff,
 )
+from .errorhandling import convert_api_errors, CONNECTION_ERRORS
 from .config import MaestralConfig, MaestralState, validate_config_name
 from .logging import CachedHandler, setup_logging, scoped_logger
 from .utils import get_newer_version
@@ -67,7 +68,7 @@ from .utils.serializer import (
 )
 from .utils.appdirs import get_cache_path, get_data_path
 from .utils.integration import get_ac_state, ACState
-from .utils.orm import Database
+from .database.orm import Database
 from .constants import IDLE, PAUSED, CONNECTING, FileStatus, GITHUB_RELEASES_API
 
 

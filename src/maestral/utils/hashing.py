@@ -1,4 +1,4 @@
-"""Module for content hashing."""
+"""Module for content hashing file contents."""
 
 # system imports
 import hashlib

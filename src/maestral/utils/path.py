@@ -13,7 +13,7 @@ from stat import S_ISDIR
 from typing import List, Optional, Tuple, Callable, Iterator, Iterable, Union
 
 # local imports
-from .content_hasher import DropboxContentHasher
+from .hashing import DropboxContentHasher
 
 
 def _path_components(path: str) -> List[str]:

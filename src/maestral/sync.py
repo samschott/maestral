@@ -76,7 +76,7 @@ from .constants import (
     FILE_CACHE,
     IS_MACOS,
 )
-from .errors import (
+from .exceptions import (
     SyncError,
     CancelledError,
     NoDropboxDirError,
@@ -89,12 +89,11 @@ from .errors import (
     InvalidDbidError,
     DatabaseError,
 )
+from .errorhandling import os_to_maestral_error, convert_api_errors
 from .client import (
     DropboxClient,
-    os_to_maestral_error,
-    convert_api_errors,
 )
-from .database import (
+from .models import (
     SyncEvent,
     HashCacheEntry,
     IndexEntry,
@@ -131,14 +130,11 @@ from .utils.path import (
     to_existing_unnormalized_path,
     get_symlink_target,
 )
-from .utils.orm import (
+from .database.orm import (
     Database,
     Manager,
-    MatchQuery,
-    PathTreeQuery,
-    AllQuery,
-    AndQuery,
 )
+from .database.query import PathTreeQuery, MatchQuery, AllQuery, AndQuery
 from .utils.appdirs import get_data_path
 
 

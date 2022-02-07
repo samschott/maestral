@@ -23,8 +23,9 @@ from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 # local imports
 from .config import MaestralConfig, MaestralState
 from .constants import DROPBOX_APP_KEY
-from .errors import KeyringAccessError
-from .utils import cli, exc_info_tuple
+from .exceptions import KeyringAccessError
+from .cli import output
+from .utils import exc_info_tuple
 
 
 __all__ = ["OAuth2Session"]
@@ -406,10 +407,10 @@ class OAuth2Session:
                 self.keyring.set_password("Maestral", self._get_accessor(), token)
 
                 if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
-                    cli.warn(
+                    output.warn(
                         "No supported keyring found, credentials stored in plain text"
                     )
-                cli.ok("Credentials written")
+                output.ok("Credentials written")
             except Exception:
                 # switch to plain text keyring if we cannot access preferred backend
                 self.keyring = keyrings.alt.file.PlaintextKeyring()
@@ -432,7 +433,7 @@ class OAuth2Session:
 
             try:
                 self.keyring.delete_password("Maestral", self._get_accessor())
-                cli.ok("Credentials removed")
+                output.ok("Credentials removed")
             except (KeyringLocked, InitError):
                 title = "Could not delete auth token"
                 msg = f"{self.keyring.name} is locked. Please unlock the keyring and try again."

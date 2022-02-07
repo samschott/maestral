@@ -30,8 +30,8 @@ from .constants import (
     PAUSED,
     CONNECTED,
 )
-from .database import SyncEvent
-from .errors import (
+from .models import SyncEvent
+from .exceptions import (
     CancelledError,
     DropboxConnectionError,
     MaestralApiError,
