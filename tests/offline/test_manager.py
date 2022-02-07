@@ -5,7 +5,7 @@ import pytest
 from dropbox.users import FullAccount
 from dropbox.common import TeamRootInfo, UserRootInfo
 
-from maestral.errors import NoDropboxDirError
+from maestral.exceptions import NoDropboxDirError
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import generate_cc_name, delete
 

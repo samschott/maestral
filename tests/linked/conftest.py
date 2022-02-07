@@ -8,8 +8,8 @@ import pytest
 from dropbox.files import WriteMode, FileMetadata
 
 from maestral.main import Maestral
-from maestral.errors import NotFoundError, FileConflictError
-from maestral.client import convert_api_errors
+from maestral.exceptions import NotFoundError, FileConflictError
+from maestral.errorhandling import convert_api_errors
 from maestral.config import remove_configuration
 from maestral.utils.path import (
     generate_cc_name,

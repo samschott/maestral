@@ -4,7 +4,7 @@ import pytest
 from dropbox.files import FolderMetadata
 from dropbox.sharing import SharedFolderMetadata
 
-from maestral.errors import NotFoundError, PathError
+from maestral.exceptions import NotFoundError, PathError
 from maestral.utils.path import normalize
 
 from .conftest import resources

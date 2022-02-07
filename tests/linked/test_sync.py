@@ -9,7 +9,7 @@ import pytest
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 from watchdog.events import FileCreatedEvent
 from dropbox.files import WriteMode
-from maestral.database import SyncEvent
+from maestral.models import SyncEvent
 from maestral.utils import sanitize_string
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import (
@@ -19,7 +19,7 @@ from maestral.utils.path import (
     normalize,
     fs_max_lengths_for_path,
 )
-from maestral.errors import PathError
+from maestral.exceptions import PathError
 
 from .conftest import assert_synced, wait_for_idle, resources
 

@@ -12,7 +12,7 @@ from dropbox.sharing import *
 from dropbox.auth import *
 from dropbox.common import *
 
-from maestral.errors import (
+from maestral.exceptions import (
     MaestralApiError,
     InvalidDbidError,
     DropboxAuthError,
@@ -38,13 +38,13 @@ from maestral.errors import (
     FileConflictError,
     FolderConflictError,
 )
-from maestral.errors import PathRootError as MPRE
-from maestral.client import (
+from maestral.exceptions import PathRootError as MPRE
+from maestral.errorhandling import (
     os_to_maestral_error,
     dropbox_to_maestral_error,
-    _get_lookup_error_msg,
-    _get_write_error_msg,
-    _get_session_lookup_error_msg,
+    get_lookup_error_msg,
+    get_write_error_msg,
+    get_session_lookup_error_msg,
 )
 
 
@@ -83,7 +83,7 @@ def test_os_to_maestral_error(number, maestral_exc):
     ],
 )
 def test_get_lookup_error_msg(error, maestral_exc):
-    text, err_cls = _get_lookup_error_msg(error)
+    text, err_cls = get_lookup_error_msg(error)
     assert err_cls is maestral_exc
 
 
@@ -102,7 +102,7 @@ def test_get_lookup_error_msg(error, maestral_exc):
     ],
 )
 def test_get_write_error_msg(error, maestral_exc):
-    text, err_cls = _get_write_error_msg(error)
+    text, err_cls = get_write_error_msg(error)
     assert err_cls is maestral_exc
 
 
@@ -120,7 +120,7 @@ def test_get_write_error_msg(error, maestral_exc):
     ],
 )
 def test_get_session_lookup_error_msg(error, maestral_exc):
-    text, err_cls = _get_session_lookup_error_msg(error)
+    text, err_cls = get_session_lookup_error_msg(error)
     assert err_cls is maestral_exc
 
 

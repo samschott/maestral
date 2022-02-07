@@ -18,7 +18,7 @@ from maestral.daemon import (
     Lock,
 )
 from maestral.main import Maestral
-from maestral.errors import NotLinkedError
+from maestral.exceptions import NotLinkedError
 
 
 # locking tests
