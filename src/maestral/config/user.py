@@ -151,7 +151,7 @@ class UserConfig(DefaultsConfig):
 
                 # Remove deprecated options if major version has changed.
                 if remove_obsolete and version.major > old_version.major:
-                    self.remove_deprecated_options()
+                    self.remove_deprecated_options(save=False)
 
                 # Set new version number.
                 self.set_version(version, save=False)
@@ -214,7 +214,7 @@ class UserConfig(DefaultsConfig):
             except cp.MissingSectionHeaderError:
                 logger.error("File contains no section headers.")
 
-    def remove_deprecated_options(self) -> None:
+    def remove_deprecated_options(self, save: bool = True) -> None:
         """
         Remove options which are present in the file but not in defaults.
         """
@@ -222,11 +222,11 @@ class UserConfig(DefaultsConfig):
             for option, _ in self.items(section, raw=True):
                 if self.get_default(section, option) is NoDefault:
                     try:
-                        self.remove_option(section, option)
+                        self.remove_option(section, option, save)
                         if len(self.items(section, raw=True)) == 0:
                             self.remove_section(section)
                     except cp.NoSectionError:
-                        self.remove_section(section)
+                        self.remove_section(section, save)
 
     # --- Compatibility API ------------------------------------------------------------
 
