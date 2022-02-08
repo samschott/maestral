@@ -24,15 +24,7 @@ from typing import (
 
 # external imports
 import requests
-from dropbox import (
-    Dropbox,
-    create_session,
-    files,
-    sharing,
-    users,
-    exceptions,
-    common,
-)
+from dropbox import Dropbox, create_session, files, sharing, users, exceptions, common
 from dropbox.common import PathRoot
 
 # local imports

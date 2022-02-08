@@ -7,9 +7,7 @@ import click
 
 from .dialogs import select_path, select, confirm, prompt, select_multiple
 from .output import warn, ok, info, echo, Table, Field, DateField, TextField
-from .utils import (
-    datetime_from_iso_str,
-)
+from .utils import datetime_from_iso_str
 from .common import (
     convert_api_errors,
     check_for_fatal_errors,

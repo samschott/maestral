@@ -7,25 +7,11 @@ exceptions to instances of :class:`MaestralApiError`.
 import errno
 import os
 import contextlib
-from typing import (
-    Union,
-    Type,
-    Tuple,
-    Iterator,
-    Optional,
-)
+from typing import Union, Type, Tuple, Iterator, Optional
 
 # external imports
 import requests
-from dropbox import (
-    files,
-    sharing,
-    users,
-    exceptions,
-    async_,
-    auth,
-    common,
-)
+from dropbox import files, sharing, users, exceptions, async_, auth, common
 from dropbox.stone_validators import ValidationError
 
 # local imports

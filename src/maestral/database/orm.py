@@ -9,16 +9,7 @@ memory is constrained.
 
 import sqlite3
 from weakref import WeakValueDictionary
-from typing import (
-    Union,
-    Type,
-    Any,
-    Generator,
-    List,
-    Optional,
-    TypeVar,
-    FrozenSet,
-)
+from typing import Union, Type, Any, Generator, List, Optional, TypeVar, FrozenSet
 
 from .query import Query
 from .types import SqlType, SqlEnum, ColumnValueType
