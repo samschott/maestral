@@ -3,6 +3,8 @@ This module contains the Dropbox API client. It wraps calls to the Dropbox Pytho
 and handles exceptions, chunked uploads or downloads, etc.
 """
 
+from __future__ import annotations
+
 # system imports
 import os
 import os.path as osp
@@ -10,17 +12,7 @@ import time
 import logging
 import contextlib
 from datetime import datetime, timezone
-from typing import (
-    Callable,
-    Union,
-    Any,
-    Tuple,
-    List,
-    Iterator,
-    TypeVar,
-    Optional,
-    TYPE_CHECKING,
-)
+from typing import Callable, Any, Iterator, TypeVar, Union, TYPE_CHECKING
 
 # external imports
 import requests
@@ -86,13 +78,13 @@ class DropboxClient:
 
     SDK_VERSION: str = "2.0"
 
-    _dbx: Optional[Dropbox]
+    _dbx: Dropbox | None
 
     def __init__(
         self,
         config_name: str,
         timeout: float = 100,
-        session: Optional[requests.Session] = None,
+        session: requests.Session | None = None,
     ) -> None:
 
         self.config_name = config_name
@@ -104,9 +96,9 @@ class DropboxClient:
         self._timeout = timeout
         self._session = session or create_session()
         self._backoff_until = 0
-        self._dbx: Optional[Dropbox] = None
-        self._dbx_base: Optional[Dropbox] = None
-        self._cached_account_info: Optional[users.FullAccount] = None
+        self._dbx: Dropbox | None = None
+        self._dbx_base: Dropbox | None = None
+        self._cached_account_info: users.FullAccount | None = None
         self._namespace_id = self._state.get("account", "path_root_nsid")
         self._is_team_space = self._state.get("account", "path_root_type") == "team"
 
@@ -211,9 +203,9 @@ class DropboxClient:
 
     def _init_sdk_with_token(
         self,
-        refresh_token: Optional[str] = None,
-        access_token: Optional[str] = None,
-        access_token_expiration: Optional[datetime] = None,
+        refresh_token: str | None = None,
+        access_token: str | None = None,
+        access_token_expiration: datetime | None = None,
     ) -> None:
         """
         Sets the access tokens for the Dropbox API. This will create a new SDK instance
@@ -281,7 +273,7 @@ class DropboxClient:
         if self._dbx:
             self._dbx.close()
 
-    def __enter__(self) -> "DropboxClient":
+    def __enter__(self) -> DropboxClient:
         return self
 
     def __exit__(self, *args) -> None:
@@ -289,10 +281,10 @@ class DropboxClient:
 
     def clone(
         self,
-        config_name: Optional[str] = None,
-        timeout: Optional[float] = None,
-        session: Optional[requests.Session] = None,
-    ) -> "DropboxClient":
+        config_name: str | None = None,
+        timeout: float | None = None,
+        session: requests.Session | None = None,
+    ) -> DropboxClient:
         """
         Creates a new copy of the Dropbox client with the same defaults unless modified
         by arguments to :meth:`clone`.
@@ -317,7 +309,7 @@ class DropboxClient:
 
         return client
 
-    def clone_with_new_session(self) -> "DropboxClient":
+    def clone_with_new_session(self) -> DropboxClient:
         """
         Creates a new copy of the Dropbox client with the same defaults but a new
         requests session.
@@ -326,7 +318,7 @@ class DropboxClient:
         """
         return self.clone(session=create_session())
 
-    def update_path_root(self, root_info: Optional[common.RootInfo] = None) -> None:
+    def update_path_root(self, root_info: common.RootInfo | None = None) -> None:
         """
         Updates the root path for the Dropbox client. All files paths given as arguments
         to API calls such as :meth:`list_folder` or :meth:`get_metadata` will be
@@ -388,7 +380,7 @@ class DropboxClient:
 
     # ---- SDK wrappers ----------------------------------------------------------------
 
-    def get_account_info(self, dbid: Optional[str] = None) -> users.FullAccount:
+    def get_account_info(self, dbid: str | None = None) -> users.FullAccount:
         """
         Gets current account information.
 
@@ -460,7 +452,7 @@ class DropboxClient:
 
         return res
 
-    def get_metadata(self, dbx_path: str, **kwargs) -> Optional[files.Metadata]:
+    def get_metadata(self, dbx_path: str, **kwargs) -> files.Metadata | None:
         """
         Gets metadata for an item on Dropbox or returns ``False`` if no metadata is
         available. Keyword arguments are passed on to Dropbox SDK files_get_metadata
@@ -511,7 +503,7 @@ class DropboxClient:
         self,
         dbx_path: str,
         local_path: str,
-        sync_event: Optional["SyncEvent"] = None,
+        sync_event: SyncEvent | None = None,
         **kwargs,
     ) -> files.FileMetadata:
         """
@@ -570,7 +562,7 @@ class DropboxClient:
         local_path: str,
         dbx_path: str,
         chunk_size: int = 5 * 10 ** 6,
-        sync_event: Optional["SyncEvent"] = None,
+        sync_event: SyncEvent | None = None,
         **kwargs,
     ) -> files.FileMetadata:
         """
@@ -679,8 +671,8 @@ class DropboxClient:
             return res.metadata
 
     def remove_batch(
-        self, entries: List[Tuple[str, str]], batch_size: int = 900
-    ) -> List[Union[files.Metadata, MaestralApiError]]:
+        self, entries: list[tuple[str, str]], batch_size: int = 900
+    ) -> list[files.Metadata | MaestralApiError]:
         """
         Deletes multiple items on Dropbox in a batch job.
 
@@ -790,8 +782,8 @@ class DropboxClient:
             return res.metadata
 
     def make_dir_batch(
-        self, dbx_paths: List[str], batch_size: int = 900, **kwargs
-    ) -> List[Union[files.Metadata, MaestralApiError]]:
+        self, dbx_paths: list[str], batch_size: int = 900, **kwargs
+    ) -> list[files.Metadata | MaestralApiError]:
         """
         Creates multiple folders on Dropbox in a batch job.
 
@@ -1085,8 +1077,8 @@ class DropboxClient:
         self,
         dbx_path: str,
         visibility: sharing.RequestedVisibility = sharing.RequestedVisibility.public,
-        password: Optional[str] = None,
-        expires: Optional[datetime] = None,
+        password: str | None = None,
+        expires: datetime | None = None,
         **kwargs,
     ) -> sharing.SharedLinkMetadata:
         """
@@ -1146,7 +1138,7 @@ class DropboxClient:
             self.dbx.sharing_revoke_shared_link(url)
 
     def list_shared_links(
-        self, dbx_path: Optional[str] = None
+        self, dbx_path: str | None = None
     ) -> sharing.ListSharedLinksResult:
         """
         Lists all shared links for a given Dropbox path (file or folder). If no path is
@@ -1171,7 +1163,7 @@ class DropboxClient:
 
     @staticmethod
     def flatten_results(
-        results: List[PaginationResultType], attribute_name: str
+        results: list[PaginationResultType], attribute_name: str
     ) -> PaginationResultType:
         """
         Flattens a list of Dropbox API results from a pagination to a single result with

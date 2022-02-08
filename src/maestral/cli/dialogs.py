@@ -2,8 +2,9 @@
 This module provides interactive commandline dialogs which are based on the
 :mod:`survey` Python library.
 """
+from __future__ import annotations
 
-from typing import Optional, Callable, Sequence, List
+from typing import Callable, Sequence
 
 import click
 
@@ -17,7 +18,7 @@ def _style_hint(hint: str) -> str:
 
 
 def prompt(
-    message: str, default: Optional[str] = None, validate: Optional[Callable] = None
+    message: str, default: str | None = None, validate: Callable | None = None
 ) -> str:
 
     import survey
@@ -35,7 +36,7 @@ def prompt(
     return res
 
 
-def confirm(message: str, default: Optional[bool] = True) -> bool:
+def confirm(message: str, default: bool | None = True) -> bool:
 
     import survey
 
@@ -60,7 +61,7 @@ def select(message: str, options: Sequence[str], hint="") -> int:
         raise
 
 
-def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
+def select_multiple(message: str, options: Sequence[str], hint="") -> list[int]:
 
     import survey
 
@@ -91,7 +92,7 @@ def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
 
 def select_path(
     message: str,
-    default: Optional[str] = None,
+    default: str | None = None,
     validate: Callable = lambda x: True,
     exists: bool = False,
     files_allowed: bool = True,

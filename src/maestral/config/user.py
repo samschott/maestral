@@ -8,6 +8,8 @@ This module provides user configuration file management and is mostly copied fro
 config module of the Spyder IDE.
 """
 
+from __future__ import annotations
+
 import ast
 import os
 import os.path as osp
@@ -17,14 +19,14 @@ import logging
 import configparser as cp
 from threading import RLock
 from collections import abc
-from typing import Optional, Dict, Iterator, Any
+from typing import Iterator, Any
 
 from packaging.version import Version
 
 
 logger = logging.getLogger(__name__)
 
-DefaultsType = Dict[str, Dict[str, Any]]
+DefaultsType = dict[str, dict[str, Any]]
 
 # =============================================================================
 # Auxiliary classes
@@ -105,7 +107,7 @@ class UserConfig(DefaultsConfig):
     def __init__(
         self,
         path: str,
-        defaults: Optional[DefaultsType] = None,
+        defaults: DefaultsType | None = None,
         load: bool = True,
         version: Version = Version("0.0.0"),
         backup: bool = False,
@@ -162,7 +164,7 @@ class UserConfig(DefaultsConfig):
     # --- Helpers and checkers ---------------------------------------------------------
 
     def _set_defaults(
-        self, version: Version, defaults: Optional[DefaultsType]
+        self, version: Version, defaults: DefaultsType | None
     ) -> DefaultsType:
         """
         Check if defaults are valid and update defaults values.
@@ -184,7 +186,7 @@ class UserConfig(DefaultsConfig):
 
         return self.default_config
 
-    def _make_backup(self, version: Optional[Version] = None) -> None:
+    def _make_backup(self, version: Version | None = None) -> None:
         """
         Make a backup of the configuration file.
 
@@ -230,7 +232,7 @@ class UserConfig(DefaultsConfig):
 
     # --- Compatibility API ------------------------------------------------------------
 
-    def backup_path_for_version(self, version: Optional[Version]) -> str:
+    def backup_path_for_version(self, version: Version | None) -> str:
         """
         Get backup location based on version.
 
@@ -285,7 +287,7 @@ class UserConfig(DefaultsConfig):
 
     def reset_to_defaults(
         self,
-        section: Optional[str] = None,
+        section: str | None = None,
         save: bool = True,
     ) -> None:
         """

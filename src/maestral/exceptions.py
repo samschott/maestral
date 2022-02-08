@@ -7,7 +7,7 @@ to display the error to the user. Errors which are related to syncing a specific
 file or folder inherit from :exc:`SyncError`, a subclass of :exc:`MaestralApiError`.
 """
 
-from typing import Optional
+from __future__ import annotations
 
 
 class MaestralApiError(Exception):
@@ -35,10 +35,10 @@ class MaestralApiError(Exception):
         self,
         title: str,
         message: str = "",
-        dbx_path: Optional[str] = None,
-        dbx_path_from: Optional[str] = None,
-        local_path: Optional[str] = None,
-        local_path_from: Optional[str] = None,
+        dbx_path: str | None = None,
+        dbx_path_from: str | None = None,
+        local_path: str | None = None,
+        local_path_from: str | None = None,
     ) -> None:
         self.title = title
         self.message = message

@@ -1,5 +1,7 @@
 """This module defines the main API which is exposed to the CLI or GUI."""
 
+from __future__ import annotations
+
 # system imports
 import os
 import os.path as osp
@@ -15,17 +17,7 @@ import tempfile
 import mimetypes
 import difflib
 from concurrent.futures import ThreadPoolExecutor
-from typing import (
-    Union,
-    List,
-    Iterator,
-    Dict,
-    Set,
-    Tuple,
-    Awaitable,
-    Optional,
-    Any,
-)
+from typing import Iterator, Awaitable, Any
 
 # external imports
 import requests
@@ -154,7 +146,7 @@ class Maestral:
 
         # Schedule background tasks.
         self._loop = asyncio.get_event_loop_policy().get_event_loop()
-        self._tasks: Set[asyncio.Task] = set()
+        self._tasks: set[asyncio.Task] = set()
         self._pool = ThreadPoolExecutor(
             thread_name_prefix="maestral-thread-pool",
             max_workers=2,
@@ -325,7 +317,7 @@ class Maestral:
             return self.sync.dropbox_path
 
     @property
-    def excluded_items(self) -> List[str]:
+    def excluded_items(self) -> list[str]:
         """
         The list of files and folders excluded by selective sync. Any changes to this
         list will be applied immediately if we have already performed the initial sync.
@@ -341,7 +333,7 @@ class Maestral:
             return self.sync.excluded_items
 
     @excluded_items.setter
-    def excluded_items(self, items: List[str]) -> None:
+    def excluded_items(self, items: list[str]) -> None:
         """Setter: excluded_items"""
 
         excluded_items = self.sync.clean_excluded_items_list(items)
@@ -420,7 +412,7 @@ class Maestral:
 
     # ==== State information  ==========================================================
 
-    def status_change_longpoll(self, timeout: Optional[float] = 60) -> bool:
+    def status_change_longpoll(self, timeout: float | None = 60) -> bool:
         """
         Blocks until there is a change in status or until a timeout occurs. This method
         can be used by frontends to wait for status changes without constant polling.
@@ -485,7 +477,7 @@ class Maestral:
             return self._log_handler_info_cache.getLastMessage()
 
     @property
-    def sync_errors(self) -> List[SerializedObjectType]:
+    def sync_errors(self) -> list[SerializedObjectType]:
         """
         A list of current sync errors as dicts (read only). This list is populated by
         the sync threads. The following keys will always be present but may contain
@@ -498,7 +490,7 @@ class Maestral:
         return [orm_type_to_dict(e) for e in self.sync.sync_errors]
 
     @property
-    def fatal_errors(self) -> List[SerializedObjectType]:
+    def fatal_errors(self) -> list[SerializedObjectType]:
         """
         Returns a list of fatal errors as dicts (read only). This does not include lost
         internet connections or file sync errors which only emit warnings and are
@@ -512,7 +504,7 @@ class Maestral:
         have ``exc_info`` attached.
         """
 
-        maestral_errors_dicts: List[SerializedObjectType] = []
+        maestral_errors_dicts: list[SerializedObjectType] = []
 
         for r in self._log_handler_error_cache.cached_records:
             if r.exc_info:
@@ -586,7 +578,7 @@ class Maestral:
         else:
             return FileStatus.Unwatched.value
 
-    def get_activity(self, limit: Optional[int] = 100) -> List[SerializedObjectType]:
+    def get_activity(self, limit: int | None = 100) -> list[SerializedObjectType]:
         """
         Returns the current upload / download activity.
 
@@ -604,7 +596,7 @@ class Maestral:
 
         return serialized_activity
 
-    def get_history(self, limit: Optional[int] = 100) -> List[SerializedObjectType]:
+    def get_history(self, limit: int | None = 100) -> list[SerializedObjectType]:
         """
         Returns the historic upload / download activity. Up to 1,000 sync events are
         kept in the database. Any events which occurred before the interval specified by
@@ -659,7 +651,7 @@ class Maestral:
 
     # ==== Control methods for front ends ==============================================
 
-    def get_profile_pic(self) -> Optional[str]:
+    def get_profile_pic(self) -> str | None:
         """
         Attempts to download the user's profile picture from Dropbox. The picture is
         saved in Maestral's cache directory for retrieval when there is no internet
@@ -687,7 +679,7 @@ class Maestral:
             self._delete_old_profile_pics()
             return None
 
-    def get_metadata(self, dbx_path: str) -> Optional[SerializedObjectType]:
+    def get_metadata(self, dbx_path: str) -> SerializedObjectType | None:
         """
         Returns metadata for a file or folder on Dropbox.
 
@@ -710,7 +702,7 @@ class Maestral:
         else:
             return dropbox_stone_to_dict(res)
 
-    def list_folder(self, dbx_path: str, **kwargs) -> List[SerializedObjectType]:
+    def list_folder(self, dbx_path: str, **kwargs) -> list[SerializedObjectType]:
         """
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
         passed on the Dropbox API call :meth:`client.DropboxClient.list_folder`.
@@ -736,7 +728,7 @@ class Maestral:
 
     def list_folder_iterator(
         self, dbx_path: str, **kwargs
-    ) -> Iterator[List[SerializedObjectType]]:
+    ) -> Iterator[list[SerializedObjectType]]:
         """
         Returns an iterator over items inside the folder given by ``dbx_path``. Keyword
         arguments are passed on the client call
@@ -769,7 +761,7 @@ class Maestral:
 
     def list_revisions(
         self, dbx_path: str, limit: int = 10
-    ) -> List[SerializedObjectType]:
+    ) -> list[SerializedObjectType]:
         """
         List revisions of old files at the given path ``dbx_path``. This will also
         return revisions if the file has already been deleted.
@@ -793,7 +785,7 @@ class Maestral:
 
         return entries
 
-    def get_file_diff(self, old_rev: str, new_rev: Optional[str] = None) -> List[str]:
+    def get_file_diff(self, old_rev: str, new_rev: str | None = None) -> list[str]:
         """
         Compare to revisions of a text file using Python's difflib. The versions will be
         downloaded to temporary files. If new_rev is None, the old revision will be
@@ -812,7 +804,7 @@ class Maestral:
             tz_date = d.replace(tzinfo=timezone.utc).astimezone()
             return tz_date.strftime("%d %b %Y at %H:%M")
 
-        def download_rev(rev: str) -> Tuple[List[str], FileMetadata]:
+        def download_rev(rev: str) -> tuple[list[str], FileMetadata]:
             """
             Download a rev to a tmp file, read it and return the content + metadata.
             """
@@ -969,7 +961,7 @@ class Maestral:
         self._check_linked()
         self.manager.reset_sync_state()
 
-    def set_excluded_items(self, items: List[str]) -> None:
+    def set_excluded_items(self, items: list[str]) -> None:
         warnings.warn(
             "'set_excluded_items' is deprecated, please set 'excluded_items' directly",
             DeprecationWarning,
@@ -1104,7 +1096,7 @@ class Maestral:
         except KeyError:
             pass
 
-        excluded_parent: Optional[str] = None
+        excluded_parent: str | None = None
 
         for folder in excluded_items.copy():
 
@@ -1252,8 +1244,8 @@ class Maestral:
         self,
         dbx_path: str,
         visibility: str = "public",
-        password: Optional[str] = None,
-        expires: Optional[float] = None,
+        password: str | None = None,
+        expires: float | None = None,
     ) -> SerializedObjectType:
         """
         Creates a shared link for the given ``dbx_path``. Returns a dictionary with
@@ -1311,8 +1303,8 @@ class Maestral:
         self.client.revoke_shared_link(url)
 
     def list_shared_links(
-        self, dbx_path: Optional[str] = None
-    ) -> List[SerializedObjectType]:
+        self, dbx_path: str | None = None
+    ) -> list[SerializedObjectType]:
         """
         Returns a list of all shared links for the given Dropbox path. If no path is
         given, return all shared links for the account, up to a maximum of 1,000 links.
@@ -1349,7 +1341,7 @@ class Maestral:
 
         return self.sync.to_local_path(dbx_path)
 
-    def check_for_updates(self) -> Dict[str, Union[str, bool, None]]:
+    def check_for_updates(self) -> dict[str, str | bool | None]:
         """
         Checks if an update is available.
 

@@ -3,9 +3,11 @@ This module provides classes and methods for beautifully formatted output to std
 This includes printing tables and grids, formatting dates and eliding strings.
 """
 
+from __future__ import annotations
+
 import enum
 from datetime import datetime
-from typing import List, Optional, Sequence, Any, Iterator, Union
+from typing import Sequence, Any, Iterator
 
 import click
 
@@ -103,7 +105,7 @@ class Field:
         """
         raise NotImplementedError()
 
-    def format(self, width: int) -> List[str]:
+    def format(self, width: int) -> list[str]:
         """
         Returns the field content formatted to fit the requested width.
 
@@ -143,7 +145,7 @@ class TextField(Field):
     def display_width(self) -> int:
         return len(self.text)
 
-    def format(self, width: int) -> List[str]:
+    def format(self, width: int) -> list[str]:
 
         import textwrap
 
@@ -172,7 +174,7 @@ class DateField(Field):
     :param style: Styling passed on to :meth:`click.style` when styling the text.
     """
 
-    def __init__(self, dt: "datetime", **style) -> None:
+    def __init__(self, dt: datetime, **style) -> None:
         self.dt = dt
         self.style = style
 
@@ -180,7 +182,7 @@ class DateField(Field):
     def display_width(self) -> int:
         return 20
 
-    def format(self, width: int) -> List[str]:
+    def format(self, width: int) -> list[str]:
         if width >= 20:
             string = self.dt.strftime("%d %b %Y at %H:%M")
         elif width >= 17:
@@ -212,11 +214,11 @@ class Column:
         for :class:`TextField`.
     """
 
-    fields: List[Field]
+    fields: list[Field]
 
     def __init__(
         self,
-        title: Optional[str],
+        title: str | None,
         fields: Sequence = (),
         align: Align = Align.Left,
         wraps: bool = False,
@@ -289,9 +291,9 @@ class Table:
     :param padding: Padding between columns.
     """
 
-    columns: List[Column]
+    columns: list[Column]
 
-    def __init__(self, columns: List[Union[Column, str]], padding: int = 2) -> None:
+    def __init__(self, columns: list[Column | str], padding: int = 2) -> None:
         self.columns = []
         self.padding = padding
 
@@ -325,7 +327,7 @@ class Table:
         for i, col in enumerate(self.columns):
             col.append(row[i])
 
-    def rows(self) -> List[List[Field]]:
+    def rows(self) -> list[list[Field]]:
         """
         Returns a list of rows in the table. Each row is a list of fields.
         """
@@ -334,7 +336,7 @@ class Table:
     def __len__(self) -> int:
         return self.nrows
 
-    def format_lines(self, width: Optional[int] = None) -> Iterator[str]:
+    def format_lines(self, width: int | None = None) -> Iterator[str]:
         """
         Iterator over formatted lines of the table. Fields may span multiple lines if
         they are set to wrap instead of truncate.
@@ -362,7 +364,7 @@ class Table:
 
         # Generate line for titles.
         if any(col.has_title for col in self.columns):
-            titles: List[str] = []
+            titles: list[str] = []
 
             for col, width in zip(self.columns, allocated_col_widths):
                 if col.title:
@@ -395,7 +397,7 @@ class Table:
                 line = spacer.join(line_parts)
                 yield line.rstrip()
 
-    def format(self, width: Optional[int] = None) -> str:
+    def format(self, width: int | None = None) -> str:
         """
         Returns a fully formatted table as a string with linebreaks.
 
@@ -420,7 +422,7 @@ class Grid:
     :param align: Alignment of strings in the grid.
     """
 
-    fields: List[Field]
+    fields: list[Field]
 
     def __init__(
         self, fields: Sequence = (), padding: int = 2, align: Align = Align.Left
@@ -454,7 +456,7 @@ class Grid:
         else:
             return TextField(str(field), align=self.align)
 
-    def format_lines(self, width: Optional[int] = None) -> Iterator[str]:
+    def format_lines(self, width: int | None = None) -> Iterator[str]:
         """
         Iterator over formatted lines of the grid.
 
@@ -485,7 +487,7 @@ class Grid:
         else:
             yield ""
 
-    def format(self, width: Optional[int] = None) -> str:
+    def format(self, width: int | None = None) -> str:
         """
         Returns a fully formatted grid as a string with linebreaks.
 

@@ -3,6 +3,8 @@ This module defines functions to start and stop the sync daemon and retrieve pro
 objects for a running daemon.
 """
 
+from __future__ import annotations
+
 # system imports
 import sys
 import os
@@ -17,7 +19,7 @@ import argparse
 import re
 from pprint import pformat
 from shlex import quote
-from typing import Optional, Any, Union, Dict, Iterable, Type, TYPE_CHECKING
+from typing import Any, Iterable, TYPE_CHECKING
 from types import TracebackType
 
 # external imports
@@ -155,11 +157,11 @@ class Lock:
     :param path: Path of the lock file to use / create.
     """
 
-    _instances: Dict[str, "Lock"] = {}
+    _instances: dict[str, Lock] = {}
     _singleton_lock = threading.Lock()
 
     @classmethod
-    def singleton(cls, path: str) -> "Lock":
+    def singleton(cls, path: str) -> Lock:
         """
         Retrieve an existing lock object with a given 'name' or create a new one. Use
         this method for thread-safe locks.
@@ -217,7 +219,7 @@ class Lock:
                 self.release()
             return not gotten
 
-    def locking_pid(self) -> Optional[int]:
+    def locking_pid(self) -> int | None:
         """
         Returns the PID of the process which currently holds the lock or ``None``. This
         should work on macOS, OpenBSD and Linux but may fail on some platforms. Always
@@ -300,7 +302,7 @@ def lockpath_for_config(config_name: str) -> str:
     return get_runtime_path("maestral", f"{config_name}.lock")
 
 
-def get_maestral_pid(config_name: str) -> Optional[int]:
+def get_maestral_pid(config_name: str) -> int | None:
     """
     Returns the PID of the daemon if it is running, ``None`` otherwise.
 
@@ -623,7 +625,7 @@ class MaestralProxy:
             daemon is not running and ``fallback`` is ``False``.
     """
 
-    _m: Union["Maestral", Proxy]
+    _m: Maestral | Proxy
 
     def __init__(self, config_name: str = "maestral", fallback: bool = False) -> None:
 
@@ -660,11 +662,11 @@ class MaestralProxy:
         if isinstance(self._m, Proxy):
             self._m._pyroRelease()
 
-    def __enter__(self) -> "MaestralProxy":
+    def __enter__(self) -> MaestralProxy:
         return self
 
     def __exit__(
-        self, exc_type: Type[Exception], exc_value: Exception, tb: TracebackType
+        self, exc_type: type[Exception], exc_value: Exception, tb: TracebackType
     ) -> None:
         self._disconnect()
         del self._m
@@ -698,7 +700,7 @@ class MaestralProxy:
 
 def get_maestral_proxy(
     config_name: str = "maestral", fallback: bool = False
-) -> Union["Maestral", Proxy]:
+) -> Maestral | Proxy:
 
     warnings.warn(
         "'get_maestral_proxy' is deprecated, please use 'MaestralProxy' instead",

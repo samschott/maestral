@@ -3,8 +3,9 @@ This module contains the default configuration and state values and functions to
 existing config or state instances for a specified config_name.
 """
 
+from __future__ import annotations
+
 import threading
-from typing import Dict
 
 from packaging.version import Version
 
@@ -98,7 +99,7 @@ def _get_conf(
     config_name: str,
     config_path: str,
     defaults: DefaultsType,
-    registry: Dict[str, UserConfig],
+    registry: dict[str, UserConfig],
 ):
 
     try:
@@ -126,7 +127,7 @@ def _get_conf(
     return conf
 
 
-_config_instances: Dict[str, UserConfig] = {}
+_config_instances: dict[str, UserConfig] = {}
 _config_lock = threading.Lock()
 
 
@@ -146,7 +147,7 @@ def MaestralConfig(config_name: str) -> UserConfig:
         return _get_conf(config_name, config_path, DEFAULTS_CONFIG, _config_instances)
 
 
-_state_instances: Dict[str, UserConfig] = {}
+_state_instances: dict[str, UserConfig] = {}
 _state_lock = threading.Lock()
 
 

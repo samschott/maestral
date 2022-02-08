@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import functools
 import sys
-from typing import Callable, Union, cast, TYPE_CHECKING
+from typing import Callable, cast, TYPE_CHECKING
 
 import click
 
@@ -32,7 +34,7 @@ def convert_api_errors(func: Callable) -> Callable:
     return wrapper
 
 
-def check_for_fatal_errors(m: Union["MaestralProxy", "Maestral"]) -> bool:
+def check_for_fatal_errors(m: MaestralProxy | Maestral) -> bool:
     """
     Checks the given Maestral instance for fatal errors such as revoked Dropbox access,
     deleted Dropbox folder etc. Prints a nice representation to the command line.

@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import os
 from os import path as osp
-from typing import cast, List
+from typing import cast
 
 import click
 
@@ -138,7 +140,7 @@ and memory.
 @existing_config_option
 def diff(
     dropbox_path: str,
-    rev: List[str],
+    rev: list[str],
     no_color: bool,
     no_pager: bool,
     limit: int,

@@ -3,11 +3,13 @@ This module contains methods and decorators to convert OSErrors and Dropbox SDK
 exceptions to instances of :exc:`maestral.exceptions.MaestralApiError`.
 """
 
+from __future__ import annotations
+
 # system imports
 import errno
 import os
 import contextlib
-from typing import Union, Type, Tuple, Iterator, Optional
+from typing import Iterator, Union
 
 # external imports
 import requests
@@ -70,7 +72,7 @@ LocalError = Union[MaestralApiError, OSError]
 
 @contextlib.contextmanager
 def convert_api_errors(
-    dbx_path: Optional[str] = None, local_path: Optional[str] = None
+    dbx_path: str | None = None, local_path: str | None = None
 ) -> Iterator[None]:
     """
     A context manager that catches and re-raises instances of :exc:`OSError` and
@@ -103,7 +105,7 @@ def convert_api_errors(
 
 
 def os_to_maestral_error(
-    exc: OSError, dbx_path: Optional[str] = None, local_path: Optional[str] = None
+    exc: OSError, dbx_path: str | None = None, local_path: str | None = None
 ) -> LocalError:
     """
     Converts a :exc:`OSError` to a :exc:`maestral.exceptions.MaestralApiError` and
@@ -116,7 +118,7 @@ def os_to_maestral_error(
     """
 
     title = "Could not sync file or folder"
-    err_cls: Type[MaestralApiError]
+    err_cls: type[MaestralApiError]
 
     if isinstance(exc, PermissionError):
         err_cls = InsufficientPermissionsError  # subclass of SyncError
@@ -189,9 +191,9 @@ def os_to_maestral_error(
 
 
 def dropbox_to_maestral_error(
-    exc: Union[exceptions.DropboxException, ValidationError, requests.HTTPError],
-    dbx_path: Optional[str] = None,
-    local_path: Optional[str] = None,
+    exc: exceptions.DropboxException | ValidationError | requests.HTTPError,
+    dbx_path: str | None = None,
+    local_path: str | None = None,
 ) -> MaestralApiError:
     """
     Converts a Dropbox SDK exception to a :exc:`maestral.exceptions.MaestralApiError`
@@ -605,7 +607,7 @@ def dropbox_to_maestral_error(
     return maestral_exc
 
 
-def get_write_error_msg(write_error: files.WriteError) -> Tuple[str, Type[SyncError]]:
+def get_write_error_msg(write_error: files.WriteError) -> tuple[str, type[SyncError]]:
 
     text = ""
     err_cls = SyncError
@@ -666,7 +668,7 @@ def get_write_error_msg(write_error: files.WriteError) -> Tuple[str, Type[SyncEr
 
 def get_lookup_error_msg(
     lookup_error: files.LookupError,
-) -> Tuple[str, Type[SyncError]]:
+) -> tuple[str, type[SyncError]]:
 
     text = ""
     err_cls = SyncError
@@ -702,7 +704,7 @@ def get_lookup_error_msg(
 
 def get_session_lookup_error_msg(
     session_lookup_error: files.UploadSessionLookupError,
-) -> Tuple[str, Type[SyncError]]:
+) -> tuple[str, type[SyncError]]:
 
     text = ""
     err_cls = SyncError
@@ -731,7 +733,7 @@ def get_session_lookup_error_msg(
 
 def get_bad_path_error_msg(
     path_error: sharing.SharePathError,
-) -> Tuple[str, Type[SyncError]]:
+) -> tuple[str, type[SyncError]]:
 
     text = ""
     err_cls = SyncError

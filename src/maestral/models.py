@@ -5,12 +5,14 @@ history and cache of content hashes. Each table is defined by a subclass of
 instances then represent table rows.
 """
 
+from __future__ import annotations
+
 # system imports
 import os
 import time
 import enum
 from datetime import timezone
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 # external imports
 from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata
@@ -269,7 +271,7 @@ class SyncEvent(Model):
         return f"<{self.__class__.__name__}({prop_str})>"
 
     @classmethod
-    def from_dbx_metadata(cls, md: Metadata, sync_engine: "SyncEngine") -> "SyncEvent":
+    def from_dbx_metadata(cls, md: Metadata, sync_engine: SyncEngine) -> SyncEvent:
         """
         Initializes a SyncEvent from the given Dropbox metadata.
 
@@ -353,8 +355,8 @@ class SyncEvent(Model):
 
     @classmethod
     def from_file_system_event(
-        cls, event: FileSystemEvent, sync_engine: "SyncEngine"
-    ) -> "SyncEvent":
+        cls, event: FileSystemEvent, sync_engine: SyncEngine
+    ) -> SyncEvent:
         """
         Initializes a SyncEvent from the given local file system event.
 
@@ -385,8 +387,8 @@ class SyncEvent(Model):
         else:
             raise RuntimeError(f"Cannot convert {event} to SyncEvent")
 
-        change_time: Optional[float]
-        stat: Optional[os.stat_result]
+        change_time: float | None
+        stat: os.stat_result | None
 
         try:
             stat = os.stat(to_path, follow_symlinks=False)

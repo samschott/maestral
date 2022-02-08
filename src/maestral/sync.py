@@ -1,5 +1,7 @@
 """This module contains the main syncing functionality."""
 
+from __future__ import annotations
+
 # system imports
 import errno
 import sys
@@ -21,19 +23,7 @@ from queue import Queue, Empty
 from collections import defaultdict
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
-from typing import (
-    Optional,
-    Any,
-    Set,
-    List,
-    Dict,
-    Tuple,
-    Union,
-    Iterator,
-    Callable,
-    DefaultDict,
-    cast,
-)
+from typing import Any, Iterator, Callable, cast
 
 # external imports
 import click
@@ -168,7 +158,7 @@ class _Ignore:
         self,
         event: FileSystemEvent,
         start_time: float,
-        ttl: Optional[float],
+        ttl: float | None,
         recursive: bool,
     ) -> None:
         self.event = event
@@ -201,18 +191,18 @@ class FSEventHandler(FileSystemEventHandler):
         events will expire.
     """
 
-    _ignored_events: Set[_Ignore]
-    local_file_event_queue: "Queue[FileSystemEvent]"
+    _ignored_events: set[_Ignore]
+    local_file_event_queue: Queue[FileSystemEvent]
 
     def __init__(
         self,
-        file_event_types: Tuple[str, ...] = (
+        file_event_types: tuple[str, ...] = (
             EVENT_TYPE_CREATED,
             EVENT_TYPE_DELETED,
             EVENT_TYPE_MODIFIED,
             EVENT_TYPE_MOVED,
         ),
-        dir_event_types: Tuple[str, ...] = (
+        dir_event_types: tuple[str, ...] = (
             EVENT_TYPE_CREATED,
             EVENT_TYPE_DELETED,
             EVENT_TYPE_MOVED,
@@ -419,7 +409,7 @@ class SyncEngine:
     :param client: Dropbox API client instance.
     """
 
-    syncing: Dict[str, SyncEvent]
+    syncing: dict[str, SyncEvent]
     _case_conversion_cache: LRUCache
 
     _max_history = 1000
@@ -550,7 +540,7 @@ class SyncEngine:
         return self._file_cache_path
 
     @property
-    def excluded_items(self) -> List[str]:
+    def excluded_items(self) -> list[str]:
         """List of all files and folders excluded from sync. Changes are saved to the
         config file. If a parent folder is excluded, its children will automatically be
         removed from the list. If only children are given but not the parent folder, any
@@ -559,7 +549,7 @@ class SyncEngine:
         return self._excluded_items
 
     @excluded_items.setter
-    def excluded_items(self, folder_list: List[str]) -> None:
+    def excluded_items(self, folder_list: list[str]) -> None:
         """Setter: excluded_items"""
 
         with self.sync_lock:
@@ -568,7 +558,7 @@ class SyncEngine:
             self._conf.set("sync", "excluded_items", clean_list)
 
     @staticmethod
-    def clean_excluded_items_list(folder_list: List[str]) -> List[str]:
+    def clean_excluded_items_list(folder_list: list[str]) -> list[str]:
         """
         Removes all duplicates and children of excluded items from the excluded items
         list. Normalises all paths to lower case.
@@ -654,7 +644,7 @@ class SyncEngine:
         return self._state.get("sync", "last_reindex")
 
     @property
-    def history(self) -> List[SyncEvent]:
+    def history(self) -> list[SyncEvent]:
         """A list of the last SyncEvents in our history. History will be kept for the
         interval specified by the config value ``keep_history`` (defaults to two weeks)
         but at most 1,000 events will be kept."""
@@ -685,20 +675,20 @@ class SyncEngine:
     # ==== Sync error management =======================================================
 
     @property
-    def sync_errors(self) -> List[SyncErrorEntry]:
+    def sync_errors(self) -> list[SyncErrorEntry]:
         """Returns a list of all sync errors."""
         with self._database_access():
             return self._sync_errors_table.select(AllQuery())
 
     @property
-    def upload_errors(self) -> List[SyncErrorEntry]:
+    def upload_errors(self) -> list[SyncErrorEntry]:
         """Returns a list of all upload errors."""
         with self._database_access():
             query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Up)
             return self._sync_errors_table.select(query)
 
     @property
-    def download_errors(self) -> List[SyncErrorEntry]:
+    def download_errors(self) -> list[SyncErrorEntry]:
         """Returns a list of all download errors."""
         with self._database_access():
             query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Down)
@@ -710,8 +700,8 @@ class SyncEngine:
             return self._sync_errors_table.count() > 0
 
     def sync_errors_for_path(
-        self, dbx_path_lower: str, direction: Optional[SyncDirection] = None
-    ) -> List[SyncErrorEntry]:
+        self, dbx_path_lower: str, direction: SyncDirection | None = None
+    ) -> list[SyncErrorEntry]:
         """
         Returns a list of all sync errors for the given path and its children.
 
@@ -764,7 +754,7 @@ class SyncEngine:
 
     # ==== Index access and management =================================================
 
-    def get_index(self) -> List[IndexEntry]:
+    def get_index(self) -> list[IndexEntry]:
         """
         Returns a copy of the local index of synced files and folders.
 
@@ -773,7 +763,7 @@ class SyncEngine:
         with self._database_access():
             return self._index_table.select(AllQuery())
 
-    def get_index_entry(self, dbx_path_lower: str) -> Optional[IndexEntry]:
+    def get_index_entry(self, dbx_path_lower: str) -> IndexEntry | None:
         """
         Gets the index entry for the given Dropbox path.
 
@@ -804,7 +794,7 @@ class SyncEngine:
         with self._database_access():
             return self._index_table.count()
 
-    def get_local_rev(self, dbx_path_lower: str) -> Optional[str]:
+    def get_local_rev(self, dbx_path_lower: str) -> str | None:
         """
         Gets revision number of local file.
 
@@ -877,7 +867,7 @@ class SyncEngine:
                 self._index_table.update(entry)
 
     def update_index_from_dbx_metadata(
-        self, md: Metadata, client: Optional[DropboxClient] = None
+        self, md: Metadata, client: DropboxClient | None = None
     ) -> None:
         """
         Updates the local index from Dropbox metadata.
@@ -896,7 +886,7 @@ class SyncEngine:
 
             else:
 
-                symlink_target: Optional[str] = None
+                symlink_target: str | None = None
 
                 if isinstance(md, FileMetadata):
                     rev = md.rev
@@ -939,7 +929,7 @@ class SyncEngine:
 
     # ==== Content hashing =============================================================
 
-    def get_local_hash(self, local_path: str) -> Optional[str]:
+    def get_local_hash(self, local_path: str) -> str | None:
         """
         Computes content hash of a local file.
 
@@ -966,7 +956,7 @@ class SyncEngine:
         if S_ISDIR(stat.st_mode):
             return "folder"
 
-        mtime: Optional[float] = stat.st_mtime
+        mtime: float | None = stat.st_mtime
 
         with self._database_access():
             # Check cache for an up-to-date content hash and return if it exists.
@@ -986,8 +976,8 @@ class SyncEngine:
         self,
         inode: int,
         local_path: str,
-        hash_str: Optional[str],
-        mtime: Optional[float],
+        hash_str: str | None,
+        mtime: float | None,
     ) -> None:
         """
         Save the content hash for a file in our cache.
@@ -1160,9 +1150,7 @@ class SyncEngine:
                 f"{self._file_cache_path}.",
             )
 
-    def correct_case(
-        self, dbx_path: str, client: Optional[DropboxClient] = None
-    ) -> str:
+    def correct_case(self, dbx_path: str, client: DropboxClient | None = None) -> str:
         """
         Converts a Dropbox path with correctly cased basename to a fully cased path.
         This is useful because the Dropbox API guarantees the correct casing for the
@@ -1287,9 +1275,7 @@ class SyncEngine:
 
         return f"{self.dropbox_path}{dbx_path_cased}"
 
-    def to_local_path(
-        self, dbx_path: str, client: Optional[DropboxClient] = None
-    ) -> str:
+    def to_local_path(self, dbx_path: str, client: DropboxClient | None = None) -> str:
         """
         Converts a Dropbox path to the corresponding local path. Only the basename must
         be correctly cased, as guaranteed by the Dropbox API for the ``display_path``
@@ -1607,7 +1593,7 @@ class SyncEngine:
 
             self._clear_caches()
 
-    def _get_local_changes_while_inactive(self) -> Tuple[List[FileSystemEvent], float]:
+    def _get_local_changes_while_inactive(self) -> tuple[list[FileSystemEvent], float]:
         """
         Retrieves all local changes since the last sync by performing a full scan of the
         local folder. Changes are detected by comparing the new directory snapshot to
@@ -1739,7 +1725,7 @@ class SyncEngine:
             if self._cancel_requested.is_set():
                 raise CancelledError("Sync cancelled")
 
-    def list_local_changes(self, delay: float = 1) -> Tuple[List[SyncEvent], float]:
+    def list_local_changes(self, delay: float = 1) -> tuple[list[SyncEvent], float]:
         """
         Waits for local file changes. Returns a list of local changes with at most one
         entry per path.
@@ -1771,7 +1757,7 @@ class SyncEngine:
 
         return sync_events, local_cursor
 
-    def apply_local_changes(self, sync_events: List[SyncEvent]) -> List[SyncEvent]:
+    def apply_local_changes(self, sync_events: list[SyncEvent]) -> list[SyncEvent]:
         """
         Applies locally detected changes to the remote Dropbox. Changes which should be
         ignored (mignore or always ignored files) are skipped.
@@ -1779,7 +1765,7 @@ class SyncEngine:
         :param sync_events: List of local file system events.
         """
 
-        results: List[SyncEvent] = []
+        results: list[SyncEvent] = []
 
         if len(sync_events) == 0:
             return results
@@ -1789,9 +1775,9 @@ class SyncEngine:
         # dir_moved events will never be nested (we have already combined such nested
         # events) but all other events might be. We order and apply them hierarchically.
 
-        deleted: List[SyncEvent] = []
-        dir_moved: List[SyncEvent] = []
-        other: DefaultDict[int, List[SyncEvent]] = defaultdict(list)
+        deleted: list[SyncEvent] = []
+        dir_moved: list[SyncEvent] = []
+        other: defaultdict[int, list[SyncEvent]] = defaultdict(list)
 
         for event in sync_events:
 
@@ -1858,8 +1844,8 @@ class SyncEngine:
         return results
 
     def _clean_local_events(
-        self, events: List[FileSystemEvent]
-    ) -> List[FileSystemEvent]:
+        self, events: list[FileSystemEvent]
+    ) -> list[FileSystemEvent]:
         """
         Takes local file events and cleans them up as follows:
 
@@ -1882,10 +1868,10 @@ class SyncEngine:
         # from sync.
 
         # mapping of path -> event history
-        events_for_path: DefaultDict[str, List[FileSystemEvent]] = defaultdict(list)
+        events_for_path: defaultdict[str, list[FileSystemEvent]] = defaultdict(list)
 
         # mapping of "event id" -> [source event, destination event]
-        moved_events: DefaultDict[str, List[FileSystemEvent]] = defaultdict(list)
+        moved_events: defaultdict[str, list[FileSystemEvent]] = defaultdict(list)
 
         for event in events:
             if event.event_type == EVENT_TYPE_MOVED:
@@ -2005,8 +1991,8 @@ class SyncEngine:
 
         # 0) Collect all moved and deleted events in sets.
 
-        dir_moved_paths: Set[Tuple[str, str]] = set()
-        dir_deleted_paths: Set[str] = set()
+        dir_moved_paths: set[tuple[str, str]] = set()
+        dir_deleted_paths: set[str] = set()
 
         for events in events_for_path.values():
             event = events[0]
@@ -2018,7 +2004,7 @@ class SyncEngine:
         # 1) Combine moved events of folders and their children into one event.
 
         if len(dir_moved_paths) > 0:
-            child_moved_dst_paths: Set[str] = set()
+            child_moved_dst_paths: set[str] = set()
 
             # For each event, check if it is a child of a moved event discard it if yes.
             for events in events_for_path.values():
@@ -2037,7 +2023,7 @@ class SyncEngine:
         # 2) Combine deleted events of folders and their children to one event.
 
         if len(dir_deleted_paths) > 0:
-            child_deleted_paths: Set[str] = set()
+            child_deleted_paths: set[str] = set()
 
             for events in events_for_path.values():
                 event = events[0]
@@ -2065,7 +2051,7 @@ class SyncEngine:
 
         return cleaned_events
 
-    def _should_split_excluded(self, event: Union[FileMovedEvent, DirMovedEvent]):
+    def _should_split_excluded(self, event: FileMovedEvent | DirMovedEvent):
 
         if event.event_type != EVENT_TYPE_MOVED:
             raise ValueError("Can only split moved events")
@@ -2249,8 +2235,8 @@ class SyncEngine:
             return
 
     def _on_local_moved(
-        self, event: SyncEvent, client: Optional[DropboxClient] = None
-    ) -> Optional[Metadata]:
+        self, event: SyncEvent, client: DropboxClient | None = None
+    ) -> Metadata | None:
         """
         Call when a local item is moved.
 
@@ -2335,8 +2321,8 @@ class SyncEngine:
                 self.update_index_from_dbx_metadata(md, client)
 
     def _on_local_file_created(
-        self, event: SyncEvent, client: Optional[DropboxClient] = None
-    ) -> Optional[Metadata]:
+        self, event: SyncEvent, client: DropboxClient | None = None
+    ) -> Metadata | None:
         """
         Call when a local file is created.
 
@@ -2402,8 +2388,8 @@ class SyncEngine:
         return md_new
 
     def _on_local_folder_created(
-        self, event: SyncEvent, client: Optional[DropboxClient] = None
-    ) -> Optional[Metadata]:
+        self, event: SyncEvent, client: DropboxClient | None = None
+    ) -> Metadata | None:
         """
         Call when a local folder is created.
 
@@ -2476,8 +2462,8 @@ class SyncEngine:
         return md_new
 
     def _on_local_file_modified(
-        self, event: SyncEvent, client: Optional[DropboxClient] = None
-    ) -> Optional[Metadata]:
+        self, event: SyncEvent, client: DropboxClient | None = None
+    ) -> Metadata | None:
         """
         Call when a local file is modified.
 
@@ -2532,8 +2518,8 @@ class SyncEngine:
         return md_new
 
     def _on_local_deleted(
-        self, event: SyncEvent, client: Optional[DropboxClient] = None
-    ) -> Optional[Metadata]:
+        self, event: SyncEvent, client: DropboxClient | None = None
+    ) -> Metadata | None:
         """
         Call when a local item is deleted. We try not to delete remote items which have
         been modified since the last sync.
@@ -2734,7 +2720,7 @@ class SyncEngine:
     # ==== Download sync ===============================================================
 
     def get_remote_item(
-        self, dbx_path: str, client: Optional[DropboxClient] = None
+        self, dbx_path: str, client: DropboxClient | None = None
     ) -> bool:
         """
         Downloads a remote file or folder and updates its local rev. If the remote item
@@ -2787,7 +2773,7 @@ class SyncEngine:
             return success
 
     def _get_remote_folder(
-        self, dbx_path: str, client: Optional[DropboxClient] = None
+        self, dbx_path: str, client: DropboxClient | None = None
     ) -> bool:
         """
         Gets all files/folders from a Dropbox folder and writes them to the local folder
@@ -2843,7 +2829,7 @@ class SyncEngine:
         self,
         last_cursor: str,
         timeout: int = 40,
-        client: Optional[DropboxClient] = None,
+        client: DropboxClient | None = None,
     ) -> bool:
         """
         Blocks until changes to the remote Dropbox are available.
@@ -2868,7 +2854,7 @@ class SyncEngine:
         self._logger.debug("Detected remote changes: %s", has_changes)
         return has_changes
 
-    def download_sync_cycle(self, client: Optional[DropboxClient] = None) -> None:
+    def download_sync_cycle(self, client: DropboxClient | None = None) -> None:
         """
         Performs a full download sync cycle by calling in order:
 
@@ -2939,8 +2925,8 @@ class SyncEngine:
             self._clear_caches()
 
     def list_remote_changes_iterator(
-        self, last_cursor: str, client: Optional[DropboxClient] = None
-    ) -> Iterator[Tuple[List[SyncEvent], str]]:
+        self, last_cursor: str, client: DropboxClient | None = None
+    ) -> Iterator[tuple[list[SyncEvent], str]]:
         """
         Get remote changes since the last download sync, as specified by
         ``last_cursor``. If the ``last_cursor`` is from paginating through a previous
@@ -2979,7 +2965,7 @@ class SyncEngine:
 
             yield sync_events, changes.cursor
 
-    def apply_remote_changes(self, sync_events: List[SyncEvent]) -> List[SyncEvent]:
+    def apply_remote_changes(self, sync_events: list[SyncEvent]) -> list[SyncEvent]:
         """
         Applies remote changes to local folder. Call this on the result of
         :meth:`list_remote_changes`. The saved cursor is updated after a set of changes
@@ -2991,7 +2977,7 @@ class SyncEngine:
             all download syncs were successful.
         """
 
-        results: List[SyncEvent] = []
+        results: list[SyncEvent] = []
 
         if len(sync_events) == 0:
             return results
@@ -3002,9 +2988,9 @@ class SyncEngine:
         # - Do not create sub-folder / file before parent exists.
         # - Delete parents before deleting children to save some work.
 
-        files: List[SyncEvent] = []
-        folders: DefaultDict[int, List[SyncEvent]] = defaultdict(list)
-        deleted: DefaultDict[int, List[SyncEvent]] = defaultdict(list)
+        files: list[SyncEvent] = []
+        folders: defaultdict[int, list[SyncEvent]] = defaultdict(list)
+        deleted: defaultdict[int, list[SyncEvent]] = defaultdict(list)
 
         new_excluded = self.excluded_items
 
@@ -3089,7 +3075,7 @@ class SyncEngine:
         return results
 
     def notify_user(
-        self, sync_events: List[SyncEvent], client: Optional[DropboxClient] = None
+        self, sync_events: list[SyncEvent], client: DropboxClient | None = None
     ) -> None:
         """
         Shows a desktop notification for the given file changes.
@@ -3101,7 +3087,7 @@ class SyncEngine:
 
         client = client or self.client
 
-        buttons: Dict[str, Callable]
+        buttons: dict[str, Callable]
 
         changes = [e for e in sync_events if e.status != SyncStatus.Skipped]
 
@@ -3112,7 +3098,7 @@ class SyncEngine:
             return
 
         # Find out who changed the item(s).
-        user_name: Optional[str]
+        user_name: str | None
         dbid_list = {e.change_dbid for e in changes if e.change_dbid is not None}
         if len(dbid_list) == 1:
             # All files have been modified by the same user
@@ -3364,7 +3350,7 @@ class SyncEngine:
         # Note: we won't have to deal with modified or moved events,
         # Dropbox only reports DeletedMetadata or FileMetadata / FolderMetadata
 
-        histories: DefaultDict[str, List[Metadata]] = defaultdict(list)
+        histories: defaultdict[str, list[Metadata]] = defaultdict(list)
 
         for entry in changes.entries:
             histories[entry.path_lower].append(entry)
@@ -3454,7 +3440,7 @@ class SyncEngine:
         return event
 
     def _ensure_parent(
-        self, event: SyncEvent, client: Optional[DropboxClient] = None
+        self, event: SyncEvent, client: DropboxClient | None = None
     ) -> None:
         """
         Ensures that all parent folders for a sync event exist locally. This is used to
@@ -3488,8 +3474,8 @@ class SyncEngine:
                 self._on_remote_folder(parent_event, client)
 
     def _on_remote_file(
-        self, event: SyncEvent, client: Optional[DropboxClient] = None
-    ) -> Optional[SyncEvent]:
+        self, event: SyncEvent, client: DropboxClient | None = None
+    ) -> SyncEvent | None:
         """
         Applies a remote file change or creation locally.
 
@@ -3596,8 +3582,8 @@ class SyncEngine:
         return event
 
     def _on_remote_folder(
-        self, event: SyncEvent, client: Optional[DropboxClient] = None
-    ) -> Optional[SyncEvent]:
+        self, event: SyncEvent, client: DropboxClient | None = None
+    ) -> SyncEvent | None:
         """
         Applies a remote folder creation locally.
 
@@ -3665,7 +3651,7 @@ class SyncEngine:
 
         return event
 
-    def _on_remote_deleted(self, event: SyncEvent) -> Optional[SyncEvent]:
+    def _on_remote_deleted(self, event: SyncEvent) -> SyncEvent | None:
         """
         Applies a remote deletion locally.
 
@@ -3800,7 +3786,7 @@ class SyncEngine:
             self._history_table.clear_cache()
 
     def _scandir_with_ignore(
-        self, path: Union[str, "os.PathLike[str]"]
+        self, path: str | os.PathLike[str]
     ) -> Iterator[os.DirEntry]:
 
         with os.scandir(path) as it:
@@ -3829,8 +3815,8 @@ def get_dest_path(event: FileSystemEvent) -> str:
 
 
 def split_moved_event(
-    event: Union[FileMovedEvent, DirMovedEvent]
-) -> Tuple[FileSystemEvent, FileSystemEvent]:
+    event: FileMovedEvent | DirMovedEvent,
+) -> tuple[FileSystemEvent, FileSystemEvent]:
     """
     Splits a FileMovedEvent or DirMovedEvent into "deleted" and "created" events of the
     same type. A new attribute ``move_id`` is added to both instances.

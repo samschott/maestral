@@ -2,10 +2,11 @@
 SQL column type definitions, including conversion rules from / to Python types.
 """
 
+from __future__ import annotations
+
 import os
 from enum import Enum
-from typing import Type, Optional, Iterable, Union
-
+from typing import Iterable, Union
 
 ColumnValueType = Union[str, int, float, Enum, None]
 
@@ -14,7 +15,7 @@ class SqlType:
     """Base class to represent Python types in SQLite table"""
 
     sql_type = "TEXT"
-    py_type: Type[ColumnValueType] = str
+    py_type: type[ColumnValueType] = str
 
     def sql_to_py(self, value):
         """Converts the return value from sqlite3 to the target Python type."""
@@ -57,13 +58,13 @@ class SqlPath(SqlType):
     sql_type = "BLOB"
     py_type = str
 
-    def sql_to_py(self, value: Optional[bytes]) -> Optional[str]:
+    def sql_to_py(self, value: bytes | None) -> str | None:
         if value is None:
             return value
 
         return os.fsdecode(value)
 
-    def py_to_sql(self, value: Optional[str]) -> Optional[bytes]:
+    def py_to_sql(self, value: str | None) -> bytes | None:
         if value is None:
             return value
 
@@ -79,13 +80,13 @@ class SqlEnum(SqlType):
     def __init__(self, enum: Iterable[Enum]) -> None:
         self.enum_type = enum
 
-    def sql_to_py(self, value: Optional[str]) -> Optional[Enum]:  # type: ignore
+    def sql_to_py(self, value: str | None) -> Enum | None:  # type: ignore
         if value is None:
             return None
 
         return getattr(self.enum_type, value)
 
-    def py_to_sql(self, value: Optional[Enum]) -> Optional[str]:
+    def py_to_sql(self, value: Enum | None) -> str | None:
         if value is None:
             return None
 
