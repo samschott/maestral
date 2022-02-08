@@ -663,7 +663,7 @@ class SyncEngine:
             sync_events = self._history_table.select_sql(
                 "ORDER BY IFNULL(change_time, sync_time)"
             )
-            return cast(List[SyncEvent], sync_events)
+            return sync_events
 
     def reset_sync_state(self) -> None:
         """Resets all saved sync state. Settings are not affected."""
@@ -688,24 +688,21 @@ class SyncEngine:
     def sync_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all sync errors."""
         with self._database_access():
-            errors = self._sync_errors_table.select(AllQuery())
-            return cast(List[SyncErrorEntry], errors)
+            return self._sync_errors_table.select(AllQuery())
 
     @property
     def upload_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all upload errors."""
         with self._database_access():
             query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Up)
-            errors = self._sync_errors_table.select(query)
-            return cast(List[SyncErrorEntry], errors)
+            return self._sync_errors_table.select(query)
 
     @property
     def download_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all download errors."""
         with self._database_access():
             query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Down)
-            errors = self._sync_errors_table.select(query)
-            return cast(List[SyncErrorEntry], errors)
+            return self._sync_errors_table.select(query)
 
     def has_sync_errors(self) -> bool:
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
@@ -736,7 +733,7 @@ class SyncEngine:
             else:
                 errors = self._sync_errors_table.select(path_tree_query)
 
-            return cast(List[SyncErrorEntry], errors)
+            return errors
 
     def clear_sync_errors_for_path(
         self, dbx_path_lower: str, recursive: bool = False
@@ -774,8 +771,7 @@ class SyncEngine:
         :returns: List of index entries.
         """
         with self._database_access():
-            entries = self._index_table.select(AllQuery())
-            return cast(List[IndexEntry], entries)
+            return self._index_table.select(AllQuery())
 
     def get_index_entry(self, dbx_path_lower: str) -> Optional[IndexEntry]:
         """
@@ -786,8 +782,7 @@ class SyncEngine:
         """
 
         with self._database_access():
-            entry = self._index_table.get(dbx_path_lower)
-            return cast(Optional[IndexEntry], entry)
+            return self._index_table.get(dbx_path_lower)
 
     def iter_index(self) -> Iterator[IndexEntry]:
         """
@@ -797,8 +792,7 @@ class SyncEngine:
         """
         with self._database_access():
             for entries in self._index_table.select_iter(AllQuery()):
-                for entry in entries:
-                    yield cast(IndexEntry, entry)
+                yield from entries
 
     def index_count(self) -> int:
         """
@@ -977,7 +971,6 @@ class SyncEngine:
         with self._database_access():
             # Check cache for an up-to-date content hash and return if it exists.
             cache_entry = self._hash_table.get(stat.st_ino)
-            cache_entry = cast(Optional[HashCacheEntry], cache_entry)
 
             if cache_entry and cache_entry.mtime == mtime:
                 return cache_entry.hash_str
@@ -3772,7 +3765,6 @@ class SyncEngine:
                 entries = self._index_table.select(query)
 
             for entry in entries:
-                entry = cast(IndexEntry, entry)
                 child_path = self.to_local_path_from_cased(entry.dbx_path_cased)
                 if not exists(child_path):
                     if entry.is_directory:
