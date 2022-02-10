@@ -3,6 +3,6 @@ Log file,User defined (default: INFO),Always
 Stderr,User defined (default: INFO),If verbose flag is passed
 Systemd journal,User defined (default: INFO),If started as systemd service
 Systemd notify status,INFO,If started as systemd notify service
-:attr:`Maestral.status` API,INFO,Always
+:attr:`maestral.main.Maestral.status`,INFO,Always
 Desktop notifications,WARNING,Always
-:attr:`Maestral.fatal_errors` API,ERROR,Always
+:attr:`maestral.main.Maestral.fatal_errors`,ERROR,Always

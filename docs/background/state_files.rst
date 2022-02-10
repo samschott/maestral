@@ -77,12 +77,6 @@ The state file has the following sections:
     # Time stamp of last full reindexing
     last_reindex = 1589577566.8533309
 
-    # Lower case Dropbox paths with upload sync errors
-    upload_errors = []
-
-    # Lower case Dropbox paths with download sync errors
-    download_errors = []
-
     # Lower case Dropbox paths of interrupted uploads
     pending_uploads = []
 
