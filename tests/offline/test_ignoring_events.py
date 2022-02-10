@@ -3,7 +3,8 @@ from pathlib import Path
 
 from watchdog.events import DirCreatedEvent, DirMovedEvent
 
-from maestral.sync import SyncDirection, ItemType, ChangeType
+from maestral.sync import SyncDirection
+from maestral.models import ItemType, ChangeType
 from maestral.utils.path import move
 
 

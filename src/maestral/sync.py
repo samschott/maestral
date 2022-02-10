@@ -76,7 +76,7 @@ from .constants import (
     FILE_CACHE,
     IS_MACOS,
 )
-from .errors import (
+from .exceptions import (
     SyncError,
     CancelledError,
     NoDropboxDirError,
@@ -89,12 +89,11 @@ from .errors import (
     InvalidDbidError,
     DatabaseError,
 )
+from .errorhandling import os_to_maestral_error, convert_api_errors
 from .client import (
     DropboxClient,
-    os_to_maestral_error,
-    convert_api_errors,
 )
-from .database import (
+from .models import (
     SyncEvent,
     HashCacheEntry,
     IndexEntry,
@@ -131,14 +130,11 @@ from .utils.path import (
     to_existing_unnormalized_path,
     get_symlink_target,
 )
-from .utils.orm import (
+from .database.orm import (
     Database,
     Manager,
-    MatchQuery,
-    PathTreeQuery,
-    AllQuery,
-    AndQuery,
 )
+from .database.query import PathTreeQuery, MatchQuery, AllQuery, AndQuery
 from .utils.appdirs import get_data_path
 
 
@@ -667,7 +663,7 @@ class SyncEngine:
             sync_events = self._history_table.select_sql(
                 "ORDER BY IFNULL(change_time, sync_time)"
             )
-            return cast(List[SyncEvent], sync_events)
+            return sync_events
 
     def reset_sync_state(self) -> None:
         """Resets all saved sync state. Settings are not affected."""
@@ -692,24 +688,21 @@ class SyncEngine:
     def sync_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all sync errors."""
         with self._database_access():
-            errors = self._sync_errors_table.select(AllQuery())
-            return cast(List[SyncErrorEntry], errors)
+            return self._sync_errors_table.select(AllQuery())
 
     @property
     def upload_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all upload errors."""
         with self._database_access():
             query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Up)
-            errors = self._sync_errors_table.select(query)
-            return cast(List[SyncErrorEntry], errors)
+            return self._sync_errors_table.select(query)
 
     @property
     def download_errors(self) -> List[SyncErrorEntry]:
         """Returns a list of all download errors."""
         with self._database_access():
             query = MatchQuery(SyncErrorEntry.direction, SyncDirection.Down)
-            errors = self._sync_errors_table.select(query)
-            return cast(List[SyncErrorEntry], errors)
+            return self._sync_errors_table.select(query)
 
     def has_sync_errors(self) -> bool:
         """Returns ``True`` in case of sync errors, ``False`` otherwise."""
@@ -740,7 +733,7 @@ class SyncEngine:
             else:
                 errors = self._sync_errors_table.select(path_tree_query)
 
-            return cast(List[SyncErrorEntry], errors)
+            return errors
 
     def clear_sync_errors_for_path(
         self, dbx_path_lower: str, recursive: bool = False
@@ -778,8 +771,7 @@ class SyncEngine:
         :returns: List of index entries.
         """
         with self._database_access():
-            entries = self._index_table.select(AllQuery())
-            return cast(List[IndexEntry], entries)
+            return self._index_table.select(AllQuery())
 
     def get_index_entry(self, dbx_path_lower: str) -> Optional[IndexEntry]:
         """
@@ -790,8 +782,7 @@ class SyncEngine:
         """
 
         with self._database_access():
-            entry = self._index_table.get(dbx_path_lower)
-            return cast(Optional[IndexEntry], entry)
+            return self._index_table.get(dbx_path_lower)
 
     def iter_index(self) -> Iterator[IndexEntry]:
         """
@@ -801,8 +792,7 @@ class SyncEngine:
         """
         with self._database_access():
             for entries in self._index_table.select_iter(AllQuery()):
-                for entry in entries:
-                    yield cast(IndexEntry, entry)
+                yield from entries
 
     def index_count(self) -> int:
         """
@@ -981,7 +971,6 @@ class SyncEngine:
         with self._database_access():
             # Check cache for an up-to-date content hash and return if it exists.
             cache_entry = self._hash_table.get(stat.st_ino)
-            cache_entry = cast(Optional[HashCacheEntry], cache_entry)
 
             if cache_entry and cache_entry.mtime == mtime:
                 return cache_entry.hash_str
@@ -1426,7 +1415,7 @@ class SyncEngine:
 
     def cancel_sync(self) -> None:
         """
-        Raises a :class:`maestral.errors.CancelledError` in all sync threads and waits
+        Raises a :exc:`maestral.exceptions.CancelledError` in all sync threads and waits
         for them to shut down.
         """
 
@@ -2189,7 +2178,7 @@ class SyncEngine:
     def _create_remote_entry(self, event: SyncEvent) -> SyncEvent:
         """
         Applies a local file system event to the remote Dropbox and clears any existing
-        sync errors belonging to that path. Any :class:`maestral.errors.SyncError` will
+        sync errors belonging to that path. Any :exc:`maestral.exception.SyncError` will
         be caught and logged as appropriate.
 
         This method always uses a new copy of client and closes the network session
@@ -3417,7 +3406,7 @@ class SyncEngine:
     def _create_local_entry(self, event: SyncEvent) -> SyncEvent:
         """
         Applies a file / folder change from Dropbox servers to the local Dropbox folder.
-        Any :class:`maestral.errors.MaestralApiError` will be caught and logged as
+        Any :exc:`maestral.exception.MaestralApiError` will be caught and logged as
         appropriate. Entries in the local index are created after successful completion.
 
         :param event: Dropbox metadata.
@@ -3776,7 +3765,6 @@ class SyncEngine:
                 entries = self._index_table.select(query)
 
             for entry in entries:
-                entry = cast(IndexEntry, entry)
                 child_path = self.to_local_path_from_cased(entry.dbx_path_cased)
                 if not exists(child_path):
                     if entry.is_directory:

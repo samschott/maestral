@@ -23,9 +23,10 @@ from watchdog.events import (
 )
 
 # local imports
-from .errors import SyncError, NotLinkedError
-from .utils.orm import Model, Column, SqlEnum, SqlInt, SqlString, SqlFloat, SqlPath
+from .database.orm import Model, Column
+from .database.types import SqlInt, SqlString, SqlFloat, SqlPath, SqlEnum
 from .utils.path import normalize
+from .exceptions import SyncError, NotLinkedError
 
 if TYPE_CHECKING:
     from .sync import SyncEngine

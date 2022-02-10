@@ -18,12 +18,13 @@ copyright = f"{time.localtime().tm_year}, {author}"
 # -- General configuration -------------------------------------------------------------
 
 extensions = [
+    "sphinx.ext.viewcode",
     "sphinxext.opengraph",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx.ext.intersphinx",
-    "sphinx.ext.autodoc",
+    "autoapi.extension",
     "m2r2",
 ]
 source_suffix = [".rst", ".md"]
@@ -50,12 +51,21 @@ autoclass_content = "both"
 autodoc_member_order = "bysource"
 autodoc_inherit_docstrings = False
 
+# autoapi.extension
+autoapi_type = "python"
+autoapi_dirs = ["../src/maestral"]
+autoapi_options = [
+    "members",
+    "show-inheritance",
+]
+autoapi_add_toctree_entry = False
+
 # sphinx.ext.todo
 todo_include_todos = True
 
 # sphinx.ext.intersphsinx
 intersphinx_mapping = {
-    "click": ("https://click.palletsprojects.com/en/master/", None),
+    "click": ("https://click.palletsprojects.com/en/latest/", None),
     "dropbox": ("https://dropbox-sdk-python.readthedocs.io/en/latest/", None),
     "fasteners": ("https://fasteners.readthedocs.io/en/latest/", None),
     "Pyro5": ("https://pyro5.readthedocs.io/en/latest/", None),

@@ -2,9 +2,9 @@
 This module defines Maestral's error classes. It should be kept free of memory heavy
 imports.
 
-All errors inherit from :class:`MaestralApiError` which has title and message attributes
+All errors inherit from :exc:`MaestralApiError` which has title and message attributes
 to display the error to the user. Errors which are related to syncing a specific
-file or folder inherit from :class:`SyncError`, a subclass of :class:`MaestralApiError`.
+file or folder inherit from :exc:`SyncError`, a subclass of :exc:`MaestralApiError`.
 """
 
 from typing import Optional

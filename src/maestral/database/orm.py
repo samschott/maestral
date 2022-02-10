@@ -6,52 +6,36 @@ Maestral. Many operations will still require explicit SQL statements. This modul
 alternative to fully featured ORMs such as sqlalchemy but may be useful when system
 memory is constrained.
 """
-import os
+
 import sqlite3
-from enum import Enum
 from weakref import WeakValueDictionary
 from typing import (
     Union,
     Type,
-    Tuple,
-    Sequence,
     Any,
     Generator,
     List,
     Optional,
     TypeVar,
-    Iterable,
-    Iterator,
     FrozenSet,
+    Generic,
 )
 
+from .query import Query
+from .types import SqlType, SqlEnum, ColumnValueType
 
-ColumnValueType = Union[str, int, float, Enum, None]
 DefaultColumnValueType = Union[ColumnValueType, Type["NoDefault"]]
 SQLSafeType = Union[str, int, float, None]
 T = TypeVar("T")
+M = TypeVar("M", bound="Model")
 
 
 __all__ = [
-    "SqlType",
-    "SqlString",
-    "SqlInt",
-    "SqlFloat",
-    "SqlPath",
-    "SqlEnum",
-    "Query",
-    "AllQuery",
-    "MatchQuery",
-    "PathTreeQuery",
-    "AndQuery",
-    "OrQuery",
-    "NotQuery",
     "Column",
     "NoDefault",
     "Database",
     "Manager",
     "Model",
-    "ColumnValueType",
 ]
 
 
@@ -61,198 +45,6 @@ class NoDefault:
 
     This is distinct from ``None`` which may be a valid default.
     """
-
-
-class SqlType:
-    """Base class to represent Python types in SQLite table"""
-
-    sql_type = "TEXT"
-    py_type: Type[ColumnValueType] = str
-
-    def sql_to_py(self, value):
-        """Converts the return value from sqlite3 to the target Python type."""
-        return value
-
-    def py_to_sql(self, value):
-        """Converts a Python value to a type accepted by sqlite3."""
-        return value
-
-
-class SqlString(SqlType):
-    """Class to represent Python strings in SQLite table"""
-
-    sql_type = "TEXT"
-    py_type = str
-
-
-class SqlInt(SqlType):
-    """Class to represent Python integers in SQLite table"""
-
-    sql_type = "INTEGER"
-    py_type = int
-
-
-class SqlFloat(SqlType):
-    """Class to represent Python floats in SQLite table"""
-
-    sql_type = "REAL"
-    py_type = float
-
-
-class SqlPath(SqlType):
-    """
-    Class to represent Python paths in SQLite table
-
-    This class contains special handling for strings with surrogate escape characters
-    which can appear in badly encoded file names.
-    """
-
-    sql_type = "BLOB"
-    py_type = str
-
-    def sql_to_py(self, value: Optional[bytes]) -> Optional[str]:
-        if value is None:
-            return value
-
-        return os.fsdecode(value)
-
-    def py_to_sql(self, value: Optional[str]) -> Optional[bytes]:
-        if value is None:
-            return value
-
-        return os.fsencode(value)
-
-
-class SqlEnum(SqlType):
-    """Class to represent Python enums in SQLite table"""
-
-    sql_type = "TEXT"
-    py_type = Enum
-
-    def __init__(self, enum: Iterable[Enum]) -> None:
-        self.enum_type = enum
-
-    def sql_to_py(self, value: Optional[str]) -> Optional[Enum]:  # type: ignore
-        if value is None:
-            return None
-
-        return getattr(self.enum_type, value)
-
-    def py_to_sql(self, value: Optional[Enum]) -> Optional[str]:
-        if value is None:
-            return None
-
-        return value.name
-
-
-class Query:
-    def clause(self) -> Tuple[str, Sequence[ColumnValueType]]:
-        raise NotImplementedError()
-
-
-class PathTreeQuery(Query):
-    def __init__(self, column: "Column", path: str):
-
-        if not isinstance(column.type, SqlPath):
-            raise ValueError("Only accepts columns with type SqlPath")
-
-        self.column = column
-        self.file_blob = os.fsencode(path)
-        self.dir_blob = os.path.join(self.file_blob, b"")
-
-    def clause(self):
-        query_part = f"({self.column.name} = ? OR substr({self.column.name}, 1, ?) = ?)"
-        args = (self.file_blob, len(self.dir_blob), self.dir_blob)
-
-        return query_part, args
-
-
-class MatchQuery(Query):
-    def __init__(self, column: "Column", value: ColumnValueType):
-        self.column = column
-        self.value = value
-
-    def clause(self):
-        args = (self.column.py_to_sql(self.value),)
-        return f"{self.column.name} = ?", args
-
-
-class AllQuery(Query):
-    def clause(self):
-        return "TRUE", ()
-
-
-class CollectionQuery(Query):
-    """An abstract query class that aggregates other queries. Can be
-    indexed like a list to access the sub-queries.
-    """
-
-    def __init__(self, *subqueries: Query):
-        self.subqueries = subqueries
-
-    # Act like a sequence.
-
-    def __len__(self) -> int:
-        return len(self.subqueries)
-
-    def __getitem__(self, key: int) -> Query:
-        return self.subqueries[key]
-
-    def __iter__(self) -> Iterator[Query]:
-        return iter(self.subqueries)
-
-    def __contains__(self, item: Query) -> bool:
-        return item in self.subqueries
-
-    def clause_with_joiner(self, joiner: str) -> Tuple[str, Sequence[ColumnValueType]]:
-        """Return a clause created by joining together the clauses of
-        all subqueries with the string joiner (padded by spaces).
-        """
-        clause_parts = []
-        subvals: List[ColumnValueType] = []
-
-        for subq in self.subqueries:
-            subq_clause, subq_subvals = subq.clause()
-            clause_parts.append("(" + subq_clause + ")")
-            subvals += subq_subvals
-
-        clause = (" " + joiner + " ").join(clause_parts)
-        return clause, subvals
-
-    def clause(self):
-        raise NotImplementedError()
-
-
-class AndQuery(CollectionQuery):
-    """A conjunction of a list of other queries."""
-
-    def clause(self):
-        return self.clause_with_joiner("AND")
-
-
-class OrQuery(CollectionQuery):
-    """A conjunction of a list of other queries."""
-
-    def clause(self):
-        return self.clause_with_joiner("OR")
-
-
-class NotQuery(Query):
-    """A query that matches the negation of its `subquery`, as a shorcut for
-    performing `not(subquery)` without using regular expressions.
-    """
-
-    def __init__(self, subquery: Query):
-        self.subquery = subquery
-
-    def clause(self):
-        clause, subvals = self.subquery.clause()
-        if clause:
-            return f"not ({clause})", subvals
-        else:
-            # If there is no clause, there is nothing to negate. All the logic
-            # is handled by match() for slow queries.
-            return clause, subvals
 
 
 class Column(property):
@@ -426,7 +218,7 @@ class Database:
             self.connection.cursor().executescript(script)
 
 
-class Manager:
+class Manager(Generic[M]):
     """
     A data mapper interface for a table model.
 
@@ -439,13 +231,13 @@ class Manager:
     :param model: Model for database table.
     """
 
-    def __init__(self, db: Database, model: Type["Model"]) -> None:
+    def __init__(self, db: Database, model: Type[M]) -> None:
         self.db = db
         self.model = model
         self.table_name = model.__tablename__
         self.pk_column = next(col for col in model.__columns__ if col.primary_key)
 
-        self._cache: "WeakValueDictionary[SQLSafeType, Model]" = WeakValueDictionary()
+        self._cache: "WeakValueDictionary[SQLSafeType, M]" = WeakValueDictionary()
 
         # Precompute often-used SQL query strings.
         self._columns = model.__columns__
@@ -495,7 +287,7 @@ class Manager:
         self.db.execute(sql, *args)
         self.clear_cache()
 
-    def select(self, query: Query) -> List["Model"]:
+    def select(self, query: Query) -> List[M]:
         clause, args = query.clause()
         sql = f"SELECT * FROM {self.table_name} WHERE {clause}"
         result = self.db.execute(sql, *args)
@@ -504,7 +296,7 @@ class Manager:
 
     def select_iter(
         self, query: Query, size: int = 1000
-    ) -> Generator[List["Model"], Any, None]:
+    ) -> Generator[List[M], Any, None]:
         clause, args = query.clause()
         sql = f"SELECT * FROM {self.table_name} WHERE {clause}"
         result = self.db.execute(sql, *args)
@@ -514,7 +306,7 @@ class Manager:
             yield [self._item_from_kwargs(**row) for row in rows]
             rows = result.fetchmany(size)
 
-    def select_sql(self, sql: str, *args) -> List["Model"]:
+    def select_sql(self, sql: str, *args) -> List[M]:
         """
         Performs the given SQL query and converts any returned rows to model objects.
 
@@ -541,7 +333,7 @@ class Manager:
         except KeyError:
             pass
 
-    def get(self, primary_key: ColumnValueType) -> Optional["Model"]:
+    def get(self, primary_key: ColumnValueType) -> Optional[M]:
         """
         Gets a model object from database by its primary key. This will return a cached
         value if available and None if no row with the primary key exists.
@@ -581,7 +373,7 @@ class Manager:
 
         return bool(result.fetchone())
 
-    def save(self, obj: "Model") -> "Model":
+    def save(self, obj: M) -> M:
         """
         Saves a model object to the database table. If the primary key is None, a new
         primary key will be generated by SQLite on inserting the row. This key will be
@@ -610,7 +402,7 @@ class Manager:
 
         return obj
 
-    def update(self, obj: "Model") -> None:
+    def update(self, obj: M) -> None:
         """
         Updates the database table from a model object.
 
@@ -646,7 +438,7 @@ class Manager:
         result = self.db.execute(sql, self.table_name.strip("'\""))
         return bool(result.fetchall())
 
-    def _get_primary_key(self, obj: "Model") -> SQLSafeType:
+    def _get_primary_key(self, obj: M) -> SQLSafeType:
         """
         Returns the primary key value for a model object / row in the table.
 
@@ -656,7 +448,7 @@ class Manager:
         pk_py = getattr(obj, self.pk_column.name)
         return self.pk_column.py_to_sql(pk_py)
 
-    def _item_from_kwargs(self, **kwargs) -> "Model":
+    def _item_from_kwargs(self, **kwargs) -> M:
         """
         Create a model object from SQL column values
 

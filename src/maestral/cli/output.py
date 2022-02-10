@@ -1,26 +1,18 @@
-"""Module to print neatly formatted tables and grids to the terminal."""
+"""
+This module provides classes and methods for beautifully formatted output to stdout.
+This includes printing tables and grids, formatting dates and eliding strings.
+"""
 
-import sys
 import enum
-from typing import (
-    Optional,
-    List,
-    Union,
-    Iterator,
-    Sequence,
-    Any,
-    Callable,
-    TYPE_CHECKING,
-)
+from datetime import datetime
+from typing import List, Optional, Sequence, Any, Iterator, Union
 
 import click
-import shutil
 
-if TYPE_CHECKING:
-    from datetime import datetime
+from .utils import get_term_width
 
 
-# ==== enums ===========================================================================
+# ==== text adjustment helpers =========================================================
 
 
 class Align(enum.Enum):
@@ -45,9 +37,6 @@ class Prefix(enum.Enum):
     Ok = 1
     Warn = 2
     NONE = 3
-
-
-# ==== text adjustment helpers =========================================================
 
 
 def elide(
@@ -98,11 +87,6 @@ def adjust(text: str, width: int, align: Align = Align.Left) -> str:
             return " " * needed + text
     else:
         return text
-
-
-def get_term_width() -> int:
-    term_size = shutil.get_terminal_size(fallback=(sys.maxsize, sys.maxsize))
-    return term_size.columns
 
 
 # ==== printing structured data to console =============================================
@@ -221,11 +205,11 @@ class Column:
     :param fields: Fields in the table. Any sequence of objects can be given and will be
         converted to :class:`Field` instances as appropriate.
     :param align: How to align text inside the column. Will only be used for
-        :class:`TextField`s.
+        :class:`TextField`.
     :param wraps: Whether to wrap fields to fit into the column width instead of
-        truncating them. Will only be used for :class:`TextField`s.
+        truncating them. Will only be used for :class:`TextField`.
     :param elide: How to elide text which is too wide for a column. Will only be used
-        for :class:`TextField`s.
+        for :class:`TextField`.
     """
 
     fields: List[Field]
@@ -480,7 +464,7 @@ class Grid:
 
         if len(self.fields) > 0:
 
-            from . import chunks
+            from ..utils import chunks
 
             # get terminal width if no width is given
             width = width or get_term_width()
@@ -516,10 +500,17 @@ class Grid:
             click.echo(line)
 
 
-# ==== interactive prompts =============================================================
+# ==== printing messages to console ====================================================
 
 
 def echo(message: str, nl: bool = True, prefix: Prefix = Prefix.NONE) -> None:
+    """
+    Print a message to stdout.
+
+    :param message: The string to output.
+    :param nl: Whether to end with a new line.
+    :param prefix: Any prefix to output before the message,
+    """
 
     if prefix is Prefix.Ok:
         pre = click.style("✓", fg="green") + " "
@@ -534,156 +525,30 @@ def echo(message: str, nl: bool = True, prefix: Prefix = Prefix.NONE) -> None:
 
 
 def info(message: str, nl: bool = True) -> None:
+    """
+    Print an info message to stdout. Will be prefixed with a dash.
+
+    :param message: The string to output.
+    :param nl: Whether to end with a new line.
+    """
     echo(message, nl=nl, prefix=Prefix.Info)
 
 
 def warn(message: str, nl: bool = True) -> None:
+    """
+    Print a warning to stdout. Will be prefixed with an exclamation mark.
+
+    :param message: The string to output.
+    :param nl: Whether to end with a new line.
+    """
     echo(message, nl=nl, prefix=Prefix.Warn)
 
 
 def ok(message: str, nl: bool = True) -> None:
+    """
+    Print a confirmation to stdout. Will be prefixed with a checkmark.
+
+    :param message: The string to output.
+    :param nl: Whether to end with a new line.
+    """
     echo(message, nl=nl, prefix=Prefix.Ok)
-
-
-def _style_message(message: str) -> str:
-    return f"{message} "
-
-
-def _style_hint(hint: str) -> str:
-    return f"{hint} " if hint else ""
-
-
-def prompt(
-    message: str, default: Optional[str] = None, validate: Optional[Callable] = None
-) -> str:
-
-    import survey
-
-    styled_message = _style_message(message)
-
-    def check(value: str) -> bool:
-        if validate is not None:
-            return validate(value)
-        else:
-            return True
-
-    res = survey.input(styled_message, default=default, check=check)
-
-    return res
-
-
-def confirm(message: str, default: Optional[bool] = True) -> bool:
-
-    import survey
-
-    styled_message = _style_message(message)
-
-    return survey.confirm(styled_message, default=default)
-
-
-def select(message: str, options: Sequence[str], hint="") -> int:
-
-    import survey
-
-    try:
-        styled_hint = _style_hint(hint)
-        styled_message = _style_message(message)
-
-        index = survey.select(options, styled_message, hint=styled_hint)
-
-        return index
-    except (KeyboardInterrupt, SystemExit):
-        survey.respond()
-        raise
-
-
-def select_multiple(message: str, options: Sequence[str], hint="") -> List[int]:
-
-    import survey
-
-    try:
-        styled_hint = _style_hint(hint)
-        styled_message = _style_message(message)
-
-        kwargs = {"hint": styled_hint} if hint else {}
-
-        indices = survey.select(
-            options, styled_message, multi=True, pin="[✓] ", unpin="[ ] ", **kwargs
-        )
-
-        chosen = [options[index] for index in indices]
-        response = ", ".join(chosen)
-
-        if len(indices) == 0 or len(response) > 50:
-            response = f"[{len(indices)} chosen]"
-
-        survey.respond(response)
-
-        return indices
-
-    except (KeyboardInterrupt, SystemExit):
-        survey.respond()
-        raise
-
-
-def select_path(
-    message: str,
-    default: Optional[str] = None,
-    validate: Callable = lambda x: True,
-    exists: bool = False,
-    files_allowed: bool = True,
-    dirs_allowed: bool = True,
-) -> str:
-
-    import os
-
-    import survey
-    import wrapio
-
-    track = wrapio.Track()
-
-    styled_message = _style_message(message)
-
-    failed = False
-
-    def check(value: str) -> bool:
-
-        nonlocal failed
-
-        if value == "" and default:
-            return True
-
-        full_path = os.path.expanduser(value)
-        forbidden_dir = os.path.isdir(full_path) and not dirs_allowed
-        forbidden_file = os.path.isfile(full_path) and not files_allowed
-        exist_condition = os.path.exists(full_path) or not exists
-
-        if not exist_condition:
-            survey.update(click.style("(not found) ", fg="red"))
-        elif forbidden_dir:
-            survey.update(click.style("(not a file) ", fg="red"))
-        elif forbidden_file:
-            survey.update(click.style("(not a folder) ", fg="red"))
-
-        failed = (
-            not exist_condition
-            or forbidden_dir
-            or forbidden_file
-            or not validate(value)
-        )
-
-        return not failed
-
-    res = survey.input(
-        styled_message,
-        default=default,
-        callback=track.invoke,
-        check=check,
-    )
-
-    return res
-
-
-class CliException(click.ClickException):
-    def show(self, file=None) -> None:
-        warn(self.format_message())

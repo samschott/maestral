@@ -4,7 +4,7 @@ platform specific backends such as launchd or systemd.
 
 Note that launchd agents will not show as "login items" in macOS system preferences. As
 a result, the user does not have a convenient UI to remove Maestral autostart entries
-manually outside of Maestral itself. Login items however only support app bundles and
+manually outside Maestral itself. Login items however only support app bundles and
 provide no option to pass command line arguments to the app. They would therefore
 neither support pip installed packages nor multiple configurations.
 """
@@ -32,7 +32,7 @@ except ImportError:  # Python 3.7 and lower
 # local imports
 from .utils.appdirs import get_home_dir, get_conf_path, get_data_path
 from .constants import BUNDLE_ID, ENV
-from .errors import MaestralApiError
+from .exceptions import MaestralApiError
 
 
 class SupportedImplementations(Enum):

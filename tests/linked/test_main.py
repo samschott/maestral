@@ -7,13 +7,13 @@ import subprocess
 
 import pytest
 
-from maestral.errors import (
+from maestral.exceptions import (
     NotFoundError,
     UnsupportedFileTypeForDiff,
     SharedLinkError,
     SyncError,
 )
-from maestral.main import FileStatus, IDLE
+from maestral.constants import FileStatus, IDLE
 from maestral.utils.path import delete, normalize
 from maestral.utils.integration import get_inotify_limits
 

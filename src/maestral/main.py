@@ -37,10 +37,10 @@ from dropbox.sharing import RequestedVisibility
 
 # local imports
 from . import __version__
-from .client import CONNECTION_ERRORS, DropboxClient, convert_api_errors
+from .client import DropboxClient
 from .sync import SyncDirection
 from .manager import SyncManager
-from .errors import (
+from .exceptions import (
     MaestralApiError,
     NotLinkedError,
     NoDropboxDirError,
@@ -49,6 +49,7 @@ from .errors import (
     KeyringAccessError,
     UnsupportedFileTypeForDiff,
 )
+from .errorhandling import convert_api_errors, CONNECTION_ERRORS
 from .config import MaestralConfig, MaestralState, validate_config_name
 from .logging import CachedHandler, setup_logging, scoped_logger
 from .utils import get_newer_version
@@ -67,7 +68,7 @@ from .utils.serializer import (
 )
 from .utils.appdirs import get_cache_path, get_data_path
 from .utils.integration import get_ac_state, ACState
-from .utils.orm import Database
+from .database.orm import Database
 from .constants import IDLE, PAUSED, CONNECTING, FileStatus, GITHUB_RELEASES_API
 
 
@@ -100,7 +101,7 @@ class Maestral:
 
     All methods and properties return objects or raise exceptions which can safely be
     serialized, i.e., pure Python types. The only exception are instances of
-    :class:`maestral.errors.MaestralApiError`: they need to be registered explicitly
+    :exc:`maestral.exceptions.MaestralApiError`: they need to be registered explicitly
     with the serpent serializer which is used for communication to frontends.
 
     Sync errors and fatal errors which occur in the sync threads can be read with the
@@ -443,7 +444,7 @@ class Maestral:
     def pending_dropbox_folder(self) -> bool:
         """Indicates if a local Dropbox directory has been configured (read only). This
         will not check if the configured directory actually exists, starting the sync
-        may still raise a :class:`NoDropboxDirError`."""
+        may still raise a :exc:`maestral.exceptions.NoDropboxDirError`."""
         return not self.sync.dropbox_path
 
     @property
@@ -778,7 +779,7 @@ class Maestral:
         :param limit: Maximum number of revisions to list.
         :returns: List of Dropbox file metadata as dicts. See
             :class:`dropbox.files.Metadata` for keys and values.
-        :raises NotFoundError:if there never was a file at the given path.
+        :raises NotFoundError: if there never was a file at the given path.
         :raises IsAFolderError: if the given path refers to a folder
         :raises DropboxAuthError: in case of an invalid access token.
         :raises DropboxServerError: for internal Dropbox errors.

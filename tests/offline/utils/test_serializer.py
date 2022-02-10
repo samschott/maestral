@@ -3,7 +3,7 @@ import builtins
 import pytest
 from requests.exceptions import RequestException
 
-from maestral.errors import SyncError
+from maestral.exceptions import SyncError
 from maestral.utils.serializer import error_to_dict
 
 
