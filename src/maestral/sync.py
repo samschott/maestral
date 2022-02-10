@@ -1415,7 +1415,7 @@ class SyncEngine:
 
     def cancel_sync(self) -> None:
         """
-        Raises a :class:`maestral.errors.CancelledError` in all sync threads and waits
+        Raises a :exc:`maestral.exceptions.CancelledError` in all sync threads and waits
         for them to shut down.
         """
 
@@ -2178,7 +2178,7 @@ class SyncEngine:
     def _create_remote_entry(self, event: SyncEvent) -> SyncEvent:
         """
         Applies a local file system event to the remote Dropbox and clears any existing
-        sync errors belonging to that path. Any :class:`maestral.errors.SyncError` will
+        sync errors belonging to that path. Any :exc:`maestral.exception.SyncError` will
         be caught and logged as appropriate.
 
         This method always uses a new copy of client and closes the network session
@@ -3406,7 +3406,7 @@ class SyncEngine:
     def _create_local_entry(self, event: SyncEvent) -> SyncEvent:
         """
         Applies a file / folder change from Dropbox servers to the local Dropbox folder.
-        Any :class:`maestral.errors.MaestralApiError` will be caught and logged as
+        Any :exc:`maestral.exception.MaestralApiError` will be caught and logged as
         appropriate. Entries in the local index are created after successful completion.
 
         :param event: Dropbox metadata.

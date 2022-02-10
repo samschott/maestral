@@ -82,7 +82,7 @@ def get_conf_path(
     Returns the default config path for the platform. This will be:
 
         - macOS: "~/Library/Application Support/<subfolder>/<filename>."
-        - Linux: ``XDG_CONFIG_HOME/<subfolder>/<filename>"
+        - Linux: "XDG_CONFIG_HOME/<subfolder>/<filename>"
         - other: "~/.config/<subfolder>/<filename>"
 
     :param subfolder: The subfolder for the app.

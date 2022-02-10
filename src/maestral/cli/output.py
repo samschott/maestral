@@ -205,11 +205,11 @@ class Column:
     :param fields: Fields in the table. Any sequence of objects can be given and will be
         converted to :class:`Field` instances as appropriate.
     :param align: How to align text inside the column. Will only be used for
-        :class:`TextField`s.
+        :class:`TextField`.
     :param wraps: Whether to wrap fields to fit into the column width instead of
-        truncating them. Will only be used for :class:`TextField`s.
+        truncating them. Will only be used for :class:`TextField`.
     :param elide: How to elide text which is too wide for a column. Will only be used
-        for :class:`TextField`s.
+        for :class:`TextField`.
     """
 
     fields: List[Field]

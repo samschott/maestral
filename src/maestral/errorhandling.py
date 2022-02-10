@@ -1,6 +1,6 @@
 """
 This module contains methods and decorators to convert OSErrors and Dropbox SDK
-exceptions to instances of :class:`MaestralApiError`.
+exceptions to instances of :exc:`maestral.exceptions.MaestralApiError`.
 """
 
 # system imports
@@ -73,9 +73,9 @@ def convert_api_errors(
     dbx_path: Optional[str] = None, local_path: Optional[str] = None
 ) -> Iterator[None]:
     """
-    A context manager that catches and re-raises instances of :class:`OSError` and
-    :class:`dropbox.exceptions.DropboxException` as
-    :class:`maestral.errors.MaestralApiError` or :class:`ConnectionError`.
+    A context manager that catches and re-raises instances of :exc:`OSError` and
+    :exc:`dropbox.exceptions.DropboxException` as
+    :exc:`maestral.exceptions.MaestralApiError` or :exc:`ConnectionError`.
 
     :param dbx_path: Dropbox path associated with the error.
     :param local_path: Local path associated with the error.
@@ -106,8 +106,8 @@ def os_to_maestral_error(
     exc: OSError, dbx_path: Optional[str] = None, local_path: Optional[str] = None
 ) -> LocalError:
     """
-    Converts a :class:`OSError` to a :class:`maestral.errors.MaestralApiError` and tries
-    to add a reasonably informative error title and message.
+    Converts a :exc:`OSError` to a :exc:`maestral.exceptions.MaestralApiError` and
+    tries to add a reasonably informative error title and message.
 
     :param exc: Original OSError.
     :param dbx_path: Dropbox path associated with the error.
@@ -194,8 +194,8 @@ def dropbox_to_maestral_error(
     local_path: Optional[str] = None,
 ) -> MaestralApiError:
     """
-    Converts a Dropbox SDK exception to a :class:`maestral.errors.MaestralApiError` and
-    tries to add a reasonably informative error title and message.
+    Converts a Dropbox SDK exception to a :exc:`maestral.exceptions.MaestralApiError`
+    and tries to add a reasonably informative error title and message.
 
     :param exc: Dropbox SDK exception..
     :param dbx_path: Dropbox path associated with the error.

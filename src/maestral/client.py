@@ -66,7 +66,7 @@ class DropboxClient:
 
     All Dropbox SDK exceptions, OSErrors from the local file system API and connection
     errors will be caught and reraised as a subclass of
-    :class:`maestral.errors.MaestralApiError`.
+    :exc:`maestral.exceptions.MaestralApiError`.
 
     This class can be used as a context manager to clean up any network resources from
     the API requests.
@@ -335,7 +335,8 @@ class DropboxClient:
 
         The root namespace will change when the user joins or leaves a Dropbox Team with
         Team Spaces. If this happens, API calls using the old root namespace will raise
-        a :class:`PathRootError`. Use this method to update to the new root namespace.
+        a :exc:`maestral.exceptions.PathRootError`. Use this method to update to the new
+        root namespace.
 
         See https://developers.dropbox.com/dbx-team-files-guide and
         https://www.dropbox.com/developers/reference/path-root-header-modes for more
@@ -343,7 +344,8 @@ class DropboxClient:
 
         .. note:: We don't automatically switch root namespaces because API users may
             want to take action when the path root has changed before making further API
-            calls. Be prepared to handle :class:`PathRootError`s and act accordingly.
+            calls. Be prepared to handle :exc:`maestral.exceptions.PathRootError`
+            and act accordingly for all methods.
 
         :param root_info: Optional :class:`dropbox.common.RootInfo` describing the path
             root. If not given, the latest root info will be fetched from Dropbox

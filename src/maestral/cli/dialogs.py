@@ -1,6 +1,6 @@
 """
 This module provides interactive commandline dialogs which are based on the
-:module:`survey` Python library.
+:mod:`survey` Python library.
 """
 
 from typing import Optional, Callable, Sequence, List
