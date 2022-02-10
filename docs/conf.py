@@ -57,7 +57,6 @@ autoapi_dirs = ["../src/maestral"]
 autoapi_options = [
     "members",
     "show-inheritance",
-    "show-module-summary",
 ]
 autoapi_add_toctree_entry = False
 
