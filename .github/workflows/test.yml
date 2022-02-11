@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        python-version: ['3.6', '3.10']
+        python-version: ['3.7', '3.10']
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -64,7 +64,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        python-version: [3.6, ]
+        python-version: ['3.7', ]
         include:
           # use two different Dropbox accounts to run tests in parallel
           - platform: ubuntu-latest
