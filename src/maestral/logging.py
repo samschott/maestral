@@ -109,7 +109,7 @@ class CachedHandler(logging.Handler):
 
     def wait_for_emit(self, timeout: Optional[float]) -> bool:
         """
-        Blocks until a new record is emitted.
+        Blocks until a new record is emitted. This is effectively a longpoll API.
 
         :param timeout: Maximum time to block before returning.
         :returns: ``True`` if there was a status change, ``False`` in case of a timeout.

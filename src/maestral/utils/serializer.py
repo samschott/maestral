@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 
 SerializedObjectType = Dict[str, Union[str, List[str], None]]
+"""Type definition for object returned from the public API"""
 
 
 def dropbox_stone_to_dict(obj: "StoneStruct") -> SerializedObjectType:

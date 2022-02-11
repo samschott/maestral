@@ -410,8 +410,7 @@ class Maestral:
 
     @property
     def notification_level(self) -> int:
-        """Level for desktop notifications. See :mod:`utils.notify` for level
-        definitions."""
+        """Level for desktop notifications. See :mod:`notify` for level definitions."""
         return self.sync.desktop_notifier.notify_level
 
     @notification_level.setter
@@ -428,7 +427,7 @@ class Maestral:
 
         :param timeout: Maximum time to block before returning, even if there is no
             status change.
-        :returns: ``True``if there was a status change, ``False`` in case of a timeout.
+        :returns: Whether there was a status change within the timeout.
 
         .. versionadded:: 1.3.0
         """
@@ -460,9 +459,9 @@ class Maestral:
 
     @property
     def running(self) -> bool:
-        """Indicates if sync threads are running (read only). They will be stopped
-        before :meth:`start_sync` is called, when shutting down or because of an
-        exception."""
+        """Indicates if sync threads are running (read only). This will return ``False``
+        before :meth:`start_sync` is called, when shutting down, or because of an
+        unhandled exception in a sync thread."""
         return self.manager.running.is_set() or self.sync.busy()
 
     @property
@@ -547,8 +546,8 @@ class Maestral:
         file inside that folder is being uploaded.
 
         .. versionadded:: 1.4.4
-           Recursive behavior. Previous versions would return "up to date" even if in
-           case of syncing children.
+           Recursive behavior. Previous versions would return "up to date" for a folder,
+           even if some of the contained files would be syncing.
 
         :param local_path: Path to file on the local drive. May be relative to the
             current working directory.
@@ -1410,8 +1409,9 @@ class Maestral:
 
     def shutdown_daemon(self) -> None:
         """
-        Stop syncing and clean up our asyncio tasks. Set a result for the
-        :attr:`shutdown_complete` future.
+        Stop syncing and clean up our asyncio tasks. Notifies the :mod:`daemon` module
+        to shut down the event loop and exit the running process if Maestral was started
+        as a daemon.
         """
 
         self.stop_sync()
