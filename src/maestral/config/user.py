@@ -19,14 +19,14 @@ import logging
 import configparser as cp
 from threading import RLock
 from collections import abc
-from typing import Iterator, Any
+from typing import Iterator, Any, Dict
 
 from packaging.version import Version
 
 
 logger = logging.getLogger(__name__)
 
-DefaultsType = dict[str, dict[str, Any]]
+DefaultsType = Dict[str, Dict[str, Any]]
 
 # =============================================================================
 # Auxiliary classes
