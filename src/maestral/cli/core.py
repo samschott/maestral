@@ -3,10 +3,11 @@ This module provides custom click command line parameters for Maestral such
 :class:`DropboxPath`, :class:`ConfigKey` and :class:`ConfigName`, as well as an ordered
 command group class which prints its help output in sections.
 """
+from __future__ import annotations
 
 import os
 from os import path as osp
-from typing import Optional, List, Dict, Tuple, IO
+from typing import IO
 
 import click
 from click.shell_completion import CompletionItem
@@ -44,10 +45,10 @@ class DropboxPath(click.ParamType):
 
     def convert(
         self,
-        value: Optional[str],
-        param: Optional[click.Parameter],
-        ctx: Optional[click.Context],
-    ) -> Optional[str]:
+        value: str | None,
+        param: click.Parameter | None,
+        ctx: click.Context | None,
+    ) -> str | None:
 
         if value is None:
             return value
@@ -59,17 +60,17 @@ class DropboxPath(click.ParamType):
 
     def shell_complete(
         self,
-        ctx: Optional[click.Context],
-        param: Optional[click.Parameter],
+        ctx: click.Context | None,
+        param: click.Parameter | None,
         incomplete: str,
-    ) -> List["CompletionItem"]:
+    ) -> list[CompletionItem]:
 
         from click.shell_completion import CompletionItem
         from ..utils import removeprefix
         from ..config import MaestralConfig
 
-        matches: List[str] = []
-        completions: List[CompletionItem] = []
+        matches: list[str] = []
+        completions: list[CompletionItem] = []
 
         # check if we have been given an absolute path
         absolute = incomplete.startswith("/")
@@ -123,10 +124,10 @@ class ConfigKey(click.ParamType):
 
     def shell_complete(
         self,
-        ctx: Optional[click.Context],
-        param: Optional[click.Parameter],
+        ctx: click.Context | None,
+        param: click.Parameter | None,
         incomplete: str,
-    ) -> List["CompletionItem"]:
+    ) -> list[CompletionItem]:
 
         from click.shell_completion import CompletionItem
         from ..config.main import KEY_SECTION_MAP as KEYS
@@ -150,10 +151,10 @@ class ConfigName(click.ParamType):
 
     def convert(
         self,
-        value: Optional[str],
-        param: Optional[click.Parameter],
-        ctx: Optional[click.Context],
-    ) -> Optional[str]:
+        value: str | None,
+        param: click.Parameter | None,
+        ctx: click.Context | None,
+    ) -> str | None:
 
         if value is None:
             return value
@@ -181,10 +182,10 @@ class ConfigName(click.ParamType):
 
     def shell_complete(
         self,
-        ctx: Optional[click.Context],
-        param: Optional[click.Parameter],
+        ctx: click.Context | None,
+        param: click.Parameter | None,
         incomplete: str,
-    ) -> List["CompletionItem"]:
+    ) -> list[CompletionItem]:
 
         from click.shell_completion import CompletionItem
         from ..config import list_configs
@@ -199,10 +200,10 @@ class ConfigName(click.ParamType):
 class OrderedGroup(click.Group):
     """Click command group with customizable sections of help output."""
 
-    sections: Dict[str, List[Tuple[str, click.Command]]] = {}
+    sections: dict[str, list[tuple[str, click.Command]]] = {}
 
     def add_command(
-        self, cmd: click.Command, name: Optional[str] = None, section: str = ""
+        self, cmd: click.Command, name: str | None = None, section: str = ""
     ) -> None:
         name = name or cmd.name
 
@@ -257,5 +258,5 @@ class CliException(click.ClickException):
     message.
     """
 
-    def show(self, file: Optional[IO] = None) -> None:
+    def show(self, file: IO | None = None) -> None:
         warn(self.format_message())

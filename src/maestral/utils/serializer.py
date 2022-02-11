@@ -21,6 +21,8 @@ if TYPE_CHECKING:
     from dropbox.stone_base import Struct as StoneStruct
 
 
+# TODO: Use TypedDict where appropriate.
+
 SerializedObjectType = Dict[str, Union[str, List[str], None]]
 """Type definition for object returned from the public API"""
 

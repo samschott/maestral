@@ -3,8 +3,10 @@ SQL query definitions that facilitate writing object-oriented code to generate S
 queries.
 """
 
+from __future__ import annotations
+
 import os
-from typing import Tuple, Sequence, Iterator, List, TYPE_CHECKING
+from typing import Sequence, Iterator, TYPE_CHECKING
 
 from .types import SqlPath, ColumnValueType
 
@@ -15,7 +17,7 @@ if TYPE_CHECKING:
 class Query:
     """Base type for query"""
 
-    def clause(self) -> Tuple[str, Sequence[ColumnValueType]]:
+    def clause(self) -> tuple[str, Sequence[ColumnValueType]]:
         """
         Generate the corresponding SQL clause.
 
@@ -32,7 +34,7 @@ class PathTreeQuery(Query):
     :param path: Root path for the subtree.
     """
 
-    def __init__(self, column: "Column", path: str):
+    def __init__(self, column: Column, path: str):
 
         if not isinstance(column.type, SqlPath):
             raise ValueError("Only accepts columns with type SqlPath")
@@ -56,7 +58,7 @@ class MatchQuery(Query):
     :param value: Value to match.
     """
 
-    def __init__(self, column: "Column", value: ColumnValueType):
+    def __init__(self, column: Column, value: ColumnValueType):
         self.column = column
         self.value = value
 
@@ -98,12 +100,12 @@ class CollectionQuery(Query):
     def __contains__(self, item: Query) -> bool:
         return item in self.subqueries
 
-    def clause_with_joiner(self, joiner: str) -> Tuple[str, Sequence[ColumnValueType]]:
+    def clause_with_joiner(self, joiner: str) -> tuple[str, Sequence[ColumnValueType]]:
         """Return a clause created by joining together the clauses of
         all subqueries with the string joiner (padded by spaces).
         """
         clause_parts = []
-        subvals: List[ColumnValueType] = []
+        subvals: list[ColumnValueType] = []
 
         for subq in self.subqueries:
             subq_clause, subq_subvals = subq.clause()

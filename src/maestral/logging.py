@@ -1,12 +1,13 @@
 """This module defines custom logging records and handlers."""
 
+from __future__ import annotations
+
 import os
 import concurrent.futures
 import logging
 from logging.handlers import RotatingFileHandler
 from collections import deque
 from concurrent.futures import Future
-from typing import Deque, Optional, List, Tuple, Union
 
 try:
     from concurrent.futures import InvalidStateError  # type: ignore
@@ -55,7 +56,7 @@ class EncodingSafeLogRecord(logging.LogRecord):
     a :exc:`UnicodeEncodeError` under many circumstances (printing to stdout, etc.).
     """
 
-    _safe_msg: Optional[str] = None
+    _safe_msg: str | None = None
 
     def getMessage(self) -> str:
         """
@@ -83,12 +84,10 @@ class CachedHandler(logging.Handler):
         stored. Defaults to ``None``.
     """
 
-    cached_records: Deque[logging.LogRecord]
+    cached_records: deque[logging.LogRecord]
     _emit_future: Future
 
-    def __init__(
-        self, level: int = logging.NOTSET, maxlen: Optional[int] = None
-    ) -> None:
+    def __init__(self, level: int = logging.NOTSET, maxlen: int | None = None) -> None:
         super().__init__(level=level)
         self.cached_records = deque([], maxlen)
         self._emit_future = Future()
@@ -107,7 +106,7 @@ class CachedHandler(logging.Handler):
         except InvalidStateError:
             pass
 
-    def wait_for_emit(self, timeout: Optional[float]) -> bool:
+    def wait_for_emit(self, timeout: float | None) -> bool:
         """
         Blocks until a new record is emitted. This is effectively a longpoll API.
 
@@ -132,7 +131,7 @@ class CachedHandler(logging.Handler):
         except IndexError:
             return ""
 
-    def getAllMessages(self) -> List[str]:
+    def getAllMessages(self) -> list[str]:
         """
         :returns: A list of all record messages.
         """
@@ -192,11 +191,11 @@ def scoped_logger(module_name: str, config_name: str = "maestral") -> logging.Lo
 
 def setup_logging(
     config_name: str, log_to_stderr: bool = True
-) -> Tuple[
+) -> tuple[
     RotatingFileHandler,
-    Union[logging.StreamHandler, logging.NullHandler],
+    logging.StreamHandler | logging.NullHandler,
     SdNotificationHandler,
-    Union["journal.JournalHandler", logging.NullHandler],
+    journal.JournalHandler | logging.NullHandler,
 ]:
     """
     Sets up logging handlers for the given config name. The following handlers are
@@ -245,7 +244,7 @@ def setup_logging(
     root_logger.addHandler(log_handler_file)
 
     # Log to systemd journal when running as systemd service.
-    log_handler_journal: Union["journal.JournalHandler", logging.NullHandler]
+    log_handler_journal: journal.JournalHandler | logging.NullHandler
 
     if journal and os.getenv("INVOCATION_ID"):
         log_handler_journal = journal.JournalHandler(
@@ -266,7 +265,7 @@ def setup_logging(
     root_logger.addHandler(log_handler_sd)
 
     # Log to stderr if requested.
-    log_handler_stream: Union[logging.StreamHandler, logging.NullHandler]
+    log_handler_stream: logging.StreamHandler | logging.NullHandler
 
     if log_to_stderr:
         log_handler_stream = logging.StreamHandler()

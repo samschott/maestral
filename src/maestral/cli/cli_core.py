@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import sys
 from datetime import datetime
 from os import path as osp
-from typing import Optional, Union, cast, TYPE_CHECKING
+from typing import cast, TYPE_CHECKING
 
 import click
 
@@ -45,7 +47,7 @@ def stop_daemon_with_cli_feedback(config_name: str) -> None:
 
 
 def select_dbx_path_dialog(
-    config_name: str, default_dir_name: Optional[str] = None, allow_merge: bool = False
+    config_name: str, default_dir_name: str | None = None, allow_merge: bool = False
 ) -> str:
     """
     A CLI dialog to ask for a local Dropbox folder location.
@@ -105,7 +107,7 @@ def select_dbx_path_dialog(
             return dropbox_path
 
 
-def link_dialog(m: Union["MaestralProxy", "Maestral"]) -> None:
+def link_dialog(m: MaestralProxy | Maestral) -> None:
     """
     A CLI dialog for linking a Dropbox account.
 
@@ -443,13 +445,13 @@ def sharelink():
 def sharelink_create(
     dropbox_path: str,
     password: str,
-    expiry: Optional["datetime"],
+    expiry: datetime | None,
     config_name: str,
 ) -> None:
 
     from ..daemon import MaestralProxy
 
-    expiry_dt: Optional[float]
+    expiry_dt: float | None
 
     if expiry:
         expiry_dt = expiry.timestamp()
@@ -487,7 +489,7 @@ def sharelink_revoke(url: str, config_name: str) -> None:
 @click.argument("dropbox_path", required=False, type=DropboxPath())
 @existing_config_option
 @convert_api_errors
-def sharelink_list(dropbox_path: Optional[str], config_name: str) -> None:
+def sharelink_list(dropbox_path: str | None, config_name: str) -> None:
 
     from ..daemon import MaestralProxy
 

@@ -7,19 +7,11 @@ alternative to fully featured ORMs such as sqlalchemy but may be useful when sys
 memory is constrained.
 """
 
+from __future__ import annotations
+
 import sqlite3
 from weakref import WeakValueDictionary
-from typing import (
-    Union,
-    Type,
-    Any,
-    Generator,
-    List,
-    Optional,
-    TypeVar,
-    FrozenSet,
-    Generic,
-)
+from typing import Any, Generator, TypeVar, Generic, Union, Type
 
 from .query import Query
 from .types import SqlType, SqlEnum, ColumnValueType
@@ -171,7 +163,7 @@ class Database:
     def __init__(self, *args, **kwargs) -> None:
         self.args = args
         self.kwargs = kwargs
-        self._connection: Optional[sqlite3.Connection] = None
+        self._connection: sqlite3.Connection | None = None
         self.Model = type(f"Model{self}", (Model,), {"_db": self})
 
     @property
@@ -231,13 +223,13 @@ class Manager(Generic[M]):
     :param model: Model for database table.
     """
 
-    def __init__(self, db: Database, model: Type[M]) -> None:
+    def __init__(self, db: Database, model: type[M]) -> None:
         self.db = db
         self.model = model
         self.table_name = model.__tablename__
         self.pk_column = next(col for col in model.__columns__ if col.primary_key)
 
-        self._cache: "WeakValueDictionary[SQLSafeType, M]" = WeakValueDictionary()
+        self._cache: WeakValueDictionary[SQLSafeType, M] = WeakValueDictionary()
 
         # Precompute often-used SQL query strings.
         self._columns = model.__columns__
@@ -287,7 +279,7 @@ class Manager(Generic[M]):
         self.db.execute(sql, *args)
         self.clear_cache()
 
-    def select(self, query: Query) -> List[M]:
+    def select(self, query: Query) -> list[M]:
         clause, args = query.clause()
         sql = f"SELECT * FROM {self.table_name} WHERE {clause}"
         result = self.db.execute(sql, *args)
@@ -296,7 +288,7 @@ class Manager(Generic[M]):
 
     def select_iter(
         self, query: Query, size: int = 1000
-    ) -> Generator[List[M], Any, None]:
+    ) -> Generator[list[M], Any, None]:
         clause, args = query.clause()
         sql = f"SELECT * FROM {self.table_name} WHERE {clause}"
         result = self.db.execute(sql, *args)
@@ -306,7 +298,7 @@ class Manager(Generic[M]):
             yield [self._item_from_kwargs(**row) for row in rows]
             rows = result.fetchmany(size)
 
-    def select_sql(self, sql: str, *args) -> List[M]:
+    def select_sql(self, sql: str, *args) -> list[M]:
         """
         Performs the given SQL query and converts any returned rows to model objects.
 
@@ -333,7 +325,7 @@ class Manager(Generic[M]):
         except KeyError:
             pass
 
-    def get(self, primary_key: ColumnValueType) -> Optional[M]:
+    def get(self, primary_key: ColumnValueType) -> M | None:
         """
         Gets a model object from database by its primary key. This will return a cached
         value if available and None if no row with the primary key exists.
@@ -472,8 +464,8 @@ class Manager(Generic[M]):
 class ModelBase(type):
     def __new__(mcs, cls_name, bases, namespace, **kwargs):
 
-        columns: List[Column] = []
-        slots: List[str] = []
+        columns: list[Column] = []
+        slots: list[str] = []
 
         # Find all columns in namespace.
         for name, value in namespace.items():
@@ -506,7 +498,7 @@ class Model(metaclass=ModelBase):
     __tablename__: str
     """The name of the database table"""
 
-    __columns__: FrozenSet[Column]
+    __columns__: frozenset[Column]
     """The columns of the database table"""
 
     def __init__(self, **kwargs) -> None:

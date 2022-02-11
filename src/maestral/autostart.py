@@ -9,6 +9,8 @@ provide no option to pass command line arguments to the app. They would therefor
 neither support pip installed packages nor multiple configurations.
 """
 
+from __future__ import annotations
+
 # system imports
 import os
 import os.path as osp
@@ -22,7 +24,6 @@ import plistlib
 import configparser
 from pathlib import Path
 from enum import Enum
-from typing import Optional, Dict
 
 try:
     from importlib.metadata import files, PackageNotFoundError  # type: ignore
@@ -76,9 +77,9 @@ class AutoStartSystemd(AutoStartBase):
         self,
         service_name: str,
         start_cmd: str,
-        unit_dict: Optional[Dict[str, str]] = None,
-        service_dict: Optional[Dict[str, str]] = None,
-        install_dict: Optional[Dict[str, str]] = None,
+        unit_dict: dict[str, str] | None = None,
+        service_dict: dict[str, str] | None = None,
+        install_dict: dict[str, str] | None = None,
     ) -> None:
         super().__init__()
 
@@ -197,7 +198,7 @@ class AutoStartXDGDesktop(AutoStartBase):
     """
 
     def __init__(
-        self, app_name: str, start_cmd: str, filename: Optional[str], **kwargs: str
+        self, app_name: str, start_cmd: str, filename: str | None, **kwargs: str
     ) -> None:
         super().__init__()
 
@@ -244,7 +245,7 @@ class AutoStartXDGDesktop(AutoStartBase):
         return os.path.isfile(self.destination)
 
 
-def get_available_implementation() -> Optional[SupportedImplementations]:
+def get_available_implementation() -> SupportedImplementations | None:
     """Returns the supported implementation depending on the platform."""
 
     system = platform.system()
@@ -272,7 +273,7 @@ def get_maestral_command_path() -> str:
         # we may have had installation issues
         dist_files = []
 
-    path: Optional[os.PathLike]
+    path: os.PathLike | None
 
     if dist_files:
         try:

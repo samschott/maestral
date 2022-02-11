@@ -4,10 +4,12 @@ This module handles desktop notifications It uses the
 backend for cross-platform desktop notifications.
 """
 
+from __future__ import annotations
+
 # system imports
 import time
 import asyncio
-from typing import Optional, Dict, Callable
+from typing import Callable
 
 # external imports
 from desktop_notifier import DesktopNotifier, Urgency, Button
@@ -127,8 +129,8 @@ class MaestralDesktopNotifier:
         title: str,
         message: str,
         level: int = FILECHANGE,
-        on_click: Optional[Callable] = None,
-        actions: Optional[Dict[str, Callable]] = None,
+        on_click: Callable | None = None,
+        actions: dict[str, Callable] | None = None,
     ) -> None:
         """
         Sends a desktop notification. This will schedule a notification task in the
