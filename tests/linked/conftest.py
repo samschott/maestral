@@ -42,11 +42,9 @@ def m():
     refresh_token = os.environ.get("DROPBOX_REFRESH_TOKEN")
 
     if access_token:
-        m.client._init_sdk_with_token(access_token=access_token)
         m.client.auth._access_token = access_token
         m.client.auth._token_access_type = "legacy"
     elif refresh_token:
-        m.client._init_sdk_with_token(refresh_token=refresh_token)
         m.client.auth._refresh_token = refresh_token
         m.client.auth._token_access_type = "offline"
     else:
@@ -73,10 +71,6 @@ def m():
     # create / clean our temporary test folder
 
     sync_test_folder = "/Sync Tests"
-
-    # if isinstance(m.client.account_info.root_info, TeamRootInfo):
-    #     home_path = m.client.account_info.root_info.home_path
-    #     sync_test_folder = home_path + sync_test_folder
 
     m.test_folder_dbx = sync_test_folder
     m.test_folder_local = m.to_local_path(sync_test_folder)
