@@ -29,7 +29,11 @@ from .exceptions import (
     NotFoundError,
     NotLinkedError,
 )
-from .errorhandling import convert_api_errors, dropbox_to_maestral_error
+from .errorhandling import (
+    convert_api_errors,
+    dropbox_to_maestral_error,
+    CONNECTION_ERRORS,
+)
 from .config import MaestralState
 from .constants import DROPBOX_APP_KEY
 from .utils import natural_size, chunks, clamp
@@ -179,7 +183,7 @@ class DropboxClient:
 
             try:
                 self.update_path_root()
-            except ConnectionError:
+            except CONNECTION_ERRORS:
                 self.auth.delete_creds()
                 return OAuth2Session.ConnectionFailed
 
