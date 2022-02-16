@@ -222,15 +222,13 @@ class OAuth2Session:
 
     @property
     def linked(self) -> bool:
-        """Whether we have full auth credentials (read only)."""
+        """Whether we have a valid auth token (read only)."""
 
-        if self.account_id:
+        legacy = self._token_access_type == "legacy" and self.access_token
+        offline = self._token_access_type == "offline" and self.refresh_token
 
-            legacy = self._token_access_type == "legacy" and self.access_token
-            offline = self._token_access_type == "offline" and self.refresh_token
-
-            if legacy or offline:
-                return True
+        if legacy or offline:
+            return True
 
         return False
 
