@@ -73,7 +73,10 @@ def test_file_status(m):
     wait_for_idle(m)
 
     file_status = m.get_file_status(invalid_local_folder)
+    file_status_parent = m.get_file_status(m.test_folder_local)
+
     assert file_status == FileStatus.Error.value
+    assert file_status_parent == FileStatus.Error.value
 
 
 def test_move_dropbox_folder(m):
