@@ -14,7 +14,7 @@ from maestral.utils.path import generate_cc_name, delete
 
 def fake_linked(m: Maestral, account_info: FullAccount):
 
-    m.sync.client.get_account_info = mock.Mock(return_value=account_info)
+    m.sync.client.get_account_info = mock.Mock(return_value=account_info)  # type: ignore
     m.sync.client.auth = mock.Mock()
     m.sync.client.auth.linked = mock.PropertyMock(return_value=True)
     m.sync.client.auth.refresh_token = "1234"
