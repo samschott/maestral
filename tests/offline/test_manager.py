@@ -1,13 +1,24 @@
 import os
 from typing import Dict
+from unittest import mock
 
 import pytest
 from dropbox.users import FullAccount
 from dropbox.common import TeamRootInfo, UserRootInfo
 
+from maestral.main import Maestral
 from maestral.exceptions import NoDropboxDirError
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import generate_cc_name, delete
+
+
+def fake_linked(m: Maestral, account_info: FullAccount):
+
+    m.sync.client.get_account_info = mock.Mock(return_value=account_info)
+    m.sync.client.auth = mock.Mock()
+    m.sync.client.auth.linked = mock.PropertyMock(return_value=True)
+    m.sync.client.auth.refresh_token = "1234"
+    m.sync.client.auth.token_access_type = "offline"
 
 
 def verify_folder_structure(root: str, structure: Dict[str, Dict]) -> None:
@@ -34,16 +45,15 @@ def test_migrate_path_root_user_to_team(m):
 
     # patch client and sync engine
 
-    def get_account_info() -> FullAccount:
-        return FullAccount(
-            root_info=TeamRootInfo(
-                root_namespace_id=new_namespace_id,
-                home_namespace_id="1",
-                home_path=home_path,
-            ),
+    account_info = FullAccount(
+        root_info=TeamRootInfo(
+            root_namespace_id=new_namespace_id,
+            home_namespace_id="1",
+            home_path=home_path,
         )
+    )
 
-    m.client.get_account_info = get_account_info
+    fake_linked(m, account_info)
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
@@ -102,15 +112,14 @@ def test_migrate_path_root_team_to_user(m):
 
     # patch client and sync engine
 
-    def get_account_info() -> FullAccount:
-        return FullAccount(
-            root_info=UserRootInfo(
-                root_namespace_id=new_namespace_id,
-                home_namespace_id=new_namespace_id,
-            ),
-        )
+    account_info = FullAccount(
+        root_info=UserRootInfo(
+            root_namespace_id=new_namespace_id,
+            home_namespace_id=new_namespace_id,
+        ),
+    )
 
-    m.client.get_account_info = get_account_info
+    fake_linked(m, account_info)
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
@@ -173,16 +182,15 @@ def test_migrate_path_root_team_to_team(m):
 
     # patch client and sync engine
 
-    def get_account_info() -> FullAccount:
-        return FullAccount(
-            root_info=TeamRootInfo(
-                root_namespace_id=new_namespace_id,
-                home_namespace_id="1",
-                home_path="/John Doe",
-            ),
-        )
+    account_info = FullAccount(
+        root_info=TeamRootInfo(
+            root_namespace_id=new_namespace_id,
+            home_namespace_id="1",
+            home_path="/John Doe",
+        ),
+    )
 
-    m.client.get_account_info = get_account_info
+    fake_linked(m, account_info)
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
@@ -248,16 +256,15 @@ def test_migrate_path_root_error(m):
 
     # patch client and sync engine
 
-    def get_account_info() -> FullAccount:
-        return FullAccount(
-            root_info=TeamRootInfo(
-                root_namespace_id=new_namespace_id,
-                home_namespace_id="1",
-                home_path=home_path,
-            ),
-        )
+    account_info = FullAccount(
+        root_info=TeamRootInfo(
+            root_namespace_id=new_namespace_id,
+            home_namespace_id="1",
+            home_path=home_path,
+        ),
+    )
 
-    m.client.get_account_info = get_account_info
+    fake_linked(m, account_info)
 
     home = get_home_dir()
     local_dropbox_dir = generate_cc_name(home + "/Dropbox", suffix="test runner")
