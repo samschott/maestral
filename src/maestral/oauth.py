@@ -289,29 +289,6 @@ class OAuth2Session:
         try:
 
             token = self._keyring.get_password("Maestral", self._get_accessor())
-            access_type = self._state.get("auth", "token_access_type")
-
-            if not access_type:
-                # if no token type was saved, we linked with a version < 1.2.0
-                # default to legacy token access type
-                access_type = "legacy"
-                self._state.set("auth", "token_access_type", access_type)
-
-            self._loaded = True
-
-            if token:
-
-                if access_type == "legacy":
-                    self._access_token = token
-                elif access_type == "offline":
-                    self._refresh_token = token
-                else:
-                    msg = "Invalid token access type in state file."
-                    err = RuntimeError("Invalid token access type in state file.")
-                    self._logger.error(msg, exc_info=exc_info_tuple(err))
-                    raise err
-
-                self._token_access_type = access_type
 
         except (KeyringLocked, InitError):
             title = "Could not load auth token"
@@ -327,6 +304,30 @@ class OAuth2Session:
             new_exc = KeyringAccessError(title, e.args[0])
             self._logger.error(title, exc_info=exc_info_tuple(new_exc))
             raise new_exc
+
+        access_type = self._state.get("auth", "token_access_type")
+
+        if not access_type:
+            # if no token type was saved, we linked with a version < 1.2.0
+            # default to legacy token access type
+            access_type = "legacy"
+            self._state.set("auth", "token_access_type", access_type)
+
+        self._loaded = True
+
+        if token:
+
+            if access_type == "legacy":
+                self._access_token = token
+            elif access_type == "offline":
+                self._refresh_token = token
+            else:
+                msg = "Invalid token access type in state file."
+                err = RuntimeError("Invalid token access type in state file.")
+                self._logger.error(msg, exc_info=exc_info_tuple(err))
+                raise err
+
+            self._token_access_type = access_type
 
     def get_auth_url(self) -> str:
         """
@@ -351,20 +352,20 @@ class OAuth2Session:
 
             try:
                 res = self._auth_flow.finish(code)
-
-                self._access_token = res.access_token
-                self._refresh_token = res.refresh_token
-                self._expires_at = res.expires_at
-                self._account_id = res.account_id
-                self._token_access_type = self.default_token_access_type
-
-                self._loaded = True
-
-                return self.Success
             except requests.exceptions.HTTPError:
                 return self.InvalidToken
             except CONNECTION_ERRORS:
                 return self.ConnectionFailed
+
+            self._access_token = res.access_token
+            self._refresh_token = res.refresh_token
+            self._expires_at = res.expires_at
+            self._account_id = res.account_id
+            self._token_access_type = self.default_token_access_type
+
+            self._loaded = True
+
+            return self.Success
 
     def save_creds(self) -> None:
         """
@@ -392,17 +393,17 @@ class OAuth2Session:
                     self._keyring = self._best_keyring_backend()
 
                 self._keyring.set_password("Maestral", self._get_accessor(), token)
-
-                if isinstance(self._keyring, keyrings.alt.file.PlaintextKeyring):
-                    output.warn(
-                        "No supported keyring found, credentials stored in plain text"
-                    )
-                output.ok("Credentials written")
             except Exception:
                 # switch to plain text keyring if we cannot access preferred backend
                 plaintext_keyring = keyrings.alt.file.PlaintextKeyring()
                 self._set_keyring_backend(plaintext_keyring)
                 self.save_creds()
+
+            if isinstance(self._keyring, keyrings.alt.file.PlaintextKeyring):
+                output.warn(
+                    "No supported keyring found, credentials stored in plain text"
+                )
+            output.ok("Credentials written")
 
     def delete_creds(self) -> None:
         """
@@ -423,7 +424,6 @@ class OAuth2Session:
 
                 try:
                     self._keyring.delete_password("Maestral", self._get_accessor())
-                    output.ok("Credentials removed")
                 except (KeyringLocked, InitError):
                     title = "Could not delete auth token"
                     msg = (
@@ -441,6 +441,8 @@ class OAuth2Session:
                     new_exc = KeyringAccessError(title, e.args[0])
                     self._logger.error(title, exc_info=exc_info_tuple(new_exc))
                     raise new_exc
+                else:
+                    output.ok("Credentials removed")
 
             self._set_keyring_backend(None)
 
