@@ -17,9 +17,7 @@ from maestral.utils.path import delete
 @pytest.fixture
 def m():
     m = Maestral("test-config")
-    m.client._init_sdk_with_token(refresh_token="fake")
     m.log_level = logging.DEBUG
-    m._conf.save()
     yield m
     remove_configuration(m.config_name)
 
