@@ -55,7 +55,7 @@ def m():
     m.client.update_path_root()
 
     m.client.auth._account_id = m.client.account_info.account_id
-    m.client.auth.loaded = True
+    m.client.auth._loaded = True
     m.client.auth.save_creds()
 
     # set local Dropbox directory

@@ -122,26 +122,22 @@ class OAuth2Session:
         )
 
         # defer keyring access until token requested by user
-        self.loaded = False
+        self._loaded = False
         self._keyring: KeyringBackend | None = None
         self._access_token: str | None = None
         self._refresh_token: str | None = None
         self._expires_at: datetime | None = None
 
     @property
-    def keyring(self) -> KeyringBackend:
+    def keyring(self) -> KeyringBackend | None:
         """
-        The keyring backend currently being used to store auth tokens. If set to None,
-        the best viable backend will be determined automatically.
+        The keyring backend currently being used to store auth tokens. Will be None if
+        we are not linked or have not yet saved credentials to the keyring after
+        linking.
         """
-
-        if not self._keyring:
-            self._keyring = self._get_keyring_backend()
-
         return self._keyring
 
-    @keyring.setter
-    def keyring(self, ring: KeyringBackend | None) -> None:
+    def _set_keyring_backend(self, ring: KeyringBackend | None) -> None:
 
         if not ring:
             self._conf.set("auth", "keyring", "automatic")
@@ -154,7 +150,7 @@ class OAuth2Session:
 
         self._keyring = ring
 
-    def _get_keyring_backend(self) -> KeyringBackend:
+    def _best_keyring_backend(self) -> KeyringBackend:
         """
         Returns the keyring backend currently used. If none is used because we are not
         yet linked, use the backend specified in the config file (if valid) or choose
@@ -182,8 +178,6 @@ class OAuth2Session:
                 self._logger.error(title, exc_info=exc_info_tuple(new_exc))
                 raise new_exc
 
-            return ring
-
         else:
 
             # We are not yet linked. Try loading the preset or the preferred keyring
@@ -193,7 +187,7 @@ class OAuth2Session:
                 ring = load_keyring(keyring_class)
             except Exception:
 
-                # get preferred keyring backends for platform
+                # Get preferred keyring backends for platform.
                 available_rings = keyring.backend.get_all_keyring()
                 supported_rings = [
                     k
@@ -203,22 +197,10 @@ class OAuth2Session:
 
                 ring = max(supported_rings, key=lambda x: x.priority)
 
-            self._conf.set(
-                "auth",
-                "keyring",
-                f"{ring.__class__.__module__}.{ring.__class__.__name__}",
-            )
-
-            return ring
+        return ring
 
     def _get_accessor(self) -> str:
         return f"config:{self._config_name}:{self._account_id}"
-
-    def _migrate_keyring(self, account_id: str) -> None:
-        token = self.keyring.get_password("Maestral", account_id)
-        if token:
-            self.keyring.set_password("Maestral", self._get_accessor(), token)
-            self.keyring.delete_password("Maestral", account_id)
 
     @property
     def linked(self) -> bool:
@@ -234,9 +216,7 @@ class OAuth2Session:
 
     @property
     def account_id(self) -> str | None:
-        """The account ID (read only). This call may block until the keyring is
-        unlocked."""
-
+        """The account ID of the linked account (read only)."""
         return self._account_id
 
     @property
@@ -247,8 +227,8 @@ class OAuth2Session:
         block until the keyring is unlocked."""
 
         with self._lock:
-            if not self.loaded:
-                self.load_token()
+            if not self._loaded:
+                self._load_token()
 
             return self._token_access_type
 
@@ -261,8 +241,8 @@ class OAuth2Session:
         may block until the keyring is unlocked."""
 
         with self._lock:
-            if not self.loaded:
-                self.load_token()
+            if not self._loaded:
+                self._load_token()
 
             return self._access_token
 
@@ -272,8 +252,8 @@ class OAuth2Session:
         This call may block until the keyring is unlocked."""
 
         with self._lock:
-            if not self.loaded:
-                self.load_token()
+            if not self._loaded:
+                self._load_token()
 
             return self._refresh_token
 
@@ -287,7 +267,7 @@ class OAuth2Session:
 
         return self._expires_at
 
-    def load_token(self) -> None:
+    def _load_token(self) -> None:
         """
         Loads auth token from system keyring. This will be called automatically when
         accessing any of the properties :attr:`linked`, :attr:`access_token`,
@@ -298,16 +278,17 @@ class OAuth2Session:
             be accessed (for example if the app bundle signature has been invalidated).
         """
 
-        self._logger.debug(f"Using keyring: {self.keyring}")
-
         if not self._account_id:
             return
 
+        if not self._keyring:
+            self._keyring = self._best_keyring_backend()
+
+        self._logger.debug(f"Using keyring: {self._keyring}")
+
         try:
 
-            self._migrate_keyring(self._account_id)
-
-            token = self.keyring.get_password("Maestral", self._get_accessor())
+            token = self._keyring.get_password("Maestral", self._get_accessor())
             access_type = self._state.get("auth", "token_access_type")
 
             if not access_type:
@@ -316,7 +297,7 @@ class OAuth2Session:
                 access_type = "legacy"
                 self._state.set("auth", "token_access_type", access_type)
 
-            self.loaded = True
+            self._loaded = True
 
             if token:
 
@@ -334,7 +315,10 @@ class OAuth2Session:
 
         except (KeyringLocked, InitError):
             title = "Could not load auth token"
-            msg = f"{self.keyring.name} is locked. Please unlock the keyring and try again."
+            msg = (
+                f"{self._keyring.name} is locked. Please unlock the keyring "
+                "and try again."
+            )
             new_exc = KeyringAccessError(title, msg)
             self._logger.error(title, exc_info=exc_info_tuple(new_exc))
             raise new_exc
@@ -374,7 +358,7 @@ class OAuth2Session:
                 self._account_id = res.account_id
                 self._token_access_type = self.default_token_access_type
 
-                self.loaded = True
+                self._loaded = True
 
                 return self.Success
             except requests.exceptions.HTTPError:
@@ -403,16 +387,21 @@ class OAuth2Session:
                 raise RuntimeError("No credentials set")
 
             try:
-                self.keyring.set_password("Maestral", self._get_accessor(), token)
 
-                if isinstance(self.keyring, keyrings.alt.file.PlaintextKeyring):
+                if not self._keyring:
+                    self._keyring = self._best_keyring_backend()
+
+                self._keyring.set_password("Maestral", self._get_accessor(), token)
+
+                if isinstance(self._keyring, keyrings.alt.file.PlaintextKeyring):
                     output.warn(
                         "No supported keyring found, credentials stored in plain text"
                     )
                 output.ok("Credentials written")
             except Exception:
                 # switch to plain text keyring if we cannot access preferred backend
-                self.keyring = keyrings.alt.file.PlaintextKeyring()
+                plaintext_keyring = keyrings.alt.file.PlaintextKeyring()
+                self._set_keyring_backend(plaintext_keyring)
                 self.save_creds()
 
     def delete_creds(self) -> None:
@@ -430,25 +419,30 @@ class OAuth2Session:
                 # it may delete all passwords stored by Maestral on some backends
                 return
 
-            try:
-                self.keyring.delete_password("Maestral", self._get_accessor())
-                output.ok("Credentials removed")
-            except (KeyringLocked, InitError):
-                title = "Could not delete auth token"
-                msg = f"{self.keyring.name} is locked. Please unlock the keyring and try again."
-                exc = KeyringAccessError(title, msg)
-                self._logger.error(title, exc_info=exc_info_tuple(exc))
-                raise exc
-            except PasswordDeleteError as exc:
-                # password does not exist in keyring
-                self._logger.info(exc.args[0])
-            except Exception as e:
-                title = "Could not delete auth token"
-                new_exc = KeyringAccessError(title, e.args[0])
-                self._logger.error(title, exc_info=exc_info_tuple(new_exc))
-                raise new_exc
+            if self._keyring:
 
-            self.keyring = None
+                try:
+                    self._keyring.delete_password("Maestral", self._get_accessor())
+                    output.ok("Credentials removed")
+                except (KeyringLocked, InitError):
+                    title = "Could not delete auth token"
+                    msg = (
+                        f"{self._keyring.name} is locked. Please unlock the keyring "
+                        "and try again."
+                    )
+                    exc = KeyringAccessError(title, msg)
+                    self._logger.error(title, exc_info=exc_info_tuple(exc))
+                    raise exc
+                except PasswordDeleteError as exc:
+                    # password does not exist in keyring
+                    self._logger.info(exc.args[0])
+                except Exception as e:
+                    title = "Could not delete auth token"
+                    new_exc = KeyringAccessError(title, e.args[0])
+                    self._logger.error(title, exc_info=exc_info_tuple(new_exc))
+                    raise new_exc
+
+            self._set_keyring_backend(None)
 
             self._conf.set("auth", "account_id", "")
             self._state.set("auth", "token_access_type", "")
@@ -457,6 +451,7 @@ class OAuth2Session:
             self._access_token = None
             self._refresh_token = None
             self._token_access_type = None
+            self._expires_at = None
 
     def __repr__(self) -> str:
         return (
