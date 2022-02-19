@@ -213,7 +213,7 @@ class Maestral:
             self._logger.debug("Could not remove token from keyring", exc_info=True)
 
         try:
-            self.client.auth.delete_creds()
+            self.client.cred_storage.delete_creds()
         except KeyringAccessError:
             self._logger.debug("Could not remove token from keyring", exc_info=True)
 
@@ -1501,9 +1501,9 @@ class Maestral:
 
         while True:
 
-            if self.client.auth.keyring:
+            if self.client.cred_storage.loaded:
 
-                # Only run if we have loaded the keyring, we don't
+                # Only run if we have loaded the access token, we don't
                 # want to trigger any keyring access from here.
 
                 try:
