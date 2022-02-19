@@ -38,7 +38,7 @@ refer to `maestral.app <https://maestral.app>`_.
    autoapi/maestral/manager/index
    autoapi/maestral/models/index
    autoapi/maestral/notify/index
-   autoapi/maestral/oauth/index
+   autoapi/maestral/keyring/index
    autoapi/maestral/sync/index
    autoapi/maestral/utils/index
 
