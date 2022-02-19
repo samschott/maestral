@@ -52,7 +52,10 @@ class SqlFloat(SqlType):
 
 
 class SqlLargeInt(SqlType):
-    """Class to represent large integers > 64bit in SQLite table"""
+    """Class to represent large integers > 64bit in SQLite table
+
+    Integers are stored as text in the database and converted on read / write.
+    """
 
     sql_type = "TEXT"
     py_type = int
