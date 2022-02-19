@@ -56,6 +56,7 @@ autoapi_type = "python"
 autoapi_dirs = ["../src/maestral"]
 autoapi_options = [
     "members",
+    "undoc-members",
     "show-inheritance",
 ]
 autoapi_add_toctree_entry = False

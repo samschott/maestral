@@ -491,8 +491,9 @@ class Model(metaclass=ModelBase):
     Instances of this class are model objects which correspond to rows in the database
     table.
 
-    To define a table, subclass this Model and define :class:`Column`s as class
-    properties. Override the ``__tablename__`` attribute with the actual table name.
+    To define a table, subclass :class:`Model` and define class properties as
+    :class:`Column`. Override the ``__tablename__`` attribute with the SQLite table name
+    to use. The ``__columns__`` attribute will be populated automatically for you.
     """
 
     __tablename__: str

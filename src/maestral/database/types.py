@@ -51,8 +51,9 @@ class SqlPath(SqlType):
     """
     Class to represent Python paths in SQLite table
 
-    This class contains special handling for strings with surrogate escape characters
-    which can appear in badly encoded file names.
+    Paths are stored as bytes in the database to handle characters in the path which
+    cannot be decoded in the reported file system encoding. On the Python side, paths
+    will contain surrogate escapes in place of such characters.
     """
 
     sql_type = "BLOB"
@@ -72,7 +73,10 @@ class SqlPath(SqlType):
 
 
 class SqlEnum(SqlType):
-    """Class to represent Python enums in SQLite table"""
+    """Class to represent Python enums in SQLite table
+
+    Enums are stored as text (attribute name) in the database.
+    """
 
     sql_type = "TEXT"
     py_type = Enum
