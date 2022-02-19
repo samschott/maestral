@@ -68,9 +68,9 @@ intersphinx_mapping = {
     "click": ("https://click.palletsprojects.com/en/latest/", None),
     "dropbox": ("https://dropbox-sdk-python.readthedocs.io/en/latest/", None),
     "fasteners": ("https://fasteners.readthedocs.io/en/latest/", None),
+    "keyring": ("https://keyring.readthedocs.io/en/latest/", None),
     "Pyro5": ("https://pyro5.readthedocs.io/en/latest/", None),
     "python": ("https://docs.python.org/3/", None),
-    "requests": ("https://requests.readthedocs.io/en/master/", None),
-    "sqlalchemy": ("https://docs.sqlalchemy.org/en/latest/", None),
+    "requests": ("https://docs.python-requests.org/en/master/", None),
     "watchdog": ("https://python-watchdog.readthedocs.io/en/latest/", None),
 }

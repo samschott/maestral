@@ -48,8 +48,13 @@ CONNECTION_ERRORS = (
 
 
 class TokenType(enum.Enum):
+    """Enumeration of token types"""
+
     Offline = "offline"
+    """Long-lived refresh-token to generate short-lived access tokens"""
+
     Legacy = "legacy"
+    """Long-lived access token"""
 
 
 class CredentialStorage:
