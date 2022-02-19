@@ -10,15 +10,13 @@ from maestral.main import Maestral
 from maestral.exceptions import NoDropboxDirError
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import generate_cc_name, delete
+from maestral.keyring import TokenType
 
 
 def fake_linked(m: Maestral, account_info: FullAccount):
 
     m.sync.client.get_account_info = mock.Mock(return_value=account_info)  # type: ignore
-    m.sync.client.auth = mock.Mock()
-    m.sync.client.auth.linked = mock.PropertyMock(return_value=True)
-    m.sync.client.auth.refresh_token = "1234"
-    m.sync.client.auth.token_access_type = "offline"
+    m.sync.client.cred_storage.save_creds("account_id", "1234", TokenType.Offline)
 
 
 def verify_folder_structure(root: str, structure: Dict[str, Dict]) -> None:

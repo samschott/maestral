@@ -18,10 +18,11 @@ from typing import Callable, Any, Iterator, TypeVar, Union, TYPE_CHECKING
 import requests
 from dropbox import Dropbox, create_session, files, sharing, users, exceptions, common
 from dropbox.common import PathRoot
+from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 
 # local imports
 from . import __version__
-from .oauth import OAuth2Session
+from .keyring import CredentialStorage, TokenType
 from .exceptions import (
     MaestralApiError,
     SyncError,
@@ -92,7 +93,8 @@ class DropboxClient:
     ) -> None:
 
         self.config_name = config_name
-        self.auth = OAuth2Session(config_name)
+        self._auth_flow: DropboxOAuth2FlowNoRedirect | None = None
+        self.cred_storage = CredentialStorage(config_name)
 
         self._state = MaestralState(config_name)
         self._logger = logging.getLogger(__name__)
@@ -140,17 +142,16 @@ class DropboxClient:
         if self._dbx and self._dbx_base:
             return True
 
-        elif self.auth.linked:  # This will trigger keyring access on first call.
+        elif self.cred_storage.token:  # This will trigger keyring access on first call.
 
-            if self.auth.token_access_type == "legacy":
-                self._init_sdk_with_token(access_token=self.auth.access_token)
+            if self.cred_storage.token_type is TokenType.Legacy:
+                self._init_sdk_with_token(access_token=self.cred_storage.token)
             else:
-                self._init_sdk_with_token(refresh_token=self.auth.refresh_token)
+                self._init_sdk_with_token(refresh_token=self.cred_storage.token)
 
             return True
 
-        else:
-            return False
+        return False
 
     def get_auth_url(self) -> str:
         """
@@ -160,7 +161,12 @@ class DropboxClient:
 
         :returns: URL to retrieve an OAuth token.
         """
-        return self.auth.get_auth_url()
+        self._auth_flow = DropboxOAuth2FlowNoRedirect(
+            consumer_key=DROPBOX_APP_KEY,
+            token_access_type="offline",
+            use_pkce=True,
+        )
+        return self._auth_flow.start()
 
     def link(self, token: str) -> int:
         """
@@ -171,25 +177,33 @@ class DropboxClient:
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
 
-        res = self.auth.verify_auth_token(token)
+        if not self._auth_flow:
+            raise RuntimeError("Please start auth flow with 'get_auth_url' first")
 
-        if res == OAuth2Session.Success:
+        try:
+            res = self._auth_flow.finish(token)
+        except requests.exceptions.HTTPError:
+            return 1
+        except CONNECTION_ERRORS:
+            return 2
 
-            self._init_sdk_with_token(
-                refresh_token=self.auth.refresh_token,
-                access_token=self.auth.access_token,
-                access_token_expiration=self.auth.access_token_expiration,
-            )
+        self._init_sdk_with_token(
+            refresh_token=res.refresh_token,
+            access_token=res.access_token,
+            access_token_expiration=res.expires_at,
+        )
 
-            try:
-                self.update_path_root()
-            except CONNECTION_ERRORS:
-                self.auth.delete_creds()
-                return OAuth2Session.ConnectionFailed
+        try:
+            self.update_path_root()
+        except CONNECTION_ERRORS:
+            return 2
 
-            self.auth.save_creds()
+        self.cred_storage.save_creds(
+            res.account_id, res.refresh_token, TokenType.Offline
+        )
+        self._auth_flow = None
 
-        return res
+        return 0
 
     def unlink(self) -> None:
         """
@@ -203,7 +217,7 @@ class DropboxClient:
 
         with convert_api_errors():
             self.dbx_base.auth_token_revoke()
-            self.auth.delete_creds()
+            self.cred_storage.delete_creds()
 
     def _init_sdk_with_token(
         self,

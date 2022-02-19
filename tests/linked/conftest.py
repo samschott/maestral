@@ -22,6 +22,7 @@ from maestral.utils.path import (
 from maestral.utils.appdirs import get_home_dir
 from maestral.daemon import MaestralProxy
 from maestral.daemon import start_maestral_daemon_process, stop_maestral_daemon_process
+from maestral.keyring import TokenType
 
 
 resources = os.path.dirname(__file__) + "/resources"
@@ -42,21 +43,20 @@ def m():
     refresh_token = os.environ.get("DROPBOX_REFRESH_TOKEN")
 
     if access_token:
-        m.client.auth._access_token = access_token
-        m.client.auth._token_access_type = "legacy"
+        m.client.cred_storage.save_creds("", access_token, TokenType.Legacy)
     elif refresh_token:
-        m.client.auth._refresh_token = refresh_token
-        m.client.auth._token_access_type = "offline"
+        m.client.cred_storage.save_creds("", refresh_token, TokenType.Offline)
     else:
         raise RuntimeError(
             "Either access token or refresh token must be given as environment "
             "variable DROPBOX_ACCESS_TOKEN or DROPBOX_REFRESH_TOKEN."
         )
     m.client.update_path_root()
-
-    m.client.auth._account_id = m.client.account_info.account_id
-    m.client.auth._loaded = True
-    m.client.auth.save_creds()
+    m.client.cred_storage.save_creds(
+        m.client.account_info.account_id,
+        m.client.cred_storage.token,
+        m.client.cred_storage.token_type,
+    )
 
     # set local Dropbox directory
     home = get_home_dir()
@@ -115,7 +115,7 @@ def m():
             pass
 
     # remove creds from system keyring
-    m.client.auth.delete_creds()
+    m.client.cred_storage.delete_creds()
 
     # remove local files and folders
     delete(m.dropbox_path)
