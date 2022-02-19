@@ -41,22 +41,10 @@ def m():
     # link with given token and store auth info in keyring for other processes
     access_token = os.environ.get("DROPBOX_ACCESS_TOKEN")
     refresh_token = os.environ.get("DROPBOX_REFRESH_TOKEN")
-
-    if access_token:
-        m.client.cred_storage.save_creds("", access_token, TokenType.Legacy)
-    elif refresh_token:
-        m.client.cred_storage.save_creds("", refresh_token, TokenType.Offline)
-    else:
-        raise RuntimeError(
-            "Either access token or refresh token must be given as environment "
-            "variable DROPBOX_ACCESS_TOKEN or DROPBOX_REFRESH_TOKEN."
-        )
+    token = access_token or refresh_token
+    token_type = TokenType.Legacy if access_token else TokenType.Offline
+    m.client.cred_storage.save_creds("1234", token, token_type)
     m.client.update_path_root()
-    m.client.cred_storage.save_creds(
-        m.client.account_info.account_id,
-        m.client.cred_storage.token,
-        m.client.cred_storage.token_type,
-    )
 
     # set local Dropbox directory
     home = get_home_dir()
