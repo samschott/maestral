@@ -89,14 +89,13 @@ class CredentialStorage:
         self._account_id: str | None = None
         self._token_type: TokenType | None = None
         self._loaded = False
-        self._keyring: KeyringBackend | None = None
+        self._keyring = self._keyring_from_config()
 
     @property
     def keyring(self) -> KeyringBackend | None:
         """
         The keyring backend currently being used to store auth tokens. Will be None if
-        we are not linked or have not yet saved credentials to the keyring after
-        linking.
+        we are not linked.
         """
         return self._keyring
 
@@ -120,42 +119,42 @@ class CredentialStorage:
 
         self._keyring = ring
 
+    def _keyring_from_config(self) -> KeyringBackend | None:
+        """Initialise keyring specified in config."""
+
+        keyring_class: str = self._conf.get("auth", "keyring").strip()
+
+        if keyring_class == "automatic":
+            return None
+
+        try:
+            return load_keyring(keyring_class)
+        except Exception as exc:
+            # Bomb out with an exception.
+
+            title = f"Cannot load keyring {keyring_class}"
+            message = "Please relink Maestral to get a new access token."
+            new_exc = KeyringAccessError(title, message).with_traceback(
+                exc.__traceback__
+            )
+            self._logger.error(title, exc_info=exc_info_tuple(new_exc))
+            raise new_exc
+
     def _best_keyring_backend(self) -> KeyringBackend:
         """
-        Returns the keyring backend currently used. If none is used because we are not
-        yet linked, use the backend specified in the config file (if valid) or choose
-        the most secure of the available and supported keyring backends.
+        Find and initialise the most secure of the available and supported keyring
+        backends.
         """
 
         import keyring.backends
 
-        keyring_class: str = self._conf.get("auth", "keyring").strip()
+        # Get preferred keyring backends for platform.
+        available_rings = keyring.backend.get_all_keyring()
+        supported_rings = [
+            k for k in available_rings if isinstance(k, supported_keyring_backends)
+        ]
 
-        if keyring_class != "automatic":
-            # We are already have a keyring set. Insist on using the recorded backend.
-
-            try:
-                ring = load_keyring(keyring_class)
-            except Exception as exc:
-                # Bomb out with an exception.
-
-                title = f"Cannot load keyring {keyring_class}"
-                message = "Please relink Maestral to get a new access token."
-                new_exc = KeyringAccessError(title, message).with_traceback(
-                    exc.__traceback__
-                )
-                self._logger.error(title, exc_info=exc_info_tuple(new_exc))
-                raise new_exc
-
-        else:
-
-            # Get preferred keyring backends for platform.
-            available_rings = keyring.backend.get_all_keyring()
-            supported_rings = [
-                k for k in available_rings if isinstance(k, supported_keyring_backends)
-            ]
-
-            ring = max(supported_rings, key=lambda x: x.priority)
+        ring = max(supported_rings, key=lambda x: x.priority)
 
         return ring
 
@@ -164,8 +163,9 @@ class CredentialStorage:
 
     @property
     def loaded(self) -> bool:
-        """Whether we have a valid auth token (read only). This call may block until the
-        keyring is unlocked."""
+        """Whether we have already loaded the credentials. This will be true after
+        calling :meth:`load_creds` or accessing the any of the auth credentials through
+        instance properties."""
         return self._loaded
 
     @property
@@ -265,18 +265,21 @@ class CredentialStorage:
 
         with self._lock:
 
-            if not self._keyring:
-                self._keyring = self._best_keyring_backend()
+            if self._keyring:
+                keyring = self._keyring
+            else:
+                keyring = self._best_keyring_backend()
 
             accessor = self._get_accessor(account_id)
 
             try:
-                self._keyring.set_password("Maestral", accessor, token)
+                keyring.set_password("Maestral", accessor, token)
             except Exception:
                 # switch to plain text keyring if we cannot access preferred backend
-                plaintext_keyring = keyrings.alt.file.PlaintextKeyring()
-                self.set_keyring_backend(plaintext_keyring)
-                self.save_creds(account_id, token, token_type)
+                keyring = keyrings.alt.file.PlaintextKeyring()
+                keyring.set_password("Maestral", accessor, token)
+
+            self.set_keyring_backend(keyring)
 
             self._conf.set("auth", "account_id", account_id)
             self._state.set("auth", "token_access_type", token_type.value)
@@ -286,10 +289,8 @@ class CredentialStorage:
             self._token = token
             self._loaded = True
 
-            if isinstance(self._keyring, keyrings.alt.file.PlaintextKeyring):
-                output.warn(
-                    "No supported keyring found, credentials stored in plain text"
-                )
+            if isinstance(keyring, keyrings.alt.file.PlaintextKeyring):
+                output.warn("No keyring found, credentials stored in plain text")
             output.ok("Credentials written")
 
     def delete_creds(self) -> None:
@@ -331,6 +332,7 @@ class CredentialStorage:
             self.set_keyring_backend(None)
 
             self._conf.set("auth", "account_id", "")
+            self._state.set("auth", "token_access_type", "")
             self._account_id = None
             self._token = None
             self._token_type = None
