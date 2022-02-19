@@ -86,8 +86,6 @@ class CredentialStorage:
 
         # defer keyring access until token requested by user
         self._token: str | None = None
-        self._account_id: str | None = None
-        self._token_type: TokenType | None = None
         self._loaded = False
         self._keyring = self._keyring_from_config()
 
@@ -137,7 +135,6 @@ class CredentialStorage:
             new_exc = KeyringAccessError(title, message).with_traceback(
                 exc.__traceback__
             )
-            self._logger.error(title, exc_info=exc_info_tuple(new_exc))
             raise new_exc
 
     def _best_keyring_backend(self) -> KeyringBackend:
@@ -176,10 +173,14 @@ class CredentialStorage:
         until the keyring is unlocked."""
 
         with self._lock:
-            if not self._loaded:
-                self.load_creds()
+            token_access_type = self._state.get("auth", "token_access_type")
 
-            return self._token_type
+            if token_access_type == "offline":
+                return TokenType.Offline
+            elif token_access_type == "legacy":
+                return TokenType.Legacy
+
+            return None
 
     @property
     def token(self) -> str | None:
@@ -194,14 +195,10 @@ class CredentialStorage:
 
     @property
     def account_id(self) -> str | None:
-        """The saved account id (read only). This call may block until the keyring is
-        unlocked."""
+        """The saved account id (read only)."""
 
         with self._lock:
-            if not self._loaded:
-                self.load_creds()
-
-            return self._account_id
+            return self._conf.get("auth", "account_id") or None
 
     def load_creds(self) -> None:
         """
@@ -213,22 +210,21 @@ class CredentialStorage:
             be accessed (for example if the app bundle signature has been invalidated).
         """
 
-        if not self._keyring:
+        if not (self.keyring and self.account_id):
             return
 
-        self._logger.debug(f"Using keyring: {self._keyring}")
+        self._logger.debug(f"Using keyring: {self.keyring}")
 
-        account_id = self._conf.get("auth", "account_id")
-        accessor = self._get_accessor(account_id)
+        accessor = self._get_accessor(self.account_id)
 
         try:
 
-            token = self._keyring.get_password("Maestral", accessor)
+            token = self.keyring.get_password("Maestral", accessor)
 
         except (KeyringLocked, InitError):
             title = "Could not load auth token"
             msg = (
-                f"{self._keyring.name} is locked. Please unlock the keyring "
+                f"{self.keyring.name} is locked. Please unlock the keyring "
                 "and try again."
             )
             new_exc = KeyringAccessError(title, msg)
@@ -241,16 +237,7 @@ class CredentialStorage:
             raise new_exc
 
         if token:
-            self._account_id = account_id
             self._token = token
-
-            token_access_type = self._state.get("auth", "token_access_type")
-
-            if token_access_type == "offline":
-                self._token_type = TokenType.Offline
-            elif token_access_type == "legacy":
-                self._token_type = TokenType.Legacy
-
             self._loaded = True
 
     def save_creds(self, account_id: str, token: str, token_type: TokenType) -> None:
@@ -284,13 +271,12 @@ class CredentialStorage:
             self._conf.set("auth", "account_id", account_id)
             self._state.set("auth", "token_access_type", token_type.value)
 
-            self._account_id = account_id
-            self._token_type = token_type
             self._token = token
             self._loaded = True
 
             if isinstance(keyring, keyrings.alt.file.PlaintextKeyring):
                 output.warn("No keyring found, credentials stored in plain text")
+
             output.ok("Credentials written")
 
     def delete_creds(self) -> None:
@@ -303,16 +289,16 @@ class CredentialStorage:
 
         with self._lock:
 
-            if self._keyring and self._account_id:
+            if self.keyring and self.account_id:
 
-                accessor = self._get_accessor(self._account_id)
+                accessor = self._get_accessor(self.account_id)
 
                 try:
-                    self._keyring.delete_password("Maestral", accessor)
+                    self.keyring.delete_password("Maestral", accessor)
                 except (KeyringLocked, InitError):
                     title = "Could not delete auth token"
                     msg = (
-                        f"{self._keyring.name} is locked. Please unlock the keyring "
+                        f"{self.keyring.name} is locked. Please unlock the keyring "
                         "and try again."
                     )
                     exc = KeyringAccessError(title, msg)
@@ -333,9 +319,7 @@ class CredentialStorage:
 
             self._conf.set("auth", "account_id", "")
             self._state.set("auth", "token_access_type", "")
-            self._account_id = None
             self._token = None
-            self._token_type = None
             self._loaded = False
 
     def __repr__(self) -> str:
