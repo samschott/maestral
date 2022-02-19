@@ -53,9 +53,9 @@ class TokenType(enum.Enum):
 
 
 class CredentialStorage:
-    """Provides an interface to store credentials in a system keyring
+    """Provides a threadsafe interface to store credentials in a system keyring
 
-    OAuth2Session provides token store in the preferred system keyring. Supported
+    CredentialStorage provides token store in the preferred system keyring. Supported
     keyring backends are, in order of preference:
 
         * macOS Keychain
@@ -63,9 +63,8 @@ class CredentialStorage:
         * KWallet
         * Plain text storage
 
-    .. note:: Once the token has been stored with a keyring backend, that backend will be
-        saved in the config file and remembered until the user unlinks the account. This
-        module will therefore never switch keyring backends while linked.
+    .. note:: Once the token has been stored with a keyring backend, that backend will
+        be saved in the config file and remembered until deleting the credentials.
 
     .. warning:: Unlike macOS Keychain, Gnome Keyring and KWallet do not support
         app-specific access to passwords. If the user unlocks those keyrings, we and any
@@ -138,8 +137,7 @@ class CredentialStorage:
             raise new_exc
 
     def _best_keyring_backend(self) -> KeyringBackend:
-        """
-        Find and initialise the most secure of the available and supported keyring
+        """Find and initialise the most secure of the available and supported keyring
         backends.
         """
 
@@ -168,9 +166,8 @@ class CredentialStorage:
     @property
     def token_type(self) -> TokenType | None:
         """The type of token (read only). If 'legacy', we have a long-lived access
-        token. If 'offline', we have a short-lived access token with an expiry time and
-        a long-lived refresh token to generate new access tokens. This call may block
-        until the keyring is unlocked."""
+        token. If 'offline', we have a long-lived refresh token which can be used to
+        generate new short-lived access tokens."""
 
         with self._lock:
             token_access_type = self._state.get("auth", "token_access_type")
@@ -184,7 +181,7 @@ class CredentialStorage:
 
     @property
     def token(self) -> str | None:
-        """The saved token (read only). This call may block until the keyring is
+        """The saved token (read only). This call will block until the keyring is
         unlocked."""
 
         with self._lock:
@@ -203,8 +200,8 @@ class CredentialStorage:
     def load_creds(self) -> None:
         """
         Loads auth token from system keyring. This will be called automatically when
-        accessing the properties :attr:`linked` or :attr:`access_token`. This call may
-        block until the keyring is unlocked.
+        accessing the :attr:`token` property. This call will block until the keyring is
+        unlocked.
 
         :raises KeyringAccessError: if the system keyring is locked or otherwise cannot
             be accessed (for example if the app bundle signature has been invalidated).
