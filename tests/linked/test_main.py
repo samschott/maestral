@@ -420,8 +420,15 @@ def test_inotify_error(m):
         return
 
     try:
+
         m.stop_sync()
         wait_for_idle(m)
+
+        # create some folders for us to watch
+        os.mkdir(m.dropbox_path + "/folder 1")
+        os.mkdir(m.dropbox_path + "/folder 2")
+        os.mkdir(m.dropbox_path + "/folder 3")
+
         m.start_sync()
 
         assert len(m.fatal_errors) == 1
