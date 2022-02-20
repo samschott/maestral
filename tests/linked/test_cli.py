@@ -77,9 +77,9 @@ def test_status(proxy):
 def test_filestatus(proxy):
     runner = CliRunner()
 
-    local_path = proxy.to_local_path(proxy._test_folder_dbx)
-
-    result = runner.invoke(main, ["filestatus", local_path, "-c", proxy.config_name])
+    result = runner.invoke(
+        main, ["filestatus", proxy.dropbox_path, "-c", proxy.config_name]
+    )
 
     assert result.exit_code == 0
     assert result.output == "unwatched\n"
@@ -87,7 +87,9 @@ def test_filestatus(proxy):
     proxy.start_sync()
     wait_for_idle(proxy)
 
-    result = runner.invoke(main, ["filestatus", local_path, "-c", proxy.config_name])
+    result = runner.invoke(
+        main, ["filestatus", proxy.dropbox_path, "-c", proxy.config_name]
+    )
 
     assert result.exit_code == 0
     assert result.output == "up to date\n"
@@ -99,7 +101,7 @@ def test_history(proxy):
     wait_for_idle(proxy)
 
     # lets make history
-    dbx_path = f"{proxy._test_folder_dbx}/new_file.txt"
+    dbx_path = "/new_file.txt"
     local_path = proxy.to_local_path(dbx_path)
 
     with open(local_path, "a") as f:
@@ -114,12 +116,8 @@ def test_history(proxy):
     lines = result.output.strip().split("\n")
 
     assert result.exit_code == 0
-    # last entry will be test.lock with change time in the future
-    assert "/test.lock" in lines[-1]
+    assert dbx_path in lines[-1]
     assert "added" in lines[-1]
-    # then comes our own file
-    assert dbx_path in lines[-2]
-    assert "added" in lines[-2]
 
 
 def test_ls(proxy):

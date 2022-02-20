@@ -14,7 +14,7 @@ from maestral.exceptions import (
     SyncError,
 )
 from maestral.constants import FileStatus, IDLE
-from maestral.utils.path import delete, normalize
+from maestral.utils.path import delete
 from maestral.utils.integration import get_inotify_limits
 
 from .conftest import wait_for_idle, resources
@@ -46,7 +46,7 @@ def test_status_properties(m):
 def test_file_status(m):
 
     # test synced folder
-    file_status = m.get_file_status(m.test_folder_local)
+    file_status = m.get_file_status(m.dropbox_path)
     assert file_status == FileStatus.Synced.value
 
     # test unwatched outside of dropbox
@@ -61,19 +61,19 @@ def test_file_status(m):
     m.stop_sync()
     wait_for_idle(m)
 
-    file_status = m.get_file_status(m.test_folder_local)
+    file_status = m.get_file_status(m.dropbox_path)
     assert file_status == FileStatus.Unwatched.value
 
     m.start_sync()
     wait_for_idle(m)
 
     # test error status
-    invalid_local_folder = m.test_folder_local + "/test_folder\\"
+    invalid_local_folder = m.dropbox_path + "/test_folder\\"
     os.mkdir(invalid_local_folder)
     wait_for_idle(m)
 
     file_status = m.get_file_status(invalid_local_folder)
-    file_status_parent = m.get_file_status(m.test_folder_local)
+    file_status_parent = m.get_file_status(m.dropbox_path)
 
     assert file_status == FileStatus.Error.value
     assert file_status_parent == FileStatus.Error.value
@@ -129,13 +129,11 @@ def test_selective_sync_api(m):
     :meth:`Maestral.excluded_status` and :meth:`Maestral.excluded_items`.
     """
 
-    test_folder_lower = normalize(m.test_folder_dbx)
-
     dbx_dirs = [
-        f"{m.test_folder_dbx}/selective_sync_test_folder",
-        f"{m.test_folder_dbx}/independent_folder",
-        f"{m.test_folder_dbx}/selective_sync_test_folder/subfolder_0",
-        f"{m.test_folder_dbx}/selective_sync_test_folder/subfolder_1",
+        "/selective_sync_test_folder",
+        "/independent_folder",
+        "/selective_sync_test_folder/subfolder_0",
+        "/selective_sync_test_folder/subfolder_1",
     ]
 
     local_dirs = [m.to_local_path(dbx_path) for dbx_path in dbx_dirs]
@@ -146,42 +144,32 @@ def test_selective_sync_api(m):
 
     wait_for_idle(m)
 
-    # exclude "{m.test_folder_dbx}/selective_sync_test_folder" from sync
-    m.exclude_item(f"{m.test_folder_dbx}/selective_sync_test_folder")
+    # exclude "/selective_sync_test_folder" from sync
+    m.exclude_item("/selective_sync_test_folder")
     wait_for_idle(m)
 
     # check that local items have been deleted
-    assert not osp.exists(
-        m.to_local_path(f"{m.test_folder_dbx}/selective_sync_test_folder")
-    )
+    assert not osp.exists(m.to_local_path("/selective_sync_test_folder"))
 
     # check that `Maestral.excluded_items` only contains top-level folder
-    assert f"{test_folder_lower}/selective_sync_test_folder" in m.excluded_items
-    assert (
-        f"{test_folder_lower}/selective_sync_test_folder/subfolder_0"
-        not in m.excluded_items
-    )
-    assert (
-        f"{test_folder_lower}/selective_sync_test_folder/subfolder_1"
-        not in m.excluded_items
-    )
+    assert "/selective_sync_test_folder" in m.excluded_items
+    assert "/selective_sync_test_folder/subfolder_0" not in m.excluded_items
+    assert "/selective_sync_test_folder/subfolder_1" not in m.excluded_items
 
     # check that `Maestral.excluded_status` returns the correct values
-    assert m.excluded_status(f"{m.test_folder_dbx}") == "partially excluded"
-    assert m.excluded_status(f"{m.test_folder_dbx}/independent_folder") == "included"
+    assert m.excluded_status("") == "partially excluded"
+    assert m.excluded_status("/independent_folder") == "included"
 
     for dbx_path in dbx_dirs:
-        if dbx_path != f"{m.test_folder_dbx}/independent_folder":
+        if dbx_path != "/independent_folder":
             assert m.excluded_status(dbx_path) == "excluded"
 
     # include folder in sync, check that it worked
-    m.include_item(f"{m.test_folder_dbx}/selective_sync_test_folder")
+    m.include_item("/selective_sync_test_folder")
     wait_for_idle(m)
 
-    assert osp.exists(
-        m.to_local_path(f"{m.test_folder_dbx}/selective_sync_test_folder")
-    )
-    assert f"{test_folder_lower}/selective_sync_test_folder" not in m.excluded_items
+    assert osp.exists(m.to_local_path("/selective_sync_test_folder"))
+    assert "/selective_sync_test_folder" not in m.excluded_items
 
     for dbx_path in dbx_dirs:
         assert m.excluded_status(dbx_path) == "included"
@@ -197,13 +185,11 @@ def test_selective_sync_api(m):
 def test_selective_sync_api_global(m):
     """Test :meth:`Maestral.exclude_items` to change all items at once."""
 
-    test_folder_lower = normalize(m.test_folder_dbx)
-
     dbx_dirs = [
-        f"{m.test_folder_dbx}/selective_sync_test_folder",
-        f"{m.test_folder_dbx}/independent_folder",
-        f"{m.test_folder_dbx}/selective_sync_test_folder/subfolder_0",
-        f"{m.test_folder_dbx}/selective_sync_test_folder/subfolder_1",
+        "/selective_sync_test_folder",
+        "/independent_folder",
+        "/selective_sync_test_folder/subfolder_0",
+        "/selective_sync_test_folder/subfolder_1",
     ]
 
     local_dirs = [m.to_local_path(dbx_path) for dbx_path in dbx_dirs]
@@ -214,34 +200,26 @@ def test_selective_sync_api_global(m):
 
     wait_for_idle(m)
 
-    # exclude "{m.test_folder_dbx}/selective_sync_test_folder" and one child from sync
+    # exclude "/selective_sync_test_folder" and one child from sync
     m.excluded_items = [
-        f"{m.test_folder_dbx}/selective_sync_test_folder",
-        f"{m.test_folder_dbx}/selective_sync_test_folder/subfolder_0",
+        "/selective_sync_test_folder",
+        "/selective_sync_test_folder/subfolder_0",
     ]
     wait_for_idle(m)
 
     # check that local items have been deleted
-    assert not osp.exists(
-        m.to_local_path(f"{m.test_folder_dbx}/selective_sync_test_folder")
-    )
+    assert not osp.exists(m.to_local_path("/selective_sync_test_folder"))
 
     # check that `Maestral.excluded_items` has been updated correctly
-    assert m.excluded_items == [f"{test_folder_lower}/selective_sync_test_folder"]
+    assert m.excluded_items == ["/selective_sync_test_folder"]
 
     # exclude only child folder from sync, check that it worked
-    m.excluded_items = [f"{m.test_folder_dbx}/selective_sync_test_folder/subfolder_0"]
+    m.excluded_items = ["/selective_sync_test_folder/subfolder_0"]
     wait_for_idle(m)
 
-    assert osp.exists(
-        m.to_local_path(f"{m.test_folder_dbx}/selective_sync_test_folder")
-    )
-    assert osp.exists(
-        m.to_local_path(f"{m.test_folder_dbx}/selective_sync_test_folder/subfolder_1")
-    )
-    assert m.excluded_items == [
-        f"{test_folder_lower}/selective_sync_test_folder/subfolder_0"
-    ]
+    assert osp.exists(m.to_local_path("/selective_sync_test_folder"))
+    assert osp.exists(m.to_local_path("/selective_sync_test_folder/subfolder_1"))
+    assert m.excluded_items == ["/selective_sync_test_folder/subfolder_0"]
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -250,13 +228,11 @@ def test_selective_sync_api_global(m):
 def test_selective_sync_api_nested(m):
     """Tests special cases of nested selected sync changes."""
 
-    test_folder_lower = normalize(m.test_folder_dbx)
-
     dbx_dirs = [
-        f"{m.test_folder_dbx}/selective_sync_test_folder",
-        f"{m.test_folder_dbx}/independent_folder",
-        f"{m.test_folder_dbx}/selective_sync_test_folder/subfolder_0",
-        f"{m.test_folder_dbx}/selective_sync_test_folder/subfolder_1",
+        "/selective_sync_test_folder",
+        "/independent_folder",
+        "/selective_sync_test_folder/subfolder_0",
+        "/selective_sync_test_folder/subfolder_1",
     ]
 
     local_dirs = [m.to_local_path(dbx_path) for dbx_path in dbx_dirs]
@@ -267,20 +243,17 @@ def test_selective_sync_api_nested(m):
 
     wait_for_idle(m)
 
-    # exclude "{m.test_folder_dbx}/selective_sync_test_folder" from sync
-    m.exclude_item(f"{m.test_folder_dbx}/selective_sync_test_folder")
+    # exclude "/selective_sync_test_folder" from sync
+    m.exclude_item("/selective_sync_test_folder")
     wait_for_idle(m)
 
-    # test including a folder inside "{m.test_folder_dbx}/selective_sync_test_folder",
-    # "{m.test_folder_dbx}/selective_sync_test_folder" should become included itself but it
-    # other children will still be excluded
-    m.include_item(f"{m.test_folder_dbx}/selective_sync_test_folder/subfolder_0")
+    # test including a folder inside "/selective_sync_test_folder",
+    # "/selective_sync_test_folder" should become included itself but
+    # its other children will still be excluded
+    m.include_item("/selective_sync_test_folder/subfolder_0")
 
-    assert f"{test_folder_lower}/selective_sync_test_folder" not in m.excluded_items
-    assert (
-        f"{test_folder_lower}/selective_sync_test_folder/subfolder_1"
-        in m.excluded_items
-    )
+    assert "/selective_sync_test_folder" not in m.excluded_items
+    assert "/selective_sync_test_folder/subfolder_1" in m.excluded_items
 
     # check for fatal errors
     assert not m.fatal_errors
@@ -301,9 +274,9 @@ def test_create_file_diff(m):
         wait_for_idle(m)
         return m.client.get_metadata(dbx_path).rev
 
-    dbx_path_success = f"{m.test_folder_dbx}/file.txt"
-    dbx_path_fail_pdf = f"{m.test_folder_dbx}/diff.pdf"
-    dbx_path_fail_ext = f"{m.test_folder_dbx}/bin.txt"
+    dbx_path_success = "/file.txt"
+    dbx_path_fail_pdf = "/diff.pdf"
+    dbx_path_fail_ext = "/bin.txt"
 
     with pytest.raises(UnsupportedFileTypeForDiff):
         # Write some dummy stuff to create two revs
@@ -313,7 +286,7 @@ def test_create_file_diff(m):
 
     with pytest.raises(UnsupportedFileTypeForDiff):
         # Add a compiled helloworld c file with .txt extension
-        shutil.copy(resources + "/bin.txt", m.test_folder_local)
+        shutil.copy(resources + "/bin.txt", m.dropbox_path)
         wait_for_idle(m)
         old_rev = m.client.get_metadata(dbx_path_fail_ext).rev
         # Just some bytes
@@ -330,7 +303,7 @@ def test_create_file_diff(m):
 def test_restore(m):
     """Tests restoring an old revision"""
 
-    dbx_path = f"{m.test_folder_dbx}/file.txt"
+    dbx_path = "/file.txt"
     local_path = m.to_local_path(dbx_path)
 
     # create a local file and sync it, remember its rev
@@ -372,15 +345,13 @@ def test_restore_failed(m):
     """Tests restoring a non-existing file"""
 
     with pytest.raises(NotFoundError):
-        m.restore(
-            f"{m.test_folder_dbx}/restored-file", "015982ea314dac40000000154e40990"
-        )
+        m.restore("/restored-file", "015982ea314dac40000000154e40990")
 
 
 def test_sharedlink_lifecycle(m):
 
     # create a folder to share
-    dbx_path = f"{m.test_folder_dbx}/shared_folder"
+    dbx_path = "/shared_folder"
     m.client.make_dir(dbx_path)
 
     # test creating a shared link
@@ -400,7 +371,7 @@ def test_sharedlink_lifecycle(m):
 
 def test_sharedlink_errors(m):
 
-    dbx_path = f"{m.test_folder_dbx}/shared_folder"
+    dbx_path = "/shared_folder"
     m.client.make_dir(dbx_path)
 
     # test creating a shared link with password, no password provided

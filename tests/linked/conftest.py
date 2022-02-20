@@ -56,22 +56,10 @@ def m():
     if not lock.acquire(timeout=60 * 60):
         raise TimeoutError("Could not acquire test lock")
 
-    # create / clean our temporary test folder
-
-    sync_test_folder = "/Sync Tests"
-
-    m.test_folder_dbx = sync_test_folder
-    m.test_folder_local = m.to_local_path(sync_test_folder)
-
-    try:
-        m.client.remove(m.test_folder_dbx)
-    except NotFoundError:
-        pass
-
-    if m.client.is_team_space:
-        m.client.share_dir(m.test_folder_dbx)
-    else:
-        m.client.make_dir(m.test_folder_dbx)
+    # clean dropbox directory
+    res = m.client.list_folder("/", recursive=False)
+    for entry in res.entries:
+        m.client.remove(entry.path_lower)
 
     # start syncing
     m.start_sync()
@@ -83,24 +71,16 @@ def m():
     # stop syncing and clean up remote folder
     m.stop_sync()
 
-    try:
-        m.client.remove(m.test_folder_dbx)
-    except NotFoundError:
-        pass
-
-    try:
-        m.client.remove("/.mignore")
-    except NotFoundError:
-        pass
+    # clean dropbox directory
+    res = m.client.list_folder("/", recursive=False)
+    for entry in res.entries:
+        m.client.remove(entry.path_lower)
 
     # remove all shared links
     res = m.client.list_shared_links()
 
     for link in res.links:
-        try:
-            m.revoke_shared_link(link.url)
-        except NotFoundError:
-            pass
+        m.revoke_shared_link(link.url)
 
     # remove creds from system keyring
     m.client.cred_storage.delete_creds()
@@ -118,7 +98,6 @@ def proxy(m):
     m.stop_sync()
     start_maestral_daemon_process(m.config_name)
     proxy = MaestralProxy(m.config_name)
-    proxy._test_folder_dbx = m.test_folder_dbx
 
     yield proxy
 
@@ -314,6 +293,6 @@ class DropboxTestLock:
         try:
             self.m.client.remove(self.lock_path, parent_rev=self._rev)
         except NotFoundError:
-            raise RuntimeError("release unlocked lock")
-        else:
-            self._rev = None
+            pass
+
+        self._rev = None
