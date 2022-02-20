@@ -32,7 +32,6 @@ refer to `maestral.app <https://maestral.app>`_.
    autoapi/maestral/database/index
    autoapi/maestral/errorhandling/index
    autoapi/maestral/exceptions/index
-   autoapi/maestral/fsevents/index
    autoapi/maestral/logging/index
    autoapi/maestral/main/index
    autoapi/maestral/manager/index

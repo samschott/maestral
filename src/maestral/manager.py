@@ -18,6 +18,7 @@ from typing import Iterator, cast, TypeVar, Callable, Any
 # external imports
 from dropbox.common import TeamRootInfo, UserRootInfo
 from dropbox.session import API_HOST
+from watchdog.observers import Observer
 
 # local imports
 from . import __url__
@@ -43,7 +44,6 @@ from .exceptions import (
     DropboxServerError,
 )
 from .sync import SyncEngine
-from .fsevents import Observer
 from .logging import scoped_logger
 from .utils import removeprefix
 from .utils.integration import check_connection, get_inotify_limits
