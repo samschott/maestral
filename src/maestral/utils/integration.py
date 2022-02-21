@@ -82,18 +82,18 @@ def get_ac_state() -> ACState:
 
         # taken from https://github.com/giampaolo/psutil
 
-        supplies = list(os.scandir(LINUX_POWER_SUPPLY_PATH))
+        supply_entry = list(os.scandir(LINUX_POWER_SUPPLY_PATH))
 
         ac_paths = [
-            Path(s.path)
-            for s in supplies
-            if s.name.startswith("A") or "ac" in s.name.lower()
+            Path(entry.path)
+            for entry in supply_entry
+            if entry.name.startswith("A") or "ac" in entry.name.lower()
         ]
 
-        bat_paths = [
-            Path(s.path)
-            for s in supplies
-            if s.name.startswith("B") or "battery" in s.name.lower()
+        battery_paths = [
+            Path(entry.path)
+            for entry in supply_entry
+            if entry.name.startswith("B") or "battery" in entry.name.lower()
         ]
 
         online = multi_cat(*iter(path / "online" for path in ac_paths))
@@ -104,12 +104,12 @@ def get_ac_state() -> ACState:
             else:
                 return ACState.Disconnected
 
-        elif len(bat_paths) > 0:
+        elif len(battery_paths) > 0:
 
             # Get the first available battery. Usually this is "BAT0", except
             # some rare exceptions:
             # https://github.com/giampaolo/psutil/issues/1238
-            bat0 = sorted(bat_paths)[0]
+            bat0 = sorted(battery_paths)[0]
 
             try:
                 status = (bat0 / "status").read_text().strip().lower()
