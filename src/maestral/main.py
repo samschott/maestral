@@ -1443,6 +1443,12 @@ class Maestral:
 
         updated_from = self._state.get("app", "updated_scripts_completed")
 
+        if Version(updated_from) < Version("1.2.1"):
+            self._update_from_pre_v1_2_1()
+        if Version(updated_from) < Version("1.3.2"):
+            self._update_from_pre_v1_3_2()
+        if Version(updated_from) < Version("1.4.5"):
+            self._update_from_pre_v1_4_5()
         if Version(updated_from) < Version("1.4.8"):
             self._update_from_pre_v1_4_8()
         if Version(updated_from) < Version("1.5.3"):
@@ -1455,8 +1461,54 @@ class Maestral:
         self._conf.remove_deprecated_options()
         self._state.remove_deprecated_options()
 
+    def _update_from_pre_v1_2_1(self) -> None:
+        raise RuntimeError("Cannot upgrade from version before v1.2.1")
+
+    def _update_from_pre_v1_3_2(self) -> None:
+
+        if self._conf.get("app", "keyring") == "keyring.backends.OS_X.Keyring":
+            self._logger.info("Migrating keyring after update from pre v1.3.2")
+            self._conf.set("app", "keyring", "keyring.backends.macOS.Keyring")
+
+    def _update_from_pre_v1_4_5(self) -> None:
+        # Clear sync history table because we have added new columns. Note that our
+        # sync instance has not been loaded yet, we therefore do things manually.
+
+        self._logger.info("Clearing sync history after update from pre v1.4.5")
+
+        db_path = get_data_path("maestral", f"{self.config_name}.db")
+        db = Database(db_path, check_same_thread=False)
+        _sql_drop_table(db, "history")
+        db.close()
+
     def _update_from_pre_v1_4_8(self) -> None:
-        raise RuntimeError("Cannot upgrade from version before v1.4.8")
+
+        # Migrate config and state keys to new sections.
+
+        self._logger.info("Migrating config after update from pre v1.4.8")
+
+        mapping = {
+            "path": {"old": "main", "new": "sync"},
+            "excluded_items": {"old": "main", "new": "sync"},
+            "keyring": {"old": "app", "new": "auth"},
+            "account_id": {"old": "account", "new": "auth"},
+        }
+
+        for key, sections in mapping.items():
+            if self._conf.has_option(sections["old"], key):
+                value = self._conf.get(sections["old"], key)
+                self._conf.set(sections["new"], key, value)
+
+        self._logger.info("Migrating state after update from pre v1.4.8")
+
+        mapping = {
+            "token_access_type": {"old": "account", "new": "auth"},
+        }
+
+        for key, sections in mapping.items():
+            if self._state.has_option(sections["old"], key):
+                value = self._state.get(sections["old"], key)
+                self._state.set(sections["new"], key, value)
 
     def _update_from_pre_v1_5_3(self) -> None:
 
