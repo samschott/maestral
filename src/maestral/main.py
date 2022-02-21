@@ -1447,12 +1447,8 @@ class Maestral:
             self._update_from_pre_v1_2_1()
         if Version(updated_from) < Version("1.3.2"):
             self._update_from_pre_v1_3_2()
-        if Version(updated_from) < Version("1.4.5"):
-            self._update_from_pre_v1_4_5()
         if Version(updated_from) < Version("1.4.8"):
             self._update_from_pre_v1_4_8()
-        if Version(updated_from) < Version("1.5.3"):
-            self._update_from_pre_v1_5_3()
         if Version(updated_from) < Version("1.6.0.dev0"):
             self._update_from_pre_v1_6_0()
 
@@ -1469,17 +1465,6 @@ class Maestral:
         if self._conf.get("app", "keyring") == "keyring.backends.OS_X.Keyring":
             self._logger.info("Migrating keyring after update from pre v1.3.2")
             self._conf.set("app", "keyring", "keyring.backends.macOS.Keyring")
-
-    def _update_from_pre_v1_4_5(self) -> None:
-        # Clear sync history table because we have added new columns. Note that our
-        # sync instance has not been loaded yet, we therefore do things manually.
-
-        self._logger.info("Clearing sync history after update from pre v1.4.5")
-
-        db_path = get_data_path("maestral", f"{self.config_name}.db")
-        db = Database(db_path, check_same_thread=False)
-        _sql_drop_table(db, "history")
-        db.close()
 
     def _update_from_pre_v1_4_8(self) -> None:
 
@@ -1509,19 +1494,6 @@ class Maestral:
             if self._state.has_option(sections["old"], key):
                 value = self._state.get(sections["old"], key)
                 self._state.set(sections["new"], key, value)
-
-    def _update_from_pre_v1_5_3(self) -> None:
-
-        self._logger.info("Migrating database after update from pre v1.5.3")
-
-        db_path = get_data_path("maestral", f"{self.config_name}.db")
-        db = Database(db_path, check_same_thread=False)
-
-        _sql_drop_table(db, "hash_cache")
-        _sql_add_column(db, "history", "symlink_target", "TEXT")
-        _sql_add_column(db, "'index'", "symlink_target", "TEXT")
-
-        db.close()
 
     def _update_from_pre_v1_6_0(self) -> None:
 
