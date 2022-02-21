@@ -12,6 +12,7 @@
   file was deleted if the deletion occurred while sync was not running.
 * Fixes an issue with the Linux Qt GUI where aborting the setup dialog after linking but
   before choosing a local Dropbox folder would result in an inconsistent state.
+* Fixes an issue when storing 64-bit inode numbers in our database.
 
 ## v1.5.3
 

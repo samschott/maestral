@@ -26,7 +26,7 @@ from watchdog.events import (
 
 # local imports
 from .database.orm import Model, Column
-from .database.types import SqlInt, SqlString, SqlFloat, SqlPath, SqlEnum
+from .database.types import SqlInt, SqlLargeInt, SqlFloat, SqlString, SqlPath, SqlEnum
 from .utils.path import normalize
 from .exceptions import SyncError, NotLinkedError
 
@@ -520,7 +520,7 @@ class HashCacheEntry(Model):
 
     __tablename__ = "hash_cache"
 
-    inode = Column(SqlInt(), primary_key=True, nullable=False)
+    inode = Column(SqlLargeInt(), primary_key=True, nullable=False)
     """The inode of the item."""
 
     local_path = Column(SqlPath(), nullable=False)

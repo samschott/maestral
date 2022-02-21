@@ -34,7 +34,11 @@ class SqlString(SqlType):
 
 
 class SqlInt(SqlType):
-    """Class to represent Python integers in SQLite table"""
+    """
+    Class to represent Python integers in SQLite table
+
+    SQLite supports up to 64-bit signed integers (-2**63 < int < 2**63 - 1)
+    """
 
     sql_type = "INTEGER"
     py_type = int
@@ -45,6 +49,28 @@ class SqlFloat(SqlType):
 
     sql_type = "REAL"
     py_type = float
+
+
+class SqlLargeInt(SqlType):
+    """Class to represent large integers > 64bit in SQLite table
+
+    Integers are stored as text in the database and converted on read / write.
+    """
+
+    sql_type = "TEXT"
+    py_type = int
+
+    def sql_to_py(self, value: str | None) -> int | None:
+        if value is None:
+            return value
+
+        return int(value)
+
+    def py_to_sql(self, value: int | None) -> str | None:
+        if value is None:
+            return value
+
+        return str(value)
 
 
 class SqlPath(SqlType):
