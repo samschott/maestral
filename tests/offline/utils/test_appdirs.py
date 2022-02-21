@@ -1,5 +1,6 @@
 import platform
 
+import pytest
 from maestral.utils.appdirs import (
     get_home_dir,
     get_runtime_path,
@@ -9,6 +10,19 @@ from maestral.utils.appdirs import (
     get_data_path,
     get_autostart_path,
 )
+
+
+def test_get_home_dir(monkeypatch, tmpdir):
+    monkeypatch.setenv("HOME", str(tmpdir))
+
+    assert get_home_dir() == str(tmpdir)
+
+
+def test_home_dir_does_not_exist(monkeypatch, tmpdir):
+    monkeypatch.setenv("HOME", str(tmpdir / "adamsmith"))
+
+    with pytest.raises(RuntimeError):
+        get_home_dir()
 
 
 def test_macos_dirs(monkeypatch):
@@ -26,7 +40,7 @@ def test_macos_dirs(monkeypatch):
     assert get_autostart_path(create=False) == home + "/Library/LaunchAgents"
 
 
-def test_xdg_dirs(monkeypatch):
+def test_xdg_env_dirs(monkeypatch):
     # test that XDG environment variables for app dirs are respected
 
     monkeypatch.setattr(platform, "system", lambda: "Linux")
@@ -44,7 +58,7 @@ def test_xdg_dirs(monkeypatch):
     assert get_autostart_path(create=False) == "/xdg_config_home/autostart"
 
 
-def test_xdg_fallback_dirs(monkeypatch):
+def test_no_xdg_env_fallback_dirs(monkeypatch):
     # test that we have reasonable fallbacks if XDG environment variables are not set
 
     monkeypatch.setattr(platform, "system", lambda: "Linux")

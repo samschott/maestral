@@ -42,34 +42,14 @@ def get_home_dir() -> str:
     Returns user home directory. This will be determined from the first
     valid result out of (osp.expanduser("~"), $HOME, $USERPROFILE, $TMP).
     """
-    try:
-        # expanduser() returns a raw byte string which needs to be
-        # decoded with the codec that the OS is using to represent
-        # file paths.
-        path = osp.expanduser("~")
-    except Exception:
-        path = ""
+    path = osp.expanduser("~")
 
     if osp.isdir(path):
         return path
 
-    # get home from alternative locations
-    for env_var in ("HOME", "USERPROFILE", "TMP"):
-        # os.environ.get() returns a raw byte string which needs to be
-        # decoded with the codec that the OS is using to represent
-        # environment variables.
-        path = os.environ.get(env_var, "")
-        if osp.isdir(path):
-            return path
-        else:
-            path = ""
-
-    if not path:
-        raise RuntimeError(
-            "Please set the environment variable HOME to your user/home directory."
-        )
-
-    return path
+    raise RuntimeError(
+        "Please set the environment variable HOME to your user/home directory."
+    )
 
 
 home_dir = get_home_dir()
