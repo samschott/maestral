@@ -113,20 +113,20 @@ class DropboxClient:
     @property
     def dbx_base(self) -> Dropbox:
         """The underlying Dropbox SDK instance without namespace headers."""
-        if not self.linked:
-            raise NotLinkedError(
-                "No auth token set", "Please link a Dropbox account first."
-            )
+        self._check_linked()
+
+        if not self._dbx_base:
+            self._init_sdk()
 
         return self._dbx_base
 
     @property
     def dbx(self) -> Dropbox:
         """The underlying Dropbox SDK instance with namespace headers."""
-        if not self.linked:
-            raise NotLinkedError(
-                "No auth token set", "Please link a Dropbox account first."
-            )
+        self._check_linked()
+
+        if not self._dbx:
+            self._init_sdk()
 
         return self._dbx
 
@@ -138,20 +138,13 @@ class DropboxClient:
 
         :raises KeyringAccessError: if keyring access fails.
         """
+        return self.cred_storage.token is not None
 
-        if self._dbx and self._dbx_base:
-            return True
-
-        elif self.cred_storage.token:  # This will trigger keyring access on first call.
-
-            if self.cred_storage.token_type is TokenType.Legacy:
-                self._init_sdk_with_token(access_token=self.cred_storage.token)
-            else:
-                self._init_sdk_with_token(refresh_token=self.cred_storage.token)
-
-            return True
-
-        return False
+    def _check_linked(self):
+        if not self.cred_storage.token:
+            raise NotLinkedError(
+                "No auth token set", "Please link a Dropbox account first."
+            )
 
     def get_auth_url(self) -> str:
         """
@@ -187,11 +180,7 @@ class DropboxClient:
         except CONNECTION_ERRORS:
             return 2
 
-        self._init_sdk_with_token(
-            refresh_token=res.refresh_token,
-            access_token=res.access_token,
-            access_token_expiration=res.expires_at,
-        )
+        self._init_sdk(res.refresh_token, TokenType.Offline)
 
         try:
             self.update_path_root()
@@ -219,45 +208,52 @@ class DropboxClient:
             self.dbx_base.auth_token_revoke()
             self.cred_storage.delete_creds()
 
-    def _init_sdk_with_token(
-        self,
-        refresh_token: str | None = None,
-        access_token: str | None = None,
-        access_token_expiration: datetime | None = None,
+    def _init_sdk(
+        self, token: str | None = None, token_type: TokenType | None = None
     ) -> None:
         """
-        Sets the access tokens for the Dropbox API. This will create a new SDK instance
-        with new tokens.
+        Initialise the SDK. If no token is given, get the token from our credential
+        storage.
 
-        :param refresh_token: Long-lived refresh token to generate new access tokens.
-        :param access_token: Short-lived auth token.
-        :param access_token_expiration: Expiry time of auth token.
+        :param token: Token for the SDK.
+        :param token_type: Token type
+        :raises RuntimeError: if token is not available from storage and no token is
+            passed as an argument.
         """
 
-        if refresh_token or access_token:
+        if not (token or self.cred_storage.token):
+            raise RuntimeError("No token provided")
+
+        token = token or self.cred_storage.token
+        token_type = token_type or self.cred_storage.token_type
+
+        if token_type is TokenType.Offline:
 
             # Initialise Dropbox SDK.
             self._dbx_base = Dropbox(
-                oauth2_refresh_token=refresh_token,
-                oauth2_access_token=access_token,
-                oauth2_access_token_expiration=access_token_expiration,
+                oauth2_refresh_token=token,
+                app_key=DROPBOX_APP_KEY,
+                session=self._session,
+                user_agent=USER_AGENT,
+                timeout=self._timeout,
+            )
+        else:
+            # Initialise Dropbox SDK.
+            self._dbx_base = Dropbox(
+                oauth2_access_token=token,
                 app_key=DROPBOX_APP_KEY,
                 session=self._session,
                 user_agent=USER_AGENT,
                 timeout=self._timeout,
             )
 
-            # If namespace_id was given, use the corresponding namespace, otherwise
-            # default to the home namespace.
-            if self._namespace_id:
-                root_path = PathRoot.root(self._namespace_id)
-                self._dbx = self._dbx_base.with_path_root(root_path)
-            else:
-                self._dbx = self._dbx_base
-
+        # If namespace_id was given, use the corresponding namespace, otherwise
+        # default to the home namespace.
+        if self._namespace_id:
+            root_path = PathRoot.root(self._namespace_id)
+            self._dbx = self._dbx_base.with_path_root(root_path)
         else:
-            self._dbx_base = None
-            self._dbx = None
+            self._dbx = self._dbx_base
 
     @property
     def account_info(self) -> users.FullAccount:
