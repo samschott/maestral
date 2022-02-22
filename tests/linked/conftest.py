@@ -82,15 +82,15 @@ def m():
     for link in res.links:
         m.revoke_shared_link(link.url)
 
-    # remove creds from system keyring
-    m.client.cred_storage.delete_creds()
-
     # remove local files and folders
     delete(m.dropbox_path)
     remove_configuration(m.config_name)
 
     # release lock
     lock.release()
+
+    # remove creds from system keyring
+    m.client.cred_storage.delete_creds()
 
 
 @pytest.fixture
