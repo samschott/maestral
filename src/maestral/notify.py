@@ -7,6 +7,7 @@ backend for cross-platform desktop notifications.
 from __future__ import annotations
 
 # system imports
+import logging
 import time
 import asyncio
 from typing import Callable
@@ -28,6 +29,9 @@ __all__ = [
     "level_number_to_name",
     "MaestralDesktopNotifier",
 ]
+
+logger = logging.getLogger("desktop_notifier")
+logger.setLevel(logging.ERROR)
 
 _desktop_notifier = DesktopNotifier(
     app_name=APP_NAME,
