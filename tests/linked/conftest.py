@@ -68,8 +68,9 @@ def m():
     # return synced and running instance
     yield m
 
-    # stop syncing and clean up remote folder
+    # stop syncing
     m.stop_sync()
+    wait_for_idle(m)
 
     # clean dropbox directory
     res = m.client.list_folder("/", recursive=False)
@@ -82,15 +83,15 @@ def m():
     for link in res.links:
         m.revoke_shared_link(link.url)
 
-    # remove creds from system keyring
-    m.client.cred_storage.delete_creds()
-
     # remove local files and folders
     delete(m.dropbox_path)
     remove_configuration(m.config_name)
 
     # release lock
     lock.release()
+
+    # remove creds from system keyring
+    m.client.cred_storage.delete_creds()
 
 
 @pytest.fixture
