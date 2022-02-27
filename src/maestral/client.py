@@ -11,6 +11,7 @@ import os.path as osp
 import time
 import logging
 import contextlib
+import threading
 from datetime import datetime, timezone
 from typing import Callable, Any, Iterator, TypeVar, Union, TYPE_CHECKING
 
@@ -107,13 +108,13 @@ class DropboxClient:
         self._cached_account_info: users.FullAccount | None = None
         self._namespace_id = self._state.get("account", "path_root_nsid")
         self._is_team_space = self._state.get("account", "path_root_type") == "team"
+        self._lock = threading.Lock()
 
     # ---- Linking API -----------------------------------------------------------------
 
     @property
     def dbx_base(self) -> Dropbox:
         """The underlying Dropbox SDK instance without namespace headers."""
-        self._check_linked()
 
         if not self._dbx_base:
             self._init_sdk()
@@ -123,7 +124,6 @@ class DropboxClient:
     @property
     def dbx(self) -> Dropbox:
         """The underlying Dropbox SDK instance with namespace headers."""
-        self._check_linked()
 
         if not self._dbx:
             self._init_sdk()
@@ -139,12 +139,6 @@ class DropboxClient:
         :raises KeyringAccessError: if keyring access fails.
         """
         return self.cred_storage.token is not None
-
-    def _check_linked(self):
-        if not self.cred_storage.token:
-            raise NotLinkedError(
-                "No auth token set", "Please link a Dropbox account first."
-            )
 
     def get_auth_url(self) -> str:
         """
@@ -202,6 +196,8 @@ class DropboxClient:
         :raises DropboxAuthError: if we cannot authenticate with Dropbox.
         """
 
+        self._dbx = None
+        self._dbx_base = None
         self._cached_account_info = None
 
         with convert_api_errors():
@@ -221,39 +217,44 @@ class DropboxClient:
             passed as an argument.
         """
 
-        if not (token or self.cred_storage.token):
-            raise RuntimeError("No token provided")
+        with self._lock:
 
-        token = token or self.cred_storage.token
-        token_type = token_type or self.cred_storage.token_type
+            if self._dbx:
+                return
 
-        if token_type is TokenType.Offline:
+            if not (token or self.cred_storage.token):
+                raise NotLinkedError("No auth token set", "Please link a Dropbox account first.")
 
-            # Initialise Dropbox SDK.
-            self._dbx_base = Dropbox(
-                oauth2_refresh_token=token,
-                app_key=DROPBOX_APP_KEY,
-                session=self._session,
-                user_agent=USER_AGENT,
-                timeout=self._timeout,
-            )
-        else:
-            # Initialise Dropbox SDK.
-            self._dbx_base = Dropbox(
-                oauth2_access_token=token,
-                app_key=DROPBOX_APP_KEY,
-                session=self._session,
-                user_agent=USER_AGENT,
-                timeout=self._timeout,
-            )
+            token = token or self.cred_storage.token
+            token_type = token_type or self.cred_storage.token_type
 
-        # If namespace_id was given, use the corresponding namespace, otherwise
-        # default to the home namespace.
-        if self._namespace_id:
-            root_path = PathRoot.root(self._namespace_id)
-            self._dbx = self._dbx_base.with_path_root(root_path)
-        else:
-            self._dbx = self._dbx_base
+            if token_type is TokenType.Offline:
+
+                # Initialise Dropbox SDK.
+                self._dbx_base = Dropbox(
+                    oauth2_refresh_token=token,
+                    app_key=DROPBOX_APP_KEY,
+                    session=self._session,
+                    user_agent=USER_AGENT,
+                    timeout=self._timeout,
+                )
+            else:
+                # Initialise Dropbox SDK.
+                self._dbx_base = Dropbox(
+                    oauth2_access_token=token,
+                    app_key=DROPBOX_APP_KEY,
+                    session=self._session,
+                    user_agent=USER_AGENT,
+                    timeout=self._timeout,
+                )
+
+            # If namespace_id was given, use the corresponding namespace, otherwise
+            # default to the home namespace.
+            if self._namespace_id:
+                root_path = PathRoot.root(self._namespace_id)
+                self._dbx = self._dbx_base.with_path_root(root_path)
+            else:
+                self._dbx = self._dbx_base
 
     @property
     def account_info(self) -> users.FullAccount:
