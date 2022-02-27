@@ -68,8 +68,9 @@ def m():
     # return synced and running instance
     yield m
 
-    # stop syncing and clean up remote folder
+    # stop syncing
     m.stop_sync()
+    wait_for_idle(m)
 
     # clean dropbox directory
     res = m.client.list_folder("/", recursive=False)
