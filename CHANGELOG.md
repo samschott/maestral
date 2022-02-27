@@ -5,6 +5,7 @@
 * Sync errors are now stored in a SQlite database table instead of a config file.
 * The CLI command `maestral filestatus PATH` will now return `error` if there is a sync
   error for any child of the given path. This brings it in line with the `syncing` status.
+* Re-enabled updating from versions older than 1.5.0.
 
 # Fixed:
 
@@ -13,6 +14,7 @@
 * Fixes an issue with the Linux Qt GUI where aborting the setup dialog after linking but
   before choosing a local Dropbox folder would result in an inconsistent state.
 * Fixes an issue when storing 64-bit inode numbers in our database.
+* Fixes occasional crashes of the macOS GUI when running on Apple Silicon.
 
 ## v1.5.3
 
