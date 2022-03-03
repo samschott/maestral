@@ -323,6 +323,9 @@ def dropbox_to_maestral_error(
             elif error.is_properties_error():
                 # Occurs only for programming error in maestral.
                 text = "Invalid property group provided."
+            elif error.is_payload_too_large():
+                text = "Can only upload in chunks of at most 150 MB."
+                err_cls = FileSizeError
 
         elif isinstance(error, files.UploadSessionStartError):
             title = "Could not upload file"
@@ -335,6 +338,9 @@ def dropbox_to_maestral_error(
                     "Uploading data not allowed when starting concurrent upload "
                     "session."
                 )
+            elif error.is_payload_too_large():
+                text = "Can only upload in chunks of at most 150 MB."
+                err_cls = SyncError
 
         elif isinstance(error, files.UploadSessionFinishError):
             title = "Could not upload file"
@@ -352,6 +358,9 @@ def dropbox_to_maestral_error(
                     "There are too many write operations happening in your "
                     "Dropbox. Please retry again later."
                 )
+                err_cls = SyncError
+            elif error.is_payload_too_large():
+                text = "Can only upload in chunks of at most 150 MB."
                 err_cls = SyncError
 
         elif isinstance(error, files.UploadSessionLookupError):
@@ -731,6 +740,8 @@ def get_session_lookup_error_msg(
     elif session_lookup_error.is_too_large():
         text = "You can only upload files up to 350 GB."
         err_cls = FileSizeError
+    elif session_lookup_error.is_payload_too_large():
+        text = "Can only upload in chunks of at most 150 MB."
 
     return text, err_cls
 
