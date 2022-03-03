@@ -686,7 +686,6 @@ def get_lookup_error_msg(
     lookup_error: files.LookupError,
 ) -> tuple[str, type[SyncError]]:
 
-    text = ""
     err_cls = SyncError
 
     if lookup_error.is_malformed_path():
@@ -714,6 +713,8 @@ def get_lookup_error_msg(
     elif lookup_error.is_locked():
         text = "The given path is locked."
         err_cls = InsufficientPermissionsError
+    else:
+        text = "An unexpected error occurred. Please try again later."
 
     return text, err_cls
 
@@ -722,19 +723,14 @@ def get_session_lookup_error_msg(
     session_lookup_error: files.UploadSessionLookupError,
 ) -> tuple[str, type[SyncError]]:
 
-    text = ""
     err_cls = SyncError
 
     if session_lookup_error.is_closed():
-        # Occurs when trying to append data to a closed session.
-        # This is caused by internal Maestral errors.
-        pass
+        text = "Cannot append data to a closed upload session."
     elif session_lookup_error.is_incorrect_offset():
         text = "A network error occurred during the upload session."
     elif session_lookup_error.is_not_closed():
-        # Occurs when trying to finish an open session.
-        # This is caused by internal Maestral errors.
-        pass
+        text = "Upload session is still open, cannot finish."
     elif session_lookup_error.is_not_found():
         text = (
             "The upload session ID was not found or has expired. "
@@ -745,6 +741,8 @@ def get_session_lookup_error_msg(
         err_cls = FileSizeError
     elif session_lookup_error.is_payload_too_large():
         text = "Can only upload in chunks of at most 150 MB."
+    else:
+        text = "An unexpected error occurred. Please try again later."
 
     return text, err_cls
 
@@ -753,7 +751,6 @@ def get_bad_path_error_msg(
     path_error: sharing.SharePathError,
 ) -> tuple[str, type[SyncError]]:
 
-    text = ""
     err_cls = SyncError
 
     if path_error.is_is_file():
@@ -793,6 +790,8 @@ def get_bad_path_error_msg(
         text = "Cannot share a folder inside a locked Vault."
     elif path_error.is_is_family():
         text = "Cannot share the Family folder."
+    else:
+        text = "An unexpected error occurred. Please try again later."
 
     return text, err_cls
 
