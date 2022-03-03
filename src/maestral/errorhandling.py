@@ -9,7 +9,8 @@ from __future__ import annotations
 import errno
 import os
 import contextlib
-from typing import Iterator, Union
+import functools
+from typing import Iterator, Union, TypeVar, Callable, Any, cast
 
 # external imports
 import requests
@@ -54,6 +55,7 @@ __all__ = [
     "dropbox_to_maestral_error",
     "os_to_maestral_error",
     "convert_api_errors",
+    "retry_on_error",
 ]
 
 CONNECTION_ERRORS = (
@@ -65,6 +67,8 @@ CONNECTION_ERRORS = (
 )
 
 LocalError = Union[MaestralApiError, OSError]
+
+FT = TypeVar("FT", bound=Callable[..., Any])
 
 
 # ==== Conversion functions to generate error messages and types =======================
@@ -777,3 +781,36 @@ def get_bad_path_error_msg(
         text = "Cannot share the Family folder."
 
     return text, err_cls
+
+
+# ==== decorator to retry on errors ====================================================
+
+
+def retry_on_error(
+    error_cls: type[Exception], max_retries: int = 3
+) -> Callable[[FT], FT]:
+    """
+    A decorator to retry a function call if a specified exception occurs.
+
+    :param error_cls: Error type to catch.
+    :param max_retries: Maximum number of retries.
+    """
+
+    def decorator(func: FT) -> FT:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            tries = 0
+
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except error_cls as exc:
+
+                    if tries < max_retries:
+                        tries += 1
+                    else:
+                        raise exc
+
+        return cast(FT, wrapper)
+
+    return decorator
