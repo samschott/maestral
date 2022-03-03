@@ -30,6 +30,7 @@ from .exceptions import (
     PathError,
     NotFoundError,
     NotLinkedError,
+    DataCorruptionError,
 )
 from .errorhandling import (
     convert_api_errors,
@@ -40,6 +41,7 @@ from .config import MaestralState
 from .constants import DROPBOX_APP_KEY
 from .utils import natural_size, chunks, clamp
 from .utils.path import opener_no_symlink
+from .utils.hashing import DropboxContentHasher, StreamHasher
 
 if TYPE_CHECKING:
     from .models import SyncEvent
@@ -555,13 +557,24 @@ class DropboxClient:
 
             else:
                 chunksize = 2 ** 13
+                hasher = DropboxContentHasher()
 
                 with open(local_path, "wb", opener=opener_no_symlink) as f:
+
+                    wrapped_f = StreamHasher(f, hasher)
+
                     with contextlib.closing(http_resp):
                         for c in http_resp.iter_content(chunksize):
-                            f.write(c)
+                            wrapped_f.write(c)
                             if sync_event:
-                                sync_event.completed = f.tell()
+                                sync_event.completed = wrapped_f.tell()
+
+                local_hash = hasher.hexdigest()
+
+                if md.content_hash != local_hash:
+                    raise DataCorruptionError(
+                        "Data corrupted", "Please retry download."
+                    )
 
             # Dropbox SDK provides naive datetime in UTC.
             client_mod = md.client_modified.replace(tzinfo=timezone.utc)
