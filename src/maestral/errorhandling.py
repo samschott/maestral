@@ -46,6 +46,7 @@ from .exceptions import (
     SharedLinkError,
     DropboxConnectionError,
     PathRootError,
+    DataCorruptionError,
 )
 from .utils.path import fs_max_lengths_for_path
 
@@ -326,6 +327,9 @@ def dropbox_to_maestral_error(
             elif error.is_payload_too_large():
                 text = "Can only upload in chunks of at most 150 MB."
                 err_cls = FileSizeError
+            elif error.is_content_hash_mismatch():
+                text = "Data corruption during upload. Please try again."
+                err_cls = DataCorruptionError
 
         elif isinstance(error, files.UploadSessionStartError):
             title = "Could not upload file"
@@ -341,6 +345,9 @@ def dropbox_to_maestral_error(
             elif error.is_payload_too_large():
                 text = "Can only upload in chunks of at most 150 MB."
                 err_cls = SyncError
+            elif error.is_content_hash_mismatch():
+                text = "Data corruption during upload. Please try again."
+                err_cls = DataCorruptionError
 
         elif isinstance(error, files.UploadSessionFinishError):
             title = "Could not upload file"
@@ -360,11 +367,18 @@ def dropbox_to_maestral_error(
                 )
                 err_cls = SyncError
             elif error.is_too_many_shared_folder_targets():
-                text = "The batch request commits files into too many different shared folders. Please limit your batch request to files contained in a single shared folder."
+                text = (
+                    "The batch request commits files into too many different shared "
+                    "folders. Please limit your batch request to files contained in a "
+                    "single shared folder."
+                )
                 err_cls = SyncError
             elif error.is_payload_too_large():
                 text = "Can only upload in chunks of at most 150 MB."
                 err_cls = SyncError
+            elif error.is_content_hash_mismatch():
+                text = "Data corruption during upload. Please try again."
+                err_cls = DataCorruptionError
 
         elif isinstance(error, files.UploadSessionLookupError):
             title = "Could not upload file"
@@ -741,6 +755,12 @@ def get_session_lookup_error_msg(
         err_cls = FileSizeError
     elif session_lookup_error.is_payload_too_large():
         text = "Can only upload in chunks of at most 150 MB."
+    elif (
+        isinstance(session_lookup_error, files.UploadSessionAppendError)
+        and session_lookup_error.is_content_hash_mismatch()
+    ):
+        text = "Data corruption during upload. Please try again."
+        err_cls = DataCorruptionError
     else:
         text = "An unexpected error occurred. Please try again later."
 
