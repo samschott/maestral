@@ -359,6 +359,9 @@ def dropbox_to_maestral_error(
                     "Dropbox. Please retry again later."
                 )
                 err_cls = SyncError
+            elif error.is_too_many_shared_folder_targets():
+                text = "The batch request commits files into too many different shared folders. Please limit your batch request to files contained in a single shared folder."
+                err_cls = SyncError
             elif error.is_payload_too_large():
                 text = "Can only upload in chunks of at most 150 MB."
                 err_cls = SyncError
