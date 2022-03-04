@@ -7,7 +7,6 @@ from __future__ import annotations
 
 # system imports
 import os
-import os.path as osp
 import time
 import logging
 import contextlib
@@ -543,12 +542,6 @@ class DropboxClient:
         """
 
         with convert_api_errors(dbx_path=dbx_path):
-
-            dst_path_directory = osp.dirname(local_path)
-            try:
-                os.makedirs(dst_path_directory)
-            except FileExistsError:
-                pass
 
             md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
 
