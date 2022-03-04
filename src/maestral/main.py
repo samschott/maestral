@@ -810,7 +810,7 @@ class Maestral:
             """
 
             with tempfile.NamedTemporaryFile(mode="w+") as f:
-                md = self.client.download(dbx_path, f.name, rev=rev)
+                md = self.client.download(f"rev:{rev}", f.name)
 
                 # Read from the file.
                 try:

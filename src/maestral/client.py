@@ -12,7 +12,7 @@ import logging
 import contextlib
 import threading
 from datetime import datetime, timezone
-from typing import Callable, Any, Iterator, TypeVar, Union, TYPE_CHECKING
+from typing import Callable, Any, Iterator, TypeVar, Union, BinaryIO, TYPE_CHECKING
 
 # external imports
 import requests
@@ -34,12 +34,13 @@ from .exceptions import (
 from .errorhandling import (
     convert_api_errors,
     dropbox_to_maestral_error,
+    retry_on_error,
     CONNECTION_ERRORS,
 )
 from .config import MaestralState
 from .constants import DROPBOX_APP_KEY
 from .utils import natural_size, chunks, clamp
-from .utils.path import opener_no_symlink
+from .utils.path import opener_no_symlink, delete
 from .utils.hashing import DropboxContentHasher, StreamHasher
 
 if TYPE_CHECKING:
@@ -54,6 +55,7 @@ FT = TypeVar("FT", bound=Callable[..., Any])
 
 _major_minor_version = ".".join(__version__.split(".")[:2])
 USER_AGENT = f"Maestral/v{_major_minor_version}"
+MAX_ATTEMPTS = 3
 
 
 def get_hash(data: bytes) -> str:
@@ -523,12 +525,12 @@ class DropboxClient:
         with convert_api_errors(dbx_path=dbx_path):
             return self.dbx.files_restore(dbx_path, rev)
 
+    @retry_on_error(DataCorruptionError, MAX_ATTEMPTS)
     def download(
         self,
         dbx_path: str,
         local_path: str,
         sync_event: SyncEvent | None = None,
-        **kwargs,
     ) -> files.FileMetadata:
         """
         Downloads a file from Dropbox to given local path.
@@ -537,17 +539,16 @@ class DropboxClient:
         :param local_path: Path to local download destination.
         :param sync_event: If given, the sync event will be updated with the number of
             downloaded bytes.
-        :param kwargs: Keyword arguments for the Dropbox API files_download endpoint.
         :returns: Metadata of downloaded item.
+        :raises DataCorruptionError: if data is corrupted during download.
         """
 
         with convert_api_errors(dbx_path=dbx_path):
 
-            md, http_resp = self.dbx.files_download(dbx_path, **kwargs)
+            md = self.dbx.files_get_metadata(dbx_path)
 
-            if md.symlink_info is not None:
+            if isinstance(md, files.FileMetadata) and md.symlink_info:
                 # Don't download but reproduce symlink locally.
-                http_resp.close()
                 try:
                     os.unlink(local_path)
                 except FileNotFoundError:
@@ -555,7 +556,10 @@ class DropboxClient:
                 os.symlink(md.symlink_info.target, local_path)
 
             else:
-                chunksize = 2 ** 13
+                chunk_size = 2 ** 13
+
+                md, http_resp = self.dbx.files_download(dbx_path)
+
                 hasher = DropboxContentHasher()
 
                 with open(local_path, "wb", opener=opener_no_symlink) as f:
@@ -563,17 +567,18 @@ class DropboxClient:
                     wrapped_f = StreamHasher(f, hasher)
 
                     with contextlib.closing(http_resp):
-                        for c in http_resp.iter_content(chunksize):
+                        for c in http_resp.iter_content(chunk_size):
                             wrapped_f.write(c)
                             if sync_event:
                                 sync_event.completed = wrapped_f.tell()
 
-                local_hash = hasher.hexdigest()
+                    local_hash = hasher.hexdigest()
 
-                if md.content_hash != local_hash:
-                    raise DataCorruptionError(
-                        "Data corrupted", "Please retry download."
-                    )
+                    if md.content_hash != local_hash:
+                        delete(local_path)
+                        raise DataCorruptionError(
+                            "Data corrupted", "Please retry download."
+                        )
 
             # Dropbox SDK provides naive datetime in UTC.
             client_mod = md.client_modified.replace(tzinfo=timezone.utc)
@@ -591,20 +596,27 @@ class DropboxClient:
         local_path: str,
         dbx_path: str,
         chunk_size: int = 5 * 10 ** 6,
+        mode: files.WriteMode = files.WriteMode.add,
+        autorename: bool = False,
         sync_event: SyncEvent | None = None,
-        **kwargs,
     ) -> files.FileMetadata:
         """
         Uploads local file to Dropbox.
 
         :param local_path: Path of local file to upload.
         :param dbx_path: Path to save file on Dropbox.
-        :param kwargs: Keyword arguments for Dropbox SDK files_upload.
         :param chunk_size: Maximum size for individual uploads. If larger than 150 MB,
             it will be set to 150 MB.
+        :param mode: Your intent when writing a file to some path. This is used to
+            determine what constitutes a conflict and what the autorename strategy is.
+            See :class:`dropbox.files.WriteMode` for exact behavior.
         :param sync_event: If given, the sync event will be updated with the number of
             downloaded bytes.
+        :param autorename: If there's a conflict, as determined by ``mode``, have the
+            Dropbox server try to autorename the file to avoid conflict. The default for
+            this field is False.
         :returns: Metadata of uploaded file.
+        :raises DataCorruptionError: if data is corrupted during upload.
         """
 
         chunk_size = clamp(chunk_size, 10 ** 5, 150 * 10 ** 6)
@@ -618,91 +630,198 @@ class DropboxClient:
 
             if stat.st_size <= chunk_size:
 
-                with open(local_path, "rb", opener=opener_no_symlink) as f:
+                # Upload all at once.
 
-                    data = f.read()
+                return self._upload_helper(
+                    local_path, dbx_path, mtime_dt, mode, autorename, sync_event
+                )
 
-                    md = self.dbx.files_upload(
-                        data,
-                        dbx_path,
-                        client_modified=mtime_dt,
-                        content_hash=get_hash(data),
-                        **kwargs,
-                    )
-                    if sync_event:
-                        sync_event.completed = f.tell()
-                return md
             else:
+
+                # Upload in chunks.
                 # Note: We currently do not support resuming interrupted uploads.
                 # Dropbox keeps upload sessions open for 48h so this could be done in
                 # the future.
+
                 with open(local_path, "rb", opener=opener_no_symlink) as f:
-                    data = f.read(chunk_size)
 
-                    session_start = self.dbx.files_upload_session_start(
-                        data, content_hash=get_hash(data)
-                    )
-                    uploaded = f.tell()
-
-                    cursor = files.UploadSessionCursor(
-                        session_id=session_start.session_id, offset=uploaded
-                    )
-                    commit = files.CommitInfo(
-                        path=dbx_path, client_modified=mtime_dt, **kwargs
+                    session_id = self._upload_session_start_helper(
+                        f, chunk_size, dbx_path, sync_event
                     )
 
-                    if sync_event:
-                        sync_event.completed = uploaded
+                    while stat.st_size - f.tell() > chunk_size:
+                        self._upload_session_append_helper(
+                            f, session_id, chunk_size, dbx_path, sync_event
+                        )
 
-                    while True:
-                        try:
+                    return self._upload_session_finish_helper(
+                        f,
+                        session_id,
+                        chunk_size,
+                        # Commit info.
+                        dbx_path,
+                        mtime_dt,
+                        mode,
+                        autorename,
+                        # Commit info end.
+                        sync_event,
+                    )
 
-                            if stat.st_size - f.tell() <= chunk_size:
-                                # Finish upload session and return metadata.
-                                data = f.read(chunk_size)
+    @retry_on_error(DataCorruptionError, MAX_ATTEMPTS)
+    def _upload_helper(
+        self,
+        local_path: str,
+        dbx_path: str,
+        client_modified: datetime,
+        mode: files.WriteMode,
+        autorename: bool,
+        sync_event: SyncEvent | None,
+    ) -> files.FileMetadata:
 
-                                md = self.dbx.files_upload_session_finish(
-                                    data, cursor, commit, content_hash=get_hash(data)
-                                )
-                                if sync_event:
-                                    sync_event.completed = sync_event.size
-                                return md
-                            else:
-                                # Append to upload session.
-                                data = f.read(chunk_size)
-                                hasher = DropboxContentHasher()
-                                hasher.update(data)
-                                content_hash = hasher.hexdigest()
+        with open(local_path, "rb", opener=opener_no_symlink) as f:
+            data = f.read()
 
-                                self.dbx.files_upload_session_append_v2(
-                                    data, cursor, content_hash=content_hash
-                                )
+            with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
+                md = self.dbx.files_upload(
+                    data,
+                    dbx_path,
+                    client_modified=client_modified,
+                    content_hash=get_hash(data),
+                    mode=mode,
+                    autorename=autorename,
+                )
 
-                                uploaded = f.tell()
-                                cursor.offset = uploaded
+            if sync_event:
+                sync_event.completed = f.tell()
 
-                                if sync_event:
-                                    sync_event.completed = uploaded
+        return md
 
-                        except exceptions.DropboxException as exc:
-                            error = getattr(exc, "error", None)
-                            if (
-                                isinstance(error, files.UploadSessionFinishError)
-                                and error.is_lookup_failed()
-                            ):
-                                lookup_error = error.get_lookup_failed()
-                            elif isinstance(error, files.UploadSessionLookupError):
-                                lookup_error = error
-                            else:
-                                raise exc
+    @retry_on_error(DataCorruptionError, MAX_ATTEMPTS)
+    def _upload_session_start_helper(
+        self,
+        f: BinaryIO,
+        chunk_size: int,
+        dbx_path: str,
+        sync_event: SyncEvent | None,
+    ) -> str:
 
-                            if lookup_error.is_incorrect_offset():
-                                # Reset position in file.
-                                offset_error = lookup_error.get_incorrect_offset()
-                                f.seek(offset_error.correct_offset)
-                                cursor.offset = f.tell()
-                            else:
-                                raise exc
+        initial_offset = f.tell()
+        data = f.read(chunk_size)
+
+        try:
+            with convert_api_errors(dbx_path=dbx_path):
+                session_start = self.dbx.files_upload_session_start(
+                    data, content_hash=get_hash(data)
+                )
+        except Exception:
+            # Return to previous position in file.
+            f.seek(initial_offset)
+            raise
+
+        if sync_event:
+            sync_event.completed = f.tell()
+
+        return session_start.session_id
+
+    @retry_on_error(DataCorruptionError, MAX_ATTEMPTS)
+    def _upload_session_append_helper(
+        self,
+        f: BinaryIO,
+        session_id: str,
+        chunk_size: int,
+        dbx_path: str,
+        sync_event: SyncEvent | None,
+    ) -> None:
+
+        initial_offset = f.tell()
+        data = f.read(chunk_size)
+
+        cursor = files.UploadSessionCursor(
+            session_id=session_id,
+            offset=initial_offset,
+        )
+
+        try:
+            with convert_api_errors(dbx_path=dbx_path):
+                self.dbx.files_upload_session_append_v2(
+                    data, cursor, content_hash=get_hash(data)
+                )
+        except exceptions.DropboxException as exc:
+            error = getattr(exc, "error", None)
+            if (
+                isinstance(error, files.UploadSessionAppendError)
+                and error.is_incorrect_offset()
+            ):
+                offset_error = error.get_incorrect_offset()
+                last_successful_offset = offset_error.correct_offset
+                f.seek(last_successful_offset)
+            raise exc
+
+        except Exception:
+            f.seek(initial_offset)
+            raise
+
+        if sync_event:
+            sync_event.completed = f.tell()
+
+    @retry_on_error(DataCorruptionError, MAX_ATTEMPTS)
+    def _upload_session_finish_helper(
+        self,
+        f: BinaryIO,
+        session_id: str,
+        chunk_size: int,
+        dbx_path: str,
+        client_modified: datetime,
+        mode: files.WriteMode,
+        autorename: bool,
+        sync_event: SyncEvent | None,
+    ) -> files.FileMetadata:
+
+        initial_offset = f.tell()
+        data = f.read(chunk_size)
+
+        if len(data) > chunk_size:
+            raise RuntimeError("Too much data left to finish the session")
+
+        # Finish upload session and return metadata.
+
+        cursor = files.UploadSessionCursor(
+            session_id=session_id,
+            offset=initial_offset,
+        )
+        commit = files.CommitInfo(
+            path=dbx_path,
+            client_modified=client_modified,
+            autorename=autorename,
+            mode=mode,
+        )
+
+        try:
+            with convert_api_errors(dbx_path=dbx_path):
+                md = self.dbx.files_upload_session_finish(
+                    data, cursor, commit, content_hash=get_hash(data)
+                )
+        except exceptions.DropboxException as exc:
+            error = getattr(exc, "error", None)
+            if (
+                isinstance(error, files.UploadSessionFinishError)
+                and error.is_lookup_failed()
+                and error.get_lookup_failed().is_incorrect_offset()
+            ):
+                offset_error = error.get_lookup_failed().get_incorrect_offset()
+                last_successful_offset = offset_error.correct_offset
+                f.seek(last_successful_offset)
+            raise exc
+
+        except Exception:
+            # Return to previous position in file.
+            f.seek(initial_offset)
+            raise
+
+        if sync_event:
+            sync_event.completed = sync_event.size
+
+        return md
 
     def remove(self, dbx_path: str, **kwargs) -> files.Metadata:
         """
