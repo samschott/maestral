@@ -57,6 +57,12 @@ _major_minor_version = ".".join(__version__.split(".")[:2])
 USER_AGENT = f"Maestral/v{_major_minor_version}"
 
 
+def get_hash(data: bytes) -> str:
+    hasher = DropboxContentHasher()
+    hasher.update(data)
+    return hasher.hexdigest()
+
+
 class DropboxClient:
     """Client for the Dropbox SDK
 
@@ -614,13 +620,21 @@ class DropboxClient:
 
             stat = os.lstat(local_path)
 
-            # Dropbox SDK takes naive datetime in UTC/
+            # Dropbox SDK takes naive datetime in UTC
             mtime_dt = datetime.utcfromtimestamp(stat.st_mtime)
 
             if stat.st_size <= chunk_size:
+
                 with open(local_path, "rb", opener=opener_no_symlink) as f:
+
+                    data = f.read()
+
                     md = self.dbx.files_upload(
-                        f.read(), dbx_path, client_modified=mtime_dt, **kwargs
+                        data,
+                        dbx_path,
+                        client_modified=mtime_dt,
+                        content_hash=get_hash(data),
+                        **kwargs,
                     )
                     if sync_event:
                         sync_event.completed = f.tell()
@@ -631,7 +645,10 @@ class DropboxClient:
                 # the future.
                 with open(local_path, "rb", opener=opener_no_symlink) as f:
                     data = f.read(chunk_size)
-                    session_start = self.dbx.files_upload_session_start(data)
+
+                    session_start = self.dbx.files_upload_session_start(
+                        data, content_hash=get_hash(data)
+                    )
                     uploaded = f.tell()
 
                     cursor = files.UploadSessionCursor(
@@ -650,8 +667,9 @@ class DropboxClient:
                             if stat.st_size - f.tell() <= chunk_size:
                                 # Finish upload session and return metadata.
                                 data = f.read(chunk_size)
+
                                 md = self.dbx.files_upload_session_finish(
-                                    data, cursor, commit
+                                    data, cursor, commit, content_hash=get_hash(data)
                                 )
                                 if sync_event:
                                     sync_event.completed = sync_event.size
@@ -659,7 +677,13 @@ class DropboxClient:
                             else:
                                 # Append to upload session.
                                 data = f.read(chunk_size)
-                                self.dbx.files_upload_session_append_v2(data, cursor)
+                                hasher = DropboxContentHasher()
+                                hasher.update(data)
+                                content_hash = hasher.hexdigest()
+
+                                self.dbx.files_upload_session_append_v2(
+                                    data, cursor, content_hash=content_hash
+                                )
 
                                 uploaded = f.tell()
                                 cursor.offset = uploaded
