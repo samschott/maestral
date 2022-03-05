@@ -13,25 +13,65 @@ TEST_TIMEOUT = 60
 
 
 def test_help():
+    """Test help output without args and with --help arg."""
     runner = CliRunner()
-    result = runner.invoke(main)
 
-    assert result.exit_code == 0, result.output
-    assert result.output.startswith("Usage: main [OPTIONS] COMMAND [ARGS]")
+    result_no_arg = runner.invoke(main)
+    result_help_arg = runner.invoke(main, ["--help"])
+
+    assert result_no_arg.exit_code == 0, result_no_arg.output
+    assert result_no_arg.output.startswith("Usage: main [OPTIONS] COMMAND [ARGS]")
+
+    assert result_no_arg.output == result_help_arg.output
 
 
 def test_invalid_config(m):
-    runner = CliRunner()
-    result = runner.invoke(main, ["resume", "-c", "non-existent-config"])
+    """Test failure of commands that require an existing config file"""
 
-    assert result.exit_code == 1
-    assert (
-        result.output == "! Configuration 'non-existent-config' does not exist. "
-        "Use 'maestral config-files' to list all configurations.\n"
-    )
+    for command in [
+        ("stop",),
+        ("pause",),
+        ("resume",),
+        ("auth", "status"),
+        ("auth", "unlink"),
+        ("sharelink", "create"),
+        ("sharelink", "list"),
+        ("sharelink", "revoke"),
+        ("status",),
+        ("filestatus",),
+        ("activity",),
+        ("history",),
+        ("ls",),
+        ("autostart",),
+        ("excluded", "add"),
+        ("excluded", "list"),
+        ("excluded", "remove"),
+        ("notify", "level"),
+        ("notify", "snooze"),
+        ("move-dir",),
+        ("rebuild-index",),
+        ("revs",),
+        ("diff",),
+        ("restore",),
+        ("log", "level"),
+        ("log", "clear"),
+        ("log", "show"),
+        ("config", "get", "path"),
+        ("config", "set", "path"),
+        ("config", "show"),
+    ]:
+
+        runner = CliRunner()
+        result = runner.invoke(main, [*command, "-c", "non-existent-config"])
+
+        assert result.exit_code == 1, command
+        assert (
+            result.output == "! Configuration 'non-existent-config' does not exist. "
+            "Use 'maestral config-files' to list all configurations.\n"
+        )
 
 
-def test_start(config_name):
+def test_start_already_running(config_name):
 
     res = start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
 
@@ -70,24 +110,6 @@ def test_filestatus(m):
     assert "'/invalid-dir' does not exist" in result.output
 
 
-def test_history(m):
-    runner = CliRunner()
-    result = runner.invoke(main, ["history", "-c", m.config_name])
-
-    assert result.exit_code == 1
-    assert isinstance(result.exception, SystemExit)
-    assert "No Dropbox account linked." in result.output
-
-
-def test_ls(m):
-    runner = CliRunner()
-    result = runner.invoke(main, ["ls", "/", "-c", m.config_name])
-
-    assert result.exit_code == 1
-    assert isinstance(result.exception, SystemExit)
-    assert "No Dropbox account linked." in result.output
-
-
 def test_autostart(m):
     autostart = AutoStart(m.config_name)
     autostart.disable()
@@ -124,24 +146,6 @@ def test_excluded_list(m):
 
     assert result.exit_code == 0, result.output
     assert result.output == "No excluded files or folders.\n"
-
-
-def test_excluded_add(m):
-    runner = CliRunner()
-    result = runner.invoke(main, ["excluded", "add", "/test", "-c", m.config_name])
-
-    assert result.exit_code == 1
-    assert isinstance(result.exception, SystemExit)
-    assert "No Dropbox account linked." in result.output
-
-
-def test_excluded_remove(m):
-    runner = CliRunner()
-    result = runner.invoke(main, ["excluded", "remove", "/test", "-c", m.config_name])
-
-    assert result.exit_code == 1
-    assert isinstance(result.exception, SystemExit)
-    assert "Daemon must be running to download folders." in result.output
 
 
 def test_notify_level(config_name):
