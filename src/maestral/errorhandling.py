@@ -820,9 +820,7 @@ def get_bad_path_error_msg(
 # ==== decorator to retry on errors ====================================================
 
 
-def retry_on_error(
-    error_cls: type[Exception], max_retries: int = 3
-) -> Callable[[FT], FT]:
+def retry_on_error(error_cls: type[Exception], max_retries: int) -> Callable[[FT], FT]:
     """
     A decorator to retry a function call if a specified exception occurs.
 
