@@ -6,6 +6,7 @@
 * The CLI command `maestral filestatus PATH` will now return `error` if there is a sync
   error for any child of the given path. This brings it in line with the `syncing` status.
 * Re-enabled updating from versions older than 1.5.0.
+* Improved file integrity checks after upload or download.
 
 # Fixed:
 

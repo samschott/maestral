@@ -1,7 +1,13 @@
 """Module for content hashing file contents."""
 
+from __future__ import annotations
+
 # system imports
 import hashlib
+
+from typing import BinaryIO, Union
+
+WritableBuffer = Union[bytes, bytearray]
 
 
 class DropboxContentHasher:
@@ -39,13 +45,13 @@ class DropboxContentHasher:
 
         self.digest_size = self._overall_hasher.digest_size
 
-    def update(self, new_data: bytes) -> None:
+    def update(self, new_data: WritableBuffer) -> None:
         if self._overall_hasher is None:
             raise RuntimeError(
                 "can't use this object anymore; you already called digest()"
             )
 
-        if not isinstance(new_data, bytes):
+        if not isinstance(new_data, (bytes, bytearray)):
             raise ValueError(f"Expecting a byte string, got {new_data!r}")
 
         new_data_pos = 0
@@ -82,9 +88,65 @@ class DropboxContentHasher:
     def hexdigest(self) -> str:
         return self._finish().hexdigest()
 
-    def copy(self) -> "DropboxContentHasher":
+    def copy(self) -> DropboxContentHasher:
         c = DropboxContentHasher.__new__(DropboxContentHasher)
         c._overall_hasher = self._overall_hasher.copy()
         c._block_hasher = self._block_hasher.copy()
         c._block_pos = self._block_pos
         return c
+
+
+class StreamHasher:
+    """
+    A wrapper around a file-like object (either for reading or writing)
+    that hashes everything that passes through it.  Can be used with
+    DropboxContentHasher or any 'hashlib' hasher.
+
+    :Example:
+
+        >>> hasher = DropboxContentHasher()
+        >>> with open('some-file', 'rb') as f:
+        ...     wrapped_f = StreamHasher(f, hasher)
+        ...     response = some_api_client.upload(wrapped_f)
+        >>> locally_computed = hasher.hexdigest()
+        >>> assert response.content_hash == locally_computed
+
+    :param f: File-like object.
+    :param hasher: Hasher to use. Must implement an ``update`` method.
+    """
+
+    def __init__(self, f: BinaryIO, hasher) -> None:
+        self._f = f
+        self._hasher = hasher
+
+    def close(self) -> None:
+        return self._f.close()
+
+    def flush(self) -> None:
+        return self._f.flush()
+
+    def fileno(self) -> int:
+        return self._f.fileno()
+
+    def tell(self) -> int:
+        return self._f.tell()
+
+    def read(self, size: int = -1) -> bytes:
+        b = self._f.read(size)
+        self._hasher.update(b)
+        return b
+
+    def write(self, b: WritableBuffer) -> int:
+        self._hasher.update(b)
+        return self._f.write(b)
+
+    def readline(self, size: int = -1) -> bytes:
+        b = self._f.readline(size)
+        self._hasher.update(b)
+        return b
+
+    def readlines(self, hint: int = -1) -> list[bytes]:
+        bs = self._f.readlines(hint)
+        for b in bs:
+            self._hasher.update(b)
+        return bs

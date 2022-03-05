@@ -37,6 +37,7 @@ from maestral.exceptions import (
     FileReadError,
     FileConflictError,
     FolderConflictError,
+    DataCorruptionError,
 )
 from maestral.exceptions import PathRootError as MPRE
 from maestral.errorhandling import (
@@ -112,11 +113,12 @@ def test_get_write_error_msg(error, maestral_exc):
         (UploadSessionLookupError.closed, SyncError),
         (
             UploadSessionLookupError.incorrect_offset(UploadSessionOffsetError(20)),
-            SyncError,
+            DataCorruptionError,
         ),
         (UploadSessionLookupError.not_closed, SyncError),
         (UploadSessionLookupError.not_found, SyncError),
         (UploadSessionLookupError.too_large, FileSizeError),
+        (UploadSessionAppendError.content_hash_mismatch, DataCorruptionError),
     ],
 )
 def test_get_session_lookup_error_msg(error, maestral_exc):
@@ -153,6 +155,7 @@ def test_get_session_lookup_error_msg(error, maestral_exc):
             SyncError,
         ),
         (UploadError.properties_error, MaestralApiError),
+        (UploadError.content_hash_mismatch, DataCorruptionError),
         (UploadError.other, MaestralApiError),
         (
             UploadSessionStartError.concurrent_session_close_not_allowed,
@@ -167,6 +170,7 @@ def test_get_session_lookup_error_msg(error, maestral_exc):
         (UploadSessionFinishError.path(WriteError.team_folder), SyncError),
         (UploadSessionFinishError.properties_error, MaestralApiError),
         (UploadSessionFinishError.too_many_write_operations, SyncError),
+        (UploadSessionFinishError.content_hash_mismatch, DataCorruptionError),
         (UploadSessionFinishError.other, MaestralApiError),
         (UploadSessionLookupError.too_large, FileSizeError),
         (UploadSessionLookupError.other, MaestralApiError),

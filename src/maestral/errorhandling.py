@@ -9,7 +9,8 @@ from __future__ import annotations
 import errno
 import os
 import contextlib
-from typing import Iterator, Union
+import functools
+from typing import Iterator, Union, TypeVar, Callable, Any, cast
 
 # external imports
 import requests
@@ -45,6 +46,7 @@ from .exceptions import (
     SharedLinkError,
     DropboxConnectionError,
     PathRootError,
+    DataCorruptionError,
 )
 from .utils.path import fs_max_lengths_for_path
 
@@ -54,6 +56,7 @@ __all__ = [
     "dropbox_to_maestral_error",
     "os_to_maestral_error",
     "convert_api_errors",
+    "retry_on_error",
 ]
 
 CONNECTION_ERRORS = (
@@ -65,6 +68,8 @@ CONNECTION_ERRORS = (
 )
 
 LocalError = Union[MaestralApiError, OSError]
+
+FT = TypeVar("FT", bound=Callable[..., Any])
 
 
 # ==== Conversion functions to generate error messages and types =======================
@@ -319,6 +324,12 @@ def dropbox_to_maestral_error(
             elif error.is_properties_error():
                 # Occurs only for programming error in maestral.
                 text = "Invalid property group provided."
+            elif error.is_payload_too_large():
+                text = "Can only upload in chunks of at most 150 MB."
+                err_cls = FileSizeError
+            elif error.is_content_hash_mismatch():
+                text = "Data corruption during upload. Please try again."
+                err_cls = DataCorruptionError
 
         elif isinstance(error, files.UploadSessionStartError):
             title = "Could not upload file"
@@ -331,6 +342,12 @@ def dropbox_to_maestral_error(
                     "Uploading data not allowed when starting concurrent upload "
                     "session."
                 )
+            elif error.is_payload_too_large():
+                text = "Can only upload in chunks of at most 150 MB."
+                err_cls = SyncError
+            elif error.is_content_hash_mismatch():
+                text = "Data corruption during upload. Please try again."
+                err_cls = DataCorruptionError
 
         elif isinstance(error, files.UploadSessionFinishError):
             title = "Could not upload file"
@@ -349,6 +366,19 @@ def dropbox_to_maestral_error(
                     "Dropbox. Please retry again later."
                 )
                 err_cls = SyncError
+            elif error.is_too_many_shared_folder_targets():
+                text = (
+                    "The batch request commits files into too many different shared "
+                    "folders. Please limit your batch request to files contained in a "
+                    "single shared folder."
+                )
+                err_cls = SyncError
+            elif error.is_payload_too_large():
+                text = "Can only upload in chunks of at most 150 MB."
+                err_cls = SyncError
+            elif error.is_content_hash_mismatch():
+                text = "Data corruption during upload. Please try again."
+                err_cls = DataCorruptionError
 
         elif isinstance(error, files.UploadSessionLookupError):
             title = "Could not upload file"
@@ -670,7 +700,6 @@ def get_lookup_error_msg(
     lookup_error: files.LookupError,
 ) -> tuple[str, type[SyncError]]:
 
-    text = ""
     err_cls = SyncError
 
     if lookup_error.is_malformed_path():
@@ -698,6 +727,8 @@ def get_lookup_error_msg(
     elif lookup_error.is_locked():
         text = "The given path is locked."
         err_cls = InsufficientPermissionsError
+    else:
+        text = "An unexpected error occurred. Please try again later."
 
     return text, err_cls
 
@@ -706,19 +737,15 @@ def get_session_lookup_error_msg(
     session_lookup_error: files.UploadSessionLookupError,
 ) -> tuple[str, type[SyncError]]:
 
-    text = ""
     err_cls = SyncError
 
     if session_lookup_error.is_closed():
-        # Occurs when trying to append data to a closed session.
-        # This is caused by internal Maestral errors.
-        pass
+        text = "Cannot append data to a closed upload session."
     elif session_lookup_error.is_incorrect_offset():
         text = "A network error occurred during the upload session."
+        err_cls = DataCorruptionError
     elif session_lookup_error.is_not_closed():
-        # Occurs when trying to finish an open session.
-        # This is caused by internal Maestral errors.
-        pass
+        text = "Upload session is still open, cannot finish."
     elif session_lookup_error.is_not_found():
         text = (
             "The upload session ID was not found or has expired. "
@@ -727,6 +754,16 @@ def get_session_lookup_error_msg(
     elif session_lookup_error.is_too_large():
         text = "You can only upload files up to 350 GB."
         err_cls = FileSizeError
+    elif session_lookup_error.is_payload_too_large():
+        text = "Can only upload in chunks of at most 150 MB."
+    elif (
+        isinstance(session_lookup_error, files.UploadSessionAppendError)
+        and session_lookup_error.is_content_hash_mismatch()
+    ):
+        text = "A network error occurred during the upload session."
+        err_cls = DataCorruptionError
+    else:
+        text = "An unexpected error occurred. Please try again later."
 
     return text, err_cls
 
@@ -735,7 +772,6 @@ def get_bad_path_error_msg(
     path_error: sharing.SharePathError,
 ) -> tuple[str, type[SyncError]]:
 
-    text = ""
     err_cls = SyncError
 
     if path_error.is_is_file():
@@ -775,5 +811,40 @@ def get_bad_path_error_msg(
         text = "Cannot share a folder inside a locked Vault."
     elif path_error.is_is_family():
         text = "Cannot share the Family folder."
+    else:
+        text = "An unexpected error occurred. Please try again later."
 
     return text, err_cls
+
+
+# ==== decorator to retry on errors ====================================================
+
+
+def retry_on_error(
+    error_cls: type[Exception], max_retries: int = 3
+) -> Callable[[FT], FT]:
+    """
+    A decorator to retry a function call if a specified exception occurs.
+
+    :param error_cls: Error type to catch.
+    :param max_retries: Maximum number of retries.
+    """
+
+    def decorator(func: FT) -> FT:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            tries = 0
+
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except error_cls as exc:
+
+                    if tries < max_retries:
+                        tries += 1
+                    else:
+                        raise exc
+
+        return cast(FT, wrapper)
+
+    return decorator
