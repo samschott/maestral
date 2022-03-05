@@ -8,7 +8,7 @@ from dropbox.sharing import SharedFolderMetadata
 
 import maestral.client
 from maestral.exceptions import NotFoundError, PathError, DataCorruptionError
-from maestral.utils.path import normalize
+from maestral.utils.path import normalize, content_hash
 from maestral.utils.hashing import DropboxContentHasher
 
 from .conftest import resources
@@ -45,30 +45,30 @@ def failing_content_hasher(
     return FailingHasher
 
 
-def test_upload(m):
+def test_upload(client):
     """Test upload in a single chunk"""
 
     file = resources + "/file.txt"
     file_size = os.path.getsize(file)
     chunk_size = file_size * 2
 
-    md = m.client.upload(file, "/file.txt", chunk_size=chunk_size)
-    assert md.content_hash == m.sync.get_local_hash(file)
+    md = client.upload(file, "/file.txt", chunk_size=chunk_size)
+    assert md.content_hash == content_hash(file)[0]
 
 
-def test_upload_session(m):
+def test_upload_session(client):
     """Test an upload session in multiple chunks"""
 
     large_file = resources + "/large-file.pdf"
     file_size = os.path.getsize(large_file)
     chunk_size = file_size // 10
 
-    md = m.client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+    md = client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
 
-    assert md.content_hash == m.sync.get_local_hash(large_file)
+    assert md.content_hash == content_hash(large_file)[0]
 
 
-def test_upload_hash_mismatch(m, monkeypatch):
+def test_upload_hash_mismatch(client, monkeypatch):
     """Test that DataCorruptionError is raised after four failed attempts."""
 
     file = resources + "/file2.txt"
@@ -77,12 +77,12 @@ def test_upload_hash_mismatch(m, monkeypatch):
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
 
     with pytest.raises(DataCorruptionError):
-        m.client.upload(file, "/file2.txt")
+        client.upload(file, "/file2.txt")
 
-    assert not m.client.get_metadata("/file2.txt")
+    assert not client.get_metadata("/file2.txt")
 
 
-def test_upload_session_start_hash_mismatch(m, monkeypatch):
+def test_upload_session_start_hash_mismatch(client, monkeypatch):
     """Test that DataCorruptionError is raised after four failed attempts when starting
     to upload session."""
 
@@ -94,12 +94,12 @@ def test_upload_session_start_hash_mismatch(m, monkeypatch):
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
 
     with pytest.raises(DataCorruptionError):
-        m.client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+        client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
 
-    assert not m.client.get_metadata("/large-file.pdf")
+    assert not client.get_metadata("/large-file.pdf")
 
 
-def test_upload_session_start_retry(m, monkeypatch):
+def test_upload_session_start_retry(client, monkeypatch):
     """Test that upload succeeds after three failed attempts when starting session."""
 
     large_file = resources + "/large-file.pdf"
@@ -109,14 +109,14 @@ def test_upload_session_start_retry(m, monkeypatch):
     Hasher = failing_content_hasher(0, 3)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
 
-    m.client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+    client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
 
-    remote_hash = m.client.get_metadata("/large-file.pdf").content_hash
+    remote_hash = client.get_metadata("/large-file.pdf").content_hash
 
-    assert remote_hash == m.sync.get_local_hash(large_file)
+    assert remote_hash == content_hash(large_file)[0]
 
 
-def test_upload_session_append_hash_mismatch(m, monkeypatch):
+def test_upload_session_append_hash_mismatch(client, monkeypatch):
     """Test that DataCorruptionError is raised after four failed attempts when appending
     to upload session."""
 
@@ -128,12 +128,12 @@ def test_upload_session_append_hash_mismatch(m, monkeypatch):
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
 
     with pytest.raises(DataCorruptionError):
-        m.client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+        client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
 
-    assert not m.client.get_metadata("/large-file.pdf")
+    assert not client.get_metadata("/large-file.pdf")
 
 
-def test_upload_session_append_hash_mismatch_retry(m, monkeypatch):
+def test_upload_session_append_hash_mismatch_retry(client, monkeypatch):
     """Test that upload succeeds after three failed attempts when appending to
     session."""
 
@@ -144,14 +144,14 @@ def test_upload_session_append_hash_mismatch_retry(m, monkeypatch):
     Hasher = failing_content_hasher(1, 4)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
 
-    m.client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+    client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
 
-    remote_hash = m.client.get_metadata("/large-file.pdf").content_hash
+    remote_hash = client.get_metadata("/large-file.pdf").content_hash
 
-    assert remote_hash == m.sync.get_local_hash(large_file)
+    assert remote_hash == content_hash(large_file)[0]
 
 
-def test_upload_session_finish_hash_mismatch(m, monkeypatch):
+def test_upload_session_finish_hash_mismatch(client, monkeypatch):
     """Test that DataCorruptionError is raised after four failed attempts when finishing
     upload session."""
 
@@ -163,12 +163,12 @@ def test_upload_session_finish_hash_mismatch(m, monkeypatch):
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
 
     with pytest.raises(DataCorruptionError):
-        m.client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+        client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
 
-    assert not m.client.get_metadata("/large-file.pdf")
+    assert not client.get_metadata("/large-file.pdf")
 
 
-def test_upload_session_finish_hash_mismatch_retry(m, monkeypatch):
+def test_upload_session_finish_hash_mismatch_retry(client, monkeypatch):
     """Test that upload succeeds after three failed attempts when finishing session."""
 
     large_file = resources + "/large-file.pdf"
@@ -178,35 +178,35 @@ def test_upload_session_finish_hash_mismatch_retry(m, monkeypatch):
     Hasher = failing_content_hasher(9, 12)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
 
-    m.client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+    client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
 
-    remote_hash = m.client.get_metadata("/large-file.pdf").content_hash
+    remote_hash = client.get_metadata("/large-file.pdf").content_hash
 
-    assert remote_hash == m.sync.get_local_hash(large_file)
+    assert remote_hash == content_hash(large_file)[0]
 
 
-def test_download_hash_mismatch(m, monkeypatch, tmp_path):
+def test_download_hash_mismatch(client, monkeypatch, tmp_path):
     # not tested during integration tests
 
     file = resources + "/file2.txt"
-    m.client.upload(file, "/file2.txt")
+    client.upload(file, "/file2.txt")
 
     Hasher = failing_content_hasher(0, 4)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
 
     with pytest.raises(DataCorruptionError):
-        m.client.download("/file2.txt", str(tmp_path / "file2.txt"))
+        client.download("/file2.txt", str(tmp_path / "file2.txt"))
 
 
 @pytest.mark.parametrize("batch_size", [10, 30])
 @pytest.mark.parametrize("force_async", [True, False])
-def test_batch_methods(m, batch_size, force_async):
+def test_batch_methods(client, batch_size, force_async):
     # batch methods are not currently used by sync module
 
     folders = [f"/folder {i}" for i in range(20)]
 
     # create some test directories
-    res = m.client.make_dir_batch(folders + ["/invalid\\"], force_async=force_async)
+    res = client.make_dir_batch(folders + ["/invalid\\"], force_async=force_async)
 
     for i in range(20):
         assert isinstance(res[i], FolderMetadata)
@@ -215,7 +215,7 @@ def test_batch_methods(m, batch_size, force_async):
     assert isinstance(res[20], PathError)
 
     # remove them again
-    res = m.client.remove_batch(
+    res = client.remove_batch(
         [(folder, None) for folder in folders] + [("/not_a_folder", None)],
         batch_size=batch_size,
     )
@@ -228,19 +228,19 @@ def test_batch_methods(m, batch_size, force_async):
 
 
 @pytest.mark.parametrize("force_async", [True, False])
-def test_share_dir_new(m, force_async):
+def test_share_dir_new(client, force_async):
     """Test creating a shared directory."""
-    md_old = m.client.get_metadata("/folder")
-    md_shared = m.client.share_dir("/folder", force_async=force_async)
+    md_old = client.get_metadata("/folder")
+    md_shared = client.share_dir("/folder", force_async=force_async)
 
     assert md_old is None
     assert isinstance(md_shared, SharedFolderMetadata)
 
 
-def test_share_dir_existing(m):
+def test_share_dir_existing(client):
     """Test sharing an existing directory."""
-    md = m.client.make_dir("/folder")
-    md_shared = m.client.share_dir("/folder")
+    md = client.make_dir("/folder")
+    md_shared = client.share_dir("/folder")
 
     assert md.sharing_info is None
     assert isinstance(md_shared, SharedFolderMetadata)
