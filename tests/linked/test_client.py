@@ -45,8 +45,19 @@ def failing_content_hasher(
     return FailingHasher
 
 
+def test_upload(m):
+    """Test upload in a single chunk"""
+
+    file = resources + "/file.txt"
+    file_size = os.path.getsize(file)
+    chunk_size = file_size * 2
+
+    md = m.client.upload(file, "/file.txt", chunk_size=chunk_size)
+    assert md.content_hash == m.sync.get_local_hash(file)
+
+
 def test_upload_session(m):
-    # not tested during integration tests
+    """Test an upload session in multiple chunks"""
 
     large_file = resources + "/large-file.pdf"
     file_size = os.path.getsize(large_file)
