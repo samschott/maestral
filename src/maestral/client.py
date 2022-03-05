@@ -478,20 +478,24 @@ class DropboxClient:
 
         return res
 
-    def get_metadata(self, dbx_path: str, **kwargs) -> files.Metadata | None:
+    def get_metadata(
+        self, dbx_path: str, include_deleted: bool = False
+    ) -> files.Metadata | None:
         """
         Gets metadata for an item on Dropbox or returns ``False`` if no metadata is
         available. Keyword arguments are passed on to Dropbox SDK files_get_metadata
         call.
 
         :param dbx_path: Path of folder on Dropbox.
-        :param kwargs: Keyword arguments for Dropbox SDK files_get_metadata.
+        :param include_deleted: Whether to return data for deleted items.
         :returns: Metadata of item at the given path or ``None`` if item cannot be found.
         """
 
         try:
             with convert_api_errors(dbx_path=dbx_path):
-                return self.dbx.files_get_metadata(dbx_path, **kwargs)
+                return self.dbx.files_get_metadata(
+                    dbx_path, include_deleted=include_deleted
+                )
         except (NotFoundError, PathError):
             return None
 
@@ -823,17 +827,18 @@ class DropboxClient:
 
         return md
 
-    def remove(self, dbx_path: str, **kwargs) -> files.Metadata:
+    def remove(self, dbx_path: str, parent_rev: str | None = None) -> files.Metadata:
         """
         Removes a file / folder from Dropbox.
 
         :param dbx_path: Path to file on Dropbox.
-        :param kwargs: Keyword arguments for the Dropbox API files_delete_v2 endpoint.
+        :param parent_rev: Perform delete if given "rev" matches the existing file's
+            latest "rev". This field does not support deleting a folder.
         :returns: Metadata of deleted item.
         """
 
         with convert_api_errors(dbx_path=dbx_path):
-            res = self.dbx.files_delete_v2(dbx_path, **kwargs)
+            res = self.dbx.files_delete_v2(dbx_path, parent_rev=parent_rev)
             return res.metadata
 
     def remove_batch(
@@ -913,13 +918,16 @@ class DropboxClient:
 
         return result_list
 
-    def move(self, dbx_path: str, new_path: str, **kwargs) -> files.Metadata:
+    def move(
+        self, dbx_path: str, new_path: str, autorename: bool = False
+    ) -> files.Metadata:
         """
         Moves / renames files or folders on Dropbox.
 
         :param dbx_path: Path to file/folder on Dropbox.
         :param new_path: New path on Dropbox to move to.
-        :param kwargs: Keyword arguments for the Dropbox API files_move_v2 endpoint.
+        :param autorename: Have the Dropbox server try to rename the item in case of a
+            conflict.
         :returns: Metadata of moved item.
         """
 
@@ -929,26 +937,30 @@ class DropboxClient:
                 new_path,
                 allow_shared_folder=True,
                 allow_ownership_transfer=True,
-                **kwargs,
+                autorename=autorename,
             )
             return res.metadata
 
-    def make_dir(self, dbx_path: str, **kwargs) -> files.FolderMetadata:
+    def make_dir(self, dbx_path: str, autorename: bool = False) -> files.FolderMetadata:
         """
         Creates a folder on Dropbox.
 
         :param dbx_path: Path of Dropbox folder.
-        :param kwargs: Keyword arguments for the Dropbox API files_create_folder_v2
-            endpoint.
+        :param autorename: Have the Dropbox server try to rename the item in case of a
+            conflict.
         :returns: Metadata of created folder.
         """
 
         with convert_api_errors(dbx_path=dbx_path):
-            res = self.dbx.files_create_folder_v2(dbx_path, **kwargs)
+            res = self.dbx.files_create_folder_v2(dbx_path, autorename)
             return res.metadata
 
     def make_dir_batch(
-        self, dbx_paths: list[str], batch_size: int = 900, **kwargs
+        self,
+        dbx_paths: list[str],
+        batch_size: int = 900,
+        autorename: bool = False,
+        force_async: bool = False,
     ) -> list[files.Metadata | MaestralApiError]:
         """
         Creates multiple folders on Dropbox in a batch job.
@@ -956,8 +968,9 @@ class DropboxClient:
         :param dbx_paths: List of dropbox folder paths.
         :param batch_size: Number of folders to create in each batch. Dropbox allows
             batches of up to 1,000 folders. Larger values will be capped automatically.
-        :param kwargs: Keyword arguments for the Dropbox API files/create_folder_batch
-            endpoint.
+        :param autorename: Have the Dropbox server try to rename the item in case of a
+            conflict.
+        :param force_async: Whether to force asynchronous creation on Dropbox servers.
         :returns: List of Metadata for created folders or SyncError for failures.
             Entries will be in the same order as given paths.
         """
@@ -971,7 +984,7 @@ class DropboxClient:
             # Up two ~ 1,000 entries allowed per batch:
             # https://www.dropbox.com/developers/reference/data-ingress-guide
             for chunk in chunks(dbx_paths, n=batch_size):
-                res = self.dbx.files_create_folder_batch(chunk, **kwargs)
+                res = self.dbx.files_create_folder_batch(chunk, autorename, force_async)
                 if res.is_complete():
                     batch_res = res.get_complete()
                     entries.extend(batch_res.entries)
@@ -995,7 +1008,7 @@ class DropboxClient:
                         error = res.get_failed()
                         if error.is_too_many_files():
                             res_list = self.make_dir_batch(
-                                chunk, batch_size=round(batch_size / 2), **kwargs
+                                chunk, round(batch_size / 2), autorename, force_async
                             )
                             result_list.extend(res_list)
 
