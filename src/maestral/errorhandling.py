@@ -760,7 +760,7 @@ def get_session_lookup_error_msg(
         isinstance(session_lookup_error, files.UploadSessionAppendError)
         and session_lookup_error.is_content_hash_mismatch()
     ):
-        text = "Data corruption during upload. Please try again."
+        text = "A network error occurred during the upload session."
         err_cls = DataCorruptionError
     else:
         text = "An unexpected error occurred. Please try again later."
