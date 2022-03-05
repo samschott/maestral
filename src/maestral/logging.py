@@ -237,7 +237,7 @@ def setup_logging(
     # Log to file.
     log_file_path = get_log_path("maestral", f"{config_name}.log")
     log_handler_file = RotatingFileHandler(
-        log_file_path, maxBytes=10 ** 7, backupCount=1
+        log_file_path, maxBytes=10**7, backupCount=1
     )
     log_handler_file.setFormatter(log_fmt_long)
     log_handler_file.setLevel(log_level)

@@ -278,12 +278,12 @@ class SyncManager:
                 try:
                     max_user_watches, max_user_instances, _ = get_inotify_limits()
                 except OSError:
-                    max_user_watches, max_user_instances = 2 ** 18, 2 ** 9
+                    max_user_watches, max_user_instances = 2**18, 2**9
 
                 url = f"{__url__}/docs/inotify-limits"
 
                 if exc.errno == errno.ENOSPC:
-                    n_new = max(2 ** 19, 2 * max_user_watches)
+                    n_new = max(2**19, 2 * max_user_watches)
 
                     raise InotifyError(
                         "Inotify limit reached",
@@ -294,7 +294,7 @@ class SyncManager:
                     )
 
                 else:
-                    n_new = max(2 ** 10, 2 * max_user_instances)
+                    n_new = max(2**10, 2 * max_user_instances)
 
                     raise InotifyError(
                         "Inotify limit reached",

@@ -560,7 +560,7 @@ class DropboxClient:
                 os.symlink(md.symlink_info.target, local_path)
 
             else:
-                chunk_size = 2 ** 13
+                chunk_size = 2**13
 
                 md, http_resp = self.dbx.files_download(dbx_path)
 
@@ -599,7 +599,7 @@ class DropboxClient:
         self,
         local_path: str,
         dbx_path: str,
-        chunk_size: int = 5 * 10 ** 6,
+        chunk_size: int = 5 * 10**6,
         mode: files.WriteMode = files.WriteMode.add,
         autorename: bool = False,
         sync_event: SyncEvent | None = None,
@@ -623,7 +623,7 @@ class DropboxClient:
         :raises DataCorruptionError: if data is corrupted during upload.
         """
 
-        chunk_size = clamp(chunk_size, 10 ** 5, 150 * 10 ** 6)
+        chunk_size = clamp(chunk_size, 10**5, 150 * 10**6)
 
         with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
 

@@ -354,10 +354,10 @@ class Table:
         # Allocate column width from available width,
         # weighted by the raw width of each column.
         n = 3
-        sum_widths = sum(w ** n for w in raw_col_widths)
+        sum_widths = sum(w**n for w in raw_col_widths)
         subtract = max([sum(raw_col_widths) - available_width, 0])
         allocated_col_widths = tuple(
-            round(w - subtract * w ** n / sum_widths) for w in raw_col_widths
+            round(w - subtract * w**n / sum_widths) for w in raw_col_widths
         )
 
         spacer = " " * self.padding

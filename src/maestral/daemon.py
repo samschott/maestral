@@ -436,7 +436,7 @@ def start_maestral_daemon(
                     sleep = int(WATCHDOG_USEC)
                     while True:
                         sd_notifier.notify("WATCHDOG=1")
-                        await asyncio.sleep(sleep / (2 * 10 ** 6))
+                        await asyncio.sleep(sleep / (2 * 10**6))
 
             dlogger.debug("Running as systemd watchdog service")
             dlogger.debug("WATCHDOG_USEC = %s", WATCHDOG_USEC)
