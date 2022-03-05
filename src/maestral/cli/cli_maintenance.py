@@ -10,7 +10,7 @@ from .cli_core import select_dbx_path_dialog
 from .dialogs import confirm, select
 from .output import ok, echo, Table, TextField, DateField, warn
 from .utils import get_term_width, datetime_from_iso_str
-from .common import convert_api_errors, config_option, existing_config_option
+from .common import convert_api_errors, existing_config_option
 from .core import DropboxPath, ConfigKey, CliException
 
 
@@ -400,7 +400,7 @@ def config():
 
 @config.command(name="get", help="Print the value of a given configuration key.")
 @click.argument("key", type=ConfigKey())
-@config_option
+@existing_config_option
 def config_get(key: str, config_name: str) -> None:
 
     from ..config import MaestralConfig
@@ -433,7 +433,7 @@ instance, setting a boolean config value to 1 will actually set it to True.
 )
 @click.argument("key", type=ConfigKey())
 @click.argument("value")
-@config_option
+@existing_config_option
 @convert_api_errors
 def config_set(key: str, value: str, config_name: str) -> None:
 
@@ -465,7 +465,7 @@ def config_set(key: str, value: str, config_name: str) -> None:
 
 @config.command(name="show", help="Show all config keys and values")
 @click.option("--no-pager", help="Don't use a pager for output.", is_flag=True)
-@config_option
+@existing_config_option
 def config_show(no_pager: bool, config_name: str) -> None:
 
     import io
