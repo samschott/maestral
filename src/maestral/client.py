@@ -55,7 +55,6 @@ FT = TypeVar("FT", bound=Callable[..., Any])
 
 _major_minor_version = ".".join(__version__.split(".")[:2])
 USER_AGENT = f"Maestral/v{_major_minor_version}"
-MAX_ATTEMPTS = 3
 
 
 def get_hash(data: bytes) -> str:
@@ -92,6 +91,9 @@ class DropboxClient:
     """
 
     SDK_VERSION: str = "2.0"
+
+    MAX_TRANSFER_RETRIES = 3
+    MAX_LIST_FOLDER_RETRIES = 3
 
     _dbx: Dropbox | None
 
@@ -529,7 +531,7 @@ class DropboxClient:
         with convert_api_errors(dbx_path=dbx_path):
             return self.dbx.files_restore(dbx_path, rev)
 
-    @retry_on_error(DataCorruptionError, MAX_ATTEMPTS)
+    @retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def download(
         self,
         dbx_path: str,
@@ -671,7 +673,7 @@ class DropboxClient:
                         sync_event,
                     )
 
-    @retry_on_error(DataCorruptionError, MAX_ATTEMPTS)
+    @retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_helper(
         self,
         local_path: str,
@@ -700,7 +702,7 @@ class DropboxClient:
 
         return md
 
-    @retry_on_error(DataCorruptionError, MAX_ATTEMPTS)
+    @retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_session_start_helper(
         self,
         f: BinaryIO,
@@ -727,7 +729,7 @@ class DropboxClient:
 
         return session_start.session_id
 
-    @retry_on_error(DataCorruptionError, MAX_ATTEMPTS)
+    @retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_session_append_helper(
         self,
         f: BinaryIO,
@@ -768,7 +770,7 @@ class DropboxClient:
         if sync_event:
             sync_event.completed = f.tell()
 
-    @retry_on_error(DataCorruptionError, MAX_ATTEMPTS)
+    @retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_session_finish_helper(
         self,
         f: BinaryIO,
@@ -1102,7 +1104,6 @@ class DropboxClient:
     def list_folder(
         self,
         dbx_path: str,
-        max_retries_on_timeout: int = 4,
         include_non_downloadable_files: bool = False,
         **kwargs,
     ) -> files.ListFolderResult:
@@ -1112,9 +1113,6 @@ class DropboxClient:
         :class:`dropbox.files.ListFolderResult` instance.
 
         :param dbx_path: Path of folder on Dropbox.
-        :param max_retries_on_timeout: Number of times to try again if Dropbox servers
-            do not respond within the timeout. Occasional timeouts may occur for very
-            large Dropbox folders.
         :param include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
         :param kwargs: Additional keyword arguments for Dropbox API files/list_folder
@@ -1124,7 +1122,6 @@ class DropboxClient:
 
         iterator = self.list_folder_iterator(
             dbx_path,
-            max_retries_on_timeout,
             include_non_downloadable_files,
             **kwargs,
         )
@@ -1134,7 +1131,6 @@ class DropboxClient:
     def list_folder_iterator(
         self,
         dbx_path: str,
-        max_retries_on_timeout: int = 4,
         include_non_downloadable_files: bool = False,
         **kwargs,
     ) -> Iterator[files.ListFolderResult]:
@@ -1145,9 +1141,6 @@ class DropboxClient:
         single Dropbox API call and will be typically around 500.
 
         :param dbx_path: Path of folder on Dropbox.
-        :param max_retries_on_timeout: Number of times to try again if Dropbox servers
-            do not respond within the timeout. Occasional timeouts may occur for very
-            large Dropbox folders.
         :param include_non_downloadable_files: If ``True``, files that cannot be
             downloaded (at the moment only G-suite files on Dropbox) will be included.
         :param kwargs: Additional keyword arguments for the Dropbox API
@@ -1168,20 +1161,12 @@ class DropboxClient:
             yield res
 
             while res.has_more:
+                res = self._list_folder_continue_helper(res.cursor)
+                yield res
 
-                attempt = 0
-
-                while True:
-                    try:
-                        res = self.dbx.files_list_folder_continue(res.cursor)
-                        yield res
-                        break
-                    except requests.exceptions.ReadTimeout:
-                        attempt += 1
-                        if attempt <= max_retries_on_timeout:
-                            time.sleep(5.0)
-                        else:
-                            raise
+    @retry_on_error(requests.exceptions.ReadTimeout, MAX_LIST_FOLDER_RETRIES, backoff=3)
+    def _list_folder_continue_helper(self, cursor: str) -> files.ListFolderResult:
+        return self.dbx.files_list_folder_continue(cursor)
 
     def wait_for_remote_changes(self, last_cursor: str, timeout: int = 40) -> bool:
         """
