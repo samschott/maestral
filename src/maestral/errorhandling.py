@@ -743,6 +743,7 @@ def get_session_lookup_error_msg(
         text = "Cannot append data to a closed upload session."
     elif session_lookup_error.is_incorrect_offset():
         text = "A network error occurred during the upload session."
+        err_cls = DataCorruptionError
     elif session_lookup_error.is_not_closed():
         text = "Upload session is still open, cannot finish."
     elif session_lookup_error.is_not_found():
