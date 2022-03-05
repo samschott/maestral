@@ -6,8 +6,9 @@ exceptions to instances of :exc:`maestral.exceptions.MaestralApiError`.
 from __future__ import annotations
 
 # system imports
-import errno
 import os
+import time
+import errno
 import contextlib
 import functools
 from typing import Iterator, Union, TypeVar, Callable, Any, cast
@@ -820,12 +821,15 @@ def get_bad_path_error_msg(
 # ==== decorator to retry on errors ====================================================
 
 
-def retry_on_error(error_cls: type[Exception], max_retries: int) -> Callable[[FT], FT]:
+def retry_on_error(
+    error_cls: type[Exception], max_retries: int, backoff: int = 0
+) -> Callable[[FT], FT]:
     """
     A decorator to retry a function call if a specified exception occurs.
 
     :param error_cls: Error type to catch.
     :param max_retries: Maximum number of retries.
+    :param backoff: Time in seconds to sleep before retry.
     """
 
     def decorator(func: FT) -> FT:
@@ -840,6 +844,8 @@ def retry_on_error(error_cls: type[Exception], max_retries: int) -> Callable[[FT
 
                     if tries < max_retries:
                         tries += 1
+                        if backoff > 0:
+                            time.sleep(backoff)
                     else:
                         raise exc
 

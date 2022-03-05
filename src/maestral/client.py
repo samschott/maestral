@@ -1164,7 +1164,7 @@ class DropboxClient:
                 res = self._list_folder_continue_helper(res.cursor)
                 yield res
 
-    @retry_on_error(requests.exceptions.ReadTimeout, MAX_LIST_FOLDER_RETRIES)
+    @retry_on_error(requests.exceptions.ReadTimeout, MAX_LIST_FOLDER_RETRIES, backoff=3)
     def _list_folder_continue_helper(self, cursor: str) -> files.ListFolderResult:
         return self.dbx.files_list_folder_continue(cursor)
 
