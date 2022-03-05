@@ -66,7 +66,7 @@ def test_ignore_tree_move(sync):
     new_dir_1 = Path(sync.dropbox_path) / "parent2"
 
     with sync.fs_events.ignore(DirMovedEvent(str(new_dir), str(new_dir_1))):
-        move(new_dir, new_dir_1)
+        move(str(new_dir), str(new_dir_1))
 
     sync.wait_for_local_changes(timeout=1)
     sync_events, _ = sync.list_local_changes()

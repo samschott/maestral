@@ -21,7 +21,7 @@ from maestral.utils.path import (
 )
 from maestral.exceptions import PathError
 
-from tests.linked.conftest import assert_synced, wait_for_idle, resources
+from .conftest import assert_synced, wait_for_idle, resources
 
 
 if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.environ):

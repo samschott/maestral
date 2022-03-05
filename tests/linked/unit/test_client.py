@@ -18,9 +18,10 @@ if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.en
     pytest.skip("Requires auth token", allow_module_level=True)
 
 
-# Client API unit tests: we explicitly test those method calls which are not covered
-# by current integration tests, either because they are not used by the sync module or
-# because niche cases require additional testing.
+# Client API unit tests: we currently test those method calls which are not covered
+# by integration tests, either because they are not used by the sync module or because
+# niche cases require additional testing.
+# TODO: Expand to cover all methods, independent of integration tests.
 
 
 def failing_content_hasher(
@@ -73,8 +74,8 @@ def test_upload_hash_mismatch(client, monkeypatch):
 
     file = resources + "/file2.txt"
 
-    Hasher = failing_content_hasher()
-    monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
+    hasher = failing_content_hasher()
+    monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     with pytest.raises(DataCorruptionError):
         client.upload(file, "/file2.txt")
@@ -90,8 +91,8 @@ def test_upload_session_start_hash_mismatch(client, monkeypatch):
     file_size = os.path.getsize(large_file)
     chunk_size = file_size // 10
 
-    Hasher = failing_content_hasher(0, 4)
-    monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
+    hasher = failing_content_hasher(0, 4)
+    monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     with pytest.raises(DataCorruptionError):
         client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
@@ -106,8 +107,8 @@ def test_upload_session_start_retry(client, monkeypatch):
     file_size = os.path.getsize(large_file)
     chunk_size = file_size // 10
 
-    Hasher = failing_content_hasher(0, 3)
-    monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
+    hasher = failing_content_hasher(0, 3)
+    monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
 
@@ -124,8 +125,8 @@ def test_upload_session_append_hash_mismatch(client, monkeypatch):
     file_size = os.path.getsize(large_file)
     chunk_size = file_size // 10
 
-    Hasher = failing_content_hasher(1, 5)
-    monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
+    hasher = failing_content_hasher(1, 5)
+    monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     with pytest.raises(DataCorruptionError):
         client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
@@ -141,8 +142,8 @@ def test_upload_session_append_hash_mismatch_retry(client, monkeypatch):
     file_size = os.path.getsize(large_file)
     chunk_size = file_size // 10
 
-    Hasher = failing_content_hasher(1, 4)
-    monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
+    hasher = failing_content_hasher(1, 4)
+    monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
 
@@ -159,8 +160,8 @@ def test_upload_session_finish_hash_mismatch(client, monkeypatch):
     file_size = os.path.getsize(large_file)
     chunk_size = file_size // 10
 
-    Hasher = failing_content_hasher(9, 13)
-    monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
+    hasher = failing_content_hasher(9, 13)
+    monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     with pytest.raises(DataCorruptionError):
         client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
@@ -175,8 +176,8 @@ def test_upload_session_finish_hash_mismatch_retry(client, monkeypatch):
     file_size = os.path.getsize(large_file)
     chunk_size = file_size // 10
 
-    Hasher = failing_content_hasher(9, 12)
-    monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
+    hasher = failing_content_hasher(9, 12)
+    monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
 
@@ -191,8 +192,8 @@ def test_download_hash_mismatch(client, monkeypatch, tmp_path):
     file = resources + "/file2.txt"
     client.upload(file, "/file2.txt")
 
-    Hasher = failing_content_hasher(0, 4)
-    monkeypatch.setattr(maestral.client, "DropboxContentHasher", Hasher)
+    hasher = failing_content_hasher(0, 4)
+    monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     with pytest.raises(DataCorruptionError):
         client.download("/file2.txt", str(tmp_path / "file2.txt"))
