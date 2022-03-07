@@ -646,15 +646,12 @@ class MaestralProxy:
                 self._m._pyroRelease()
                 raise
 
-        else:
-            # If daemon is not running, fall back to new Maestral instance
-            # or raise a CommunicationError if fallback not allowed.
-            if fallback:
-                from .main import Maestral
+        elif fallback:
+            from .main import Maestral
 
-                self._m = Maestral(config_name)
-            else:
-                raise CommunicationError(f"Could not get proxy for '{config_name}'")
+            self._m = Maestral(config_name)
+        else:
+            raise CommunicationError(f"Could not get proxy for '{config_name}'")
 
         self._is_fallback = not isinstance(self._m, Proxy)
 
