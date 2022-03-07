@@ -1636,7 +1636,7 @@ class SyncEngine:
 
             mtime_check = snapshot_time > stat.st_mtime > last_sync
 
-            # Always upload untracked items, check ctime of tracked items.
+            # Always upload untracked items, check mtime of tracked items.
             is_modified = mtime_check and not is_new
 
             if is_new:
