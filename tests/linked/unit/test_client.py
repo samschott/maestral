@@ -3,11 +3,17 @@ from __future__ import annotations
 import os
 
 import pytest
+import requests
 from dropbox.files import FolderMetadata
 from dropbox.sharing import SharedFolderMetadata
 
 import maestral.client
-from maestral.exceptions import NotFoundError, PathError, DataCorruptionError
+from maestral.exceptions import (
+    NotFoundError,
+    PathError,
+    DataCorruptionError,
+    SharedLinkError,
+)
 from maestral.utils.path import normalize, content_hash
 from maestral.utils.hashing import DropboxContentHasher
 
@@ -245,3 +251,61 @@ def test_share_dir_existing(client):
 
     assert md.sharing_info is None
     assert isinstance(md_shared, SharedFolderMetadata)
+
+
+def test_sharedlink_lifecycle(client):
+
+    # create a folder to share
+    dbx_path = "/shared_folder"
+    client.make_dir(dbx_path)
+
+    # test creating a shared link
+    link_data = client.create_shared_link(dbx_path)
+
+    resp = requests.get(link_data.url)
+    assert resp.status_code == 200
+
+    res = client.list_shared_links(dbx_path)
+    assert link_data.url in [link.url for link in res.links]
+
+    # test revoking a shared link
+    client.revoke_shared_link(link_data.url)
+    res = client.list_shared_links(dbx_path)
+    assert link_data.url not in [link.url for link in res.links]
+
+
+def test_sharedlink_errors(client):
+
+    dbx_path = "/shared_folder"
+    client.make_dir(dbx_path)
+
+    # test creating a shared link with password fails on basic account
+    account_info = client.get_account_info()
+
+    if account_info.account_type.is_basic():
+        with pytest.raises(SharedLinkError):
+            client.create_shared_link(dbx_path, password="secret")
+
+    # test creating a shared link with the same settings as an existing link
+    client.create_shared_link(dbx_path)
+
+    with pytest.raises(SharedLinkError):
+        client.create_shared_link(dbx_path)
+
+    # test creating a shared link with an invalid path
+    with pytest.raises(NotFoundError):
+        client.create_shared_link("/this_is_not_a_file.txt")
+
+    # test listing shared links for an invalid path
+    with pytest.raises(NotFoundError):
+        client.list_shared_links("/this_is_not_a_file.txt")
+
+    # test revoking a non existent link
+    with pytest.raises(NotFoundError):
+        client.revoke_shared_link(
+            "https://www.dropbox.com/sh/48r2qxq748jfk5x/AAAS-niuW"
+        )
+
+    # test revoking a malformed link
+    with pytest.raises(SharedLinkError):
+        client.revoke_shared_link("https://www.testlink.de")

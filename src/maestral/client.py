@@ -1265,7 +1265,7 @@ class DropboxClient:
         self,
         dbx_path: str,
         visibility: sharing.LinkAudience = sharing.LinkAudience.public,
-        access_level: sharing.LinkAccessLevel = sharing.LinkAccessLevel.viewer,
+        access_level: sharing.RequestedLinkAccessLevel = sharing.RequestedLinkAccessLevel.viewer,
         allow_download: bool | None = None,
         password: str | None = None,
         expires: datetime | None = None,
