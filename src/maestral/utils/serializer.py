@@ -7,7 +7,7 @@ the daemon and frontends.
 import json
 import traceback
 from enum import Enum
-from typing import Dict, Union, List, TYPE_CHECKING
+from typing import Dict, Any, TYPE_CHECKING
 
 # external imports
 from dropbox.stone_serializers import json_encode
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 # TODO: Use TypedDict where appropriate.
 
-SerializedObjectType = Dict[str, Union[str, List[str], None]]
+SerializedObjectType = Dict[str, Any]
 """Type definition for object returned from the public API"""
 
 

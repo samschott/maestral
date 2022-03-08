@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from os import path as osp
-from typing import cast
+from typing import cast, TYPE_CHECKING
 
 import click
 
@@ -10,22 +10,22 @@ from .cli_core import select_dbx_path_dialog
 from .dialogs import confirm, select
 from .output import ok, echo, Table, TextField, DateField, warn
 from .utils import get_term_width, datetime_from_iso_str
-from .common import convert_api_errors, existing_config_option
+from .common import convert_api_errors, existing_config_option, inject_proxy
 from .core import DropboxPath, ConfigKey, CliException
+
+if TYPE_CHECKING:
+    from ..main import Maestral
 
 
 @click.command(help="Move the local Dropbox folder.")
 @click.argument("new_path", required=False, type=click.Path(writable=True))
-@existing_config_option
-def move_dir(new_path: str, config_name: str) -> None:
+@inject_proxy(fallback=True, existing_config=True)
+def move_dir(m: Maestral, new_path: str) -> None:
 
-    from ..daemon import MaestralProxy
-
-    new_path = new_path or select_dbx_path_dialog(config_name)
+    new_path = new_path or select_dbx_path_dialog(m.config_name)
     new_path = osp.realpath(osp.expanduser(new_path))
 
-    with MaestralProxy(config_name, fallback=True) as m:
-        m.move_dropbox_directory(new_path)
+    m.move_dropbox_directory(new_path)
 
     ok(f"Dropbox folder moved to {new_path}.")
 
@@ -40,36 +40,33 @@ Rebuilding may take several minutes, depending on the size of your Dropbox.
 @click.option(
     "--yes", "-Y", is_flag=True, default=False, help="Skip confirmation prompt."
 )
-@existing_config_option
+@inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def rebuild_index(yes: bool, config_name: str) -> None:
+def rebuild_index(m: Maestral, yes: bool) -> None:
 
     import textwrap
-    from ..daemon import MaestralProxy
 
-    with MaestralProxy(config_name, fallback=True) as m:
+    width = get_term_width()
 
-        width = get_term_width()
+    msg = textwrap.fill(
+        "Rebuilding the index may take several minutes, depending on the size of "
+        "your Dropbox. Any changes to local files will be synced once rebuilding "
+        "has completed. If you stop the daemon during the process, rebuilding will "
+        "start again on the next launch.\nIf the daemon is not currently running, "
+        "a rebuild will be scheduled for the next startup.",
+        width=width,
+    )
 
-        msg = textwrap.fill(
-            "Rebuilding the index may take several minutes, depending on the size of "
-            "your Dropbox. Any changes to local files will be synced once rebuilding "
-            "has completed. If you stop the daemon during the process, rebuilding will "
-            "start again on the next launch.\nIf the daemon is not currently running, "
-            "a rebuild will be scheduled for the next startup.",
-            width=width,
-        )
+    echo(msg + "\n")
 
-        echo(msg + "\n")
+    if yes or confirm("Do you want to continue?", default=False):
 
-        if yes or confirm("Do you want to continue?", default=False):
+        m.rebuild_index()
 
-            m.rebuild_index()
-
-            if m._is_fallback:
-                ok("Daemon is not running. Rebuilding scheduled for next startup.")
-            else:
-                ok("Rebuilding now. Run 'maestral status' to view progress.")
+        if m.running:
+            ok("Rebuilding now. Run 'maestral status' to view progress.")
+        else:
+            ok("Sync is not running. Rebuilding scheduled for next startup.")
 
 
 @click.command(help="List old file revisions.")
@@ -82,14 +79,11 @@ def rebuild_index(yes: bool, config_name: str) -> None:
     type=click.IntRange(min=1, max=100),
     default=10,
 )
-@existing_config_option
+@inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def revs(dropbox_path: str, limit: int, config_name: str) -> None:
+def revs(m: Maestral, dropbox_path: str, limit: int) -> None:
 
-    from ..daemon import MaestralProxy
-
-    with MaestralProxy(config_name, fallback=True) as m:
-        entries = m.list_revisions(dropbox_path, limit=limit)
+    entries = m.list_revisions(dropbox_path, limit=limit)
 
     table = Table(["Revision", "Modified Time"])
 
@@ -136,106 +130,104 @@ and memory.
     type=click.IntRange(min=1, max=100),
     default=10,
 )
+@inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-@existing_config_option
 def diff(
+    m: Maestral,
     dropbox_path: str,
     rev: list[str],
     no_color: bool,
     no_pager: bool,
     limit: int,
-    config_name: str,
 ) -> None:
 
-    from ..daemon import MaestralProxy
+    # Ask for user input if revs are not provided as CLI arguments.
+    if len(rev) == 0:
+        entries = m.list_revisions(dropbox_path, limit=limit)
+        modified_dates: list[str] = []
 
-    with MaestralProxy(config_name, fallback=True) as m:
+        for entry in entries:
+            cm = cast(str, entry["client_modified"])
+            field = DateField(datetime_from_iso_str(cm))
+            modified_dates.append(field.format(40)[0])
 
-        # Ask for user input if revs are not provided as CLI arguments.
-        if len(rev) == 0:
-            entries = m.list_revisions(dropbox_path, limit=limit)
+        dbx_path = cast(str, entries[0]["path_display"])
+        local_path = m.to_local_path(dbx_path)
 
-            for entry in entries:
-                cm = cast(str, entry["client_modified"])
-                field = DateField(datetime_from_iso_str(cm))
-                entry["desc"] = field.format(40)[0]
+        if osp.isfile(local_path):
+            # prepend local version as an option
+            modified_dates.insert(0, "local version")
+            entries.insert(0, {"rev": None})
 
-            dbx_path = cast(str, entries[0]["path_display"])
-            local_path = m.to_local_path(dbx_path)
+        index_base = select(
+            message="New revision:",
+            options=modified_dates,
+            hint="(↓ to see more)" if len(entries) > 6 else "",
+        )
 
-            if osp.isfile(local_path):
-                # prepend local version as an option
-                entries.insert(0, {"desc": "local version", "rev": None})
-
-            index_base = select(
-                message="New revision:",
-                options=[e["desc"] for e in entries],
-                hint="(↓ to see more)" if len(entries) > 6 else "",
-            )
-
-            if index_base == len(entries) - 1:
-                warn("Oldest revision selected, unable to find anything to compare.")
-                return
-
-            comparable_versions = entries[index_base + 1 :]
-            index_new = select(
-                message="Old revision:",
-                options=[e["desc"] for e in comparable_versions],
-                hint="(↓ to see more)" if len(comparable_versions) > 6 else "",
-            )
-
-            old_rev = entries[index_new + index_base + 1]["rev"]
-            new_rev = entries[index_base]["rev"]
-        elif len(rev) == 1:
-            old_rev = rev[0]
-            new_rev = None
-        elif len(rev) == 2:
-            old_rev = rev[0]
-            new_rev = rev[1]
-        elif len(rev) > 2:
-            warn("You can only compare two revisions at a time.")
+        if index_base == len(entries) - 1:
+            warn("Oldest revision selected, unable to find anything to compare.")
             return
 
-        # Download up to two revisions to a local temporary folder
-        # and compare them with a 'diff'. Only text files are supported.
-        # If an unknown file type was found, everything that doesn't match
-        # 'text/*', an error message gets printed.
+        comparable_dates = modified_dates[index_base + 1 :]
+        index_new = select(
+            message="Old revision:",
+            options=comparable_dates,
+            hint="(↓ to see more)" if len(comparable_dates) > 6 else "",
+        )
 
-        click.echo("Loading ...\r", nl=False)
+        old_rev = entries[index_new + index_base + 1]["rev"]
+        new_rev = entries[index_base]["rev"]
+    elif len(rev) == 1:
+        old_rev = rev[0]
+        new_rev = None
+    elif len(rev) == 2:
+        old_rev = rev[0]
+        new_rev = rev[1]
+    else:
+        warn("You can only compare two revisions at a time.")
+        return
 
-        diff_output = m.get_file_diff(old_rev, new_rev)
+    # Download up to two revisions to a local temporary folder
+    # and compare them with a 'diff'. Only text files are supported.
+    # If an unknown file type was found, everything that doesn't match
+    # 'text/*', an error message gets printed.
 
-        if len(diff_output) == 0:
-            click.echo("There are no changes between the two revisions.")
-            return
+    click.echo("Loading ...\r", nl=False)
 
-        def color(ind: int, line: str) -> str:
-            """
-            Color diff lines.
-            Inspiration for colors was taken from the
-            well known command 'git diff'.
-            """
+    diff_output = m.get_file_diff(old_rev, new_rev)
 
-            if ind < 2:
-                line = click.style(line, bold=True)
-            elif line.startswith("+"):
-                line = click.style(line, fg="green")
-            elif line.startswith("-"):
-                line = click.style(line, fg="red")
-            # Don't highlight these in the intro.
-            elif line.startswith("@@ "):
-                line = click.style(line, fg="cyan")
-            return line
+    if len(diff_output) == 0:
+        click.echo("There are no changes between the two revisions.")
+        return
 
-        # Color the lines.
-        if not no_color:
-            diff_output = [color(i, l) for i, l in enumerate(diff_output)]
+    def color(ind: int, line: str) -> str:
+        """
+        Color diff lines.
+        Inspiration for colors was taken from the
+        well known command 'git diff'.
+        """
 
-        # Enter pager if diff is too long
-        if len(diff_output) > 30 and not no_pager:
-            click.echo_via_pager("".join(diff_output))
-        else:
-            click.echo("".join(diff_output))
+        if ind < 2:
+            line = click.style(line, bold=True)
+        elif line.startswith("+"):
+            line = click.style(line, fg="green")
+        elif line.startswith("-"):
+            line = click.style(line, fg="red")
+        # Don't highlight these in the intro.
+        elif line.startswith("@@ "):
+            line = click.style(line, fg="cyan")
+        return line
+
+    # Color the lines.
+    if not no_color:
+        diff_output = [color(i, l) for i, l in enumerate(diff_output)]
+
+    # Enter pager if diff is too long
+    if len(diff_output) > 30 and not no_pager:
+        click.echo_via_pager("".join(diff_output))
+    else:
+        click.echo("".join(diff_output))
 
 
 @click.command(
@@ -255,31 +247,27 @@ If no revision number is given, old revisions will be listed.
     type=click.IntRange(min=1, max=100),
     default=10,
 )
-@existing_config_option
+@inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def restore(dropbox_path: str, rev: str, limit: int, config_name: str) -> None:
+def restore(m: Maestral, dropbox_path: str, rev: str, limit: int) -> None:
 
-    from ..daemon import MaestralProxy
+    if not rev:
+        echo("Loading...\r", nl=False)
+        entries = m.list_revisions(dropbox_path, limit=limit)
+        dates = []
+        for entry in entries:
+            cm = cast(str, entry["client_modified"])
+            field = DateField(datetime_from_iso_str(cm))
+            dates.append(field.format(40)[0])
 
-    with MaestralProxy(config_name, fallback=True) as m:
+        index = select(
+            message="Select a version to restore:",
+            options=dates,
+            hint="(↓ to see more)" if len(entries) > 6 else "",
+        )
+        rev = cast(str, entries[index]["rev"])
 
-        if not rev:
-            echo("Loading...\r", nl=False)
-            entries = m.list_revisions(dropbox_path, limit=limit)
-            dates = []
-            for entry in entries:
-                cm = cast(str, entry["client_modified"])
-                field = DateField(datetime_from_iso_str(cm))
-                dates.append(field.format(40)[0])
-
-            index = select(
-                message="Select a version to restore:",
-                options=dates,
-                hint="(↓ to see more)" if len(entries) > 6 else "",
-            )
-            rev = cast(str, entries[index]["rev"])
-
-        m.restore(dropbox_path, rev)
+    m.restore(dropbox_path, rev)
 
     ok(f'Restored {rev} to "{dropbox_path}"')
 
@@ -349,19 +337,17 @@ def log_clear(config_name: str) -> None:
     required=False,
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"], case_sensitive=False),
 )
-@existing_config_option
-def log_level(level_name: str, config_name: str) -> None:
+@inject_proxy(fallback=True, existing_config=True)
+def log_level(m: Maestral, level_name: str) -> None:
 
     import logging
-    from ..daemon import MaestralProxy
 
-    with MaestralProxy(config_name, fallback=True) as m:
-        if level_name:
-            m.log_level = cast(int, getattr(logging, level_name))
-            ok(f"Log level set to {level_name}.")
-        else:
-            level_name = logging.getLevelName(m.log_level)
-            echo(f"Log level: {level_name}")
+    if level_name:
+        m.log_level = cast(int, getattr(logging, level_name))
+        ok(f"Log level set to {level_name}.")
+    else:
+        level_name = logging.getLevelName(m.log_level)
+        echo(f"Log level: {level_name}")
 
 
 @click.group(
@@ -400,12 +386,10 @@ def config():
 
 @config.command(name="get", help="Print the value of a given configuration key.")
 @click.argument("key", type=ConfigKey())
-@existing_config_option
-def config_get(key: str, config_name: str) -> None:
+@inject_proxy(fallback=True, existing_config=True)
+def config_get(m: Maestral, key: str) -> None:
 
-    from ..config import MaestralConfig
     from ..config.main import KEY_SECTION_MAP
-    from ..daemon import MaestralProxy, CommunicationError
 
     # Check if the config key exists in any section.
     section = KEY_SECTION_MAP.get(key, "")
@@ -413,11 +397,7 @@ def config_get(key: str, config_name: str) -> None:
     if not section:
         raise CliException(f"'{key}' is not a valid configuration key.")
 
-    try:
-        with MaestralProxy(config_name) as m:
-            value = m.get_conf(section, key)
-    except CommunicationError:
-        value = MaestralConfig(config_name).get(section, key)
+    value = m.get_conf(section, key)
 
     echo(value)
 
@@ -433,13 +413,12 @@ instance, setting a boolean config value to 1 will actually set it to True.
 )
 @click.argument("key", type=ConfigKey())
 @click.argument("value")
-@existing_config_option
+@inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def config_set(key: str, value: str, config_name: str) -> None:
+def config_set(m: Maestral, key: str, value: str) -> None:
 
     import ast
     from ..config.main import KEY_SECTION_MAP, DEFAULTS_CONFIG
-    from ..daemon import MaestralProxy
 
     section = KEY_SECTION_MAP.get(key, "")
 
@@ -457,8 +436,7 @@ def config_set(key: str, value: str, config_name: str) -> None:
             py_value = value
 
     try:
-        with MaestralProxy(config_name, fallback=True) as m:
-            m.set_conf(section, key, py_value)
+        m.set_conf(section, key, py_value)
     except ValueError as e:
         warn(e.args[0])
 
