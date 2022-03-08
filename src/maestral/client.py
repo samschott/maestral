@@ -1104,8 +1104,10 @@ class DropboxClient:
     def list_folder(
         self,
         dbx_path: str,
+        recursive: bool = False,
+        include_deleted: bool = False,
+        include_mounted_folders: bool = True,
         include_non_downloadable_files: bool = False,
-        **kwargs,
     ) -> files.ListFolderResult:
         """
         Lists the contents of a folder on Dropbox. Similar to
@@ -1113,17 +1115,25 @@ class DropboxClient:
         :class:`dropbox.files.ListFolderResult` instance.
 
         :param dbx_path: Path of folder on Dropbox.
-        :param include_non_downloadable_files: If ``True``, files that cannot be
-            downloaded (at the moment only G-suite files on Dropbox) will be included.
-        :param kwargs: Additional keyword arguments for Dropbox API files/list_folder
-            endpoint.
+        :param dbx_path: Path of folder on Dropbox.
+        :param recursive: If true, the list folder operation will be applied recursively
+            to all subfolders and the response will contain contents of all subfolders.
+        :param include_deleted: If true, the results will include entries for files and
+            folders that used to exist but were deleted.
+        :param bool include_mounted_folders: If true, the results will include
+            entries under mounted folders which includes app folder, shared
+            folder and team folder.
+        :param bool include_non_downloadable_files: If true, include files that
+            are not downloadable, i.e. Google Docs.
         :returns: Content of given folder.
         """
 
         iterator = self.list_folder_iterator(
             dbx_path,
-            include_non_downloadable_files,
-            **kwargs,
+            recursive=recursive,
+            include_deleted=include_deleted,
+            include_mounted_folders=include_mounted_folders,
+            include_non_downloadable_files=include_non_downloadable_files,
         )
 
         return self.flatten_results(list(iterator), attribute_name="entries")
@@ -1131,8 +1141,11 @@ class DropboxClient:
     def list_folder_iterator(
         self,
         dbx_path: str,
+        recursive: bool = False,
+        include_deleted: bool = False,
+        include_mounted_folders: bool = True,
+        limit: int | None = None,
         include_non_downloadable_files: bool = False,
-        **kwargs,
     ) -> Iterator[files.ListFolderResult]:
         """
         Lists the contents of a folder on Dropbox. Returns an iterator yielding
@@ -1141,10 +1154,18 @@ class DropboxClient:
         single Dropbox API call and will be typically around 500.
 
         :param dbx_path: Path of folder on Dropbox.
-        :param include_non_downloadable_files: If ``True``, files that cannot be
-            downloaded (at the moment only G-suite files on Dropbox) will be included.
-        :param kwargs: Additional keyword arguments for the Dropbox API
-            files/list_folder endpoint.
+        :param recursive: If true, the list folder operation will be applied recursively
+            to all subfolders and the response will contain contents of all subfolders.
+        :param include_deleted: If true, the results will include entries for files and
+            folders that used to exist but were deleted.
+        :param bool include_mounted_folders: If true, the results will include
+            entries under mounted folders which includes app folder, shared
+            folder and team folder.
+        :param Nullable[int] limit: The maximum number of results to return per
+            request. Note: This is an approximate number and there can be
+            slightly more entries returned in some cases.
+        :param bool include_non_downloadable_files: If true, include files that
+            are not downloadable, i.e. Google Docs.
         :returns: Iterator over content of given folder.
         """
 
@@ -1154,8 +1175,11 @@ class DropboxClient:
 
             res = self.dbx.files_list_folder(
                 dbx_path,
+                recursive=recursive,
+                include_deleted=include_deleted,
+                include_mounted_folders=include_mounted_folders,
+                limit=limit,
                 include_non_downloadable_files=include_non_downloadable_files,
-                **kwargs,
             )
 
             yield res

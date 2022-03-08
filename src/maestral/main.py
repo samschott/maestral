@@ -702,14 +702,28 @@ class Maestral:
         else:
             return dropbox_stone_to_dict(res)
 
-    def list_folder(self, dbx_path: str, **kwargs) -> list[SerializedObjectType]:
+    def list_folder(
+        self,
+        dbx_path: str,
+        recursive: bool = False,
+        include_deleted: bool = False,
+        include_mounted_folders: bool = True,
+        include_non_downloadable_files: bool = False,
+    ) -> list[SerializedObjectType]:
         """
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
         passed on the Dropbox API call :meth:`client.DropboxClient.list_folder`.
 
         :param dbx_path: Path to folder on Dropbox.
-        :returns: List of Dropbox item metadata as dicts. See
-            :class:`dropbox.files.Metadata` for keys and values.
+        :param recursive: If true, the list folder operation will be applied recursively
+            to all subfolders and the response will contain contents of all subfolders.
+        :param include_deleted: If true, the results will include entries for files and
+            folders that used to exist but were deleted.
+        :param bool include_mounted_folders: If true, the results will include
+            entries under mounted folders which includes app folder, shared
+            folder and team folder.
+        :param bool include_non_downloadable_files: If true, include files that
+            are not downloadable, i.e. Google Docs.
         :raises NotFoundError: if there is nothing at the given path.
         :raises NotAFolderError: if the given path refers to a file.
         :raises DropboxAuthError: in case of an invalid access token.
@@ -721,13 +735,25 @@ class Maestral:
         self._check_linked()
 
         with self.client.clone_with_new_session() as client:
-            res = client.list_folder(dbx_path, **kwargs)
+            res = client.list_folder(
+                dbx_path,
+                recursive=recursive,
+                include_deleted=include_deleted,
+                include_mounted_folders=include_mounted_folders,
+                include_non_downloadable_files=include_non_downloadable_files,
+            )
             entries = [dropbox_stone_to_dict(e) for e in res.entries]
 
         return entries
 
     def list_folder_iterator(
-        self, dbx_path: str, **kwargs
+        self,
+        dbx_path: str,
+        recursive: bool = False,
+        include_deleted: bool = False,
+        include_mounted_folders: bool = True,
+        limit: int | None = None,
+        include_non_downloadable_files: bool = False,
     ) -> Iterator[list[SerializedObjectType]]:
         """
         Returns an iterator over items inside the folder given by ``dbx_path``. Keyword
@@ -737,6 +763,18 @@ class Maestral:
         by an individual API call.
 
         :param dbx_path: Path to folder on Dropbox.
+        :param recursive: If true, the list folder operation will be applied recursively
+            to all subfolders and the response will contain contents of all subfolders.
+        :param include_deleted: If true, the results will include entries for files and
+            folders that used to exist but were deleted.
+        :param bool include_mounted_folders: If true, the results will include
+            entries under mounted folders which includes app folder, shared
+            folder and team folder.
+        :param Nullable[int] limit: The maximum number of results to return per
+            request. Note: This is an approximate number and there can be
+            slightly more entries returned in some cases.
+        :param bool include_non_downloadable_files: If true, include files that
+            are not downloadable, i.e. Google Docs.
         :returns: Iterator over list of Dropbox item metadata as dicts. See
             :class:`dropbox.files.Metadata` for keys and values.
         :raises NotFoundError: if there is nothing at the given path.
@@ -751,7 +789,14 @@ class Maestral:
 
         with self.client.clone_with_new_session() as client:
 
-            res_iter = client.list_folder_iterator(dbx_path, **kwargs)
+            res_iter = client.list_folder_iterator(
+                dbx_path,
+                recursive=recursive,
+                include_deleted=include_deleted,
+                include_mounted_folders=include_mounted_folders,
+                limit=limit,
+                include_non_downloadable_files=include_non_downloadable_files,
+            )
 
             for res in res_iter:
                 entries = [dropbox_stone_to_dict(e) for e in res.entries]
