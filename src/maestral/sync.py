@@ -120,10 +120,8 @@ from .utils.path import (
     to_existing_unnormalized_path,
     get_symlink_target,
 )
-from .database.orm import (
-    Database,
-    Manager,
-)
+from .database.orm import Manager
+from .database.core import Database
 from .database.query import PathTreeQuery, MatchQuery, AllQuery, AndQuery
 from .utils.appdirs import get_data_path
 

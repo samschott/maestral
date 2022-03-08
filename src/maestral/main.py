@@ -60,7 +60,7 @@ from .utils.serializer import (
 )
 from .utils.appdirs import get_cache_path, get_data_path
 from .utils.integration import get_ac_state, ACState
-from .database.orm import Database
+from .database.core import Database
 from .constants import IDLE, PAUSED, CONNECTING, FileStatus, GITHUB_RELEASES_API
 
 

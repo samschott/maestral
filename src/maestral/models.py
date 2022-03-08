@@ -1,8 +1,8 @@
 """
 This module contains the definitions of our database tables which store the index, sync
 history and cache of content hashes. Each table is defined by a subclass of
-:class:`maestral.utils.orm.Model` with properties representing database columns. Class
-instances then represent table rows.
+:class:`maestral.database.orm.Model` with properties representing database columns.
+Class instances then represent table rows.
 """
 
 from __future__ import annotations
