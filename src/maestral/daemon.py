@@ -14,7 +14,6 @@ import enum
 import threading
 import fcntl
 import struct
-import warnings
 import argparse
 import re
 from pprint import pformat
@@ -693,16 +692,3 @@ class MaestralProxy:
             f"<{self.__class__.__name__}(config={self._config_name!r}, "
             f"is_fallback={self._is_fallback})>"
         )
-
-
-def get_maestral_proxy(
-    config_name: str = "maestral", fallback: bool = False
-) -> Maestral | Proxy:
-
-    warnings.warn(
-        "'get_maestral_proxy' is deprecated, please use 'MaestralProxy' instead",
-        DeprecationWarning,
-    )
-
-    m = MaestralProxy(config_name, fallback=fallback)
-    return m._m
