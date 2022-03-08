@@ -1,8 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import click
 
 from .output import echo, ok
 from .common import convert_api_errors, existing_config_option, inject_proxy
 from .core import DropboxPath, CliException
+
+if TYPE_CHECKING:
+    from ..main import Maestral
 
 
 @click.command(
@@ -50,7 +57,7 @@ def excluded():
 
 @excluded.command(name="list", help="List all excluded files and folders.")
 @inject_proxy(fallback=True, existing_config=True)
-def excluded_list(m) -> None:
+def excluded_list(m: Maestral) -> None:
 
     excluded_items = m.excluded_items
     excluded_items.sort()
@@ -69,7 +76,7 @@ def excluded_list(m) -> None:
 @click.argument("dropbox_path", type=DropboxPath())
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def excluded_add(m, dropbox_path: str) -> None:
+def excluded_add(m: Maestral, dropbox_path: str) -> None:
 
     if dropbox_path == "/":
         raise CliException("Cannot exclude the root directory.")
@@ -91,7 +98,7 @@ folder will be included as well (but no other items inside it).
 @click.argument("dropbox_path", type=DropboxPath())
 @inject_proxy(fallback=False, existing_config=True)
 @convert_api_errors
-def excluded_remove(m, dropbox_path: str) -> None:
+def excluded_remove(m: Maestral, dropbox_path: str) -> None:
 
     if dropbox_path == "/":
         return echo("The root directory is always included")
@@ -115,7 +122,7 @@ def notify():
     type=click.Choice(["ERROR", "SYNCISSUE", "FILECHANGE"], case_sensitive=False),
 )
 @inject_proxy(fallback=True, existing_config=True)
-def notify_level(m, level_name: str) -> None:
+def notify_level(m: Maestral, level_name: str) -> None:
 
     from .. import notify as _notify
 
@@ -133,7 +140,7 @@ def notify_level(m, level_name: str) -> None:
 )
 @click.argument("minutes", type=click.IntRange(min=0))
 @inject_proxy(fallback=True, existing_config=True)
-def notify_snooze(m, minutes: int) -> None:
+def notify_snooze(m: Maestral, minutes: int) -> None:
     m.notification_snooze = minutes
 
     if minutes > 0:

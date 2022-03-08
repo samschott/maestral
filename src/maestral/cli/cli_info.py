@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import os
 import time
-from typing import cast
+from typing import cast, TYPE_CHECKING
 
 import click
 
@@ -9,11 +11,14 @@ from .utils import datetime_from_iso_str
 from .common import convert_api_errors, check_for_fatal_errors, inject_proxy
 from .core import DropboxPath
 
+if TYPE_CHECKING:
+    from ..main import Maestral
+
 
 @click.command(help="Show the status of the daemon.")
 @inject_proxy(fallback=False, existing_config=True)
 @convert_api_errors
-def status(m) -> None:
+def status(m: Maestral) -> None:
 
     email = m.get_state("account", "email")
     account_type = m.get_state("account", "type").capitalize()
@@ -66,7 +71,7 @@ a file-manager.
 @click.argument("local_path", type=click.Path(exists=True, resolve_path=True))
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def filestatus(m, local_path: str) -> None:
+def filestatus(m: Maestral, local_path: str) -> None:
     stat = m.get_file_status(local_path)
     echo(stat)
 
@@ -74,7 +79,7 @@ def filestatus(m, local_path: str) -> None:
 @click.command(help="Live view of all items being synced.")
 @inject_proxy(fallback=False, existing_config=True)
 @convert_api_errors
-def activity(m) -> None:
+def activity(m: Maestral) -> None:
 
     import curses
     from ..utils import natural_size
@@ -154,7 +159,7 @@ def activity(m) -> None:
 @click.command(help="Show recently changed or added files.")
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def history(m) -> None:
+def history(m: Maestral) -> None:
 
     from datetime import datetime
 
@@ -200,7 +205,7 @@ def history(m) -> None:
 )
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def ls(m, long: bool, dropbox_path: str, include_deleted: bool) -> None:
+def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> None:
 
     from ..utils import natural_size
 

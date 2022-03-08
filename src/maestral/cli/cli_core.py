@@ -316,14 +316,14 @@ def gui(config_name: str) -> None:
 
 @click.command(help="Pause syncing.")
 @inject_proxy(fallback=False, existing_config=True)
-def pause(m) -> None:
+def pause(m: Maestral) -> None:
     m.stop_sync()
     ok("Syncing paused.")
 
 
 @click.command(help="Resume syncing.")
 @inject_proxy(fallback=False, existing_config=True)
-def resume(m) -> None:
+def resume(m: Maestral) -> None:
     if not check_for_fatal_errors(m):
         m.start_sync()
         ok("Syncing resumed.")
@@ -344,7 +344,7 @@ def auth():
 )
 @inject_proxy(fallback=True, existing_config=False)
 @convert_api_errors
-def auth_link(m, relink: bool) -> None:
+def auth_link(m: Maestral, relink: bool) -> None:
     if m.pending_link or relink:
         link_dialog(m)
     else:
@@ -424,7 +424,7 @@ def sharelink():
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def sharelink_create(
-    m,
+    m: Maestral,
     dropbox_path: str,
     password: str,
     expiry: datetime | None,
@@ -451,7 +451,7 @@ def sharelink_create(
 @click.argument("url")
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def sharelink_revoke(m, url: str) -> None:
+def sharelink_revoke(m: Maestral, url: str) -> None:
 
     m.revoke_shared_link(url)
     ok("Revoked shared link.")
@@ -463,7 +463,7 @@ def sharelink_revoke(m, url: str) -> None:
 @click.argument("dropbox_path", required=False, type=DropboxPath())
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def sharelink_list(m, dropbox_path: str | None) -> None:
+def sharelink_list(m: Maestral, dropbox_path: str | None) -> None:
 
     links = m.list_shared_links(dropbox_path)
     link_table = Table(["URL", "Item", "Access", "Expires"])

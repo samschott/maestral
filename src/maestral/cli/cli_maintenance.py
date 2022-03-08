@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from os import path as osp
-from typing import cast
+from typing import cast, TYPE_CHECKING
 
 import click
 
@@ -13,11 +13,14 @@ from .utils import get_term_width, datetime_from_iso_str
 from .common import convert_api_errors, existing_config_option, inject_proxy
 from .core import DropboxPath, ConfigKey, CliException
 
+if TYPE_CHECKING:
+    from ..main import Maestral
+
 
 @click.command(help="Move the local Dropbox folder.")
 @click.argument("new_path", required=False, type=click.Path(writable=True))
 @inject_proxy(fallback=True, existing_config=True)
-def move_dir(m, new_path: str) -> None:
+def move_dir(m: Maestral, new_path: str) -> None:
 
     new_path = new_path or select_dbx_path_dialog(m.config_name)
     new_path = osp.realpath(osp.expanduser(new_path))
@@ -39,7 +42,7 @@ Rebuilding may take several minutes, depending on the size of your Dropbox.
 )
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def rebuild_index(m, yes: bool) -> None:
+def rebuild_index(m: Maestral, yes: bool) -> None:
 
     import textwrap
 
@@ -60,10 +63,10 @@ def rebuild_index(m, yes: bool) -> None:
 
         m.rebuild_index()
 
-        if m._is_fallback:
-            ok("Daemon is not running. Rebuilding scheduled for next startup.")
-        else:
+        if m.running:
             ok("Rebuilding now. Run 'maestral status' to view progress.")
+        else:
+            ok("Sync is not running. Rebuilding scheduled for next startup.")
 
 
 @click.command(help="List old file revisions.")
@@ -78,7 +81,7 @@ def rebuild_index(m, yes: bool) -> None:
 )
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def revs(m, dropbox_path: str, limit: int) -> None:
+def revs(m: Maestral, dropbox_path: str, limit: int) -> None:
 
     entries = m.list_revisions(dropbox_path, limit=limit)
 
@@ -130,7 +133,7 @@ and memory.
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def diff(
-    m,
+    m: Maestral,
     dropbox_path: str,
     rev: list[str],
     no_color: bool,
@@ -141,22 +144,24 @@ def diff(
     # Ask for user input if revs are not provided as CLI arguments.
     if len(rev) == 0:
         entries = m.list_revisions(dropbox_path, limit=limit)
+        modified_dates: list[str] = []
 
         for entry in entries:
             cm = cast(str, entry["client_modified"])
             field = DateField(datetime_from_iso_str(cm))
-            entry["desc"] = field.format(40)[0]
+            modified_dates.append(field.format(40)[0])
 
         dbx_path = cast(str, entries[0]["path_display"])
         local_path = m.to_local_path(dbx_path)
 
         if osp.isfile(local_path):
             # prepend local version as an option
-            entries.insert(0, {"desc": "local version", "rev": None})
+            modified_dates.insert(0, "local version")
+            entries.insert(0, {"rev": None})
 
         index_base = select(
             message="New revision:",
-            options=[e["desc"] for e in entries],
+            options=modified_dates,
             hint="(↓ to see more)" if len(entries) > 6 else "",
         )
 
@@ -164,11 +169,11 @@ def diff(
             warn("Oldest revision selected, unable to find anything to compare.")
             return
 
-        comparable_versions = entries[index_base + 1 :]
+        comparable_dates = modified_dates[index_base + 1 :]
         index_new = select(
             message="Old revision:",
-            options=[e["desc"] for e in comparable_versions],
-            hint="(↓ to see more)" if len(comparable_versions) > 6 else "",
+            options=comparable_dates,
+            hint="(↓ to see more)" if len(comparable_dates) > 6 else "",
         )
 
         old_rev = entries[index_new + index_base + 1]["rev"]
@@ -179,7 +184,7 @@ def diff(
     elif len(rev) == 2:
         old_rev = rev[0]
         new_rev = rev[1]
-    elif len(rev) > 2:
+    else:
         warn("You can only compare two revisions at a time.")
         return
 
@@ -244,7 +249,7 @@ If no revision number is given, old revisions will be listed.
 )
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def restore(m, dropbox_path: str, rev: str, limit: int) -> None:
+def restore(m: Maestral, dropbox_path: str, rev: str, limit: int) -> None:
 
     if not rev:
         echo("Loading...\r", nl=False)
@@ -333,7 +338,7 @@ def log_clear(config_name: str) -> None:
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"], case_sensitive=False),
 )
 @inject_proxy(fallback=True, existing_config=True)
-def log_level(m, level_name: str) -> None:
+def log_level(m: Maestral, level_name: str) -> None:
 
     import logging
 
@@ -382,7 +387,7 @@ def config():
 @config.command(name="get", help="Print the value of a given configuration key.")
 @click.argument("key", type=ConfigKey())
 @inject_proxy(fallback=True, existing_config=True)
-def config_get(m, key: str) -> None:
+def config_get(m: Maestral, key: str) -> None:
 
     from ..config.main import KEY_SECTION_MAP
 
@@ -410,7 +415,7 @@ instance, setting a boolean config value to 1 will actually set it to True.
 @click.argument("value")
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def config_set(m, key: str, value: str) -> None:
+def config_set(m: Maestral, key: str, value: str) -> None:
 
     import ast
     from ..config.main import KEY_SECTION_MAP, DEFAULTS_CONFIG
