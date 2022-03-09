@@ -1264,39 +1264,36 @@ class DropboxClient:
     def create_shared_link(
         self,
         dbx_path: str,
-        visibility: sharing.RequestedVisibility = sharing.RequestedVisibility.public,
+        visibility: sharing.LinkAudience = sharing.LinkAudience.public,
+        access_level: sharing.RequestedLinkAccessLevel = sharing.RequestedLinkAccessLevel.viewer,
+        allow_download: bool | None = None,
         password: str | None = None,
         expires: datetime | None = None,
-        **kwargs,
     ) -> sharing.SharedLinkMetadata:
         """
         Creates a shared link for the given path. Some options are only available for
-        Professional and Business accounts. Note that the requested visibility as access
-        level for the link may not be granted, depending on the Dropbox folder or team
-        settings. Check the returned link metadata to verify the visibility and access
-        level.
+        Professional and Business accounts. Note that the requested visibility and
+        access level for the link may not be granted, depending on the Dropbox folder or
+        team settings. Check the returned link metadata to verify the visibility and
+        access level.
 
         :param dbx_path: Dropbox path to file or folder to share.
         :param visibility: The visibility of the shared link. Can be public, team-only,
-            or password protected. In case of the latter, the password argument must be
-            given. Only available for Professional and Business accounts.
-        :param password: Password to protect shared link. Is required if visibility
-            is set to password protected and will be ignored otherwise
+            or no-one. In case of the latter, the link merely points the user to the
+            content and does not grant additional rights to the user. Users of this link
+            can only access the content with their pre-existing access rights.
+        :param visibility: The visibility of the shared link. Can be public, team-only,
+            or no-one. In case of the latter, the link merely points the user to the
+            content and does not grant additional rights to the user. Users of this link
+            can only access the content with their pre-existing access rights.
+        :param access_level: The level of access granted with the link. Can be viewer,
+            editor, or max for maximum possible access level.
+        :param allow_download: Whether to allow download capabilities for the link.
+        :param password: If given, enables password protection for the link.
         :param expires: Expiry time for shared link. Only available for Professional and
             Business accounts.
-        :param kwargs: Additional keyword arguments to create the
-            :class:`dropbox.sharing.SharedLinkSettings` instance.
         :returns: Metadata for shared link.
         """
-
-        if visibility.is_password() and not password:
-            raise MaestralApiError(
-                "Invalid shared link setting",
-                "Password is required to share a password-protected link",
-            )
-
-        if not visibility.is_password():
-            password = None
 
         # Convert timestamp to utc time if not naive.
         if expires is not None:
@@ -1305,10 +1302,12 @@ class DropboxClient:
                 expires.astimezone(timezone.utc)
 
         settings = sharing.SharedLinkSettings(
-            requested_visibility=visibility,
+            require_password=password is not None,
             link_password=password,
             expires=expires,
-            **kwargs,
+            audience=visibility,
+            access=access_level,
+            allow_download=allow_download,
         )
 
         with convert_api_errors(dbx_path=dbx_path):

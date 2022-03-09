@@ -437,12 +437,7 @@ def sharelink_create(
     else:
         expiry_dt = None
 
-    if password:
-        visibility = "password"
-    else:
-        visibility = "public"
-
-    link_info = m.create_shared_link(dropbox_path, visibility, password, expiry_dt)
+    link_info = m.create_shared_link(dropbox_path, password=password, expires=expiry_dt)
 
     echo(link_info["url"])
 

@@ -25,7 +25,7 @@ from watchdog.events import DirDeletedEvent, FileDeletedEvent
 from packaging.version import Version
 from datetime import datetime, timezone
 from dropbox.files import FileMetadata
-from dropbox.sharing import RequestedVisibility
+from dropbox.sharing import LinkAudience
 
 # local imports
 from . import __version__
@@ -1300,11 +1300,10 @@ class Maestral:
 
         :param dbx_path: Path to item on Dropbox.
         :param visibility: Requested visibility of the shared link. Must be "public",
-            "team_only" or "password". The actual visibility may be different, depending
+            "team" or "no_one". The actual visibility may be different, depending
             on the team and folder settings. Inspect the "link_permissions" entry of the
             returned dictionary.
-        :param password: An optional password required to access the link. Will be
-            ignored if the visibility is not "password".
+        :param password: An optional password required to access the link.
         :param expires: An optional expiry time for the link as POSIX timestamp.
         :returns: Shared link information as dict. See
             :class:`dropbox.sharing.SharedLinkMetadata` for keys and values.
@@ -1317,15 +1316,15 @@ class Maestral:
 
         self._check_linked()
 
-        if visibility not in ("public", "team_only", "password"):
-            raise ValueError("Visibility must be 'public', 'team_only', or 'password'")
+        if visibility not in ("public", "team", "no_one"):
+            raise ValueError("Visibility must be 'public', 'team', or 'no_one'")
 
         if visibility == "password" and not password:
             raise ValueError("Please specify a password")
 
         link_info = self.client.create_shared_link(
             dbx_path=dbx_path,
-            visibility=RequestedVisibility(visibility),
+            visibility=LinkAudience(visibility),
             password=password,
             expires=datetime.utcfromtimestamp(expires) if expires else None,
         )
