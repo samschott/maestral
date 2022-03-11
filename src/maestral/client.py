@@ -29,6 +29,7 @@ import requests
 from dropbox import files, sharing, users, common
 from dropbox import Dropbox, create_session, exceptions  # type: ignore
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect
+from dropbox.session import API_HOST
 
 # local imports
 from . import __version__
@@ -79,7 +80,7 @@ if TYPE_CHECKING:
     from .models import SyncEvent
 
 
-__all__ = ["DropboxClient"]
+__all__ = ["DropboxClient", "API_HOST"]
 
 
 PRT = TypeVar("PRT", ListFolderResult, ListSharedLinkResult)
