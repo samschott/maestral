@@ -16,6 +16,7 @@ from typing import (
     Callable,
     Any,
     Iterator,
+    Sequence,
     TypeVar,
     BinaryIO,
     overload,
@@ -932,7 +933,7 @@ class DropboxClient:
         return convert_metadata(res.metadata)
 
     def remove_batch(
-        self, entries: list[tuple[str, str]], batch_size: int = 900
+        self, entries: Sequence[tuple[str, str | None]], batch_size: int = 900
     ) -> list[FileMetadata | FolderMetadata | MaestralApiError]:
         """
         Deletes multiple items on Dropbox in a batch job.
@@ -953,7 +954,7 @@ class DropboxClient:
 
         # Up two ~ 1,000 entries allowed per batch:
         # https://www.dropbox.com/developers/reference/data-ingress-guide
-        for chunk in chunks(entries, n=batch_size):
+        for chunk in chunks(list(entries), n=batch_size):
 
             arg = [files.DeleteArg(e[0], e[1]) for e in chunk]
 

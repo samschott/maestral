@@ -65,7 +65,7 @@ from maestral.errorhandling import (
         (errno.ENOMEM, OutOfMemoryError),
     ],
 )
-def test_os_to_maestral_error(number, maestral_exc):
+def test_os_to_maestral_error(number: int, maestral_exc):
     os_error = OSError(number, "error")
     converted = os_to_maestral_error(os_error)
     assert isinstance(converted, maestral_exc)

@@ -50,9 +50,9 @@ def client():
         c.remove(entry.path_lower)
 
     # remove all shared links
-    res = c.list_shared_links()
+    links = c.list_shared_links()
 
-    for link in res.links:
+    for link in links:
         c.revoke_shared_link(link.url)
 
     # remove local files and folders

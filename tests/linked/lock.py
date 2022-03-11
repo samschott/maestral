@@ -2,8 +2,9 @@ import time
 import uuid
 from datetime import datetime
 
-from dropbox.files import WriteMode, FileMetadata
+from dropbox import files
 
+from maestral.core import FileMetadata
 from maestral.client import DropboxClient
 from maestral.exceptions import NotFoundError, FileConflictError
 from maestral.errorhandling import convert_api_errors
@@ -62,7 +63,7 @@ class DropboxTestLock:
                     md = self.client.dbx.files_upload(
                         uuid.uuid4().bytes,
                         self.lock_path,
-                        mode=WriteMode.add,
+                        mode=files.WriteMode.add,
                         client_modified=expiry_time,
                     )
                     self._rev = md.rev

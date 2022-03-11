@@ -21,7 +21,7 @@ def cred_storage():
     remove_configuration("test-config")
 
 
-def test_unlinked_state(cred_storage):
+def test_unlinked_state(cred_storage: CredentialStorage) -> None:
     """Test unlinked state"""
 
     conf = MaestralConfig("test-config")
@@ -38,7 +38,7 @@ def test_unlinked_state(cred_storage):
     assert state.get("auth", "token_access_type") == ""
 
 
-def test_save_creds(cred_storage):
+def test_save_creds(cred_storage: CredentialStorage) -> None:
     """Test linked state"""
 
     conf = MaestralConfig("test-config")
@@ -57,7 +57,7 @@ def test_save_creds(cred_storage):
     assert state.get("auth", "token_access_type") == "offline"
 
 
-def test_load_creds(cred_storage):
+def test_load_creds(cred_storage: CredentialStorage) -> None:
     """Test linked state"""
 
     cred_storage.save_creds("account_id", "token", TokenType.Offline)
@@ -72,7 +72,7 @@ def test_load_creds(cred_storage):
     assert isinstance(cred_storage2.keyring, KeyringBackend)
 
 
-def test_delete_creds(cred_storage):
+def test_delete_creds(cred_storage: CredentialStorage) -> None:
     """Test resetting state on `delete_creds`"""
 
     conf = MaestralConfig("test-config")
@@ -92,7 +92,7 @@ def test_delete_creds(cred_storage):
     assert state.get("auth", "token_access_type") == ""
 
 
-def test_plaintext_fallback(cred_storage):
+def test_plaintext_fallback(cred_storage: CredentialStorage) -> None:
     conf = MaestralConfig("test-config")
 
     cred_storage.set_keyring_backend(SecretServiceKeyring())
@@ -106,7 +106,7 @@ def test_plaintext_fallback(cred_storage):
     assert conf.get("auth", "keyring") == "keyrings.alt.file.PlaintextKeyring"
 
 
-def test_load_error(cred_storage):
+def test_load_error(cred_storage: CredentialStorage) -> None:
     """Test loading state from config file and keyring"""
 
     cred_storage.save_creds("account_id", "token", TokenType.Offline)
@@ -122,7 +122,7 @@ def test_load_error(cred_storage):
             cred_storage2.token
 
 
-def test_delete_error(cred_storage):
+def test_delete_error(cred_storage: CredentialStorage) -> None:
     """Test loading state from config file and keyring"""
 
     cred_storage.save_creds("account_id", "token", TokenType.Offline)
