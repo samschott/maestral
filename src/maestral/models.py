@@ -15,7 +15,6 @@ from datetime import timezone
 from typing import TYPE_CHECKING
 
 # external imports
-from dropbox.files import Metadata, DeletedMetadata, FileMetadata, FolderMetadata
 from watchdog.events import (
     FileSystemEvent,
     EVENT_TYPE_CREATED,
@@ -25,6 +24,7 @@ from watchdog.events import (
 )
 
 # local imports
+from .core import Metadata, DeletedMetadata, FileMetadata, FolderMetadata
 from .database.orm import Model, Column
 from .database.types import SqlInt, SqlLargeInt, SqlFloat, SqlString, SqlPath, SqlEnum
 from .utils.path import normalize
@@ -271,7 +271,7 @@ class SyncEvent(Model):
         return f"<{self.__class__.__name__}({prop_str})>"
 
     @classmethod
-    def from_dbx_metadata(cls, md: Metadata, sync_engine: SyncEngine) -> SyncEvent:
+    def from_metadata(cls, md: Metadata, sync_engine: SyncEngine) -> SyncEvent:
         """
         Initializes a SyncEvent from the given Dropbox metadata.
 
@@ -315,7 +315,7 @@ class SyncEvent(Model):
             item_type = ItemType.File
             rev = md.rev
             hash_str = md.content_hash
-            symlink_target = md.symlink_info.target if md.symlink_info else None
+            symlink_target = md.symlink_target
             dbx_id = md.id
             size = md.size
             change_time = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
@@ -323,11 +323,11 @@ class SyncEvent(Model):
                 change_type = ChangeType.Modified
             else:
                 change_type = ChangeType.Added
-            if md.sharing_info:
-                change_dbid = md.sharing_info.modified_by
+            if md.shared:
+                change_dbid = md.modified_by
             else:
-                # file is not a shared folder, therefore
-                # the current user must have added or modified it
+                # File is not a shared folder, therefore
+                # the current user must have added or modified it.
                 change_dbid = sync_engine.client.account_info.account_id
         else:
             raise RuntimeError(f"Cannot convert {md} to SyncEvent")
