@@ -9,7 +9,7 @@ import click
 from .cli_core import select_dbx_path_dialog
 from .dialogs import confirm, select
 from .output import ok, echo, Table, TextField, DateField, warn
-from .utils import get_term_width, datetime_from_iso_str
+from .utils import get_term_width
 from .common import convert_api_errors, existing_config_option, inject_proxy
 from .core import DropboxPath, ConfigKey, CliException
 
@@ -88,11 +88,7 @@ def revs(m: Maestral, dropbox_path: str, limit: int) -> None:
     table = Table(["Revision", "Modified Time"])
 
     for entry in entries:
-
-        rev = cast(str, entry["rev"])
-        dt = datetime_from_iso_str(cast(str, entry["client_modified"]))
-
-        table.append([TextField(rev), DateField(dt)])
+        table.append([TextField(entry.rev), DateField(entry.client_modified)])
 
     echo("")
     table.echo()
@@ -140,6 +136,8 @@ def diff(
     no_pager: bool,
     limit: int,
 ) -> None:
+    class LocalDummyFile:
+        rev = None
 
     # Ask for user input if revs are not provided as CLI arguments.
     if len(rev) == 0:
@@ -147,17 +145,16 @@ def diff(
         modified_dates: list[str] = []
 
         for entry in entries:
-            cm = cast(str, entry["client_modified"])
-            field = DateField(datetime_from_iso_str(cm))
+            field = DateField(entry.client_modified)
             modified_dates.append(field.format(40)[0])
 
-        dbx_path = cast(str, entries[0]["path_display"])
+        dbx_path = entries[0].path_display
         local_path = m.to_local_path(dbx_path)
 
         if osp.isfile(local_path):
             # prepend local version as an option
             modified_dates.insert(0, "local version")
-            entries.insert(0, {"rev": None})
+            entries.insert(0, LocalDummyFile())
 
         index_base = select(
             message="New revision:",
@@ -176,8 +173,8 @@ def diff(
             hint="(↓ to see more)" if len(comparable_dates) > 6 else "",
         )
 
-        old_rev = entries[index_new + index_base + 1]["rev"]
-        new_rev = entries[index_base]["rev"]
+        old_rev = entries[index_new + index_base + 1].rev
+        new_rev = entries[index_base].rev
     elif len(rev) == 1:
         old_rev = rev[0]
         new_rev = None
@@ -256,8 +253,7 @@ def restore(m: Maestral, dropbox_path: str, rev: str, limit: int) -> None:
         entries = m.list_revisions(dropbox_path, limit=limit)
         dates = []
         for entry in entries:
-            cm = cast(str, entry["client_modified"])
-            field = DateField(datetime_from_iso_str(cm))
+            field = DateField(entry.client_modified)
             dates.append(field.format(40)[0])
 
         index = select(
@@ -265,7 +261,8 @@ def restore(m: Maestral, dropbox_path: str, rev: str, limit: int) -> None:
             options=dates,
             hint="(↓ to see more)" if len(entries) > 6 else "",
         )
-        rev = cast(str, entries[index]["rev"])
+
+        rev = entries[index].rev
 
     m.restore(dropbox_path, rev)
 
