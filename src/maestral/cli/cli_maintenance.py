@@ -154,7 +154,7 @@ def diff(
         if osp.isfile(local_path):
             # prepend local version as an option
             modified_dates.insert(0, "local version")
-            entries.insert(0, LocalDummyFile())
+            entries.insert(0, LocalDummyFile())  # type: ignore
 
         index_base = select(
             message="New revision:",
