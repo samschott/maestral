@@ -15,14 +15,11 @@ from threading import Event, RLock, Thread
 from tempfile import TemporaryDirectory
 from typing import Iterator, cast, TypeVar, Callable, Any
 
-# external imports
-from dropbox.common import TeamRootInfo, UserRootInfo
-from dropbox.session import API_HOST
-
 # local imports
 from . import __url__
 from . import notify
-from .client import DropboxClient
+from .client import DropboxClient, API_HOST
+from .core import TeamRootInfo, UserRootInfo
 from .config import MaestralConfig, MaestralState
 from .constants import (
     DISCONNECTED,
@@ -495,7 +492,7 @@ class SyncManager:
                 # Migrate all excluded items.
                 self._logger.debug("Migrating excluded items")
                 new_excluded = [
-                    root_info.home_path + path for path in self.sync.excluded_items
+                    new_user_home_path + path for path in self.sync.excluded_items
                 ]
                 self.sync.excluded_items = new_excluded
 
