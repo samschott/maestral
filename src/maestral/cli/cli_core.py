@@ -293,7 +293,7 @@ def gui(config_name: str) -> None:
 
     if default_entry_point:
         # check gui requirements
-        requirements = [Requirement(r) for r in requires("maestral")]  # type: ignore
+        requirements = [Requirement(r) for r in requires("maestral")]
 
         for r in requirements:
             if r.marker and r.marker.evaluate({"extra": "gui"}):

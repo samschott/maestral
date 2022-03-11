@@ -412,7 +412,7 @@ def start_maestral_daemon(
 
             dlogger.debug("Integrating with CFEventLoop")
 
-            from rubicon.objc.eventloop import EventLoopPolicy  # type: ignore
+            from rubicon.objc.eventloop import EventLoopPolicy
 
             asyncio.set_event_loop_policy(EventLoopPolicy())
 

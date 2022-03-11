@@ -232,7 +232,7 @@ class OrderedGroup(click.Group):
         # allow for 3 times the default spacing
         if len(commands) > 0:
             max_len = max(len(name) for name, cmd in commands)
-            limit = formatter.width - 6 - max_len  # type: ignore
+            limit = formatter.width - 6 - max_len
 
             # format sections individually
             for section, cmd_list in self.sections.items():

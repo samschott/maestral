@@ -8,7 +8,7 @@ import platform
 from enum import Enum
 
 try:
-    from importlib.resources import path  # type: ignore
+    from importlib.resources import path
 except ImportError:
     from importlib_resources import path  # type: ignore
 

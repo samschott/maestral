@@ -110,7 +110,7 @@ class SqlEnum(SqlType):
     def __init__(self, enum: Iterable[Enum]) -> None:
         self.enum_type = enum
 
-    def sql_to_py(self, value: str | None) -> Enum | None:  # type: ignore
+    def sql_to_py(self, value: str | None) -> Enum | None:
         if value is None:
             return None
 
