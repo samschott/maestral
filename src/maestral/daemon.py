@@ -6,6 +6,7 @@ objects for a running daemon.
 from __future__ import annotations
 
 # system imports
+import inspect
 import sys
 import os
 import time
@@ -16,6 +17,7 @@ import fcntl
 import struct
 import argparse
 import re
+import pickle
 from pprint import pformat
 from shlex import quote
 from typing import Any, Iterable, TYPE_CHECKING
@@ -23,16 +25,23 @@ from types import TracebackType
 
 # external imports
 import Pyro5
-from Pyro5.errors import CommunicationError
-from Pyro5.api import Daemon, Proxy, expose, register_dict_to_class
 import sdnotify
+from Pyro5.errors import CommunicationError
+from Pyro5.api import (
+    Daemon,
+    Proxy,
+    expose,
+    register_dict_to_class,
+    register_class_to_dict,
+)
+from Pyro5.serializers import serpent
 from fasteners import InterProcessLock
 
 # local imports
-from .exceptions import SYNC_ERRORS, GENERAL_ERRORS, MaestralApiError
 from .utils import exc_info_tuple
 from .utils.appdirs import get_runtime_path
 from .constants import IS_MACOS, ENV
+from . import core, models, exceptions
 
 
 if TYPE_CHECKING:
@@ -112,35 +121,39 @@ class Start(enum.Enum):
 # ==== error serialization =============================================================
 
 
-def serpent_deserialize_api_error(class_name: str, d: dict) -> MaestralApiError:
+def check_signature(signature: str, obj: bytes) -> None:
+    pass
+
+
+def serialize_api_types(obj: Any) -> dict:
     """
-    Deserializes a MaestralApiError.
+    :param obj: Object to serialize.
+    :returns: Serialized object.
+    """
+    res = pickle.dumps(obj)
+    return {"__class__": type(obj).__name__, "object": res, "signature": ""}
+
+
+def deserialize_api_types(class_name: str, d: dict) -> Any:
+    """
+    Deserializes an API type. Allowed classes are defined in:
+        * :mod:`maestral.core`
+        * :mod:`maestral.model`
+        * :mod:`maestral.exceptions`
 
     :param class_name: Name of class to deserialize.
     :param d: Dictionary of serialized class.
-    :returns: Class instance.
+    :returns: Deserialized object.
     """
-
-    # Import maestral.exceptions for evaluation.
-    # This import needs to be absolute to reconstruct the Exception class. Note that the
-    # eval is safe here because ``serpent_deserialize_api_error`` is only registered for
-    # strings that match an error class name. Note that the client process needs to be
-    # able to import `maestral.exceptions` for this to work.
-
-    import maestral.exceptions  # noqa: F401
-
-    cls = eval(class_name)
-    err = cls(*d["args"])
-    for a_name, a_value in d["attributes"].items():
-        setattr(err, a_name, a_value)
-
-    return err
+    bytes_message = serpent.tobytes(d["object"])
+    check_signature(d["signature"], bytes_message)
+    return pickle.loads(bytes_message)
 
 
-for err_cls in (*SYNC_ERRORS, *GENERAL_ERRORS):
-    register_dict_to_class(
-        err_cls.__module__ + "." + err_cls.__name__, serpent_deserialize_api_error
-    )
+for module in core, models, exceptions:
+    for klass_name, klass in inspect.getmembers(module, inspect.isclass):
+        register_class_to_dict(klass, serialize_api_types)
+        register_dict_to_class(klass_name, deserialize_api_types)
 
 
 # ==== interprocess locking ============================================================
