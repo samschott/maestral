@@ -24,14 +24,22 @@ import requests
 from watchdog.events import DirDeletedEvent, FileDeletedEvent
 from packaging.version import Version
 from datetime import datetime, timezone
-from dropbox.files import FileMetadata
-from dropbox.sharing import LinkAudience
 
 # local imports
 from . import __version__
 from .client import DropboxClient
+from .core import (
+    SharedLinkMetadata,
+    FullAccount,
+    SpaceUsage,
+    Metadata,
+    FileMetadata,
+    LinkAudience,
+    LinkAccessLevel,
+)
 from .sync import SyncDirection
 from .manager import SyncManager
+from .models import SyncEvent, SyncErrorEntry
 from .exceptions import (
     MaestralApiError,
     NotLinkedError,
@@ -51,12 +59,6 @@ from .utils.path import (
     normalize,
     to_existing_unnormalized_path,
     delete,
-)
-from .utils.serializer import (
-    error_to_dict,
-    dropbox_stone_to_dict,
-    orm_type_to_dict,
-    SerializedObjectType,
 )
 from .utils.appdirs import get_cache_path, get_data_path
 from .utils.integration import get_ac_state, ACState
@@ -477,7 +479,7 @@ class Maestral:
             return self._log_handler_info_cache.getLastMessage()
 
     @property
-    def sync_errors(self) -> list[SerializedObjectType]:
+    def sync_errors(self) -> list[SyncErrorEntry]:
         """
         A list of current sync errors as dicts (read only). This list is populated by
         the sync threads. The following keys will always be present but may contain
@@ -487,10 +489,10 @@ class Maestral:
         :raises NotLinkedError: if no Dropbox account is linked.
         """
 
-        return [orm_type_to_dict(e) for e in self.sync.sync_errors]
+        return self.sync.sync_errors
 
     @property
-    def fatal_errors(self) -> list[SerializedObjectType]:
+    def fatal_errors(self) -> list[MaestralApiError]:
         """
         Returns a list of fatal errors as dicts (read only). This does not include lost
         internet connections or file sync errors which only emit warnings and are
@@ -504,16 +506,15 @@ class Maestral:
         have ``exc_info`` attached.
         """
 
-        maestral_errors_dicts: list[SerializedObjectType] = []
+        errors: list[MaestralApiError] = []
 
         for r in self._log_handler_error_cache.cached_records:
             if r.exc_info:
                 err = r.exc_info[1]
-                if isinstance(err, Exception):
-                    serialized_error = error_to_dict(err)
-                    maestral_errors_dicts.append(serialized_error)
+                if isinstance(err, MaestralApiError):
+                    errors.append(err)
 
-        return maestral_errors_dicts
+        return errors
 
     def clear_fatal_errors(self) -> None:
         """
@@ -578,7 +579,7 @@ class Maestral:
         else:
             return FileStatus.Unwatched.value
 
-    def get_activity(self, limit: int | None = 100) -> list[SerializedObjectType]:
+    def get_activity(self, limit: int | None = 100) -> list[SyncEvent]:
         """
         Returns the current upload / download activity.
 
@@ -591,12 +592,9 @@ class Maestral:
 
         self._check_linked()
 
-        activity = list(self.manager.activity.values())[:limit]
-        serialized_activity = [orm_type_to_dict(event) for event in activity]
+        return list(self.manager.activity.values())[:limit]
 
-        return serialized_activity
-
-    def get_history(self, limit: int | None = 100) -> list[SerializedObjectType]:
+    def get_history(self, limit: int | None = 100) -> list[SyncEvent]:
         """
         Returns the historic upload / download activity. Up to 1,000 sync events are
         kept in the database. Any events which occurred before the interval specified by
@@ -611,13 +609,11 @@ class Maestral:
 
         self._check_linked()
         if limit:
-            history = [orm_type_to_dict(e) for e in self.manager.history[-limit:]]
+            return self.manager.history[-limit:]
         else:
-            history = [orm_type_to_dict(e) for e in self.manager.history]
+            return self.manager.history
 
-        return history
-
-    def get_account_info(self) -> SerializedObjectType:
+    def get_account_info(self) -> FullAccount:
         """
         Returns the account information from Dropbox and returns it as a dictionary.
 
@@ -627,13 +623,10 @@ class Maestral:
         :raises ConnectionError: if the connection to Dropbox fails.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
+        return self.client.get_account_info()
 
-        res = self.client.get_account_info()
-        return dropbox_stone_to_dict(res)
-
-    def get_space_usage(self) -> SerializedObjectType:
+    def get_space_usage(self) -> SpaceUsage:
         """
         Gets the space usage from Dropbox and returns it as a dictionary.
 
@@ -643,11 +636,8 @@ class Maestral:
         :raises ConnectionError: if the connection to Dropbox fails.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
-
-        res = self.client.get_space_usage()
-        return dropbox_stone_to_dict(res)
+        return self.client.get_space_usage()
 
     # ==== Control methods for front ends ==============================================
 
@@ -667,11 +657,11 @@ class Maestral:
 
         self._check_linked()
 
-        res = self.client.get_account_info()
+        account_info = self.client.get_account_info()
 
-        if res.profile_photo_url:
+        if account_info.profile_photo_url:
             with convert_api_errors():
-                res = requests.get(res.profile_photo_url)
+                res = requests.get(account_info.profile_photo_url)
                 with open(self.account_profile_pic_path, "wb") as f:
                     f.write(res.content)
             return self.account_profile_pic_path
@@ -679,7 +669,7 @@ class Maestral:
             self._delete_old_profile_pics()
             return None
 
-    def get_metadata(self, dbx_path: str) -> SerializedObjectType | None:
+    def get_metadata(self, dbx_path: str) -> Metadata | None:
         """
         Returns metadata for a file or folder on Dropbox.
 
@@ -692,15 +682,8 @@ class Maestral:
         :raises ConnectionError: if the connection to Dropbox fails.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
-
-        res = self.client.get_metadata(dbx_path)
-
-        if res is None:
-            return None
-        else:
-            return dropbox_stone_to_dict(res)
+        return self.client.get_metadata(dbx_path)
 
     def list_folder(
         self,
@@ -709,7 +692,7 @@ class Maestral:
         include_deleted: bool = False,
         include_mounted_folders: bool = True,
         include_non_downloadable_files: bool = False,
-    ) -> list[SerializedObjectType]:
+    ) -> list[Metadata]:
         """
         List all items inside the folder given by ``dbx_path``. Keyword arguments are
         passed on the Dropbox API call :meth:`client.DropboxClient.list_folder`.
@@ -742,9 +725,8 @@ class Maestral:
                 include_mounted_folders=include_mounted_folders,
                 include_non_downloadable_files=include_non_downloadable_files,
             )
-            entries = [dropbox_stone_to_dict(e) for e in res.entries]
 
-        return entries
+        return res.entries
 
     def list_folder_iterator(
         self,
@@ -754,7 +736,7 @@ class Maestral:
         include_mounted_folders: bool = True,
         limit: int | None = None,
         include_non_downloadable_files: bool = False,
-    ) -> Iterator[list[SerializedObjectType]]:
+    ) -> Iterator[list[Metadata]]:
         """
         Returns an iterator over items inside the folder given by ``dbx_path``. Keyword
         arguments are passed on the client call
@@ -799,14 +781,11 @@ class Maestral:
             )
 
             for res in res_iter:
-                entries = [dropbox_stone_to_dict(e) for e in res.entries]
-                yield entries
-                del entries
+                yield res.entries
+                del res
                 gc.collect()
 
-    def list_revisions(
-        self, dbx_path: str, limit: int = 10
-    ) -> list[SerializedObjectType]:
+    def list_revisions(self, dbx_path: str, limit: int = 10) -> list[FileMetadata]:
         """
         List revisions of old files at the given path ``dbx_path``. This will also
         return revisions if the file has already been deleted.
@@ -825,10 +804,7 @@ class Maestral:
         self._check_linked()
 
         with self.client.clone_with_new_session() as client:
-            res = client.list_revisions(dbx_path, limit=limit)
-            entries = [dropbox_stone_to_dict(e) for e in res.entries]
-
-        return entries
+            return client.list_revisions(dbx_path, limit=limit)
 
     def get_file_diff(self, old_rev: str, new_rev: str | None = None) -> list[str]:
         """
@@ -926,7 +902,7 @@ class Maestral:
             )
         )
 
-    def restore(self, dbx_path: str, rev: str) -> SerializedObjectType:
+    def restore(self, dbx_path: str, rev: str) -> FileMetadata:
         """
         Restore an old revision of a file.
 
@@ -941,11 +917,8 @@ class Maestral:
         """
 
         self._check_linked()
-
         self._logger.info(f"Restoring '{dbx_path} to {rev}'")
-
-        res = self.client.restore(dbx_path, rev)
-        return dropbox_stone_to_dict(res)
+        return self.client.restore(dbx_path, rev)
 
     def _delete_old_profile_pics(self):
         for file in os.listdir(get_cache_path("maestral")):
@@ -1288,48 +1261,42 @@ class Maestral:
     def create_shared_link(
         self,
         dbx_path: str,
-        visibility: str = "public",
+        visibility: LinkAudience = LinkAudience.Public,
+        access_level: LinkAccessLevel = LinkAccessLevel.Viewer,
+        allow_download: bool | None = None,
         password: str | None = None,
-        expires: float | None = None,
-    ) -> SerializedObjectType:
+        expires: datetime | None = None,
+    ) -> SharedLinkMetadata:
         """
         Creates a shared link for the given ``dbx_path``. Returns a dictionary with
         information regarding the link, including the URL, access permissions, expiry
         time, etc. The shared link will grant read / download access only. Note that
         basic accounts do not support password protection or expiry times.
 
-        :param dbx_path: Path to item on Dropbox.
-        :param visibility: Requested visibility of the shared link. Must be "public",
-            "team" or "no_one". The actual visibility may be different, depending
-            on the team and folder settings. Inspect the "link_permissions" entry of the
-            returned dictionary.
-        :param password: An optional password required to access the link.
-        :param expires: An optional expiry time for the link as POSIX timestamp.
-        :returns: Shared link information as dict. See
-            :class:`dropbox.sharing.SharedLinkMetadata` for keys and values.
-        :raises ValueError: if visibility is 'password' but no password is provided.
-        :raises DropboxAuthError: in case of an invalid access token.
-        :raises DropboxServerError: for internal Dropbox errors.
-        :raises ConnectionError: if the connection to Dropbox fails.
-        :raises NotLinkedError: if no Dropbox account is linked.
+        :param dbx_path: Dropbox path to file or folder to share.
+        :param visibility: The visibility of the shared link. Can be public, team-only,
+            or no-one. In case of the latter, the link merely points the user to the
+            content and does not grant additional rights to the user. Users of this link
+            can only access the content with their pre-existing access rights.
+        :param access_level: The level of access granted with the link. Can be viewer,
+            editor, or max for maximum possible access level.
+        :param allow_download: Whether to allow download capabilities for the link.
+        :param password: If given, enables password protection for the link.
+        :param expires: Expiry time for shared link. If no timezone is given, assume
+            UTC. May not be supported for all account types.
+        :returns: Metadata for shared link.
         """
 
         self._check_linked()
 
-        if visibility not in ("public", "team", "no_one"):
-            raise ValueError("Visibility must be 'public', 'team', or 'no_one'")
-
-        if visibility == "password" and not password:
-            raise ValueError("Please specify a password")
-
-        link_info = self.client.create_shared_link(
+        return self.client.create_shared_link(
             dbx_path=dbx_path,
-            visibility=LinkAudience(visibility),
+            visibility=visibility,
             password=password,
-            expires=datetime.utcfromtimestamp(expires) if expires else None,
+            access_level=access_level,
+            allow_download=allow_download,
+            expires=expires,
         )
-
-        return dropbox_stone_to_dict(link_info)
 
     def revoke_shared_link(self, url: str) -> None:
         """
@@ -1348,7 +1315,7 @@ class Maestral:
 
     def list_shared_links(
         self, dbx_path: str | None = None
-    ) -> list[SerializedObjectType]:
+    ) -> list[SharedLinkMetadata]:
         """
         Returns a list of all shared links for the given Dropbox path. If no path is
         given, return all shared links for the account, up to a maximum of 1,000 links.
@@ -1363,9 +1330,7 @@ class Maestral:
         """
 
         self._check_linked()
-        res = self.client.list_shared_links(dbx_path)
-
-        return [dropbox_stone_to_dict(link) for link in res.links]
+        return self.client.list_shared_links(dbx_path)
 
     # ==== Utility methods for front ends ==============================================
 
