@@ -1543,26 +1543,6 @@ def convert_space_usage(res: users.SpaceUsage) -> SpaceUsage:
     return SpaceUsage(res.used, res.allocation, team_usage)
 
 
-@overload
-def convert_metadata(res: files.FileMetadata) -> FileMetadata:
-    ...
-
-
-@overload
-def convert_metadata(res: files.FolderMetadata) -> FolderMetadata:
-    ...
-
-
-@overload
-def convert_metadata(res: files.DeletedMetadata) -> DeletedMetadata:
-    ...
-
-
-@overload
-def convert_metadata(res: files.Metadata) -> Metadata:
-    ...
-
-
 def convert_metadata(res):
     if isinstance(res, files.FileMetadata):
         symlink_target = res.symlink_info.target if res.symlink_info else None
