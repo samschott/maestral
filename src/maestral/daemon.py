@@ -610,31 +610,33 @@ def stop_maestral_daemon_process(
 class MaestralProxy:
     """A Proxy to the Maestral daemon
 
-        All methods and properties of Maestral's public API are accessible and calls /
-        access will be forwarded to the corresponding Maestral instance. This class can be
-        used as a context manager to close the connection to the daemon on exit.
+    All methods and properties of Maestral's public API are accessible and calls /
+    access will be forwarded to the corresponding Maestral instance. This class can be
+    used as a context manager to close the connection to the daemon on exit.
 
-        :Example:
+    :Example:
 
-            Use MaestralProxy as a context manager:
+        Use MaestralProxy as a context manager:
 
-    import src.maestral.cli.cli_info        >>> with MaestralProxy() as m:
-            ...     print(src.maestral.cli.cli_info.status)
+        >>> import src.maestral.cli.cli_info
+        >>> with MaestralProxy() as m:
+        ...     print(src.maestral.cli.cli_info.status)
 
-            Use MaestralProxy directly:
+        Use MaestralProxy directly:
 
-    import src.maestral.cli.cli_info        >>> m = MaestralProxy()
-            >>> print(src.maestral.cli.cli_info.status)
-            >>> m._disconnect()
+        >>> import src.maestral.cli.cli_info
+        >>> m = MaestralProxy()
+        >>> print(src.maestral.cli.cli_info.status)
+        >>> m._disconnect()
 
-        :ivar _is_fallback: Whether we are using an actual Maestral instance as fallback
-            instead of a Proxy.
+    :ivar _is_fallback: Whether we are using an actual Maestral instance as fallback
+        instead of a Proxy.
 
-        :param config_name: The name of the Maestral configuration to use.
-        :param fallback: If ``True``, a new instance of Maestral will be created in the
-            current process when the daemon is not running.
-        :raises CommunicationError: if the daemon is running but cannot be reached or if the
-            daemon is not running and ``fallback`` is ``False``.
+    :param config_name: The name of the Maestral configuration to use.
+    :param fallback: If ``True``, a new instance of Maestral will be created in the
+        current process when the daemon is not running.
+    :raises CommunicationError: if the daemon is running but cannot be reached or if the
+        daemon is not running and ``fallback`` is ``False``.
     """
 
     _m: Maestral | Proxy
