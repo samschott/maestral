@@ -166,3 +166,13 @@ class ListSharedLinkResult:
     entries: list[SharedLinkMetadata]
     has_more: bool
     cursor: str
+
+
+# ==== update checks ===================================================================
+
+
+@dataclass
+class UpdateCheckResult:
+    update_available: bool
+    latest_release: str
+    release_notes: str
