@@ -36,6 +36,7 @@ from .core import (
     FileMetadata,
     LinkAudience,
     LinkAccessLevel,
+    UpdateCheckResult,
 )
 from .sync import SyncDirection
 from .manager import SyncManager
@@ -48,6 +49,7 @@ from .exceptions import (
     BusyError,
     KeyringAccessError,
     UnsupportedFileTypeForDiff,
+    UpdateCheckError,
 )
 from .errorhandling import convert_api_errors, CONNECTION_ERRORS
 from .config import MaestralConfig, MaestralState, validate_config_name
@@ -1350,18 +1352,17 @@ class Maestral:
 
         return self.sync.to_local_path(dbx_path)
 
-    def check_for_updates(self) -> dict[str, str | bool | None]:
+    def check_for_updates(self) -> UpdateCheckResult:
         """
         Checks if an update is available.
 
         :returns: A dictionary with information about the latest release with the fields
             'update_available' (bool), 'latest_release' (str), 'release_notes' (str)
             and 'error' (str or None).
+        :raises UpdateCheckError: if checking for an update fails.
         """
         current_version = __version__.lstrip("v")
-        new_version = None
         update_release_notes = ""
-        error_msg = None
 
         try:
             resp = requests.get(GITHUB_RELEASES_API)
@@ -1393,20 +1394,22 @@ class Maestral:
 
                 update_release_notes_list = release_notes[0:closest_release_idx]
                 update_release_notes = "\n".join(update_release_notes_list)
-
-        except requests.exceptions.HTTPError:
-            error_msg = "Unable to retrieve information. Please try again later."
         except CONNECTION_ERRORS:
-            error_msg = "No internet connection. Please try again later."
-        except Exception:
-            error_msg = "Something when wrong. Please try again later."
+            raise UpdateCheckError(
+                "Could not check for updates",
+                "No internet connection. Please try again later.",
+            )
+        except Exception as e:
+            raise UpdateCheckError(
+                "Could not check for updates",
+                f"Unable to retrieve information: {e}",
+            )
 
-        return {
-            "update_available": bool(new_version),
-            "latest_release": new_version or current_version,
-            "release_notes": update_release_notes,
-            "error": error_msg,
-        }
+        return UpdateCheckResult(
+            update_available=bool(new_version),
+            latest_release=new_version or current_version,
+            release_notes=update_release_notes,
+        )
 
     def shutdown_daemon(self) -> None:
         """
