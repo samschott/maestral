@@ -210,3 +210,7 @@ class SharedLinkError(MaestralApiError):
 
 class PathRootError(MaestralApiError):
     """Raised when making an API call with an invalid path root header."""
+
+
+class UpdateCheckError(MaestralApiError):
+    """Raised when checking for updates fails."""
