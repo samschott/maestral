@@ -29,10 +29,9 @@ def test_check_for_updates(m: Maestral) -> None:
 
     update_res = m.check_for_updates()
 
-    assert update_res["latest_release"] == latest_stable_release
-    assert not update_res["update_available"]
-    assert update_res["release_notes"] == ""
-    assert update_res["error"] is None
+    assert update_res.latest_release == latest_stable_release
+    assert not update_res.update_available
+    assert update_res.release_notes == ""
 
     # check that update is offered from previous release
 
@@ -40,10 +39,9 @@ def test_check_for_updates(m: Maestral) -> None:
 
     update_res = m.check_for_updates()
 
-    assert update_res["latest_release"] == latest_stable_release
-    assert update_res["update_available"]
-    assert update_res["release_notes"] != ""
-    assert update_res["error"] is None
+    assert update_res.latest_release == latest_stable_release
+    assert update_res.update_available
+    assert update_res.release_notes != ""
 
 
 def test_not_linked_error(m: Maestral) -> None:
