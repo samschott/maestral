@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 import os
 import os.path as osp
@@ -8,9 +10,10 @@ import timeit
 import pytest
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 from watchdog.events import FileCreatedEvent
-from dropbox.files import WriteMode
-from maestral.models import SyncEvent
-from maestral.utils import sanitize_string
+
+from maestral.main import Maestral
+from maestral.core import WriteMode, FileMetadata, FolderMetadata, Metadata
+from maestral.models import SyncEvent, SyncDirection
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import (
     delete,
@@ -19,7 +22,13 @@ from maestral.utils.path import (
     normalize,
     fs_max_lengths_for_path,
 )
-from maestral.exceptions import PathError
+from maestral.exceptions import (
+    PathError,
+    SymlinkError,
+    NoDropboxDirError,
+    InsufficientPermissionsError,
+    SyncError,
+)
 
 from .conftest import assert_synced, wait_for_idle, resources
 
@@ -34,12 +43,12 @@ HOME = get_home_dir()
 # ==== test basic sync =================================================================
 
 
-def test_setup(m):
+def test_setup(m: Maestral) -> None:
     assert_synced(m)
     assert_no_errors(m)
 
 
-def test_file_lifecycle(m):
+def test_file_lifecycle(m: Maestral) -> None:
     """Tests creating, modifying and deleting a file."""
 
     # Test local file creation.
@@ -68,7 +77,9 @@ def test_file_lifecycle(m):
 
     # Test remote file changes.
 
-    m.client.upload(resources + "/file1.txt", "/file.txt", mode=WriteMode.overwrite)
+    m.client.upload(
+        resources + "/file1.txt", "/file.txt", write_mode=WriteMode.Overwrite
+    )
 
     wait_for_idle(m)
 
@@ -90,7 +101,7 @@ def test_file_lifecycle(m):
     assert_no_errors(m)
 
 
-def test_folder_tree_local(m):
+def test_folder_tree_local(m: Maestral) -> None:
     """Tests the upload sync of a nested local folder structure."""
 
     # Test local tree creation.
@@ -119,7 +130,7 @@ def test_folder_tree_local(m):
     assert_no_errors(m)
 
 
-def test_folder_tree_remote(m):
+def test_folder_tree_remote(m: Maestral) -> None:
     """Tests the download sync of a nested remote folder structure."""
 
     # Test remote tree creation.
@@ -146,7 +157,7 @@ def test_folder_tree_remote(m):
     assert_no_errors(m)
 
 
-def test_local_indexing(m):
+def test_local_indexing(m: Maestral) -> None:
     """Tests the upload sync of a nested local folder structure during startup sync."""
 
     m.stop_sync()
@@ -170,7 +181,7 @@ def test_local_indexing(m):
     assert_no_errors(m)
 
 
-def test_case_change_local(m):
+def test_case_change_local(m: Maestral) -> None:
     """
     Tests the upload sync of local rename which only changes the casing of the name.
     """
@@ -186,17 +197,18 @@ def test_case_change_local(m):
 
     # Check that case change was propagated to the server.
 
+    md = m.client.get_metadata("/folder")
+
     assert osp.isdir(m.dropbox_path + "/FOLDER")
     assert osp.isdir(m.dropbox_path + "/FOLDER/Subfolder")
-    assert (
-        m.client.get_metadata("/folder").name == "FOLDER"
-    ), "casing was not propagated to Dropbox"
+    assert isinstance(md, FolderMetadata)
+    assert md.name == "FOLDER", "casing was not propagated to Dropbox"
 
     assert_synced(m)
     assert_no_errors(m)
 
 
-def test_case_change_remote(m):
+def test_case_change_remote(m: Maestral) -> None:
     """
     Tests the download sync of a remote rename which only changes the casing of the file
     name.
@@ -216,17 +228,18 @@ def test_case_change_remote(m):
 
     # Check that case change was propagated to the local folder.
 
+    md = m.client.get_metadata("/folder")
+
     assert osp.isdir(m.dropbox_path + "/FOLDER")
     assert osp.isdir(m.dropbox_path + "/FOLDER/Subfolder")
-    assert (
-        m.client.get_metadata("/folder").name == "FOLDER"
-    ), "casing was not propagated to local folder"
+    assert isinstance(md, FolderMetadata)
+    assert md.name == "FOLDER", "casing was not propagated to local folder"
 
     assert_synced(m)
     assert_no_errors(m)
 
 
-def test_mignore(m):
+def test_mignore(m: Maestral) -> None:
     """Tests the exclusion of local items by a mignore file."""
 
     # 1) Test that changes have no effect when the sync is running.
@@ -274,7 +287,7 @@ def test_mignore(m):
     assert_no_errors(m)
 
 
-def test_move_to_existing_file(m):
+def test_move_to_existing_file(m: Maestral) -> None:
     """Tests moving a local file onto another and replacing it."""
 
     # Create two local files.
@@ -305,7 +318,7 @@ def test_move_to_existing_file(m):
     assert_no_errors(m)
 
 
-def test_excluded_folder_cleared_on_deletion(m):
+def test_excluded_folder_cleared_on_deletion(m: Maestral) -> None:
     """
     Tests that an entry in our selective sync excluded list gets removed when the
     corresponding item is deleted.
@@ -338,7 +351,7 @@ def test_excluded_folder_cleared_on_deletion(m):
     assert_no_errors(m)
 
 
-def test_unix_permissions(m):
+def test_unix_permissions(m: Maestral) -> None:
     """
     Tests that a newly downloaded file is created with default permissions for our
     process and that any locally set permissions are preserved on remote file
@@ -369,7 +382,7 @@ def test_unix_permissions(m):
     wait_for_idle(m)
 
     # Perform some remote modifications.
-    m.client.upload(resources + "/file1.txt", dbx_path, mode=WriteMode.overwrite)
+    m.client.upload(resources + "/file1.txt", dbx_path, write_mode=WriteMode.Overwrite)
     wait_for_idle(m)
 
     # Check that the local permissions have not changed.
@@ -386,7 +399,7 @@ def test_unix_permissions(m):
         "täst_file",  # U+00E4
     ],
 )
-def test_unicode_allowed(m, name):
+def test_unicode_allowed(m, name) -> None:
     """Tests syncing files with exotic unicode characters."""
 
     local_path = osp.join(m.dropbox_path, name)
@@ -405,7 +418,7 @@ def test_unicode_allowed(m, name):
 # ==== test conflict resolution ========================================================
 
 
-def test_file_conflict_modified(m):
+def test_file_conflict_modified(m: Maestral) -> None:
     """Tests conflicting local vs remote file changes."""
 
     # Create a test file and stop syncing.
@@ -423,7 +436,7 @@ def test_file_conflict_modified(m):
     m.client.upload(
         resources + "/file2.txt",
         "/file.txt",
-        mode=WriteMode.overwrite,
+        write_mode=WriteMode.Overwrite,
     )
 
     # Resume syncing and check for conflicting copy.
@@ -439,7 +452,7 @@ def test_file_conflict_modified(m):
     assert_no_errors(m)
 
 
-def test_file_conflict_created(m):
+def test_file_conflict_created(m: Maestral) -> None:
     """Tests conflicting local vs remote file creations."""
 
     m.stop_sync()
@@ -451,7 +464,7 @@ def test_file_conflict_created(m):
     m.client.upload(
         resources + "/file2.txt",
         "/file.txt",
-        mode=WriteMode.overwrite,
+        write_mode=WriteMode.Overwrite,
     )
 
     # Resume syncing and check for conflicting copy
@@ -466,7 +479,7 @@ def test_file_conflict_created(m):
     assert_no_errors(m)
 
 
-def test_remote_file_replaced_by_folder(m):
+def test_remote_file_replaced_by_folder(m: Maestral) -> None:
     """Tests the download sync when a file is replaced by a folder."""
 
     # Create a test file.
@@ -491,7 +504,7 @@ def test_remote_file_replaced_by_folder(m):
     assert_no_errors(m)
 
 
-def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m):
+def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m: Maestral) -> None:
     """
     Tests the download sync when a file is replaced by a folder and the local file has
     unsynced changes.
@@ -520,7 +533,7 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m):
     assert_no_errors(m)
 
 
-def test_remote_folder_replaced_by_file(m):
+def test_remote_folder_replaced_by_file(m: Maestral) -> None:
     """Tests the download sync when a folder is replaced by a file."""
 
     m.client.make_dir("/folder")
@@ -541,7 +554,7 @@ def test_remote_folder_replaced_by_file(m):
     assert_no_errors(m)
 
 
-def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m):
+def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m: Maestral) -> None:
     """
     Tests the download sync when a folder is replaced by a file and the local folder has
     unsynced changes.
@@ -581,7 +594,7 @@ def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m):
     assert_no_errors(m)
 
 
-def test_local_folder_replaced_by_file(m):
+def test_local_folder_replaced_by_file(m: Maestral) -> None:
     """Tests the upload sync when a local folder is replaced by a file."""
 
     os.mkdir(m.dropbox_path + "/folder")
@@ -602,7 +615,7 @@ def test_local_folder_replaced_by_file(m):
     assert_no_errors(m)
 
 
-def test_local_folder_replaced_by_file_and_unsynced_remote_changes(m):
+def test_local_folder_replaced_by_file_and_unsynced_remote_changes(m: Maestral) -> None:
     """
     Tests the upload sync when a local folder is replaced by a file and the remote
     folder has unsynced changes.
@@ -631,7 +644,7 @@ def test_local_folder_replaced_by_file_and_unsynced_remote_changes(m):
     assert_no_errors(m)
 
 
-def test_local_file_replaced_by_folder(m):
+def test_local_file_replaced_by_folder(m: Maestral) -> None:
     """Tests the upload sync when a local file is replaced by a folder."""
 
     shutil.copy(resources + "/file.txt", m.dropbox_path + "/file.txt")
@@ -652,7 +665,7 @@ def test_local_file_replaced_by_folder(m):
     assert_no_errors(m)
 
 
-def test_local_file_replaced_by_folder_and_unsynced_remote_changes(m):
+def test_local_file_replaced_by_folder_and_unsynced_remote_changes(m: Maestral) -> None:
     """
     Tests the upload sync when a local file is replaced by a folder and the remote
     file has unsynced changes.
@@ -674,7 +687,7 @@ def test_local_file_replaced_by_folder_and_unsynced_remote_changes(m):
         m.client.upload(
             resources + "/file1.txt",
             "/file.txt",
-            mode=WriteMode.overwrite,
+            write_mode=WriteMode.Overwrite,
         )
 
     wait_for_idle(m)
@@ -687,7 +700,7 @@ def test_local_file_replaced_by_folder_and_unsynced_remote_changes(m):
     assert_no_errors(m)
 
 
-def test_selective_sync_conflict(m):
+def test_selective_sync_conflict(m: Maestral) -> None:
     """
     Tests the creation of a selective sync conflict when a local item is created with a
     path that is excluded by selective sync.
@@ -723,7 +736,7 @@ def test_selective_sync_conflict(m):
 @pytest.mark.skipif(
     not is_fs_case_sensitive(HOME), reason="file system is not case sensitive"
 )
-def test_case_conflict(m):
+def test_case_conflict(m: Maestral) -> None:
     """
     Tests the creation of a case conflict when a local item is created with a path that
     only differs in casing from an existing path.
@@ -744,7 +757,7 @@ def test_case_conflict(m):
     assert_no_errors(m)
 
 
-def test_unicode_conflict(m):
+def test_unicode_conflict(m: Maestral) -> None:
     """
     Tests the creation of a unicode conflict when a local item is created with a path
     that only differs in utf-8 form from an existing path.
@@ -772,7 +785,7 @@ def test_unicode_conflict(m):
 # ==== test race conditions ============================================================
 
 
-def test_parallel_deletion_when_paused(m):
+def test_parallel_deletion_when_paused(m: Maestral) -> None:
     """Tests parallel remote and local deletions of an item."""
 
     # create a local file
@@ -799,7 +812,7 @@ def test_parallel_deletion_when_paused(m):
     assert_no_errors(m)
 
 
-def test_local_and_remote_creation_with_equal_content(m):
+def test_local_and_remote_creation_with_equal_content(m: Maestral) -> None:
     """Tests parallel and equal remote and local changes of an item."""
 
     m.stop_sync()
@@ -820,7 +833,7 @@ def test_local_and_remote_creation_with_equal_content(m):
     assert_no_errors(m)
 
 
-def test_local_and_remote_creation_with_different_content(m):
+def test_local_and_remote_creation_with_different_content(m: Maestral) -> None:
     """Tests parallel and different remote and local changes of an item."""
 
     m.stop_sync()
@@ -842,7 +855,7 @@ def test_local_and_remote_creation_with_different_content(m):
     assert_no_errors(m)
 
 
-def test_local_deletion_during_upload(m):
+def test_local_deletion_during_upload(m: Maestral) -> None:
     """Tests the case where a local item is deleted during the upload."""
 
     # we mimic a deletion during upload by queueing a fake FileCreatedEvent
@@ -857,7 +870,7 @@ def test_local_deletion_during_upload(m):
     assert_no_errors(m)
 
 
-def test_rapid_local_changes(m):
+def test_rapid_local_changes(m: Maestral) -> None:
     """Tests local changes to the content of a file with varying intervals."""
 
     for t in (0.1, 0.1, 0.5, 0.5, 1.0, 1.0, 2.0, 2.0):
@@ -874,13 +887,15 @@ def test_rapid_local_changes(m):
     assert_no_errors(m)
 
 
-def test_rapid_remote_changes(m):
+def test_rapid_remote_changes(m: Maestral) -> None:
     """Tests remote changes to the content of a file with varying intervals."""
 
     shutil.copy(resources + "/file.txt", m.dropbox_path)
     wait_for_idle(m)
 
     md = m.client.get_metadata("/file.txt")
+
+    assert isinstance(md, FileMetadata)
 
     for t in (0.1, 0.1, 0.5, 0.5, 1.0, 1.0, 2.0, 2.0):
         time.sleep(t)
@@ -889,7 +904,8 @@ def test_rapid_remote_changes(m):
         md = m.client.upload(
             resources + "/file.txt",
             "/file.txt",
-            mode=WriteMode.update(md.rev),
+            write_mode=WriteMode.Update,
+            update_rev=md.rev,
         )
 
     # reset file content
@@ -908,7 +924,7 @@ def test_rapid_remote_changes(m):
 # ==== test error handling =============================================================
 
 
-def test_local_path_error(m):
+def test_local_path_error(m: Maestral) -> None:
     """Tests error handling for forbidden file names."""
 
     # paths with backslash are not allowed on Dropbox
@@ -920,13 +936,7 @@ def test_local_path_error(m):
     os.mkdir(test_path_local)
     wait_for_idle(m)
 
-    sync_errors = m.sync_errors
-
-    assert len(sync_errors) == 1
-    assert sync_errors[0]["local_path"] == test_path_local
-    assert sync_errors[0]["dbx_path"] == test_path_dbx
-    assert sync_errors[0]["type"] == "PathError"
-    assert sync_errors[0]["direction"] == "up"
+    assert_sync_error(m, PathError, test_path_local, test_path_dbx, SyncDirection.Up)
 
     # remove folder with invalid name and assert that sync issue is cleared
 
@@ -939,7 +949,7 @@ def test_local_path_error(m):
     assert_no_errors(m)
 
 
-def test_local_indexing_error(m):
+def test_local_indexing_error(m: Maestral) -> None:
     """Tests handling of PermissionError during local indexing."""
 
     shutil.copytree(resources + "/test_folder", m.dropbox_path + "/test_folder")
@@ -957,10 +967,10 @@ def test_local_indexing_error(m):
 
     # check for fatal errors
     assert len(m.fatal_errors) == 1
-    assert m.fatal_errors[0]["local_path"] == subfolder
+    assert m.fatal_errors[0].local_path == subfolder
 
 
-def test_local_permission_error(m):
+def test_local_permission_error(m: Maestral) -> None:
     """Tests error handling on local PermissionError."""
 
     test_path_local = m.dropbox_path + "/file"
@@ -974,13 +984,13 @@ def test_local_permission_error(m):
     m.start_sync()
     wait_for_idle(m)
 
-    sync_errors = m.sync_errors
-
-    assert len(sync_errors) == 1
-    assert sync_errors[0]["local_path"] == test_path_local
-    assert sync_errors[0]["dbx_path"] == test_path_dbx
-    assert sync_errors[0]["type"] == "InsufficientPermissionsError"
-    assert sync_errors[0]["direction"] == "up"
+    assert_sync_error(
+        m,
+        InsufficientPermissionsError,
+        test_path_local,
+        test_path_dbx,
+        SyncDirection.Up,
+    )
 
     # reset file permission
 
@@ -997,7 +1007,7 @@ def test_local_permission_error(m):
     assert_no_errors(m)
 
 
-def test_long_path_error(m):
+def test_long_path_error(m: Maestral) -> None:
     """Tests error handling on trying to download an item with a too long path."""
 
     max_path_length, _ = fs_max_lengths_for_path()
@@ -1015,9 +1025,9 @@ def test_long_path_error(m):
     sync_errors = m.sync_errors
 
     assert len(sync_errors) > 0
-    assert sync_errors[-1]["dbx_path"] == test_path
-    assert sync_errors[-1]["type"] == "PathError"
-    assert sync_errors[-1]["direction"] == "down"
+    assert sync_errors[-1].dbx_path == test_path
+    assert sync_errors[-1].type == "PathError"
+    assert sync_errors[-1].direction == SyncDirection.Down
 
 
 @pytest.mark.parametrize(
@@ -1026,7 +1036,7 @@ def test_long_path_error(m):
         "file_🦑",  # U+1F991
     ],
 )
-def test_unicode_forbidden(m, name):
+def test_unicode_forbidden(m: Maestral, name: str) -> None:
     """Tests syncing files with exotic unicode characters."""
 
     local_path = osp.join(m.dropbox_path, name)
@@ -1034,16 +1044,13 @@ def test_unicode_forbidden(m, name):
     os.mkdir(local_path)
     wait_for_idle(m)
 
-    sync_errors = m.sync_errors
-
-    assert len(sync_errors) == 1
-    assert sync_errors[0]["local_path"] == local_path
+    assert_sync_error(m, PathError, local_path, direction=SyncDirection.Up)
 
 
 @pytest.mark.skipif(
     sys.platform != "linux", reason="macOS enforces utf-8 path encoding"
 )
-def test_unknown_path_encoding(m, capsys):
+def test_unknown_path_encoding(m: Maestral, capsys) -> None:
     """
     Tests the handling of a local path with bytes that cannot be decoded with the
     file system encoding reported by the platform.
@@ -1063,14 +1070,7 @@ def test_unknown_path_encoding(m, capsys):
     # This requires that our sync logic from the emitted watchdog event all the
     # way to `SyncEngine._on_local_created` can handle strings with surrogate escapes.
 
-    sync_errors = m.sync_errors
-
-    assert len(m.fatal_errors) == 0
-    assert len(sync_errors) == 1
-    assert sync_errors[0]["local_path"] == sanitize_string(test_path_local)
-    assert sync_errors[0]["dbx_path"] == sanitize_string(test_path_dbx)
-    assert sync_errors[0]["type"] == "PathError"
-    assert sync_errors[0]["direction"] == "up"
+    assert_sync_error(m, PathError, test_path_local, test_path_dbx, SyncDirection.Up)
 
     # 2) Check that the sync is retried after pause / resume
 
@@ -1082,14 +1082,7 @@ def test_unknown_path_encoding(m, capsys):
 
     wait_for_idle(m)
 
-    sync_errors = m.sync_errors
-
-    assert len(m.fatal_errors) == 0
-    assert len(sync_errors) == 1
-    assert sync_errors[0]["local_path"] == sanitize_string(test_path_local)
-    assert sync_errors[0]["dbx_path"] == sanitize_string(test_path_dbx)
-    assert sync_errors[0]["type"] == "PathError"
-    assert sync_errors[0]["direction"] == "up"
+    assert_sync_error(m, PathError, test_path_local, test_path_dbx, SyncDirection.Up)
 
     # 3) Check that the error is cleared when the file is deleted
 
@@ -1105,23 +1098,17 @@ def test_unknown_path_encoding(m, capsys):
     assert_no_errors(m)
 
 
-def test_symlink_error(m):
+def test_symlink_error(m: Maestral) -> None:
 
     local_path = m.dropbox_path + "/link"
 
     os.symlink("to_nowhere", local_path)
     wait_for_idle(m)
 
-    sync_errors = m.sync_errors
-
-    assert len(m.fatal_errors) == 0
-    assert len(sync_errors) == 1
-    assert sync_errors[0]["local_path"] == local_path
-    assert sync_errors[0]["type"] == "SymlinkError"
-    assert sync_errors[0]["direction"] == "up"
+    assert_sync_error(m, SymlinkError, local_path, direction=SyncDirection.Up)
 
 
-def test_symlink_indexing_error(m):
+def test_symlink_indexing_error(m: Maestral) -> None:
 
     m.stop_sync()
 
@@ -1132,27 +1119,21 @@ def test_symlink_indexing_error(m):
     m.start_sync()
     wait_for_idle(m)
 
-    sync_errors = m.sync_errors
-
-    assert len(m.fatal_errors) == 0
-    assert len(m.sync_errors) == 1
-    assert sync_errors[0]["local_path"] == local_path
-    assert sync_errors[0]["type"] == "SymlinkError"
-    assert sync_errors[0]["direction"] == "up"
+    assert_sync_error(m, SymlinkError, local_path, direction=SyncDirection.Up)
 
 
-def test_dropbox_dir_delete_during_sync(m):
+def test_dropbox_dir_delete_during_sync(m: Maestral) -> None:
 
     delete(m.dropbox_path)
 
     wait_for_idle(m)
 
     assert len(m.fatal_errors) == 1
-    assert m.fatal_errors[-1]["type"] == "NoDropboxDirError"
+    assert isinstance(m.fatal_errors[0], NoDropboxDirError)
 
 
 @pytest.mark.skipif(is_fs_case_sensitive(HOME), reason="file system is case sensitive")
-def test_dropbox_dir_rename_during_sync(m):
+def test_dropbox_dir_rename_during_sync(m: Maestral) -> None:
 
     dirname, basename = osp.split(m.dropbox_path)
 
@@ -1162,10 +1143,10 @@ def test_dropbox_dir_rename_during_sync(m):
     wait_for_idle(m)
 
     assert len(m.fatal_errors) == 1
-    assert m.fatal_errors[0]["type"] == "NoDropboxDirError"
+    assert isinstance(m.fatal_errors[0], NoDropboxDirError)
 
 
-def test_dropbox_dir_delete_during_pause(m):
+def test_dropbox_dir_delete_during_pause(m: Maestral) -> None:
 
     m.stop_sync()
 
@@ -1176,13 +1157,13 @@ def test_dropbox_dir_delete_during_pause(m):
     wait_for_idle(m)
 
     assert len(m.fatal_errors) == 1
-    assert m.fatal_errors[0]["type"] == "NoDropboxDirError"
+    assert isinstance(m.fatal_errors[0], NoDropboxDirError)
 
 
 # ==== performance tests ===============================================================
 
 
-def test_sync_event_conversion_performance(m):
+def test_sync_event_conversion_performance(m: Maestral) -> None:
     """Tests the performance of converting remote file changes to SyncEvents."""
 
     # generate tree with 5 entries
@@ -1200,7 +1181,7 @@ def test_sync_event_conversion_performance(m):
         cleaned_res = m.sync._clean_remote_changes(res)
         cleaned_res.entries.sort(key=lambda x: x.path_lower.count("/"))
         for md in cleaned_res.entries:
-            SyncEvent.from_dbx_metadata(md, m.sync)
+            SyncEvent.from_metadata(md, m.sync)
 
     n_loops = 1000  # equivalent to to 5,000 items
 
@@ -1212,7 +1193,7 @@ def test_sync_event_conversion_performance(m):
 # ==== test recovery from inconsistent state ===========================================
 
 
-def test_invalid_pending_download(m):
+def test_invalid_pending_download(m: Maestral) -> None:
     """
     Tests error handling when an invalid path is saved in the pending downloads list.
     This can happen for instance when Dropbox servers have a hickup or when our state
@@ -1236,7 +1217,7 @@ def test_invalid_pending_download(m):
     assert_no_errors(m)
 
 
-def test_out_of_order_indexing(m):
+def test_out_of_order_indexing(m: Maestral) -> None:
     """Tests applying remote events when children are synced before their parents."""
 
     m.stop_sync()
@@ -1272,28 +1253,28 @@ def test_out_of_order_indexing(m):
 # ==== helper functions ================================================================
 
 
-def count_conflicts(entries, name):
+def count_conflicts(entries: list[Metadata], name: str) -> int:
     basename, ext = osp.splitext(name)
 
-    candidates = [e for e in entries if e["name"].startswith(basename)]
+    candidates = [e for e in entries if e.name.startswith(basename)]
     ccs = [
         e
         for e in candidates
-        if "(1)" in e["name"]  # created by Dropbox for add conflict
-        or "conflicted copy" in e["name"]  # created by Dropbox for update conflict
-        or "conflicting copy" in e["name"]  # created by us
+        if "(1)" in e.name  # created by Dropbox for add conflict
+        or "conflicted copy" in e.name  # created by Dropbox for update conflict
+        or "conflicting copy" in e.name  # created by us
     ]
     return len(ccs)
 
 
-def assert_exists(m, dbx_path):
+def assert_exists(m: Maestral, dbx_path: str) -> None:
     """Asserts that an item at `dbx_path` exists on the server."""
     md = m.client.get_metadata(dbx_path)
     assert md is not None
     assert md.name == osp.basename(dbx_path)
 
 
-def assert_conflict(m, dbx_folder, name):
+def assert_conflict(m: Maestral, dbx_folder, name) -> None:
     """Asserts that a conflicting copy has been created for
     an item with `name` inside `dbx_folder`."""
     entries = m.list_folder(dbx_folder)
@@ -1302,7 +1283,7 @@ def assert_conflict(m, dbx_folder, name):
     ), f'conflicting copy for "{name}" missing on Dropbox'
 
 
-def assert_child_count(m, dbx_folder, n):
+def assert_child_count(m: Maestral, dbx_folder: str, n: int) -> None:
     """Asserts that `dbx_folder` has `n` entries (excluding itself)."""
     entries = m.list_folder(dbx_folder, recursive=True)
     n_remote = len(entries)
@@ -1313,6 +1294,29 @@ def assert_child_count(m, dbx_folder, n):
     assert n_remote == n, f"Expected {n} items but found {n_remote}: {entries}"
 
 
-def assert_no_errors(m):
+def assert_no_errors(m: Maestral) -> None:
     assert len(m.fatal_errors) == 0, m.fatal_errors
     assert len(m.sync_errors) == 0, m.sync_errors
+
+
+def assert_sync_error(
+    m: Maestral,
+    err_class: type[SyncError],
+    local_path: str | None = None,
+    dbx_path: str | None = None,
+    direction: SyncDirection | None = None,
+) -> None:
+    assert len(m.sync_errors) == 1
+
+    error = m.sync_errors[0]
+
+    assert error.type == err_class.__name__
+
+    if local_path is not None:
+        assert error.local_path == local_path
+
+    if dbx_path is not None:
+        assert error.dbx_path == dbx_path
+
+    if direction is not None:
+        assert error.direction is direction

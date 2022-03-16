@@ -1,25 +1,21 @@
 import os
-from typing import Dict
 from unittest import mock
 
 import pytest
-from dropbox.users import FullAccount
-from dropbox.common import TeamRootInfo, UserRootInfo
-
 from maestral.main import Maestral
+from maestral.core import FullAccount, TeamRootInfo, UserRootInfo, AccountType
 from maestral.exceptions import NoDropboxDirError
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import generate_cc_name, delete
 from maestral.keyring import TokenType
 
 
-def fake_linked(m: Maestral, account_info: FullAccount):
-
+def fake_linked(m: Maestral, account_info: FullAccount) -> None:
     m.sync.client.get_account_info = mock.Mock(return_value=account_info)  # type: ignore
     m.sync.client.cred_storage.save_creds("account_id", "1234", TokenType.Offline)
 
 
-def verify_folder_structure(root: str, structure: Dict[str, Dict]) -> None:
+def verify_folder_structure(root: str, structure: dict) -> None:
     for name, children in structure.items():
         path = os.path.join(root, name)
         assert os.path.exists(path)
@@ -27,7 +23,7 @@ def verify_folder_structure(root: str, structure: Dict[str, Dict]) -> None:
         verify_folder_structure(path, children)
 
 
-def create_folder_structure(root: str, structure: Dict[str, Dict]) -> None:
+def create_folder_structure(root: str, structure: dict) -> None:
 
     for name, children in structure.items():
         path = os.path.join(root, name)
@@ -36,19 +32,33 @@ def create_folder_structure(root: str, structure: Dict[str, Dict]) -> None:
         create_folder_structure(path, children)
 
 
-def test_migrate_path_root_user_to_team(m):
+account_info = FullAccount(
+    account_id="",
+    display_name="",
+    email="",
+    profile_photo_url="",
+    email_verified=False,
+    disabled=False,
+    country=None,
+    locale="",
+    team=None,
+    team_member_id=None,
+    account_type=AccountType.Business,
+    root_info=UserRootInfo("", ""),
+)
+
+
+def test_migrate_path_root_user_to_team(m: Maestral) -> None:
 
     new_namespace_id = "2"
     home_path = "/John Doe"
 
     # patch client and sync engine
 
-    account_info = FullAccount(
-        root_info=TeamRootInfo(
-            root_namespace_id=new_namespace_id,
-            home_namespace_id="1",
-            home_path=home_path,
-        )
+    account_info.root_info = TeamRootInfo(
+        root_namespace_id=new_namespace_id,
+        home_namespace_id="1",
+        home_path=home_path,
     )
 
     fake_linked(m, account_info)
@@ -104,17 +114,15 @@ def test_migrate_path_root_user_to_team(m):
         delete(local_dropbox_dir)
 
 
-def test_migrate_path_root_team_to_user(m):
+def test_migrate_path_root_team_to_user(m: Maestral) -> None:
 
     new_namespace_id = "1"
 
     # patch client and sync engine
 
-    account_info = FullAccount(
-        root_info=UserRootInfo(
-            root_namespace_id=new_namespace_id,
-            home_namespace_id=new_namespace_id,
-        ),
+    account_info.root_info = UserRootInfo(
+        root_namespace_id=new_namespace_id,
+        home_namespace_id=new_namespace_id,
     )
 
     fake_linked(m, account_info)
@@ -174,18 +182,16 @@ def test_migrate_path_root_team_to_user(m):
         delete(local_dropbox_dir)
 
 
-def test_migrate_path_root_team_to_team(m):
+def test_migrate_path_root_team_to_team(m: Maestral) -> None:
 
     new_namespace_id = "3"
 
     # patch client and sync engine
 
-    account_info = FullAccount(
-        root_info=TeamRootInfo(
-            root_namespace_id=new_namespace_id,
-            home_namespace_id="1",
-            home_path="/John Doe",
-        ),
+    account_info.root_info = TeamRootInfo(
+        root_namespace_id=new_namespace_id,
+        home_namespace_id="1",
+        home_path="/John Doe",
     )
 
     fake_linked(m, account_info)
@@ -247,19 +253,17 @@ def test_migrate_path_root_team_to_team(m):
         delete(local_dropbox_dir)
 
 
-def test_migrate_path_root_error(m):
+def test_migrate_path_root_error(m: Maestral) -> None:
 
     new_namespace_id = "2"
     home_path = "/John Doe"
 
     # patch client and sync engine
 
-    account_info = FullAccount(
-        root_info=TeamRootInfo(
-            root_namespace_id=new_namespace_id,
-            home_namespace_id="1",
-            home_path=home_path,
-        ),
+    account_info.root_info = TeamRootInfo(
+        root_namespace_id=new_namespace_id,
+        home_namespace_id="1",
+        home_path=home_path,
     )
 
     fake_linked(m, account_info)

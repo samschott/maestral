@@ -15,7 +15,8 @@ from typing import Iterator, Union, TypeVar, Callable, Any, cast
 
 # external imports
 import requests
-from dropbox import files, sharing, users, exceptions, async_, auth, common
+from dropbox import files, sharing, users, async_, auth, common
+from dropbox import exceptions  # type: ignore
 from dropbox.stone_validators import ValidationError
 
 # local imports

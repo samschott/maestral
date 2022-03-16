@@ -140,34 +140,34 @@ def test_locking_multiprocess(tmp_path):
 # daemon lifecycle tests
 
 
-def test_lifecycle(config_name):
+def test_lifecycle(config_name: str) -> None:
 
     # start daemon process
-    res = start_maestral_daemon_process(config_name, timeout=20)
+    res_start = start_maestral_daemon_process(config_name, timeout=20)
 
-    assert res is Start.Ok
+    assert res_start is Start.Ok
 
     # retry start daemon process
-    res = start_maestral_daemon_process(config_name, timeout=20)
-    assert res is Start.AlreadyRunning
+    res_start = start_maestral_daemon_process(config_name, timeout=20)
+    assert res_start is Start.AlreadyRunning
 
     # stop daemon
-    res = stop_maestral_daemon_process(config_name)
-    assert res is Stop.Ok
+    res_stop = stop_maestral_daemon_process(config_name)
+    assert res_stop is Stop.Ok
 
     # retry stop daemon
-    res = stop_maestral_daemon_process(config_name)
-    assert res is Stop.NotRunning
+    res_stop = stop_maestral_daemon_process(config_name)
+    assert res_stop is Stop.NotRunning
 
 
 # proxy tests
 
 
-def test_connection(config_name):
+def test_connection(config_name: str) -> None:
 
     # start daemon process
-    res = start_maestral_daemon_process(config_name, timeout=20)
-    assert res is Start.Ok
+    res_start = start_maestral_daemon_process(config_name, timeout=20)
+    assert res_start is Start.Ok
 
     # create proxy
     with MaestralProxy(config_name) as m:
@@ -176,11 +176,11 @@ def test_connection(config_name):
         assert isinstance(m._m, Proxy)
 
     # stop daemon
-    res = stop_maestral_daemon_process(config_name)
-    assert res is Stop.Ok
+    res_stop = stop_maestral_daemon_process(config_name)
+    assert res_stop is Stop.Ok
 
 
-def test_fallback(config_name):
+def test_fallback(config_name: str) -> None:
 
     # create proxy w/o fallback
     with pytest.raises(CommunicationError):
@@ -193,7 +193,7 @@ def test_fallback(config_name):
         assert isinstance(m._m, Maestral)
 
 
-def test_remote_exceptions(config_name):
+def test_remote_exceptions(config_name: str) -> None:
 
     # start daemon process
     start_maestral_daemon_process(config_name, timeout=20)

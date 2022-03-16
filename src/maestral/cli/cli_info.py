@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import os
 import time
-from typing import cast, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import click
 
 from .output import echo, Column, Table, Elide, Align, TextField, Field, DateField, Grid
-from .utils import datetime_from_iso_str
 from .common import convert_api_errors, check_for_fatal_errors, inject_proxy
 from .core import DropboxPath
+from ..models import SyncDirection, SyncStatus
+from ..core import FileMetadata, FolderMetadata, DeletedMetadata
 
 if TYPE_CHECKING:
     from ..main import Maestral
@@ -49,8 +50,8 @@ def status(m: Maestral) -> None:
         message_column = Column(title="Error", wraps=True)
 
         for error in sync_errors:
-            path_column.append(error["dbx_path"])
-            message_column.append("{title}. {message}".format(**error))
+            path_column.append(error.dbx_path)
+            message_column.append(f"{error.title}. {error.message}")
 
         table = Table([path_column, message_column])
 
@@ -109,28 +110,23 @@ def activity(m: Maestral) -> None:
 
             for event in m.get_activity(limit=height - 3):
 
-                dbx_path = cast(str, event["dbx_path"])
-                direction = cast(str, event["direction"])
-                state = cast(str, event["status"])
-                size = cast(int, event["size"])
-                completed = cast(int, event["completed"])
-
-                filename = os.path.basename(dbx_path)
+                filename = os.path.basename(event.dbx_path)
                 filenames.append(filename)
 
-                arrow = "↓" if direction == "down" else "↑"
+                arrow = "↓" if event.direction is SyncDirection.Down else "↑"
 
-                if completed > 0:
-                    done_str = natural_size(completed, sep=False)
-                    todo_str = natural_size(size, sep=False)
+                if event.completed > 0:
+                    done_str = natural_size(event.completed, sep=False)
+                    todo_str = natural_size(event.size, sep=False)
                     states.append(f"{done_str}/{todo_str} {arrow}")
                 else:
-                    if state == "syncing" and direction == "up":
-                        states.append("uploading")
-                    elif state == "syncing" and direction == "down":
-                        states.append("downloading")
+                    if event.status is SyncStatus.Syncing:
+                        if event.direction is SyncDirection.Up:
+                            states.append("uploading")
+                        else:
+                            states.append("downloading")
                     else:
-                        states.append(state)
+                        states.append(event.status.value)
 
                 col_len = max(len(filename), col_len)
 
@@ -161,8 +157,6 @@ def activity(m: Maestral) -> None:
 @convert_api_errors
 def history(m: Maestral) -> None:
 
-    from datetime import datetime
-
     events = m.get_history()
 
     table = Table(
@@ -174,13 +168,9 @@ def history(m: Maestral) -> None:
     )
 
     for event in events:
-
-        dbx_path = cast(str, event["dbx_path"])
-        change_type = cast(str, event["change_type"])
-        change_time_or_sync_time = cast(float, event["change_time_or_sync_time"])
-        dt = datetime.fromtimestamp(change_time_or_sync_time)
-
-        table.append([dbx_path, change_type, dt])
+        table.append(
+            [event.dbx_path, event.change_type.value, event.change_time_or_sync_time]
+        )
 
     echo("")
     table.echo()
@@ -219,12 +209,6 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
 
     if long:
 
-        to_short_type = {
-            "FileMetadata": "file",
-            "FolderMetadata": "folder",
-            "DeletedMetadata": "deleted",
-        }
-
         table = Table(
             columns=[
                 Column("Name"),
@@ -240,34 +224,39 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
 
             for entry in entries:
 
-                item_type = to_short_type[cast(str, entry["type"])]
-                name = cast(str, entry["name"])
-                path_lower = cast(str, entry["path_lower"])
-
-                text = "shared" if "sharing_info" in entry else "private"
+                text = "shared" if getattr(entry, "shared", False) else "private"
                 color = "bright_black" if text == "private" else None
                 shared_field = TextField(text, fg=color)
 
-                excluded_status = m.excluded_status(path_lower)
+                excluded_status = m.excluded_status(entry.path_lower)
                 color = "green" if excluded_status == "included" else None
                 text = "✓" if excluded_status == "included" else excluded_status
                 excluded_field = TextField(text, fg=color)
 
-                if "size" in entry:
-                    size = natural_size(cast(float, entry["size"]))
-                else:
-                    size = "-"
-
                 dt_field: Field
 
-                if "client_modified" in entry:
-                    cm = cast(str, entry["client_modified"])
-                    dt_field = DateField(datetime_from_iso_str(cm))
-                else:
+                if isinstance(entry, FileMetadata):
+                    size = natural_size(entry.size)
+                    dt_field = DateField(entry.client_modified)
+                    item_type = "file"
+                elif isinstance(entry, FolderMetadata):
+                    size = "-"
                     dt_field = TextField("-")
+                    item_type = "folder"
+                else:
+                    size = "-"
+                    dt_field = TextField("-")
+                    item_type = "deleted"
 
                 table.append(
-                    [name, item_type, size, shared_field, excluded_field, dt_field]
+                    [
+                        entry.name,
+                        item_type,
+                        size,
+                        shared_field,
+                        excluded_field,
+                        dt_field,
+                    ]
                 )
 
         echo(" " * 15)
@@ -280,10 +269,8 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
 
         for entries in entries_iter:
             for entry in entries:
-                name = cast(str, entry["name"])
-                color = "blue" if entry["type"] == "DeletedMetadata" else None
-
-                grid.append(TextField(name, fg=color))
+                color = "blue" if isinstance(entry, DeletedMetadata) else None
+                grid.append(TextField(entry.name, fg=color))
 
         grid.echo()
 

@@ -6,7 +6,14 @@ import subprocess
 
 import pytest
 
-from maestral.exceptions import NotFoundError, UnsupportedFileTypeForDiff, SyncError
+from maestral.main import Maestral
+from maestral.core import FileMetadata
+from maestral.exceptions import (
+    NotFoundError,
+    UnsupportedFileTypeForDiff,
+    SyncError,
+    InotifyError,
+)
 from maestral.constants import FileStatus, IDLE
 from maestral.utils.path import delete
 from maestral.utils.integration import get_inotify_limits
@@ -21,7 +28,7 @@ if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.en
 # API unit tests
 
 
-def test_status_properties(m):
+def test_status_properties(m: Maestral) -> None:
 
     assert not m.pending_link
     assert not m.pending_dropbox_folder
@@ -37,7 +44,7 @@ def test_status_properties(m):
     assert m.status == "test message"
 
 
-def test_file_status(m):
+def test_file_status(m: Maestral) -> None:
 
     # test synced folder
     file_status = m.get_file_status(m.dropbox_path)
@@ -73,7 +80,7 @@ def test_file_status(m):
     assert file_status_parent == FileStatus.Error.value
 
 
-def test_move_dropbox_folder(m):
+def test_move_dropbox_folder(m: Maestral) -> None:
     new_dir_short = "~/New Dropbox"
     new_dir = osp.realpath(osp.expanduser(new_dir_short))
 
@@ -87,7 +94,7 @@ def test_move_dropbox_folder(m):
     assert m.running
 
 
-def test_move_dropbox_folder_to_itself(m):
+def test_move_dropbox_folder_to_itself(m: Maestral) -> None:
 
     m.move_dropbox_directory(m.dropbox_path)
 
@@ -95,7 +102,7 @@ def test_move_dropbox_folder_to_itself(m):
     assert m.running
 
 
-def test_move_dropbox_folder_to_existing(m):
+def test_move_dropbox_folder_to_existing(m: Maestral) -> None:
 
     new_dir_short = "~/New Dropbox"
     new_dir = osp.realpath(osp.expanduser(new_dir_short))
@@ -117,7 +124,7 @@ def test_move_dropbox_folder_to_existing(m):
 # API integration tests
 
 
-def test_selective_sync_api(m):
+def test_selective_sync_api(m: Maestral) -> None:
     """
     Tests :meth:`Maestral.exclude_item`, :meth:`MaestralMaestral.include_item`,
     :meth:`Maestral.excluded_status` and :meth:`Maestral.excluded_items`.
@@ -176,7 +183,7 @@ def test_selective_sync_api(m):
     assert not m.fatal_errors
 
 
-def test_selective_sync_api_global(m):
+def test_selective_sync_api_global(m: Maestral) -> None:
     """Test :meth:`Maestral.exclude_items` to change all items at once."""
 
     dbx_dirs = [
@@ -219,7 +226,7 @@ def test_selective_sync_api_global(m):
     assert not m.fatal_errors
 
 
-def test_selective_sync_api_nested(m):
+def test_selective_sync_api_nested(m: Maestral) -> None:
     """Tests special cases of nested selected sync changes."""
 
     dbx_dirs = [
@@ -253,7 +260,7 @@ def test_selective_sync_api_nested(m):
     assert not m.fatal_errors
 
 
-def test_create_file_diff(m):
+def test_create_file_diff(m: Maestral) -> None:
     """Tests file diffs for supported and unsupported files."""
 
     def write_and_get_rev(dbx_path, content, o="w"):
@@ -282,7 +289,9 @@ def test_create_file_diff(m):
         # Add a compiled helloworld c file with .txt extension
         shutil.copy(resources + "/bin.txt", m.dropbox_path)
         wait_for_idle(m)
-        old_rev = m.client.get_metadata(dbx_path_fail_ext).rev
+        md = m.client.get_metadata(dbx_path_fail_ext)
+        assert isinstance(md, FileMetadata)
+        old_rev = md.rev
         # Just some bytes
         new_rev = write_and_get_rev(dbx_path_fail_ext, b"hi", o="ab")
         m.get_file_diff(old_rev, new_rev)
@@ -294,7 +303,7 @@ def test_create_file_diff(m):
     _ = m.get_file_diff(old_rev, new_rev)
 
 
-def test_restore(m):
+def test_restore(m: Maestral) -> None:
     """Tests restoring an old revision"""
 
     dbx_path = "/file.txt"
@@ -307,6 +316,7 @@ def test_restore(m):
     wait_for_idle(m)
 
     old_md = m.client.get_metadata(dbx_path)
+    assert isinstance(old_md, FileMetadata)
 
     # modify the file and sync it
     with open(local_path, "w") as f:
@@ -315,7 +325,7 @@ def test_restore(m):
     wait_for_idle(m)
 
     new_md = m.client.get_metadata(dbx_path)
-
+    assert isinstance(new_md, FileMetadata)
     assert new_md.content_hash == m.sync.get_local_hash(local_path)
 
     # restore the old rev
@@ -335,7 +345,7 @@ def test_restore(m):
     assert restored_content == "old content"
 
 
-def test_restore_failed(m):
+def test_restore_failed(m: Maestral) -> None:
     """Tests restoring a non-existing file"""
 
     with pytest.raises(NotFoundError):
@@ -344,7 +354,7 @@ def test_restore_failed(m):
 
 @pytest.mark.skipif(sys.platform != "linux", reason="inotify specific test")
 @pytest.mark.skipif(os.getenv("CI", False) is False, reason="Only running on CI")
-def test_inotify_error(m):
+def test_inotify_error(m: Maestral) -> None:
 
     max_user_watches, max_user_instances, _ = get_inotify_limits()
 
@@ -366,7 +376,7 @@ def test_inotify_error(m):
         m.start_sync()
 
         assert len(m.fatal_errors) == 1
-        assert m.fatal_errors[0]["type"] == "InotifyError"
+        assert isinstance(m.fatal_errors[0], InotifyError)
 
     finally:
         subprocess.check_call(

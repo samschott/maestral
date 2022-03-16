@@ -13,12 +13,12 @@ try:
     from concurrent.futures import InvalidStateError  # type: ignore
 except ImportError:
     # Python 3.7 and lower
-    InvalidStateError = RuntimeError  # type: ignore
+    InvalidStateError = RuntimeError
 
 import sdnotify
 
 try:
-    from systemd import journal  # type: ignore
+    from systemd import journal
 except ImportError:
     journal = None
 

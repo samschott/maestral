@@ -2,6 +2,7 @@ import logging
 
 from click.testing import CliRunner
 
+from maestral.main import Maestral
 from maestral.cli import main
 from maestral.autostart import AutoStart
 from maestral.notify import level_number_to_name, level_name_to_number
@@ -12,7 +13,7 @@ from maestral.logging import scoped_logger
 TEST_TIMEOUT = 60
 
 
-def test_help():
+def test_help() -> None:
     """Test help output without args and with --help arg."""
     runner = CliRunner()
 
@@ -25,7 +26,7 @@ def test_help():
     assert result_no_arg.output == result_help_arg.output
 
 
-def test_invalid_config(m):
+def test_invalid_config(m: Maestral) -> None:
     """Test failure of commands that require an existing config file"""
 
     for command in [
@@ -71,7 +72,7 @@ def test_invalid_config(m):
         )
 
 
-def test_start_already_running(config_name):
+def test_start_already_running(config_name: str) -> None:
 
     res = start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
 
@@ -84,7 +85,7 @@ def test_start_already_running(config_name):
     assert "already running" in result.output
 
 
-def test_stop(config_name):
+def test_stop(config_name: str) -> None:
 
     res = start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
     assert res is Start.Ok
@@ -95,7 +96,7 @@ def test_stop(config_name):
     assert result.exit_code == 0, result.output
 
 
-def test_filestatus(m):
+def test_filestatus(m: Maestral) -> None:
     runner = CliRunner()
     result = runner.invoke(main, ["filestatus", "/usr", "-c", m.config_name])
 
@@ -110,7 +111,7 @@ def test_filestatus(m):
     assert "'/invalid-dir' does not exist" in result.output
 
 
-def test_autostart(m):
+def test_autostart(m: Maestral) -> None:
     autostart = AutoStart(m.config_name)
     autostart.disable()
 
@@ -140,7 +141,7 @@ def test_autostart(m):
     assert not autostart.enabled
 
 
-def test_excluded_list(m):
+def test_excluded_list(m: Maestral) -> None:
     runner = CliRunner()
     result = runner.invoke(main, ["excluded", "list", "-c", m.config_name])
 
@@ -148,7 +149,7 @@ def test_excluded_list(m):
     assert result.output == "No excluded files or folders.\n"
 
 
-def test_notify_level(config_name):
+def test_notify_level(config_name: str) -> None:
 
     start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
     m = MaestralProxy(config_name)
@@ -175,7 +176,7 @@ def test_notify_level(config_name):
     assert isinstance(result.exception, SystemExit)
 
 
-def test_notify_snooze(config_name):
+def test_notify_snooze(config_name: str) -> None:
 
     start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
     m = MaestralProxy(config_name)
@@ -192,7 +193,7 @@ def test_notify_snooze(config_name):
     assert m.notification_snooze == 0
 
 
-def test_log_level(m):
+def test_log_level(m: Maestral) -> None:
     runner = CliRunner()
     result = runner.invoke(main, ["log", "level", "-c", m.config_name])
 
@@ -210,7 +211,7 @@ def test_log_level(m):
     assert isinstance(result.exception, SystemExit)
 
 
-def test_log_show(m):
+def test_log_show(m: Maestral) -> None:
     # log a message
     logger = scoped_logger("maestral", m.config_name)
     logger.info("Hello from pytest!")
@@ -221,7 +222,7 @@ def test_log_show(m):
     assert "Hello from pytest!" in result.output
 
 
-def test_log_clear(m):
+def test_log_clear(m: Maestral) -> None:
     # log a message
     logger = scoped_logger("maestral", m.config_name)
     logger.info("Hello from pytest!")

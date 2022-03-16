@@ -7,16 +7,16 @@ emitter which uses period directory snapshots and compares them with a
 events.
 """
 
-from watchdog.utils import platform  # type: ignore
+from watchdog.utils import platform
 from watchdog.utils import UnsupportedLibc
 
 
 if platform.is_linux():
     try:
-        from watchdog.observers.inotify import InotifyObserver as Observer  # type: ignore
+        from watchdog.observers.inotify import InotifyObserver as Observer
     except UnsupportedLibc:
         from .polling import OrderedPollingObserver as Observer
 else:
-    from watchdog.observers import Observer  # type: ignore
+    from watchdog.observers import Observer
 
 __all__ = ["Observer"]

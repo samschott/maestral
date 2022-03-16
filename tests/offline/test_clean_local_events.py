@@ -29,7 +29,7 @@ def ipath(i):
     return f"/test {i}"
 
 
-def test_single_file_events(sync):
+def test_single_file_events(sync: SyncEngine) -> None:
 
     # only a single event for every path -> no consolidation
 
@@ -51,7 +51,7 @@ def test_single_file_events(sync):
     assert cleaned_events == res
 
 
-def test_single_path_cases(sync):
+def test_single_path_cases(sync: SyncEngine) -> None:
 
     file_events = [
         # created + deleted -> None
@@ -77,7 +77,7 @@ def test_single_path_cases(sync):
     assert cleaned_events == res
 
 
-def test_move_events(sync):
+def test_move_events(sync: SyncEngine) -> None:
 
     file_events = [
         # created + moved -> created
@@ -112,7 +112,7 @@ def test_move_events(sync):
     assert cleaned_events == res
 
 
-def test_gedit_save(sync):
+def test_gedit_save(sync: SyncEngine) -> None:
 
     file_events = [
         FileCreatedEvent("/.gedit-save-UR4EC0"),  # save new version to tmp file
@@ -130,7 +130,7 @@ def test_gedit_save(sync):
     assert cleaned_events == res
 
 
-def test_macos_safe_save(sync):
+def test_macos_safe_save(sync: SyncEngine) -> None:
 
     file_events = [
         FileMovedEvent(ipath(1), ipath(1) + ".sb-b78ef837-dLht38"),  # move to backup
@@ -146,7 +146,7 @@ def test_macos_safe_save(sync):
     assert cleaned_events == res
 
 
-def test_msoffice_created(sync):
+def test_msoffice_created(sync: SyncEngine) -> None:
 
     file_events = [
         FileCreatedEvent(ipath(1)),
@@ -164,7 +164,7 @@ def test_msoffice_created(sync):
     assert cleaned_events == res
 
 
-def test_type_changes(sync):
+def test_type_changes(sync: SyncEngine) -> None:
 
     file_events = [
         # keep as is
@@ -188,7 +188,7 @@ def test_type_changes(sync):
     assert cleaned_events == res
 
 
-def test_type_changes_difficult(sync):
+def test_type_changes_difficult(sync: SyncEngine) -> None:
 
     file_events = [
         # convert to FileDeleted -> DirCreated
@@ -217,7 +217,7 @@ def test_type_changes_difficult(sync):
     assert cleaned_events == res
 
 
-def test_nested_events(sync):
+def test_nested_events(sync: SyncEngine) -> None:
 
     file_events = [
         # convert to a single DirDeleted
@@ -248,7 +248,7 @@ def test_nested_events(sync):
     min_time=0.1,
     max_time=5,
 )
-def test_performance(sync, benchmark):
+def test_performance(sync: SyncEngine, benchmark) -> None:
 
     # 10,000 nested deleted events (5,000 folders, 5,000 files)
     file_events = [DirDeletedEvent(n * ipath(1)) for n in range(1, 5001)]

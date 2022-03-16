@@ -212,46 +212,5 @@ class PathRootError(MaestralApiError):
     """Raised when making an API call with an invalid path root header."""
 
 
-# connection errors are handled as warnings
-# sync errors only appear in the sync errors list
-# all other errors raise an error dialog in the GUI
-
-GENERAL_ERRORS = {
-    MaestralApiError,
-    NotLinkedError,
-    InvalidDbidError,
-    KeyringAccessError,
-    NoDropboxDirError,
-    InotifyError,
-    DatabaseError,
-    DropboxAuthError,
-    TokenExpiredError,
-    TokenRevokedError,
-    CursorResetError,
-    BadInputError,
-    OutOfMemoryError,
-    BusyError,
-    UnsupportedFileTypeForDiff,
-    SharedLinkError,
-    DropboxConnectionError,
-    PathRootError,
-}
-
-SYNC_ERRORS = {
-    SyncError,
-    CancelledError,
-    InsufficientPermissionsError,
-    InsufficientSpaceError,
-    PathError,
-    NotFoundError,
-    ConflictError,
-    IsAFolderError,
-    NotAFolderError,
-    DropboxServerError,
-    RestrictedContentError,
-    UnsupportedFileError,
-    FileSizeError,
-    FileReadError,
-    FileConflictError,
-    FolderConflictError,
-}
+class UpdateCheckError(MaestralApiError):
+    """Raised when checking for updates fails."""

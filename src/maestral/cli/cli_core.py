@@ -3,13 +3,12 @@ from __future__ import annotations
 import sys
 from datetime import datetime
 from os import path as osp
-from typing import cast, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import click
 
 from .dialogs import select_path, select, confirm, prompt, select_multiple
 from .output import warn, ok, info, echo, Table, Field, DateField, TextField
-from .utils import datetime_from_iso_str
 from .common import (
     convert_api_errors,
     check_for_fatal_errors,
@@ -18,6 +17,7 @@ from .common import (
     inject_proxy,
 )
 from .core import DropboxPath, CliException
+from ..core import FolderMetadata
 
 if TYPE_CHECKING:
     from ..daemon import MaestralProxy
@@ -214,11 +214,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
                 info("Loading...")
                 entries = m.list_folder("/", recursive=False)
 
-                names = [
-                    cast(str, e["name"])
-                    for e in entries
-                    if e["type"] == "FolderMetadata"
-                ]
+                names = [e.name for e in entries if isinstance(e, FolderMetadata)]
 
                 choices = select_multiple(
                     "Choose which folders to include", options=names
@@ -273,7 +269,7 @@ def gui(config_name: str) -> None:
     from packaging.requirements import Requirement
 
     try:
-        from importlib.metadata import entry_points, requires, version  # type: ignore
+        from importlib.metadata import entry_points, requires, version
     except ImportError:
         from importlib_metadata import entry_points, requires, version  # type: ignore
 
@@ -293,7 +289,7 @@ def gui(config_name: str) -> None:
 
     if default_entry_point:
         # check gui requirements
-        requirements = [Requirement(r) for r in requires("maestral")]  # type: ignore
+        requirements = [Requirement(r) for r in requires("maestral")]
 
         for r in requirements:
             if r.marker and r.marker.evaluate({"extra": "gui"}):
@@ -431,15 +427,8 @@ def sharelink_create(
 ) -> None:
 
     expiry_dt: float | None
-
-    if expiry:
-        expiry_dt = expiry.timestamp()
-    else:
-        expiry_dt = None
-
-    link_info = m.create_shared_link(dropbox_path, password=password, expires=expiry_dt)
-
-    echo(link_info["url"])
+    link_info = m.create_shared_link(dropbox_path, password=password, expires=expiry)
+    echo(link_info.url)
 
 
 @sharelink.command(name="revoke", help="Revoke a shared link.")
@@ -464,19 +453,22 @@ def sharelink_list(m: Maestral, dropbox_path: str | None) -> None:
     link_table = Table(["URL", "Item", "Access", "Expires"])
 
     for link in links:
-        url = cast(str, link["url"])
-        file_name = cast(str, link["name"])
-        visibility = cast(str, link["link_permissions"]["resolved_visibility"][".tag"])
 
         dt_field: Field
 
-        if "expires" in link:
-            expires = cast(str, link["expires"])
-            dt_field = DateField(datetime_from_iso_str(expires))
+        if link.expires:
+            dt_field = DateField(link.expires)
         else:
             dt_field = TextField("-")
 
-        link_table.append([url, file_name, visibility, dt_field])
+        link_table.append(
+            [
+                link.url,
+                link.name,
+                link.link_permissions.effective_audience.value,
+                dt_field,
+            ]
+        )
 
     echo("")
     link_table.echo()

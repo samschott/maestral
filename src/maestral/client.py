@@ -12,17 +12,50 @@ import logging
 import contextlib
 import threading
 from datetime import datetime, timezone
-from typing import Callable, Any, Iterator, TypeVar, Union, BinaryIO, TYPE_CHECKING
+from typing import (
+    Callable,
+    Any,
+    Iterator,
+    Sequence,
+    TypeVar,
+    BinaryIO,
+    overload,
+    cast,
+    TYPE_CHECKING,
+)
 
 # external imports
 import requests
-from dropbox import Dropbox, create_session, files, sharing, users, exceptions, common
-from dropbox.common import PathRoot
+from dropbox import files, sharing, users, common
+from dropbox import Dropbox, create_session, exceptions  # type: ignore
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect
+from dropbox.session import API_HOST
 
 # local imports
 from . import __version__
 from .keyring import CredentialStorage, TokenType
+from .core import (
+    AccountType,
+    Team,
+    Account,
+    RootInfo,
+    UserRootInfo,
+    TeamRootInfo,
+    FullAccount,
+    TeamSpaceUsage,
+    SpaceUsage,
+    WriteMode,
+    Metadata,
+    DeletedMetadata,
+    FileMetadata,
+    FolderMetadata,
+    ListFolderResult,
+    LinkAccessLevel,
+    LinkAudience,
+    LinkPermissions,
+    SharedLinkMetadata,
+    ListSharedLinkResult,
+)
 from .exceptions import (
     MaestralApiError,
     SyncError,
@@ -47,10 +80,10 @@ if TYPE_CHECKING:
     from .models import SyncEvent
 
 
-__all__ = ["DropboxClient"]
+__all__ = ["DropboxClient", "API_HOST"]
 
 
-PaginationResultType = Union[sharing.ListSharedLinksResult, files.ListFolderResult]
+PRT = TypeVar("PRT", ListFolderResult, ListSharedLinkResult)
 FT = TypeVar("FT", bound=Callable[..., Any])
 
 _major_minor_version = ".".join(__version__.split(".")[:2])
@@ -116,7 +149,7 @@ class DropboxClient:
         self._backoff_until = 0
         self._dbx: Dropbox | None = None
         self._dbx_base: Dropbox | None = None
-        self._cached_account_info: users.FullAccount | None = None
+        self._cached_account_info: FullAccount | None = None
         self._namespace_id = self._state.get("account", "path_root_nsid")
         self._is_team_space = self._state.get("account", "path_root_type") == "team"
         self._lock = threading.Lock()
@@ -264,13 +297,13 @@ class DropboxClient:
             # If namespace_id was given, use the corresponding namespace, otherwise
             # default to the home namespace.
             if self._namespace_id:
-                root_path = PathRoot.root(self._namespace_id)
+                root_path = common.PathRoot.root(self._namespace_id)
                 self._dbx = self._dbx_base.with_path_root(root_path)
             else:
                 self._dbx = self._dbx_base
 
     @property
-    def account_info(self) -> users.FullAccount:
+    def account_info(self) -> FullAccount:
         """Returns cached account info. Use :meth:`get_account_info` to get the latest
         account info from Dropbox servers."""
 
@@ -346,7 +379,7 @@ class DropboxClient:
         """
         return self.clone(session=create_session())
 
-    def update_path_root(self, root_info: common.RootInfo | None = None) -> None:
+    def update_path_root(self, root_info: RootInfo | None = None) -> None:
         """
         Updates the root path for the Dropbox client. All files paths given as arguments
         to API calls such as :meth:`list_folder` or :meth:`get_metadata` will be
@@ -372,21 +405,19 @@ class DropboxClient:
             servers.
         """
 
-        with convert_api_errors():
+        if not root_info:
+            account_info = self.get_account_info()
+            root_info = account_info.root_info
 
-            if not root_info:
-                account_info = self.get_account_info()
-                root_info = account_info.root_info
+        root_nsid = root_info.root_namespace_id
 
-            root_nsid = root_info.root_namespace_id
+        path_root = common.PathRoot.root(root_nsid)
+        self._dbx = self.dbx_base.with_path_root(path_root)
 
-            path_root = PathRoot.root(root_nsid)
-            self._dbx = self.dbx_base.with_path_root(path_root)
-
-        if isinstance(root_info, common.UserRootInfo):
+        if isinstance(root_info, UserRootInfo):
             actual_root_type = "user"
             actual_home_path = ""
-        elif isinstance(root_info, common.TeamRootInfo):
+        elif isinstance(root_info, TeamRootInfo):
             actual_root_type = "team"
             actual_home_path = root_info.home_path
         else:
@@ -408,7 +439,15 @@ class DropboxClient:
 
     # ---- SDK wrappers ----------------------------------------------------------------
 
-    def get_account_info(self, dbid: str | None = None) -> users.FullAccount:
+    @overload
+    def get_account_info(self, dbid: None = None) -> FullAccount:
+        ...
+
+    @overload
+    def get_account_info(self, dbid: str) -> Account:
+        ...
+
+    def get_account_info(self, dbid=None):
         """
         Gets current account information.
 
@@ -418,37 +457,38 @@ class DropboxClient:
         """
 
         with convert_api_errors():
+
             if dbid:
                 res = self.dbx_base.users_get_account(dbid)
-            else:
-                res = self.dbx_base.users_get_current_account()
+                return convert_account(res)
 
-        if not dbid:
+            res = self.dbx_base.users_get_current_account()
+
             # Save our own account info to config.
             if res.account_type.is_basic():
-                account_type = "basic"
+                account_type = AccountType.Basic
             elif res.account_type.is_business():
-                account_type = "business"
+                account_type = AccountType.Business
             elif res.account_type.is_pro():
-                account_type = "pro"
+                account_type = AccountType.Pro
             else:
-                account_type = ""
+                account_type = AccountType.Other
 
             self._state.set("account", "email", res.email)
             self._state.set("account", "display_name", res.name.display_name)
             self._state.set("account", "abbreviated_name", res.name.abbreviated_name)
-            self._state.set("account", "type", account_type)
+            self._state.set("account", "type", account_type.value)
 
         if not self._namespace_id:
             home_nsid = res.root_info.home_namespace_id
             self._namespace_id = home_nsid
             self._state.set("account", "path_root_nsid", home_nsid)
 
-        self._cached_account_info = res
+        self._cached_account_info = convert_full_account(res)
 
-        return res
+        return self._cached_account_info
 
-    def get_space_usage(self) -> users.SpaceUsage:
+    def get_space_usage(self) -> SpaceUsage:
         """
         :returns: The space usage of the currently linked account.
         """
@@ -478,11 +518,11 @@ class DropboxClient:
         self._state.set("account", "usage", space_usage)
         self._state.set("account", "usage_type", usage_type)
 
-        return res
+        return convert_space_usage(res)
 
     def get_metadata(
         self, dbx_path: str, include_deleted: bool = False
-    ) -> files.Metadata | None:
+    ) -> Metadata | None:
         """
         Gets metadata for an item on Dropbox or returns ``False`` if no metadata is
         available. Keyword arguments are passed on to Dropbox SDK files_get_metadata
@@ -495,15 +535,16 @@ class DropboxClient:
 
         try:
             with convert_api_errors(dbx_path=dbx_path):
-                return self.dbx.files_get_metadata(
+                res = self.dbx.files_get_metadata(
                     dbx_path, include_deleted=include_deleted
                 )
+                return convert_metadata(res)
         except (NotFoundError, PathError):
             return None
 
     def list_revisions(
         self, dbx_path: str, mode: str = "path", limit: int = 10
-    ) -> files.ListRevisionsResult:
+    ) -> list[FileMetadata]:
         """
         Lists all file revisions for the given file.
 
@@ -515,10 +556,12 @@ class DropboxClient:
         """
 
         with convert_api_errors(dbx_path=dbx_path):
-            mode = files.ListRevisionsMode(mode)
-            return self.dbx.files_list_revisions(dbx_path, mode=mode, limit=limit)
+            dbx_mode = files.ListRevisionsMode(mode)
+            res = self.dbx.files_list_revisions(dbx_path, mode=dbx_mode, limit=limit)
 
-    def restore(self, dbx_path: str, rev: str) -> files.FileMetadata:
+        return [convert_metadata(entry) for entry in res.entries]
+
+    def restore(self, dbx_path: str, rev: str) -> FileMetadata:
         """
         Restore an old revision of a file.
 
@@ -529,7 +572,9 @@ class DropboxClient:
         """
 
         with convert_api_errors(dbx_path=dbx_path):
-            return self.dbx.files_restore(dbx_path, rev)
+            res = self.dbx.files_restore(dbx_path, rev)
+
+        return convert_metadata(res)
 
     @retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def download(
@@ -537,7 +582,7 @@ class DropboxClient:
         dbx_path: str,
         local_path: str,
         sync_event: SyncEvent | None = None,
-    ) -> files.FileMetadata:
+    ) -> FileMetadata:
         """
         Downloads a file from Dropbox to given local path.
 
@@ -595,17 +640,18 @@ class DropboxClient:
             # Set mtime of downloaded file.
             os.utime(local_path, (time.time(), timestamp), follow_symlinks=False)
 
-        return md
+        return convert_metadata(md)
 
     def upload(
         self,
         local_path: str,
         dbx_path: str,
         chunk_size: int = 5 * 10**6,
-        mode: files.WriteMode = files.WriteMode.add,
+        write_mode: WriteMode = WriteMode.Add,
+        update_rev: str | None = None,
         autorename: bool = False,
         sync_event: SyncEvent | None = None,
-    ) -> files.FileMetadata:
+    ) -> FileMetadata:
         """
         Uploads local file to Dropbox.
 
@@ -613,9 +659,32 @@ class DropboxClient:
         :param dbx_path: Path to save file on Dropbox.
         :param chunk_size: Maximum size for individual uploads. If larger than 150 MB,
             it will be set to 150 MB.
-        :param mode: Your intent when writing a file to some path. This is used to
+        :param write_mode: Your intent when writing a file to some path. This is used to
             determine what constitutes a conflict and what the autorename strategy is.
-            See :class:`dropbox.files.WriteMode` for exact behavior.
+            This is used to determine what
+            constitutes a conflict and what the autorename strategy is. In some
+            situations, the conflict behavior is identical: (a) If the target path
+            doesn't refer to anything, the file is always written; no conflict. (b) If
+            the target path refers to a folder, it's always a conflict. (c) If the
+            target path refers to a file with identical contents, nothing gets written;
+            no conflict. The conflict checking differs in the case where there's a file
+            at the target path with contents different from the contents you're trying
+            to write.
+            :class:`core.WriteMode.Add` Do not overwrite an existing file if there is a
+                conflict. The autorename strategy is to append a number to the file
+                name. For example, "document.txt" might become "document (2).txt".
+            :class:`core.WriteMode.Overwrite` Always overwrite the existing file. The
+                autorename strategy is the same as it is for ``add``.
+            :class:`core.WriteMode.Update` Overwrite if the given "update_rev" matches the
+                existing file's "rev". The supplied value should be the latest known
+                "rev" of the file, for example, from :class:`core.FileMetadata`, from when the
+                file was last downloaded by the app. This will cause the file on the
+                Dropbox servers to be overwritten if the given "rev" matches the
+                existing file's current "rev" on the Dropbox servers. The autorename
+                strategy is to append the string "conflicted copy" to the file name. For
+                example, "document.txt" might become "document (conflicted copy).txt" or
+                "document (Panda's conflicted copy).txt".
+        :param update_rev: Rev to match for :class:`core.WriteMode.Update`.
         :param sync_event: If given, the sync event will be updated with the number of
             downloaded bytes.
         :param autorename: If there's a conflict, as determined by ``mode``, have the
@@ -626,6 +695,17 @@ class DropboxClient:
         """
 
         chunk_size = clamp(chunk_size, 10**5, 150 * 10**6)
+
+        if write_mode is WriteMode.Add:
+            dbx_write_mode = files.WriteMode.add
+        elif write_mode is WriteMode.Overwrite:
+            dbx_write_mode = files.WriteMode.overwrite
+        elif write_mode is WriteMode.Update:
+            if update_rev is None:
+                raise RuntimeError("Please provide 'update_rev'")
+            dbx_write_mode = files.WriteMode.update(update_rev)
+        else:
+            raise RuntimeError("No write mode for uploading file.")
 
         with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
 
@@ -638,8 +718,13 @@ class DropboxClient:
 
                 # Upload all at once.
 
-                return self._upload_helper(
-                    local_path, dbx_path, mtime_dt, mode, autorename, sync_event
+                res = self._upload_helper(
+                    local_path,
+                    dbx_path,
+                    mtime_dt,
+                    dbx_write_mode,
+                    autorename,
+                    sync_event,
                 )
 
             else:
@@ -660,18 +745,20 @@ class DropboxClient:
                             f, session_id, chunk_size, dbx_path, sync_event
                         )
 
-                    return self._upload_session_finish_helper(
+                    res = self._upload_session_finish_helper(
                         f,
                         session_id,
                         chunk_size,
                         # Commit info.
                         dbx_path,
                         mtime_dt,
-                        mode,
+                        dbx_write_mode,
                         autorename,
                         # Commit info end.
                         sync_event,
                     )
+
+        return convert_metadata(res)
 
     @retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_helper(
@@ -829,7 +916,9 @@ class DropboxClient:
 
         return md
 
-    def remove(self, dbx_path: str, parent_rev: str | None = None) -> files.Metadata:
+    def remove(
+        self, dbx_path: str, parent_rev: str | None = None
+    ) -> FileMetadata | FolderMetadata:
         """
         Removes a file / folder from Dropbox.
 
@@ -841,11 +930,12 @@ class DropboxClient:
 
         with convert_api_errors(dbx_path=dbx_path):
             res = self.dbx.files_delete_v2(dbx_path, parent_rev=parent_rev)
-            return res.metadata
+
+        return convert_metadata(res.metadata)
 
     def remove_batch(
-        self, entries: list[tuple[str, str]], batch_size: int = 900
-    ) -> list[files.Metadata | MaestralApiError]:
+        self, entries: Sequence[tuple[str, str | None]], batch_size: int = 900
+    ) -> list[FileMetadata | FolderMetadata | MaestralApiError]:
         """
         Deletes multiple items on Dropbox in a batch job.
 
@@ -861,11 +951,11 @@ class DropboxClient:
         batch_size = clamp(batch_size, 1, 1000)
 
         res_entries = []
-        result_list = []
+        result_list: list[FileMetadata | FolderMetadata | MaestralApiError] = []
 
         # Up two ~ 1,000 entries allowed per batch:
         # https://www.dropbox.com/developers/reference/data-ingress-guide
-        for chunk in chunks(entries, n=batch_size):
+        for chunk in chunks(list(entries), n=batch_size):
 
             arg = [files.DeleteArg(e[0], e[1]) for e in chunk]
 
@@ -907,7 +997,7 @@ class DropboxClient:
 
         for i, entry in enumerate(res_entries):
             if entry.is_success():
-                result_list.append(entry.get_success().metadata)
+                result_list.append(convert_metadata(entry.get_success().metadata))
             elif entry.is_failure():
                 exc = exceptions.ApiError(
                     error=entry.get_failure(),
@@ -922,7 +1012,7 @@ class DropboxClient:
 
     def move(
         self, dbx_path: str, new_path: str, autorename: bool = False
-    ) -> files.Metadata:
+    ) -> FileMetadata | FolderMetadata:
         """
         Moves / renames files or folders on Dropbox.
 
@@ -941,9 +1031,10 @@ class DropboxClient:
                 allow_ownership_transfer=True,
                 autorename=autorename,
             )
-            return res.metadata
 
-    def make_dir(self, dbx_path: str, autorename: bool = False) -> files.FolderMetadata:
+        return convert_metadata(res.metadata)
+
+    def make_dir(self, dbx_path: str, autorename: bool = False) -> FolderMetadata:
         """
         Creates a folder on Dropbox.
 
@@ -955,7 +1046,9 @@ class DropboxClient:
 
         with convert_api_errors(dbx_path=dbx_path):
             res = self.dbx.files_create_folder_v2(dbx_path, autorename)
-            return res.metadata
+
+        md = cast(files.FolderMetadata, res.metadata)
+        return convert_metadata(md)
 
     def make_dir_batch(
         self,
@@ -963,7 +1056,7 @@ class DropboxClient:
         batch_size: int = 900,
         autorename: bool = False,
         force_async: bool = False,
-    ) -> list[files.Metadata | MaestralApiError]:
+    ) -> list[FolderMetadata | MaestralApiError]:
         """
         Creates multiple folders on Dropbox in a batch job.
 
@@ -979,7 +1072,7 @@ class DropboxClient:
         batch_size = clamp(batch_size, 1, 1000)
 
         entries = []
-        result_list = []
+        result_list: list[FolderMetadata | MaestralApiError] = []
 
         with convert_api_errors():
 
@@ -1016,7 +1109,7 @@ class DropboxClient:
 
         for i, entry in enumerate(entries):
             if entry.is_success():
-                result_list.append(entry.get_success().metadata)
+                result_list.append(convert_metadata(entry.get_success().metadata))
             elif entry.is_failure():
                 exc = exceptions.ApiError(
                     error=entry.get_failure(),
@@ -1029,13 +1122,13 @@ class DropboxClient:
 
         return result_list
 
-    def share_dir(self, dbx_path: str, **kwargs) -> sharing.SharedFolderMetadata:
+    def share_dir(self, dbx_path: str, **kwargs) -> FolderMetadata | None:
         """
         Converts a Dropbox folder to a shared folder. Creates the folder if it does not
-        exist.
+        exist. May return None if the folder is immediately deleted after creation.
 
         :param dbx_path: Path of Dropbox folder.
-        :param kwargs: Keyword arguments for the Dropbox API files_create_folder_v2
+        :param kwargs: Keyword arguments for the Dropbox API sharing/share_folder
             endpoint.
         :returns: Metadata of shared folder.
         """
@@ -1046,7 +1139,7 @@ class DropboxClient:
             res = self.dbx.sharing_share_folder(dbx_path, **kwargs)
 
         if res.is_complete():
-            return res.get_complete()
+            shared_folder_md = res.get_complete()
 
         elif res.is_async_job_id():
             async_job_id = res.get_async_job_id()
@@ -1063,7 +1156,7 @@ class DropboxClient:
                     job_status = self.dbx.sharing_check_share_job_status(async_job_id)
 
             if job_status.is_complete():
-                return job_status.get_complete()
+                shared_folder_md = job_status.get_complete()
 
             elif job_status.is_failed():
                 error = job_status.get_failed()
@@ -1074,6 +1167,23 @@ class DropboxClient:
                     request_id="",
                 )
                 raise dropbox_to_maestral_error(exc)
+            else:
+                raise MaestralApiError(
+                    "Could not create shared folder",
+                    "Unexpected response from sharing/check_share_job_status "
+                    f"endpoint: {res}.",
+                )
+        else:
+            raise MaestralApiError(
+                "Could not create shared folder",
+                f"Unexpected response from sharing/share_folder endpoint: {res}.",
+            )
+
+        md = self.get_metadata(f"ns:{shared_folder_md.shared_folder_id}")
+        if isinstance(md, FolderMetadata):
+            return md
+        else:
+            return None
 
     def get_latest_cursor(
         self, dbx_path: str, include_non_downloadable_files: bool = False, **kwargs
@@ -1108,7 +1218,7 @@ class DropboxClient:
         include_deleted: bool = False,
         include_mounted_folders: bool = True,
         include_non_downloadable_files: bool = False,
-    ) -> files.ListFolderResult:
+    ) -> ListFolderResult:
         """
         Lists the contents of a folder on Dropbox. Similar to
         :meth:`list_folder_iterator` but returns all entries in a single
@@ -1136,7 +1246,7 @@ class DropboxClient:
             include_non_downloadable_files=include_non_downloadable_files,
         )
 
-        return self.flatten_results(list(iterator), attribute_name="entries")
+        return self.flatten_results(list(iterator))
 
     def list_folder_iterator(
         self,
@@ -1146,7 +1256,7 @@ class DropboxClient:
         include_mounted_folders: bool = True,
         limit: int | None = None,
         include_non_downloadable_files: bool = False,
-    ) -> Iterator[files.ListFolderResult]:
+    ) -> Iterator[ListFolderResult]:
         """
         Lists the contents of a folder on Dropbox. Returns an iterator yielding
         :class:`dropbox.files.ListFolderResult` instances. The number of entries
@@ -1182,11 +1292,11 @@ class DropboxClient:
                 include_non_downloadable_files=include_non_downloadable_files,
             )
 
-            yield res
+            yield convert_list_folder_result(res)
 
             while res.has_more:
                 res = self._list_folder_continue_helper(res.cursor)
-                yield res
+                yield convert_list_folder_result(res)
 
     @retry_on_error(requests.exceptions.ReadTimeout, MAX_LIST_FOLDER_RETRIES, backoff=3)
     def _list_folder_continue_helper(self, cursor: str) -> files.ListFolderResult:
@@ -1222,7 +1332,7 @@ class DropboxClient:
 
         return res.changes
 
-    def list_remote_changes(self, last_cursor: str) -> files.ListFolderResult:
+    def list_remote_changes(self, last_cursor: str) -> ListFolderResult:
         """
         Lists changes to remote Dropbox since ``last_cursor``. Same as
         :meth:`list_remote_changes_iterator` but fetches all changes first and returns
@@ -1234,11 +1344,11 @@ class DropboxClient:
         """
 
         iterator = self.list_remote_changes_iterator(last_cursor)
-        return self.flatten_results(list(iterator), attribute_name="entries")
+        return self.flatten_results(list(iterator))
 
     def list_remote_changes_iterator(
         self, last_cursor: str
-    ) -> Iterator[files.ListFolderResult]:
+    ) -> Iterator[ListFolderResult]:
         """
         Lists changes to the remote Dropbox since ``last_cursor``. Returns an iterator
         yielding :class:`dropbox.files.ListFolderResult` instances. The number of
@@ -1253,23 +1363,23 @@ class DropboxClient:
 
         with convert_api_errors():
 
-            result = self.dbx.files_list_folder_continue(last_cursor)
+            res = self.dbx.files_list_folder_continue(last_cursor)
 
-            yield result
+            yield convert_list_folder_result(res)
 
-            while result.has_more:
-                result = self.dbx.files_list_folder_continue(result.cursor)
-                yield result
+            while res.has_more:
+                res = self.dbx.files_list_folder_continue(res.cursor)
+                yield convert_list_folder_result(res)
 
     def create_shared_link(
         self,
         dbx_path: str,
-        visibility: sharing.LinkAudience = sharing.LinkAudience.public,
-        access_level: sharing.RequestedLinkAccessLevel = sharing.RequestedLinkAccessLevel.viewer,
+        visibility: LinkAudience = LinkAudience.Public,
+        access_level: LinkAccessLevel = LinkAccessLevel.Viewer,
         allow_download: bool | None = None,
         password: str | None = None,
         expires: datetime | None = None,
-    ) -> sharing.SharedLinkMetadata:
+    ) -> SharedLinkMetadata:
         """
         Creates a shared link for the given path. Some options are only available for
         Professional and Business accounts. Note that the requested visibility and
@@ -1282,16 +1392,12 @@ class DropboxClient:
             or no-one. In case of the latter, the link merely points the user to the
             content and does not grant additional rights to the user. Users of this link
             can only access the content with their pre-existing access rights.
-        :param visibility: The visibility of the shared link. Can be public, team-only,
-            or no-one. In case of the latter, the link merely points the user to the
-            content and does not grant additional rights to the user. Users of this link
-            can only access the content with their pre-existing access rights.
         :param access_level: The level of access granted with the link. Can be viewer,
             editor, or max for maximum possible access level.
         :param allow_download: Whether to allow download capabilities for the link.
         :param password: If given, enables password protection for the link.
-        :param expires: Expiry time for shared link. Only available for Professional and
-            Business accounts.
+        :param expires: Expiry time for shared link. If no timezone is given, assume
+            UTC. May not be supported for all account types.
         :returns: Metadata for shared link.
         """
 
@@ -1305,15 +1411,15 @@ class DropboxClient:
             require_password=password is not None,
             link_password=password,
             expires=expires,
-            audience=visibility,
-            access=access_level,
+            audience=sharing.LinkAudience(visibility.value),
+            access=sharing.RequestedLinkAccessLevel(access_level.value),
             allow_download=allow_download,
         )
 
         with convert_api_errors(dbx_path=dbx_path):
             res = self.dbx.sharing_create_shared_link_with_settings(dbx_path, settings)
 
-        return res
+        return convert_shared_link_metadata(res)
 
     def revoke_shared_link(self, url: str) -> None:
         """
@@ -1326,7 +1432,7 @@ class DropboxClient:
 
     def list_shared_links(
         self, dbx_path: str | None = None
-    ) -> sharing.ListSharedLinksResult:
+    ) -> list[SharedLinkMetadata]:
         """
         Lists all shared links for a given Dropbox path (file or folder). If no path is
         given, list all shared links for the account, up to a maximum of 1,000 links.
@@ -1340,39 +1446,172 @@ class DropboxClient:
 
         with convert_api_errors(dbx_path=dbx_path):
             res = self.dbx.sharing_list_shared_links(dbx_path)
-            results.append(res)
+            results.append(convert_list_shared_link_result(res))
 
             while results[-1].has_more:
                 res = self.dbx.sharing_list_shared_links(dbx_path, results[-1].cursor)
-                results.append(res)
+                results.append(convert_list_shared_link_result(res))
 
-        return self.flatten_results(results, attribute_name="links")
+        return self.flatten_results(results).entries
 
     @staticmethod
-    def flatten_results(
-        results: list[PaginationResultType], attribute_name: str
-    ) -> PaginationResultType:
+    def flatten_results(results: list[PRT]) -> PRT:
         """
-        Flattens a list of Dropbox API results from a pagination to a single result with
+        Flattens a sequence listing results from a pagination to a single result with
         the cursor of the last result in the list.
 
-        :param results: List of :results to flatten.
-        :param attribute_name: Name of attribute to flatten.
+        :param results: List of results to flatten.
         :returns: Flattened result.
         """
 
         all_entries = []
 
-        for result in results:
-            all_entries += getattr(result, attribute_name)
-
-        kwargs = {
-            attribute_name: all_entries,
-            "cursor": results[-1].cursor,
-            "has_more": False,
-        }
+        for res in results:
+            all_entries += res.entries
 
         result_cls = type(results[0])
-        results_flattened = result_cls(**kwargs)
+        results_flattened = result_cls(
+            entries=all_entries, has_more=False, cursor=results[-1].cursor
+        )
 
         return results_flattened
+
+
+# ==== type conversions ================================================================
+
+
+def convert_account(res: users.Account) -> Account:
+    return Account(
+        res.account_id,
+        res.name.display_name,
+        res.email,
+        res.email_verified,
+        res.profile_photo_url,
+        res.disabled,
+    )
+
+
+def convert_full_account(res: users.FullAccount) -> FullAccount:
+    if res.account_type.is_basic():
+        account_type = AccountType.Basic
+    elif res.account_type.is_pro():
+        account_type = AccountType.Pro
+    elif res.account_type.is_business():
+        account_type = AccountType.Business
+    else:
+        account_type = AccountType.Other
+
+    root_info: RootInfo
+
+    if isinstance(res.root_info, common.TeamRootInfo):
+        root_info = TeamRootInfo(
+            res.root_info.root_namespace_id,
+            res.root_info.home_namespace_id,
+            res.root_info.home_path,
+        )
+    else:
+        root_info = UserRootInfo(
+            res.root_info.root_namespace_id, res.root_info.home_namespace_id
+        )
+
+    team = Team(res.team.id, res.team.name) if res.team else None
+
+    return FullAccount(
+        res.account_id,
+        res.name.display_name,
+        res.email,
+        res.email_verified,
+        res.profile_photo_url,
+        res.disabled,
+        res.country,
+        res.locale,
+        team,
+        res.team_member_id,
+        account_type,
+        root_info,
+    )
+
+
+def convert_space_usage(res: users.SpaceUsage) -> SpaceUsage:
+    if res.allocation.is_team():
+        team_usage = TeamSpaceUsage(
+            res.allocation.get_team().usage, res.allocation.get_team().allocation
+        )
+    else:
+        team_usage = None
+
+    return SpaceUsage(res.used, res.allocation, team_usage)
+
+
+def convert_metadata(res):
+    if isinstance(res, files.FileMetadata):
+        symlink_target = res.symlink_info.target if res.symlink_info else None
+        shared = res.sharing_info is not None or res.has_explicit_shared_members
+        modified_by = res.sharing_info.modified_by if res.sharing_info else None
+        return FileMetadata(
+            res.name,
+            res.path_lower,
+            res.path_display,
+            res.id,
+            res.client_modified,
+            res.server_modified,
+            res.rev,
+            res.size,
+            symlink_target,
+            shared,
+            modified_by,
+            res.is_downloadable,
+            res.content_hash,
+        )
+    elif isinstance(res, files.FolderMetadata):
+        shared = res.sharing_info is not None
+        return FolderMetadata(
+            res.name, res.path_lower, res.path_display, res.id, shared
+        )
+    elif isinstance(res, files.DeletedMetadata):
+        return DeletedMetadata(res.name, res.path_lower, res.path_display)
+    else:
+        raise RuntimeError(f"Unsupported metadata {res}")
+
+
+def convert_list_folder_result(res: files.ListFolderResult) -> ListFolderResult:
+    entries = [convert_metadata(e) for e in res.entries]
+    return ListFolderResult(entries, res.has_more, res.cursor)
+
+
+def convert_shared_link_metadata(res: sharing.SharedLinkMetadata) -> SharedLinkMetadata:
+    effective_audience = LinkAudience.Other
+
+    if res.link_permissions.effective_audience:
+        if res.link_permissions.effective_audience.is_public():
+            effective_audience = LinkAudience.Public
+        elif res.link_permissions.effective_audience.is_team():
+            effective_audience = LinkAudience.Team
+        elif res.link_permissions.effective_audience.is_no_one():
+            effective_audience = LinkAudience.NoOne
+
+    link_access_level = LinkAccessLevel.Other
+
+    if res.link_permissions.link_access_level:
+        if res.link_permissions.link_access_level.is_viewer():
+            link_access_level = LinkAccessLevel.Viewer
+        elif res.link_permissions.effective_audience.is_editor():
+            link_access_level = LinkAccessLevel.Editor
+
+    link_permissions = LinkPermissions(
+        res.link_permissions.can_revoke,
+        res.link_permissions.allow_download,
+        effective_audience,
+        link_access_level,
+        res.link_permissions.require_password,
+    )
+    return SharedLinkMetadata(
+        res.url, res.name, res.path_lower, res.expires, link_permissions
+    )
+
+
+def convert_list_shared_link_result(
+    res: sharing.ListSharedLinksResult,
+) -> ListSharedLinkResult:
+    entries = [convert_shared_link_metadata(e) for e in res.links]
+    return ListSharedLinkResult(entries, res.has_more, res.cursor)

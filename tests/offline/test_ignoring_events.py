@@ -3,17 +3,17 @@ from pathlib import Path
 
 from watchdog.events import DirCreatedEvent, DirMovedEvent
 
-from maestral.sync import SyncDirection
+from maestral.sync import SyncDirection, SyncEngine
 from maestral.models import ItemType, ChangeType
 from maestral.utils.path import move
 
 
-def ipath(i):
+def ipath(i: int) -> str:
     """Returns path names '/test 1', '/test 2', ..."""
     return f"/test {i}"
 
 
-def test_receiving_events(sync):
+def test_receiving_events(sync: SyncEngine) -> None:
 
     new_dir = Path(sync.dropbox_path) / "parent"
     new_dir.mkdir()
@@ -36,7 +36,7 @@ def test_receiving_events(sync):
     assert event.local_path == str(new_dir)
 
 
-def test_ignore_tree_creation(sync):
+def test_ignore_tree_creation(sync: SyncEngine) -> None:
 
     new_dir = Path(sync.dropbox_path) / "parent"
 
@@ -51,7 +51,7 @@ def test_ignore_tree_creation(sync):
     assert len(sync_events) == 0
 
 
-def test_ignore_tree_move(sync):
+def test_ignore_tree_move(sync: SyncEngine) -> None:
 
     new_dir = Path(sync.dropbox_path) / "parent"
 
@@ -73,7 +73,7 @@ def test_ignore_tree_move(sync):
     assert len(sync_events) == 0
 
 
-def test_catching_non_ignored_events(sync):
+def test_catching_non_ignored_events(sync: SyncEngine) -> None:
 
     new_dir = Path(sync.dropbox_path) / "parent"
 

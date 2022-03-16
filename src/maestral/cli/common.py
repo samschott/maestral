@@ -55,13 +55,10 @@ def check_for_fatal_errors(m: MaestralProxy | Maestral) -> bool:
         width = get_term_width()
 
         err = maestral_err_list[0]
-        err_title = cast(str, err["title"])
-        err_msg = cast(str, err["message"])
-
-        wrapped_msg = textwrap.fill(err_msg, width=width)
+        wrapped_msg = textwrap.fill(err.message, width=width)
 
         click.echo("")
-        click.secho(err_title, fg="red")
+        click.secho(err.title, fg="red")
         click.secho(wrapped_msg, fg="red")
         click.echo("")
 

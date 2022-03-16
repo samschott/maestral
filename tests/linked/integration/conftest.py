@@ -3,9 +3,9 @@ import logging
 import time
 
 import pytest
-from dropbox.files import FileMetadata
 
 from maestral.main import Maestral
+from maestral.core import FileMetadata
 from maestral.config import remove_configuration
 from maestral.utils.path import (
     generate_cc_name,
@@ -79,9 +79,9 @@ def m():
         m.client.remove(entry.path_lower)
 
     # remove all shared links
-    res = m.client.list_shared_links()
+    links = m.client.list_shared_links()
 
-    for link in res.links:
+    for link in links:
         m.revoke_shared_link(link.url)
 
     # remove local files and folders
@@ -98,7 +98,7 @@ def m():
 # helper functions
 
 
-def wait_for_idle(m: Maestral, cycles: int = 4):
+def wait_for_idle(m: Maestral, cycles: int = 4) -> None:
     """Blocks until Maestral instance is idle for at least ``cycles`` sync cycles."""
 
     count = 0
@@ -114,7 +114,7 @@ def wait_for_idle(m: Maestral, cycles: int = 4):
             count += 1
 
 
-def assert_synced(m: Maestral):
+def assert_synced(m: Maestral) -> None:
     """Asserts that the ``local_folder`` and ``remote_folder`` are synced."""
 
     listing = m.client.list_folder("/", recursive=True)
@@ -134,9 +134,9 @@ def assert_synced(m: Maestral):
         assert local_hash, f"'{md.path_display}' not found locally"
         assert local_hash == remote_hash, f'different content for "{md.path_display}"'
 
-        if isinstance(md, FileMetadata) and md.symlink_info:
+        if isinstance(md, FileMetadata):
             assert (
-                md.symlink_info.target == local_symlink_target
+                md.symlink_target == local_symlink_target
             ), f'different symlink targets for "{md.path_display}"'
 
     # Assert that all local items are present on server.

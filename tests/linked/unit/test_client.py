@@ -4,10 +4,10 @@ import os
 
 import pytest
 import requests
-from dropbox.files import FolderMetadata
-from dropbox.sharing import SharedFolderMetadata
 
 import maestral.client
+from maestral.client import DropboxClient
+from maestral.core import AccountType, FolderMetadata
 from maestral.exceptions import (
     NotFoundError,
     PathError,
@@ -52,7 +52,7 @@ def failing_content_hasher(
     return FailingHasher
 
 
-def test_upload(client):
+def test_upload(client: DropboxClient) -> None:
     """Test upload in a single chunk"""
 
     file = resources + "/file.txt"
@@ -63,7 +63,7 @@ def test_upload(client):
     assert md.content_hash == content_hash(file)[0]
 
 
-def test_upload_session(client):
+def test_upload_session(client: DropboxClient) -> None:
     """Test an upload session in multiple chunks"""
 
     large_file = resources + "/large-file.pdf"
@@ -75,7 +75,7 @@ def test_upload_session(client):
     assert md.content_hash == content_hash(large_file)[0]
 
 
-def test_upload_hash_mismatch(client, monkeypatch):
+def test_upload_hash_mismatch(client: DropboxClient, monkeypatch) -> None:
     """Test that DataCorruptionError is raised after four failed attempts."""
 
     file = resources + "/file2.txt"
@@ -89,7 +89,7 @@ def test_upload_hash_mismatch(client, monkeypatch):
     assert not client.get_metadata("/file2.txt")
 
 
-def test_upload_session_start_hash_mismatch(client, monkeypatch):
+def test_upload_session_start_hash_mismatch(client: DropboxClient, monkeypatch) -> None:
     """Test that DataCorruptionError is raised after four failed attempts when starting
     to upload session."""
 
@@ -106,7 +106,7 @@ def test_upload_session_start_hash_mismatch(client, monkeypatch):
     assert not client.get_metadata("/large-file.pdf")
 
 
-def test_upload_session_start_retry(client, monkeypatch):
+def test_upload_session_start_retry(client: DropboxClient, monkeypatch) -> None:
     """Test that upload succeeds after three failed attempts when starting session."""
 
     large_file = resources + "/large-file.pdf"
@@ -116,14 +116,14 @@ def test_upload_session_start_retry(client, monkeypatch):
     hasher = failing_content_hasher(0, 3)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
-    client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+    md = client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
 
-    remote_hash = client.get_metadata("/large-file.pdf").content_hash
-
-    assert remote_hash == content_hash(large_file)[0]
+    assert md.content_hash == content_hash(large_file)[0]
 
 
-def test_upload_session_append_hash_mismatch(client, monkeypatch):
+def test_upload_session_append_hash_mismatch(
+    client: DropboxClient, monkeypatch
+) -> None:
     """Test that DataCorruptionError is raised after four failed attempts when appending
     to upload session."""
 
@@ -140,7 +140,9 @@ def test_upload_session_append_hash_mismatch(client, monkeypatch):
     assert not client.get_metadata("/large-file.pdf")
 
 
-def test_upload_session_append_hash_mismatch_retry(client, monkeypatch):
+def test_upload_session_append_hash_mismatch_retry(
+    client: DropboxClient, monkeypatch
+) -> None:
     """Test that upload succeeds after three failed attempts when appending to
     session."""
 
@@ -151,14 +153,13 @@ def test_upload_session_append_hash_mismatch_retry(client, monkeypatch):
     hasher = failing_content_hasher(1, 4)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
-    client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
-
-    remote_hash = client.get_metadata("/large-file.pdf").content_hash
-
-    assert remote_hash == content_hash(large_file)[0]
+    md = client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+    assert md.content_hash == content_hash(large_file)[0]
 
 
-def test_upload_session_finish_hash_mismatch(client, monkeypatch):
+def test_upload_session_finish_hash_mismatch(
+    client: DropboxClient, monkeypatch
+) -> None:
     """Test that DataCorruptionError is raised after four failed attempts when finishing
     upload session."""
 
@@ -175,7 +176,9 @@ def test_upload_session_finish_hash_mismatch(client, monkeypatch):
     assert not client.get_metadata("/large-file.pdf")
 
 
-def test_upload_session_finish_hash_mismatch_retry(client, monkeypatch):
+def test_upload_session_finish_hash_mismatch_retry(
+    client: DropboxClient, monkeypatch
+) -> None:
     """Test that upload succeeds after three failed attempts when finishing session."""
 
     large_file = resources + "/large-file.pdf"
@@ -185,14 +188,12 @@ def test_upload_session_finish_hash_mismatch_retry(client, monkeypatch):
     hasher = failing_content_hasher(9, 12)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
-    client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+    md = client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
 
-    remote_hash = client.get_metadata("/large-file.pdf").content_hash
-
-    assert remote_hash == content_hash(large_file)[0]
+    assert md.content_hash == content_hash(large_file)[0]
 
 
-def test_download_hash_mismatch(client, monkeypatch, tmp_path):
+def test_download_hash_mismatch(client: DropboxClient, monkeypatch, tmp_path) -> None:
     # not tested during integration tests
 
     file = resources + "/file2.txt"
@@ -207,53 +208,57 @@ def test_download_hash_mismatch(client, monkeypatch, tmp_path):
 
 @pytest.mark.parametrize("batch_size", [10, 30])
 @pytest.mark.parametrize("force_async", [True, False])
-def test_batch_methods(client, batch_size, force_async):
+def test_batch_methods(client: DropboxClient, batch_size, force_async) -> None:
     # batch methods are not currently used by sync module
 
     folders = [f"/folder {i}" for i in range(20)]
 
     # create some test directories
-    res = client.make_dir_batch(folders + ["/invalid\\"], force_async=force_async)
+    res_create = client.make_dir_batch(
+        folders + ["/invalid\\"], force_async=force_async
+    )
 
     for i in range(20):
-        assert isinstance(res[i], FolderMetadata)
-        assert res[i].path_lower == normalize(folders[i])
+        md_create = res_create[i]
+        assert isinstance(md_create, FolderMetadata)
+        assert md_create.path_lower == normalize(folders[i])
 
-    assert isinstance(res[20], PathError)
+    assert isinstance(res_create[20], PathError)
 
     # remove them again
-    res = client.remove_batch(
+    res_remove = client.remove_batch(
         [(folder, None) for folder in folders] + [("/not_a_folder", None)],
         batch_size=batch_size,
     )
 
     for i in range(20):
-        assert isinstance(res[i], FolderMetadata)
-        assert res[i].path_lower == normalize(folders[i])
+        md_remove = res_remove[i]
+        assert isinstance(md_remove, FolderMetadata)
+        assert md_remove.path_lower == normalize(folders[i])
 
-    assert isinstance(res[20], NotFoundError)
+    assert isinstance(res_remove[20], NotFoundError)
 
 
 @pytest.mark.parametrize("force_async", [True, False])
-def test_share_dir_new(client, force_async):
+def test_share_dir_new(client: DropboxClient, force_async: bool) -> None:
     """Test creating a shared directory."""
     md_old = client.get_metadata("/folder")
     md_shared = client.share_dir("/folder", force_async=force_async)
 
     assert md_old is None
-    assert isinstance(md_shared, SharedFolderMetadata)
+    assert isinstance(md_shared, FolderMetadata)
 
 
-def test_share_dir_existing(client):
+def test_share_dir_existing(client: DropboxClient) -> None:
     """Test sharing an existing directory."""
     md = client.make_dir("/folder")
     md_shared = client.share_dir("/folder")
 
-    assert md.sharing_info is None
-    assert isinstance(md_shared, SharedFolderMetadata)
+    assert not md.shared
+    assert isinstance(md_shared, FolderMetadata)
 
 
-def test_sharedlink_lifecycle(client):
+def test_sharedlink_lifecycle(client: DropboxClient) -> None:
 
     # create a folder to share
     dbx_path = "/shared_folder"
@@ -265,16 +270,16 @@ def test_sharedlink_lifecycle(client):
     resp = requests.get(link_data.url)
     assert resp.status_code == 200
 
-    res = client.list_shared_links(dbx_path)
-    assert link_data.url in [link.url for link in res.links]
+    links = client.list_shared_links(dbx_path)
+    assert link_data.url in [link.url for link in links]
 
     # test revoking a shared link
     client.revoke_shared_link(link_data.url)
-    res = client.list_shared_links(dbx_path)
-    assert link_data.url not in [link.url for link in res.links]
+    links = client.list_shared_links(dbx_path)
+    assert link_data.url not in [link.url for link in links]
 
 
-def test_sharedlink_errors(client):
+def test_sharedlink_errors(client: DropboxClient) -> None:
 
     dbx_path = "/shared_folder"
     client.make_dir(dbx_path)
@@ -282,7 +287,7 @@ def test_sharedlink_errors(client):
     # test creating a shared link with password fails on basic account
     account_info = client.get_account_info()
 
-    if account_info.account_type.is_basic():
+    if account_info.account_type is AccountType.Basic:
         with pytest.raises(SharedLinkError):
             client.create_shared_link(dbx_path, password="secret")
 

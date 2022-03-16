@@ -26,9 +26,9 @@ from pathlib import Path
 from enum import Enum
 
 try:
-    from importlib.metadata import files, PackageNotFoundError  # type: ignore
+    from importlib.metadata import files, PackageNotFoundError
 except ImportError:  # Python 3.7 and lower
-    from importlib_metadata import files, PackageNotFoundError  # type: ignore
+    from importlib_metadata import files, PackageNotFoundError
 
 # local imports
 from .utils.appdirs import get_home_dir, get_conf_path, get_data_path
