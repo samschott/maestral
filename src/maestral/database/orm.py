@@ -77,6 +77,7 @@ class Column(property):
         self.default: DefaultColumnValueType
 
         if not nullable and default is None:
+            # If the Column is not nullable, do not accept None as a default.
             self.default = NoDefault
         else:
             self.default = default
