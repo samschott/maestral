@@ -7,6 +7,7 @@
   error for any child of the given path. This brings it in line with the `syncing` status.
 * Re-enabled updating from versions older than 1.5.0.
 * Improved file integrity checks after upload or download.
+* Migrate the Linux GUI from PyQt5 to PyQt6.
 
 # Fixed:
 
