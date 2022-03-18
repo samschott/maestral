@@ -1544,6 +1544,23 @@ class SyncEngine:
         self._case_conversion_cache.clear()
         self.fs_events.expire_ignored_events()
 
+    def _sync_event_from_fs_event(self, fs_event: FileSystemEvent) -> SyncEvent:
+        return SyncEvent.from_file_system_event(fs_event, self)
+
+    def _sync_events_from_fs_events(
+        self, fs_events: list[FileSystemEvent]
+    ) -> list[SyncEvent]:
+        """Convert local file system events to sync events. This is done in a thread
+        pool to parallelize content hashing."""
+
+        with ThreadPoolExecutor(
+            max_workers=self._num_threads,
+            thread_name_prefix="maestral-local-indexer",
+        ) as executor:
+            res = executor.map(self._sync_event_from_fs_event, fs_events)
+
+            return list(res)
+
     # ==== Upload sync =================================================================
 
     def upload_local_changes_while_inactive(self) -> None:
@@ -1575,7 +1592,8 @@ class SyncEngine:
                 raise os_to_maestral_error(err)
 
             events = self._clean_local_events(events)
-            sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
+
+            sync_events = self._sync_events_from_fs_events(events)
             del events
 
             if len(sync_events) > 0:
@@ -1747,7 +1765,7 @@ class SyncEngine:
         self._logger.debug("Retrieved local file events:\n%s", pf_repr(events))
 
         events = self._clean_local_events(events)
-        sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
+        sync_events = self._sync_events_from_fs_events(events)
 
         # Free memory early to prevent fragmentation.
         del events
