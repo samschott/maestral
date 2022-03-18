@@ -26,7 +26,7 @@ def test_help() -> None:
     assert result_no_arg.output == result_help_arg.output
 
 
-def test_invalid_config(m: Maestral) -> None:
+def test_invalid_config() -> None:
     """Test failure of commands that require an existing config file"""
 
     for command in [
