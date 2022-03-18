@@ -747,7 +747,7 @@ class SyncEngine:
         recursive = event.is_moved or event.is_deleted or event.is_file
 
         self.clear_sync_errors_for_path(event.dbx_path_lower, recursive)
-        if event.dbx_path_from:
+        if event.dbx_path_from_lower is not None:
             self.clear_sync_errors_for_path(event.dbx_path_from_lower, recursive)
 
     # ==== Index access and management =================================================
@@ -844,6 +844,7 @@ class SyncEngine:
             if event.change_type is ChangeType.Removed:
                 self.remove_node_from_index(dbx_path_lower)
             elif event.change_type is ChangeType.Moved:
+                assert event.dbx_path_from_lower is not None
                 self.remove_node_from_index(event.dbx_path_from_lower)
 
             # Add or update entries for created or modified items.
@@ -2317,6 +2318,7 @@ class SyncEngine:
             self.rescan(event.local_path)
             return None
 
+        assert event.dbx_path_from_lower is not None
         self.remove_node_from_index(event.dbx_path_from_lower)
 
         if not self._handle_upload_conflict(md_to_new, event, client):
@@ -3564,7 +3566,7 @@ class SyncEngine:
             # Ignore FileDeletedEvent when replacing old file.
             ignore_events.append(FileDeletedEvent(local_path))
 
-        is_dir_symlink = event.symlink_target and event.is_directory
+        is_dir_symlink = event.is_directory and event.symlink_target is not None
 
         if is_dir_symlink:
             # We may get events from children of the symlink target when moving a
