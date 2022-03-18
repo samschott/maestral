@@ -423,12 +423,6 @@ class SyncEvent(Model):
         dbx_path_from = sync_engine.to_dbx_path(from_path) if from_path else None
         dbx_path_from_lower = normalize(dbx_path_from) if dbx_path_from else None
 
-        # Note: We get the content hash here instead of later, even though the
-        # calculation may be slow and :meth:`from_file_system_event` may be called
-        # serially and not from a thread pool. This is because hashing is CPU bound
-        # and parallelization would cause large multi-core CPU usage (or result in
-        # throttling of our thread-pool).
-
         return cls(
             direction=SyncDirection.Up,
             item_type=item_type,
