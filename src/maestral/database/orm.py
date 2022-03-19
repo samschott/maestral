@@ -10,13 +10,12 @@ memory is constrained.
 from __future__ import annotations
 
 from weakref import WeakValueDictionary
-from typing import Any, Generator, TypeVar, Generic, Union, Type
+from typing import Any, Generator, TypeVar, Generic, Union, cast, overload
 
 from .core import Database
 from .query import Query
-from .types import SqlType, SqlEnum, ColumnValueType
+from .types import SqlType, SqlEnum
 
-DefaultColumnValueType = Union[ColumnValueType, Type["NoDefault"]]
 SQLSafeType = Union[str, int, float, None]
 T = TypeVar("T")
 M = TypeVar("M", bound="Model")
@@ -38,7 +37,7 @@ class NoDefault:
     """
 
 
-class Column(property):
+class Column(Generic[T]):
     """
     Represents a column in a database table.
 
@@ -57,23 +56,21 @@ class Column(property):
 
     def __init__(
         self,
-        type: SqlType,
+        sql_type: SqlType,
         nullable: bool = True,
         unique: bool = False,
         primary_key: bool = False,
         index: bool = False,
-        default: DefaultColumnValueType = None,
+        default: T | type[NoDefault] | None = None,
     ):
-        super().__init__(fget=self._fget, fset=self._fset)
-
-        self.type = type
+        self.type = sql_type
         self.nullable = nullable
         self.unique = unique
         self.primary_key = primary_key
         self.index = index
         self.name = ""
 
-        self.default: DefaultColumnValueType
+        self.default: T | type[NoDefault] | None
 
         if not nullable and default is None:
             # If the Column is not nullable, do not accept None as a default.
@@ -85,13 +82,26 @@ class Column(property):
         self.name = name
         self.private_name = "_" + name
 
-    def _fget(self, obj: Any) -> Any:
-        if self.default is NoDefault:
-            return getattr(obj, self.private_name)
-        else:
-            return getattr(obj, self.private_name, self.default)
+    @overload
+    def __get__(self, obj: None, objtype: type | None = None) -> Column[T]:
+        ...
 
-    def _fset(self, obj: Any, value: Any) -> None:
+    @overload
+    def __get__(self, obj: Any, objtype: type | None = None) -> T:
+        ...
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+
+        if self.default is NoDefault:
+            res = getattr(obj, self.private_name)
+        else:
+            res = getattr(obj, self.private_name, self.default)
+
+        return cast(T, res)
+
+    def __set__(self, obj: Any, value: T) -> None:
         setattr(obj, self.private_name, value)
 
     def render_constraints(self) -> str:
@@ -137,7 +147,7 @@ class Column(property):
             ]
         )
 
-    def py_to_sql(self, value: ColumnValueType) -> SQLSafeType:
+    def py_to_sql(self, value: T) -> SQLSafeType:
         """
         Converts a Python value to a value which can be stored in the database column.
 
@@ -147,7 +157,7 @@ class Column(property):
         """
         return self.type.py_to_sql(value)
 
-    def sql_to_py(self, value: SQLSafeType) -> ColumnValueType:
+    def sql_to_py(self, value: SQLSafeType) -> T:
         """
         Converts a database column value to the original Python type.
 
@@ -256,7 +266,7 @@ class Manager(Generic[M]):
         result = self.db.execute(f"SELECT * FROM {self.table_name} {sql}", *args)
         return [self._item_from_kwargs(**row) for row in result.fetchall()]
 
-    def delete_primary_key(self, primary_key: ColumnValueType) -> None:
+    def delete_primary_key(self, primary_key: Any) -> None:
         """
         Delete a model object / row from database by primary key.
 
@@ -272,7 +282,7 @@ class Manager(Generic[M]):
         except KeyError:
             pass
 
-    def get(self, primary_key: ColumnValueType) -> M | None:
+    def get(self, primary_key: Any) -> M | None:
         """
         Gets a model object from database by its primary key. This will return a cached
         value if available and None if no row with the primary key exists.
@@ -298,7 +308,7 @@ class Manager(Generic[M]):
 
         return self._item_from_kwargs(**row)
 
-    def has(self, primary_key: ColumnValueType) -> bool:
+    def has(self, primary_key: Any) -> bool:
         """
         Checks if a model object exists in database by its primary key
 

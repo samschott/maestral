@@ -747,7 +747,7 @@ class SyncEngine:
         recursive = event.is_moved or event.is_deleted or event.is_file
 
         self.clear_sync_errors_for_path(event.dbx_path_lower, recursive)
-        if event.dbx_path_from:
+        if event.dbx_path_from_lower is not None:
             self.clear_sync_errors_for_path(event.dbx_path_from_lower, recursive)
 
     # ==== Index access and management =================================================
@@ -844,6 +844,7 @@ class SyncEngine:
             if event.change_type is ChangeType.Removed:
                 self.remove_node_from_index(dbx_path_lower)
             elif event.change_type is ChangeType.Moved:
+                assert event.dbx_path_from_lower is not None
                 self.remove_node_from_index(event.dbx_path_from_lower)
 
             # Add or update entries for created or modified items.
@@ -1544,6 +1545,23 @@ class SyncEngine:
         self._case_conversion_cache.clear()
         self.fs_events.expire_ignored_events()
 
+    def _sync_event_from_fs_event(self, fs_event: FileSystemEvent) -> SyncEvent:
+        return SyncEvent.from_file_system_event(fs_event, self)
+
+    def _sync_events_from_fs_events(
+        self, fs_events: list[FileSystemEvent]
+    ) -> list[SyncEvent]:
+        """Convert local file system events to sync events. This is done in a thread
+        pool to parallelize content hashing."""
+
+        with ThreadPoolExecutor(
+            max_workers=self._num_threads,
+            thread_name_prefix="maestral-local-indexer",
+        ) as executor:
+            res = executor.map(self._sync_event_from_fs_event, fs_events)
+
+            return list(res)
+
     # ==== Upload sync =================================================================
 
     def upload_local_changes_while_inactive(self) -> None:
@@ -1575,7 +1593,8 @@ class SyncEngine:
                 raise os_to_maestral_error(err)
 
             events = self._clean_local_events(events)
-            sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
+
+            sync_events = self._sync_events_from_fs_events(events)
             del events
 
             if len(sync_events) > 0:
@@ -1747,7 +1766,7 @@ class SyncEngine:
         self._logger.debug("Retrieved local file events:\n%s", pf_repr(events))
 
         events = self._clean_local_events(events)
-        sync_events = [SyncEvent.from_file_system_event(e, self) for e in events]
+        sync_events = self._sync_events_from_fs_events(events)
 
         # Free memory early to prevent fragmentation.
         del events
@@ -2299,6 +2318,7 @@ class SyncEngine:
             self.rescan(event.local_path)
             return None
 
+        assert event.dbx_path_from_lower is not None
         self.remove_node_from_index(event.dbx_path_from_lower)
 
         if not self._handle_upload_conflict(md_to_new, event, client):
@@ -3546,7 +3566,7 @@ class SyncEngine:
             # Ignore FileDeletedEvent when replacing old file.
             ignore_events.append(FileDeletedEvent(local_path))
 
-        is_dir_symlink = event.symlink_target and event.is_directory
+        is_dir_symlink = event.is_directory and event.symlink_target is not None
 
         if is_dir_symlink:
             # We may get events from children of the symlink target when moving a

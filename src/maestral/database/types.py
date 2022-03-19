@@ -6,16 +6,14 @@ from __future__ import annotations
 
 import os
 from enum import Enum
-from typing import Iterable, Union
-
-ColumnValueType = Union[str, int, float, Enum, None]
+from typing import Iterable, Any
 
 
 class SqlType:
     """Base class to represent Python types in SQLite table"""
 
     sql_type = "TEXT"
-    py_type: type[ColumnValueType] = str
+    py_type: Any
 
     def sql_to_py(self, value):
         """Converts the return value from sqlite3 to the target Python type."""
