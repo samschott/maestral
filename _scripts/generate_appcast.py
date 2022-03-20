@@ -64,7 +64,8 @@ def generate():
 
             # Convert to HTML
             release_notes = subprocess.check_output(
-                f"""cat {DOWNLOAD_FOLDER}/release_notes.md | pandoc -f markdown -t html -c '' -H {RELEASE_NOTES_CSS} -s --metadata title='{release_name}'""",
+                f"cat {DOWNLOAD_FOLDER}/release_notes.md | pandoc -f markdown -t html -c '' -H {RELEASE_NOTES_CSS} -s --metadata title='{release_name}'",
+                stderr=subprocess.STDOUT,
                 shell=True,
             ).decode()
 
@@ -97,7 +98,7 @@ def generate():
             with open(f"{mount_point}/{APP_NAME}.app/Contents/Info.plist", "rb") as f:
                 info = plistlib.load(f)
 
-            subprocess.check_output(["hdiutil", "detach", mount_point])
+            subprocess.check_output(["hdiutil", "detach", "-force", mount_point])
 
             short_version_str = info["CFBundleShortVersionString"]
             build_number = info["CFBundleVersion"]
@@ -113,7 +114,7 @@ def generate():
             if SPARKLE_PRIVATE_KEY:
                 cmd += f" -s {SPARKLE_PRIVATE_KEY}"
 
-            signature_and_length = subprocess.check_output(cmd, shell=True).decode()
+            signature_and_length = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).decode()
             signature_and_length = signature_and_length[0:-1]
 
             # Assemble collected data into appcast.xml-ready item-string
