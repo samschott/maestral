@@ -1534,13 +1534,22 @@ def convert_full_account(res: users.FullAccount) -> FullAccount:
 
 def convert_space_usage(res: users.SpaceUsage) -> SpaceUsage:
     if res.allocation.is_team():
-        team_usage = TeamSpaceUsage(
-            res.allocation.get_team().usage, res.allocation.get_team().allocation
+        team_allocation = res.allocation.get_team()
+        if team_allocation.user_within_team_space_allocated == 0:
+            # Unlimited space within team allocation.
+            allocated = team_allocation.allocated
+        else:
+            allocated = team_allocation.user_within_team_space_allocated
+        return SpaceUsage(
+            res.used,
+            allocated,
+            TeamSpaceUsage(team_allocation.used, team_allocation.allocated),
         )
+    elif res.allocation.is_individual():
+        individual_allocation = res.allocation.get_individual()
+        return SpaceUsage(res.used, individual_allocation.allocated, None)
     else:
-        team_usage = None
-
-    return SpaceUsage(res.used, res.allocation, team_usage)
+        return SpaceUsage(res.used, 0, None)
 
 
 def convert_metadata(res):

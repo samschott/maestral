@@ -70,7 +70,7 @@ class TeamSpaceUsage:
 @dataclass
 class SpaceUsage:
     used: int
-    allocation: int
+    allocated: int
     team_usage: TeamSpaceUsage | None
 
 
