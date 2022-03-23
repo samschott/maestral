@@ -8,7 +8,7 @@
         <item>
         <title>v1.6.1 available</title>
         <pubDate>2022-03-23T20:21:33Z</pubDate>
-        <sparkle:version>56</sparkle:version>
+        <sparkle:version>57</sparkle:version>
         <sparkle:shortVersionString>1.6.1</sparkle:shortVersionString>
         <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
         <description><![CDATA[
@@ -102,7 +102,7 @@ for team accounts.</li>
         </description>
         <enclosure
             url="https://github.com/samschott/maestral/releases/download/v1.6.1/Maestral-1.6.1.dmg"
-            sparkle:edSignature="VROa846hcE/et14rzPpqlcdLFzkfQ0yAEJRc2UhSvBKwl4bNnapkZNJhRW4Iqcin1ggD8BFzIFxoL4GOxRgeAA==" length="17377033"
+            sparkle:edSignature="FwHR2+vmPW4jYUiXr1ZlDl0CQlmTyAv+gyPMVawAlcdVBvBmalVKNYWWKXy9IwmZw8h6Sa8SX03QeE8/4JavAQ==" length="17376494"
             type="application/octet-stream"
         />
     </item>
