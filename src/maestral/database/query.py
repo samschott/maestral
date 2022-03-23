@@ -73,7 +73,9 @@ class AllQuery(Query):
     """
 
     def clause(self):
-        return "TRUE", ()
+        # Note: Use "1" instead of "TRUE" here for compatibility with SQLite versions
+        # pre SQLite 3.23.0 (2018-04-02).
+        return "1", ()
 
 
 class CollectionQuery(Query):
