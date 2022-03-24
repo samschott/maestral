@@ -1,3 +1,10 @@
+## v1.6.2.dev
+
+#### Fixed:
+
+* Fixes intermittent failures to show a file associated with a sync issue in the Linux
+  GUI.
+
 ## v1.6.1
 
 #### Fixed:
