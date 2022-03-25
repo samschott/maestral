@@ -539,7 +539,7 @@ class SyncErrorEntry(Model):
     dbx_path_lower: Column[str] = Column(SqlPath(), primary_key=True, nullable=False)
     dbx_path_from: Column[str | None] = Column(SqlPath())
     dbx_path_from_lower: Column[str | None] = Column(SqlPath())
-    local_path: Column[str | None] = Column(SqlPath())
+    local_path: Column[str] = Column(SqlPath(), nullable=False)
     local_path_from: Column[str | None] = Column(SqlPath())
     direction: Column[SyncDirection] = Column(SqlEnum(SyncDirection), nullable=False)
     title: Column[str | None] = Column(SqlString())
