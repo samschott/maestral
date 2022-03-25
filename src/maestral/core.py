@@ -13,6 +13,8 @@ from datetime import datetime
 
 
 class AccountType(Enum):
+    """Enum of account types"""
+
     Basic = "basic"
     Pro = "pro"
     Business = "business"
@@ -78,6 +80,8 @@ class SpaceUsage:
 
 
 class WriteMode(Enum):
+    """Enum of write modes when uploading a file"""
+
     Add = "add"
     Update = "update"
     Overwrite = "overwrite"
@@ -131,12 +135,16 @@ class ListFolderResult:
 
 
 class LinkAccessLevel(Enum):
+    """Enum of access levels to shared links"""
+
     Viewer = "viewer"
     Editor = "editor"
     Other = "other"
 
 
 class LinkAudience(Enum):
+    """Enum of shared link audience"""
+
     Public = "public"
     Team = "team"
     NoOne = "no_one"
