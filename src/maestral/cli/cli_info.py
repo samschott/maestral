@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 @inject_proxy(fallback=False, existing_config=True)
 @convert_api_errors
 def status(m: Maestral) -> None:
-
     email = m.get_state("account", "email")
     account_type = m.get_state("account", "type").capitalize()
     usage = m.get_state("account", "usage")
@@ -89,12 +88,10 @@ def activity(m: Maestral) -> None:
         return
 
     def curses_loop(screen) -> None:  # no type hints for screen provided yet
-
         curses.use_default_colors()  # don't change terminal background
         screen.nodelay(1)  # sets `screen.getch()` to non-blocking
 
         while True:
-
             height, width = screen.getmaxyx()
 
             # create header
@@ -156,7 +153,6 @@ def activity(m: Maestral) -> None:
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def history(m: Maestral) -> None:
-
     events = m.get_history()
 
     table = Table(

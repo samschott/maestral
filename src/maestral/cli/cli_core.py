@@ -114,7 +114,6 @@ def link_dialog(m: MaestralProxy | Maestral) -> None:
 
     :param m: Proxy to Maestral daemon.
     """
-
     authorize_url = m.get_auth_url()
 
     info(f"Linking new account for '{m.config_name}' config")
@@ -364,7 +363,6 @@ If Maestral is running, it will be stopped before unlinking.
 @existing_config_option
 @convert_api_errors
 def auth_unlink(yes: bool, config_name: str) -> None:
-
     if not yes:
         yes = confirm("Are you sure you want unlink your account?", default=False)
 
@@ -425,8 +423,6 @@ def sharelink_create(
     password: str,
     expiry: datetime | None,
 ) -> None:
-
-    expiry_dt: float | None
     link_info = m.create_shared_link(dropbox_path, password=password, expires=expiry)
     echo(link_info.url)
 
@@ -436,7 +432,6 @@ def sharelink_create(
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def sharelink_revoke(m: Maestral, url: str) -> None:
-
     m.revoke_shared_link(url)
     ok("Revoked shared link.")
 
@@ -448,7 +443,6 @@ def sharelink_revoke(m: Maestral, url: str) -> None:
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def sharelink_list(m: Maestral, dropbox_path: str | None) -> None:
-
     links = m.list_shared_links(dropbox_path)
     link_table = Table(["URL", "Item", "Access", "Expires"])
 

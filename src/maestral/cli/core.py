@@ -155,7 +155,6 @@ class ConfigName(click.ParamType):
         param: click.Parameter | None,
         ctx: click.Context | None,
     ) -> str | None:
-
         if value is None:
             return value
 
@@ -216,7 +215,6 @@ class OrderedGroup(click.Group):
     def format_commands(
         self, ctx: click.Context, formatter: click.HelpFormatter
     ) -> None:
-
         commands = []
 
         for name in self.commands:

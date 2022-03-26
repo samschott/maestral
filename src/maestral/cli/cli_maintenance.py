@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 @click.argument("new_path", required=False, type=click.Path(writable=True))
 @inject_proxy(fallback=True, existing_config=True)
 def move_dir(m: Maestral, new_path: str) -> None:
-
     new_path = new_path or select_dbx_path_dialog(m.config_name)
     new_path = osp.realpath(osp.expanduser(new_path))
 
@@ -82,7 +81,6 @@ def rebuild_index(m: Maestral, yes: bool) -> None:
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def revs(m: Maestral, dropbox_path: str, limit: int) -> None:
-
     entries = m.list_revisions(dropbox_path, limit=limit)
 
     table = Table(["Revision", "Modified Time"])
@@ -247,7 +245,6 @@ If no revision number is given, old revisions will be listed.
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def restore(m: Maestral, dropbox_path: str, rev: str, limit: int) -> None:
-
     if not rev:
         echo("Loading...\r", nl=False)
         entries = m.list_revisions(dropbox_path, limit=limit)

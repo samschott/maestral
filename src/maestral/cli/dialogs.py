@@ -100,7 +100,6 @@ def select_path(
 ) -> str:
 
     import os
-
     import survey
     import wrapio
 

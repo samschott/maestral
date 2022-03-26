@@ -53,7 +53,6 @@ def elide(
     :param elide: Which part to truncate.
     :returns: Truncated text.
     """
-
     if len(text) <= width:
         return text
 
@@ -79,7 +78,6 @@ def adjust(text: str, width: int, align: Align = Align.Left) -> str:
     :param width: Target width. If smaller than the given text, nothing is done.
     :param align: Side to align the padded string: to the left or to the right.
     """
-
     needed = width - len(click.unstyle(text))
 
     if needed > 0:
@@ -320,7 +318,6 @@ class Table:
         :param row: List of fields to append to each column. Length must match the
             number of columns.
         """
-
         if len(row) != self.ncols:
             raise ValueError(f"Got {len(row)} fields but have {self.ncols} columns")
 
@@ -344,8 +341,6 @@ class Table:
         :param width: Width to fit the table. Defaults to terminal width if not given.
         :returns: Iterator over lines which can be printed to the terminal.
         """
-
-        # Get terminal width if no width is given.
         width = width or get_term_width()
 
         available_width = width - self.padding * len(self.columns)
@@ -427,7 +422,6 @@ class Grid:
     def __init__(
         self, fields: Sequence = (), padding: int = 2, align: Align = Align.Left
     ):
-
         self.fields = []
         self.padding = padding
         self.align = align
@@ -463,7 +457,6 @@ class Grid:
         :param width: Width to fit the grid. Defaults to terminal width if not given.
         :returns: Iterator over lines which can be printed to the terminal.
         """
-
         if len(self.fields) > 0:
 
             from ..utils import chunks
@@ -513,7 +506,6 @@ def echo(message: str, nl: bool = True, prefix: Prefix = Prefix.NONE) -> None:
     :param nl: Whether to end with a new line.
     :param prefix: Any prefix to output before the message,
     """
-
     if prefix is Prefix.Ok:
         pre = click.style("✓", fg="green") + " "
     elif prefix is Prefix.Warn:

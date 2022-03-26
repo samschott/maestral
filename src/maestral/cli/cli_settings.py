@@ -58,7 +58,6 @@ def excluded():
 @excluded.command(name="list", help="List all excluded files and folders.")
 @inject_proxy(fallback=True, existing_config=True)
 def excluded_list(m: Maestral) -> None:
-
     excluded_items = m.excluded_items
     excluded_items.sort()
 
@@ -77,7 +76,6 @@ def excluded_list(m: Maestral) -> None:
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def excluded_add(m: Maestral, dropbox_path: str) -> None:
-
     if dropbox_path == "/":
         raise CliException("Cannot exclude the root directory.")
 
@@ -99,7 +97,6 @@ folder will be included as well (but no other items inside it).
 @inject_proxy(fallback=False, existing_config=True)
 @convert_api_errors
 def excluded_remove(m: Maestral, dropbox_path: str) -> None:
-
     if dropbox_path == "/":
         return echo("The root directory is always included")
 
