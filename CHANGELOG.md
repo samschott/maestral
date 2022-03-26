@@ -1,5 +1,10 @@
 ## v1.6.2.dev
 
+#### Changed:
+
+* Improved error message for file names with incompatible characters that are rejected by
+  Dropbox servers, e.g., emoji or slashes at the end of a file name.
+
 #### Fixed:
 
 * Fixes intermittent failures to show a file associated with a sync issue in the Linux
