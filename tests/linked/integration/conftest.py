@@ -17,6 +17,7 @@ from maestral.utils.path import (
 )
 from maestral.utils.appdirs import get_home_dir
 from maestral.keyring import TokenType
+from maestral.exceptions import NotFoundError
 
 from ..lock import DropboxTestLock
 
@@ -76,7 +77,10 @@ def m():
     # clean dropbox directory
     res = m.client.list_folder("/", recursive=False)
     for entry in res.entries:
-        m.client.remove(entry.path_lower)
+        try:
+            m.client.remove(entry.path_lower)
+        except NotFoundError:
+            pass
 
     # remove all shared links
     links = m.client.list_shared_links()

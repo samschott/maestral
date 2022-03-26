@@ -5,6 +5,7 @@ import pytest
 from maestral.client import DropboxClient
 from maestral.config import remove_configuration
 from maestral.keyring import TokenType
+from maestral.exceptions import NotFoundError
 
 from ..lock import DropboxTestLock
 
@@ -47,7 +48,10 @@ def client():
     # clean dropbox directory
     res = c.list_folder("/", recursive=False)
     for entry in res.entries:
-        c.remove(entry.path_lower)
+        try:
+            c.remove(entry.path_lower)
+        except NotFoundError:
+            pass
 
     # remove all shared links
     links = c.list_shared_links()
