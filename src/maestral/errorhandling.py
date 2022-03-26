@@ -678,8 +678,8 @@ def get_write_error_msg(write_error: files.WriteError) -> tuple[str, type[SyncEr
         err_cls = InsufficientSpaceError
     elif write_error.is_malformed_path():
         text = (
-            "The destination path is invalid. Paths may not end with a slash or "
-            "whitespace."
+            "The destination path contains incompatible characters. Paths may not end "
+            "with a slash or whitespace or contain some characters such as emojis."
         )
         err_cls = PathError
     elif write_error.is_no_write_permission():
