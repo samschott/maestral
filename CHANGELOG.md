@@ -9,6 +9,10 @@
 
 * Fixes intermittent failures to show a file associated with a sync issue in the Linux
   GUI.
+* Fixes an issue where the macOS app bundle would use a system-wide installation of the
+  Sparkle framework if available instead of the one bundled with Maestral. This could
+  lead to unexpected issues if the system-wide installation would have an incompatible
+  version.
 
 ## v1.6.1
 
