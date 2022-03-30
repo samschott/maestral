@@ -13,6 +13,7 @@
   Sparkle framework if available instead of the one bundled with Maestral. This could
   lead to unexpected issues if the system-wide installation would have an incompatible
   version.
+* Fixes an issue where the access level of shared links may be incorrectly reported.
 
 ## v1.6.1
 

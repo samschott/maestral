@@ -455,11 +455,16 @@ def sharelink_list(m: Maestral, dropbox_path: str | None) -> None:
         else:
             dt_field = TextField("-")
 
+        if link.link_permissions.require_password:
+            access = "password"
+        else:
+            access = link.link_permissions.effective_audience.value
+
         link_table.append(
             [
                 link.url,
                 link.name,
-                link.link_permissions.effective_audience.value,
+                access,
                 dt_field,
             ]
         )

@@ -1590,6 +1590,7 @@ def convert_list_folder_result(res: files.ListFolderResult) -> ListFolderResult:
 
 def convert_shared_link_metadata(res: sharing.SharedLinkMetadata) -> SharedLinkMetadata:
     effective_audience = LinkAudience.Other
+    require_password = res.link_permissions.require_password is True
 
     if res.link_permissions.effective_audience:
         if res.link_permissions.effective_audience.is_public():
@@ -1599,12 +1600,25 @@ def convert_shared_link_metadata(res: sharing.SharedLinkMetadata) -> SharedLinkM
         elif res.link_permissions.effective_audience.is_no_one():
             effective_audience = LinkAudience.NoOne
 
+    elif res.link_permissions.resolved_visibility:
+        if res.link_permissions.resolved_visibility.is_public():
+            effective_audience = LinkAudience.Public
+        elif res.link_permissions.resolved_visibility.is_team_only():
+            effective_audience = LinkAudience.Team
+        elif res.link_permissions.resolved_visibility.is_team_and_password():
+            effective_audience = LinkAudience.Team
+            require_password = True
+        elif res.link_permissions.resolved_visibility.is_password():
+            require_password = True
+        elif res.link_permissions.resolved_visibility.is_no_one():
+            effective_audience = LinkAudience.NoOne
+
     link_access_level = LinkAccessLevel.Other
 
     if res.link_permissions.link_access_level:
         if res.link_permissions.link_access_level.is_viewer():
             link_access_level = LinkAccessLevel.Viewer
-        elif res.link_permissions.effective_audience.is_editor():
+        elif res.link_permissions.link_access_level.is_editor():
             link_access_level = LinkAccessLevel.Editor
 
     link_permissions = LinkPermissions(
@@ -1612,7 +1626,7 @@ def convert_shared_link_metadata(res: sharing.SharedLinkMetadata) -> SharedLinkM
         res.link_permissions.allow_download,
         effective_audience,
         link_access_level,
-        res.link_permissions.require_password,
+        require_password,
     )
     return SharedLinkMetadata(
         res.url, res.name, res.path_lower, res.expires, link_permissions
