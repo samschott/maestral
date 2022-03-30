@@ -1618,7 +1618,7 @@ def convert_shared_link_metadata(res: sharing.SharedLinkMetadata) -> SharedLinkM
     if res.link_permissions.link_access_level:
         if res.link_permissions.link_access_level.is_viewer():
             link_access_level = LinkAccessLevel.Viewer
-        elif res.link_permissions.effective_audience.is_editor():
+        elif res.link_permissions.link_access_level.is_editor():
             link_access_level = LinkAccessLevel.Editor
 
     link_permissions = LinkPermissions(
