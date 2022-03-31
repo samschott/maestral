@@ -1,15 +1,89 @@
 import datetime
 
 import pytest
+import requests
+from unittest.mock import Mock
+from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 from dropbox import users, users_common, common, team_common, files, sharing
 from maestral.client import (
+    DropboxClient,
     convert_account,
     convert_full_account,
     convert_space_usage,
     convert_metadata,
     convert_shared_link_metadata,
 )
+from maestral.keyring import CredentialStorage
 from maestral import core
+from maestral.exceptions import NotLinkedError
+
+
+# ==== DropboxClient tests =============================================================
+
+
+def test_get_auth_url():
+    client = DropboxClient("test-config")
+    assert client.get_auth_url().startswith("https://")
+
+
+def test_link():
+    client = DropboxClient("test-config")
+
+    client._auth_flow = Mock(spec_set=DropboxOAuth2FlowNoRedirect)
+    client.cred_storage = Mock(spec_set=CredentialStorage)
+    client.update_path_root = Mock()
+
+    res = client.link("token")
+
+    assert res == 0
+    client.update_path_root.assert_called_once()
+    client.cred_storage.save_creds.assert_called_once()
+
+
+def test_link_error():
+    client = DropboxClient("test-config")
+
+    with pytest.raises(RuntimeError):
+        client.link("token")
+
+
+def test_link_failed_1():
+    client = DropboxClient("test-config")
+
+    client._auth_flow = Mock(spec_set=DropboxOAuth2FlowNoRedirect)
+    client._auth_flow.finish = Mock(side_effect=requests.exceptions.HTTPError("failed"))
+
+    res = client.link("token")
+
+    assert res == 1
+
+
+def test_link_failed_2():
+    client = DropboxClient("test-config")
+
+    client._auth_flow = Mock(spec_set=DropboxOAuth2FlowNoRedirect)
+    client._auth_flow.finish = Mock(side_effect=ConnectionError("failed"))
+
+    res = client.link("token")
+
+    assert res == 2
+
+    client._auth_flow = Mock(spec_set=DropboxOAuth2FlowNoRedirect)
+    client.update_path_root = Mock(side_effect=ConnectionError("failed"))
+
+    res = client.link("token")
+
+    assert res == 2
+
+
+def test_unlink_error():
+    client = DropboxClient("test-config")
+
+    with pytest.raises(NotLinkedError):
+        client.unlink()
+
+
+# ==== type conversion tests ===========================================================
 
 
 def test_convert_account():
