@@ -1605,10 +1605,10 @@ def convert_shared_link_metadata(res: sharing.SharedLinkMetadata) -> SharedLinkM
             effective_audience = LinkAudience.Public
         elif res.link_permissions.resolved_visibility.is_team_only():
             effective_audience = LinkAudience.Team
+        elif res.link_permissions.resolved_visibility.is_password():
+            require_password = True
         elif res.link_permissions.resolved_visibility.is_team_and_password():
             effective_audience = LinkAudience.Team
-            require_password = True
-        elif res.link_permissions.resolved_visibility.is_password():
             require_password = True
         elif res.link_permissions.resolved_visibility.is_no_one():
             effective_audience = LinkAudience.NoOne
