@@ -400,7 +400,7 @@ class DropboxClient:
             calls. Be prepared to handle :exc:`maestral.exceptions.PathRootError`
             and act accordingly for all methods.
 
-        :param root_info: Optional :class:`dropbox.common.RootInfo` describing the path
+        :param root_info: Optional :class:`core.RootInfo` describing the path
             root. If not given, the latest root info will be fetched from Dropbox
             servers.
         """
@@ -1222,7 +1222,7 @@ class DropboxClient:
         """
         Lists the contents of a folder on Dropbox. Similar to
         :meth:`list_folder_iterator` but returns all entries in a single
-        :class:`dropbox.files.ListFolderResult` instance.
+        :class:`core.ListFolderResult` instance.
 
         :param dbx_path: Path of folder on Dropbox.
         :param dbx_path: Path of folder on Dropbox.
@@ -1259,7 +1259,7 @@ class DropboxClient:
     ) -> Iterator[ListFolderResult]:
         """
         Lists the contents of a folder on Dropbox. Returns an iterator yielding
-        :class:`dropbox.files.ListFolderResult` instances. The number of entries
+        :class:`core.ListFolderResult` instances. The number of entries
         returned in each iteration corresponds to the number of entries returned by a
         single Dropbox API call and will be typically around 500.
 
@@ -1336,7 +1336,7 @@ class DropboxClient:
         """
         Lists changes to remote Dropbox since ``last_cursor``. Same as
         :meth:`list_remote_changes_iterator` but fetches all changes first and returns
-        a single :class:`dropbox.files.ListFolderResult`. This may be useful if you want
+        a single :class:`core.ListFolderResult`. This may be useful if you want
         to fetch all changes in advance before starting to process them.
 
         :param last_cursor: Last to cursor to compare for changes.
@@ -1351,7 +1351,7 @@ class DropboxClient:
     ) -> Iterator[ListFolderResult]:
         """
         Lists changes to the remote Dropbox since ``last_cursor``. Returns an iterator
-        yielding :class:`dropbox.files.ListFolderResult` instances. The number of
+        yielding :class:`core.ListFolderResult` instances. The number of
         entries returned in each iteration corresponds to the number of entries returned
         by a single Dropbox API call and will be typically around 500.
 
