@@ -2963,10 +2963,10 @@ class SyncEngine:
         for changes in changes_iter:
 
             changes = self._clean_remote_changes(changes)
+            changes.entries.sort(key=lambda x: x.path_lower.count("/"))
 
             self._logger.debug("Remote changes:\n%s", pf_repr(changes.entries))
 
-            changes.entries.sort(key=lambda x: x.path_lower.count("/"))
             sync_events = [SyncEvent.from_metadata(md, self) for md in changes.entries]
 
             self._logger.debug("Converted remote changes to SyncEvents")
