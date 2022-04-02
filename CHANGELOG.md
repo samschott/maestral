@@ -14,6 +14,8 @@
   lead to unexpected issues if the system-wide installation would have an incompatible
   version.
 * Fixes an issue where the access level of shared links may be incorrectly reported.
+* Fixes occasional conflicting copies of folders during initial sync due to a race
+  condition for out-of-order sync events.
 
 ## v1.6.1
 
