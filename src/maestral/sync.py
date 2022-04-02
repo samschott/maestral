@@ -407,9 +407,6 @@ class SyncEngine:
     :param client: Dropbox API client instance.
     """
 
-    syncing: dict[str, SyncEvent]
-    _case_conversion_cache: LRUCache
-
     _max_history = 1000
     _num_threads = min(64, CPU_COUNT * 4)
 
@@ -445,7 +442,7 @@ class SyncEngine:
         self._cancel_requested = Event()
 
         # Data structures for user information.
-        self.syncing = {}
+        self.syncing: dict[str, SyncEvent] = {}
 
         # Initialize SQLite database.
         self._db_path = get_data_path("maestral", f"{self.config_name}.db")
