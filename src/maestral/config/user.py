@@ -19,7 +19,7 @@ import logging
 import configparser as cp
 from threading import RLock
 from collections import abc
-from typing import Iterator, Any, Dict
+from typing import Iterator, Any, Dict, Generic, TypeVar
 
 from packaging.version import Version
 
@@ -27,6 +27,7 @@ from packaging.version import Version
 logger = logging.getLogger(__name__)
 
 DefaultsType = Dict[str, Dict[str, Any]]
+T = TypeVar("T")
 
 # =============================================================================
 # Auxiliary classes
@@ -481,7 +482,7 @@ class UserConfig(DefaultsConfig):
 # ======================================================================================
 
 
-class PersistentMutableSet(abc.MutableSet):
+class PersistentMutableSet(abc.MutableSet, Generic[T]):
     """Wraps a list in our state file as a MutableSet
 
     :param conf: UserConfig instance to store the set.
@@ -496,7 +497,7 @@ class PersistentMutableSet(abc.MutableSet):
         self._conf = conf
         self._lock = RLock()
 
-    def __iter__(self) -> Iterator[Any]:
+    def __iter__(self) -> Iterator[T]:
         with self._lock:
             return iter(self._conf.get(self.section, self.option))
 
@@ -504,32 +505,32 @@ class PersistentMutableSet(abc.MutableSet):
         with self._lock:
             return entry in self._conf.get(self.section, self.option)
 
-    def __len__(self):
+    def __len__(self) -> int:
         with self._lock:
             return len(self._conf.get(self.section, self.option))
 
-    def add(self, entry: Any) -> None:
+    def add(self, entry: T) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)
             state_list.add(entry)
             self._conf.set(self.section, self.option, list(state_list))
 
-    def discard(self, entry: Any) -> None:
+    def discard(self, entry: T) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)
             state_list.discard(entry)
             self._conf.set(self.section, self.option, list(state_list))
 
-    def update(self, *others: Any) -> None:
+    def update(self, *others: T) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)
             state_list.update(*others)
             self._conf.set(self.section, self.option, list(state_list))
 
-    def difference_update(self, *others: Any) -> None:
+    def difference_update(self, *others: T) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)
