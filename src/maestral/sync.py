@@ -49,7 +49,7 @@ from watchdog.events import (
 
 # local imports
 from . import notify
-from .config import MaestralConfig, MaestralState, PersistentMutableSet
+from .config import MaestralConfig, MaestralState
 from .core import (
     Metadata,
     FileMetadata,
@@ -428,18 +428,6 @@ class SyncEngine:
         self.reload_cached_config()
 
         self.desktop_notifier = notify.MaestralDesktopNotifier(self.config_name)
-
-        # Pending_uploads and pending_downloads contain interrupted uploads and
-        # downloads, respectively. to retry later. Running uploads / downloads can be
-        # stored in these lists to be resumed if Maestral quits unexpectedly. This used
-        # for downloads which are not part of the regular sync cycle and are therefore
-        # not restarted automatically.
-        self.pending_downloads = PersistentMutableSet(
-            self._state, section="sync", option="pending_downloads"
-        )
-        self.pending_uploads = PersistentMutableSet(
-            self._state, section="sync", option="pending_uploads"
-        )
 
         # Data structures for internal communication.
         self._cancel_requested = Event()
