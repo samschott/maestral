@@ -2,8 +2,8 @@
 
 #### Changed:
 
-* Improved error message for file names with incompatible characters that are rejected by
-  Dropbox servers, e.g., emoji or slashes at the end of a file name.
+* Improved error message for file names with incompatible characters that are rejected 
+  by Dropbox servers, e.g., emoji or slashes at the end of a file name.
 
 #### Fixed:
 
@@ -14,6 +14,8 @@
   lead to unexpected issues if the system-wide installation would have an incompatible
   version.
 * Fixes an issue where the access level of shared links may be incorrectly reported.
+* Resume interrupted downloads after a shutdown when including new items with selective
+  sync.
 
 ## v1.6.1
 
