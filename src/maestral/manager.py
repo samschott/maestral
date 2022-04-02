@@ -13,14 +13,15 @@ from functools import wraps
 from queue import Empty, Queue
 from threading import Event, RLock, Thread
 from tempfile import TemporaryDirectory
-from typing import Iterator, cast, TypeVar, Callable, Any
+from typing import Iterator, cast, TypeVar, Callable, Any, Generic
 
 # local imports
 from . import __url__
 from . import notify
 from .client import DropboxClient, API_HOST
 from .core import TeamRootInfo, UserRootInfo
-from .config import MaestralConfig, MaestralState
+from .config import MaestralConfig, MaestralState, PersistentMutableSet
+from .config.user import UserConfig
 from .constants import (
     DISCONNECTED,
     CONNECTING,
@@ -53,6 +54,7 @@ DROPBOX_API_HOSTNAME = "https://" + API_HOST
 
 
 FT = TypeVar("FT", bound=Callable[..., Any])
+T = TypeVar("T")
 
 malloc_trim: Callable
 
@@ -71,14 +73,51 @@ def _free_memory() -> None:
     malloc_trim(0)
 
 
+class PersistentQueue(Generic[T]):
+    def __init__(self, conf: UserConfig, section: str, option: str) -> None:
+        self._lock = RLock()
+        self._queue: Queue[T] = Queue()
+        self._persistent: PersistentMutableSet[T] = PersistentMutableSet(
+            conf, section, option
+        )
+
+        for item in self._persistent:
+            self._queue.put(item)
+
+    def qsize(self) -> int:
+        return self._queue.qsize()
+
+    def empty(self) -> bool:
+        return self._queue.empty()
+
+    def put(self, item: T) -> None:
+        with self._lock:
+            if item not in self._persistent:
+                self._queue.put(item)
+
+    def get(self, block: bool = True, timeout: int | None = None) -> T:
+        return self._queue.get(block, timeout)
+
+    def join(self) -> None:
+        self._queue.join()
+
+    def task_done(self, item: T) -> None:
+        with self._lock:
+            self._persistent.discard(item)
+            self._queue.task_done()
+
+    def __contains__(self, entry: Any) -> bool:
+        return entry in self._persistent
+
+
 class SyncManager:
     """Class to manage sync threads
 
     :param client: The Dropbox API client, a wrapper around the Dropbox Python SDK.
     """
 
-    added_item_queue: Queue[str]
-    """Queue of dropbox paths which have been newly included in syncing."""
+    download_queue: PersistentQueue[str]
+    """Queue of remote paths which have been newly included in syncing."""
 
     def __init__(self, client: DropboxClient):
 
@@ -94,7 +133,7 @@ class SyncManager:
         self.startup_completed = Event()
         self.autostart = Event()
 
-        self.added_item_queue = Queue()
+        self.download_queue = PersistentQueue(self._state, "sync", "pending_downloads")
 
         self.sync = SyncEngine(self.client)
 
@@ -672,12 +711,10 @@ class SyncManager:
             with self._handle_sync_thread_errors(running, autostart):
 
                 try:
-                    dbx_path_lower = self.added_item_queue.get(timeout=40)
+                    dbx_path_lower = self.download_queue.get(timeout=40)
                 except Empty:
                     pass
                 else:
-                    # Guard against crashes.
-                    self.sync.pending_downloads.add(dbx_path_lower)
 
                     if not running.is_set():
                         return
@@ -687,7 +724,7 @@ class SyncManager:
                         with self.sync.client.clone_with_new_session() as client:
                             self.sync.get_remote_item(dbx_path_lower, client)
 
-                        self.sync.pending_downloads.discard(dbx_path_lower)
+                        self.download_queue.task_done(dbx_path_lower)
 
                         self._logger.info(IDLE)
 
@@ -769,12 +806,13 @@ class SyncManager:
                     self.sync.get_remote_item(error.dbx_path_lower, client)
 
                 # Resume interrupted downloads.
-                if len(self.sync.pending_downloads) > 0:
+                if self.download_queue.qsize() > 0:
                     self._logger.info("Resuming interrupted syncs...")
 
-                for dbx_path in list(self.sync.pending_downloads):
+                while not self.download_queue.empty():
+                    dbx_path = self.download_queue.get()
                     self.sync.get_remote_item(dbx_path, client)
-                    self.sync.pending_downloads.discard(dbx_path)
+                    self.download_queue.task_done(dbx_path)
 
                 if not running.is_set():
                     startup_completed.set()

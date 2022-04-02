@@ -367,7 +367,7 @@ class Maestral:
                     for path in added_included_items:
                         if not self.sync.is_excluded_by_user(path):
                             self._logger.info("Included %s", path)
-                            self.manager.added_item_queue.put(path)
+                            self.manager.download_queue.put(path)
 
                     self._logger.info(IDLE)
 
@@ -1148,10 +1148,10 @@ class Maestral:
                     self._logger.info(
                         "Included '%s' and parent directories", dbx_path_lower
                     )
-                    self.manager.added_item_queue.put(excluded_parent)
+                    self.manager.download_queue.put(excluded_parent)
                 else:
                     self._logger.info("Included '%s'", dbx_path_lower)
-                    self.manager.added_item_queue.put(dbx_path_lower)
+                    self.manager.download_queue.put(dbx_path_lower)
             finally:
                 self.sync.sync_lock.release()
 
