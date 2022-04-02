@@ -143,6 +143,8 @@ class DropboxClient:
 
         self._state = MaestralState(config_name)
         self._logger = scoped_logger(__name__, self.config_name)
+        self._dropbox_sdk_logger = scoped_logger("maestral.dropbox", self.config_name)
+        self._dropbox_sdk_logger.info = self._dropbox_sdk_logger.debug  # type: ignore
 
         self._timeout = timeout
         self._session = session or create_session()
@@ -302,6 +304,10 @@ class DropboxClient:
             else:
                 self._dbx = self._dbx_base
 
+            # Set our own logger for the Dropbox SDK.
+            self._dbx._logger = self._dropbox_sdk_logger
+            self._dbx_base._logger = self._dropbox_sdk_logger
+
     @property
     def account_info(self) -> FullAccount:
         """Returns cached account info. Use :meth:`get_account_info` to get the latest
@@ -364,9 +370,11 @@ class DropboxClient:
 
         if self._dbx:
             client._dbx = self._dbx.clone(session=session)
+            client._dbx._logger = self._dropbox_sdk_logger
 
         if self._dbx_base:
             client._dbx_base = self._dbx_base.clone(session=session)
+            client._dbx_base._logger = self._dropbox_sdk_logger
 
         return client
 
@@ -413,6 +421,7 @@ class DropboxClient:
 
         path_root = common.PathRoot.root(root_nsid)
         self._dbx = self.dbx_base.with_path_root(path_root)
+        self._dbx._logger = self._dropbox_sdk_logger
 
         if isinstance(root_info, UserRootInfo):
             actual_root_type = "user"
