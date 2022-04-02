@@ -24,7 +24,7 @@ def test_receiving_events(sync: SyncEngine) -> None:
     assert len(sync_events) == 1
 
     try:
-        ctime = os.stat(new_dir).st_birthtime
+        ctime = os.stat(new_dir).st_birthtime  # type: ignore
     except AttributeError:
         ctime = None
 
