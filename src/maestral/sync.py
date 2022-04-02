@@ -407,9 +407,6 @@ class SyncEngine:
     :param client: Dropbox API client instance.
     """
 
-    syncing: dict[str, SyncEvent]
-    _case_conversion_cache: LRUCache
-
     _max_history = 1000
     _num_threads = min(64, CPU_COUNT * 4)
 
@@ -420,8 +417,12 @@ class SyncEngine:
         self.fs_events = FSEventHandler()
         self._logger = scoped_logger(__name__, self.config_name)
 
+        # Synchronize upload and download sync.
         self.sync_lock = RLock()
+        # Synchronizes DB access.
         self._db_lock = RLock()
+        # Synchronize sync activity across multiple levels.
+        self._tree_traversal = RLock()
 
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
@@ -433,7 +434,7 @@ class SyncEngine:
         self._cancel_requested = Event()
 
         # Data structures for user information.
-        self.syncing = {}
+        self.syncing: dict[str, SyncEvent] = {}
 
         # Initialize SQLite database.
         self._db_path = get_data_path("maestral", f"{self.config_name}.db")
@@ -2954,10 +2955,10 @@ class SyncEngine:
         for changes in changes_iter:
 
             changes = self._clean_remote_changes(changes)
+            changes.entries.sort(key=lambda x: x.path_lower.count("/"))
 
             self._logger.debug("Remote changes:\n%s", pf_repr(changes.entries))
 
-            changes.entries.sort(key=lambda x: x.path_lower.count("/"))
             sync_events = [SyncEvent.from_metadata(md, self) for md in changes.entries]
 
             self._logger.debug("Converted remote changes to SyncEvents")
@@ -3458,18 +3459,20 @@ class SyncEngine:
         if dbx_path_lower_dirname == "/":
             return
 
-        if not self.get_index_entry(dbx_path_lower_dirname):
+        with self._tree_traversal:
 
-            self._logger.debug(
-                f"Parent folder {dbx_path_lower_dirname} is not in index. "
-                f"Syncing it now before syncing any children."
-            )
+            if not self.get_index_entry(dbx_path_lower_dirname):
 
-            parent_md = client.get_metadata(dbx_path_lower_dirname)
+                self._logger.debug(
+                    f"Parent folder {dbx_path_lower_dirname} is not in index. "
+                    f"Syncing it now before syncing any children."
+                )
 
-            if parent_md:  # If the parent no longer exists, we don't do anything.
-                parent_event = SyncEvent.from_metadata(parent_md, self)
-                self._on_remote_folder(parent_event, client)
+                parent_md = client.get_metadata(dbx_path_lower_dirname)
+
+                if parent_md:  # If the parent no longer exists, we don't do anything.
+                    parent_event = SyncEvent.from_metadata(parent_md, self)
+                    self._on_remote_folder(parent_event, client)
 
     def _on_remote_file(
         self, event: SyncEvent, client: DropboxClient | None = None
