@@ -8,7 +8,6 @@ from __future__ import annotations
 # system imports
 import os
 import time
-import logging
 import contextlib
 import threading
 from datetime import datetime, timezone
@@ -34,6 +33,7 @@ from dropbox.session import API_HOST
 # local imports
 from . import __version__
 from .keyring import CredentialStorage, TokenType
+from .logging import scoped_logger
 from .core import (
     AccountType,
     Team,
@@ -142,7 +142,7 @@ class DropboxClient:
         self.cred_storage = CredentialStorage(config_name)
 
         self._state = MaestralState(config_name)
-        self._logger = logging.getLogger(__name__)
+        self._logger = scoped_logger(__name__, self.config_name)
 
         self._timeout = timeout
         self._session = session or create_session()
