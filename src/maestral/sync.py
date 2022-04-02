@@ -773,7 +773,7 @@ class SyncEngine:
 
     def index_count(self) -> int:
         """
-        Returns the number if items in our index without loading any items.
+        Returns the number of items in our index without loading any items.
 
         :returns: Number of index entries.
         """
