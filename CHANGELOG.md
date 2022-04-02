@@ -4,6 +4,8 @@
 
 * Improved error message for file names with incompatible characters that are rejected by
   Dropbox servers, e.g., emoji or slashes at the end of a file name.
+* Capture Dropbox SDK logs in Maestral's log output. This will log which API endpoints 
+  are called and any retries on errors or rate limiting.
 
 #### Fixed:
 
