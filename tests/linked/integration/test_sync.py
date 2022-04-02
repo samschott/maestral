@@ -1202,7 +1202,7 @@ def test_invalid_pending_download(m: Maestral) -> None:
 
     # add a non-existent path to the pending downloads list
     bogus_path = "/bogus path"
-    m.sync.pending_downloads.add(bogus_path)
+    m.manager.download_queue.put(bogus_path)
 
     # trigger a resync
     m.stop_sync()
@@ -1211,7 +1211,7 @@ def test_invalid_pending_download(m: Maestral) -> None:
 
     # assert that there are no sync errors / fatal errors and that the invalid path
     # was cleared
-    assert bogus_path not in m.sync.pending_downloads
+    assert bogus_path not in m.manager.download_queue
 
     assert_synced(m)
     assert_no_errors(m)
