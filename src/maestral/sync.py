@@ -76,6 +76,7 @@ from .exceptions import (
     FileConflictError,
     FolderConflictError,
     IsAFolderError,
+    NotAFolderError,
     InvalidDbidError,
     DatabaseError,
 )
@@ -2384,7 +2385,9 @@ class SyncEngine:
                 update_rev=local_rev,
                 sync_event=event,
             )
-        except (NotFoundError, IsAFolderError):
+        except (NotFoundError, NotAFolderError, IsAFolderError):
+            # Note: NotAFolderError can be raised when a parent in the local path
+            # refers to a file instead of a folder.
             self._logger.debug(
                 'Could not upload "%s": the file does not exist', event.local_path
             )
@@ -2510,7 +2513,9 @@ class SyncEngine:
                 update_rev=local_rev,
                 sync_event=event,
             )
-        except (NotFoundError, IsAFolderError):
+        except (NotFoundError, NotAFolderError, IsAFolderError):
+            # Note: NotAFolderError can be raised when a parent in the local path
+            # refers to a file instead of a folder.
             self._logger.debug(
                 'Could not upload "%s": the item does not exist', event.dbx_path
             )
