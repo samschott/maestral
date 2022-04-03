@@ -164,18 +164,64 @@ def test_local_indexing(m: Maestral) -> None:
     wait_for_idle(m)
 
     # Create a local tree.
-
     shutil.copytree(resources + "/test_folder", m.dropbox_path + "/test_folder")
 
-    snap = DirectorySnapshot(resources + "/test_folder")
-    num_items = len([p for p in snap.paths if not m.sync.is_excluded(p)])
+    snap0 = DirectorySnapshot(resources + "/test_folder")
 
     # Start sync and check that all items are indexed and uploaded.
+    m.start_sync()
+    wait_for_idle(m, 10)
+
+    snap1 = DirectorySnapshot(resources + "/test_folder")
+    snapshot_diff = snap1 - snap0
+
+    assert snapshot_diff.files_created == []
+    assert snapshot_diff.files_modified == []
+    assert snapshot_diff.files_moved == []
+    assert snapshot_diff.files_deleted == []
+    assert snapshot_diff.dirs_created == []
+    assert snapshot_diff.dirs_modified == []
+    assert snapshot_diff.dirs_moved == []
+    assert snapshot_diff.dirs_deleted == []
+
+    assert_synced(m)
+    assert_no_errors(m)
+
+    # Mutate local state.
+
+    m.stop_sync()
+    wait_for_idle(m)
+
+    # Replace file with folder.
+    delete(m.dropbox_path + "/test_folder/sub_file_1.txt")
+    os.mkdir(m.dropbox_path + "/test_folder/sub_file_1.txt")
+
+    # Replace folder with file
+    delete(m.dropbox_path + "/test_folder/sub_folder_2")
+    with open(m.dropbox_path + "/test_folder/sub_folder_2", "a") as f:
+        f.write("content")
+
+    # Modify some file content.
+    with open(m.dropbox_path + "/test_folder/sub_file_1", "a") as f:
+        f.write("...")
+
+    snap0 = DirectorySnapshot(resources + "/test_folder")
 
     m.start_sync()
     wait_for_idle(m, 10)
 
-    assert_child_count(m, "/", num_items)
+    snap1 = DirectorySnapshot(resources + "/test_folder")
+
+    snapshot_diff = snap1 - snap0
+
+    assert snapshot_diff.files_created == []
+    assert snapshot_diff.files_modified == []
+    assert snapshot_diff.files_moved == []
+    assert snapshot_diff.files_deleted == []
+    assert snapshot_diff.dirs_created == []
+    assert snapshot_diff.dirs_modified == []
+    assert snapshot_diff.dirs_moved == []
+    assert snapshot_diff.dirs_deleted == []
 
     assert_synced(m)
     assert_no_errors(m)
@@ -534,12 +580,12 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m: Maestral) 
 def test_remote_folder_replaced_by_file(m: Maestral) -> None:
     """Tests the download sync when a folder is replaced by a file."""
 
-    m.client.make_dir("/folder")
+    # Note: we use a folder tree here to test recursive ctime checks.
+    shutil.copytree(resources + "/test_folder", m.dropbox_path + "/folder")
     wait_for_idle(m)
 
-    # replace remote folder with file
-
     with m.sync.sync_lock:
+        # Replace remote folder with a file.
         m.client.remove("/folder")
         m.client.upload(resources + "/file.txt", "/folder")
 
@@ -611,6 +657,28 @@ def test_local_folder_replaced_by_file(m: Maestral) -> None:
     assert_no_errors(m)
 
 
+def test_local_folder_replaced_by_file_and_deleted(m: Maestral) -> None:
+    """Tests the upload sync when a local folder is replaced by a file and immediately
+    deleted afterwards."""
+
+    os.mkdir(m.dropbox_path + "/folder")
+    wait_for_idle(m)
+
+    with m.sync.sync_lock:
+        # replace local folder with file
+        delete(m.dropbox_path + "/folder")
+        shutil.copy(resources + "/file.txt", m.dropbox_path + "/folder")
+        # remove the file
+        delete(m.dropbox_path + "/folder")
+
+    wait_for_idle(m)
+
+    assert_child_count(m, "/", 0)
+
+    assert_synced(m)
+    assert_no_errors(m)
+
+
 def test_local_folder_replaced_by_file_and_unsynced_remote_changes(m: Maestral) -> None:
     """
     Tests the upload sync when a local folder is replaced by a file and the remote
@@ -654,6 +722,29 @@ def test_local_file_replaced_by_folder(m: Maestral) -> None:
 
     assert osp.isdir(m.dropbox_path + "/file.txt")
     assert_child_count(m, "/", 1)
+
+    assert_synced(m)
+    assert_no_errors(m)
+
+
+def test_local_file_replaced_by_folder_and_deleted(m: Maestral) -> None:
+    """Tests the upload sync when a local file is replaced by a folder and deleted
+    immediately afterwards."""
+
+    shutil.copy(resources + "/file.txt", m.dropbox_path + "/file.txt")
+    wait_for_idle(m)
+
+    with m.sync.sync_lock:
+        # replace local file with folder
+        os.unlink(m.dropbox_path + "/file.txt")
+        os.mkdir(m.dropbox_path + "/file.txt")
+
+        # delete local folder
+        delete(m.dropbox_path + "/file.txt")
+
+    wait_for_idle(m)
+
+    assert_child_count(m, "/", 0)
 
     assert_synced(m)
     assert_no_errors(m)
