@@ -9,7 +9,7 @@ import timeit
 
 import pytest
 from watchdog.utils.dirsnapshot import DirectorySnapshot
-from watchdog.events import FileCreatedEvent
+from watchdog.events import FileCreatedEvent, FileDeletedEvent, DirDeletedEvent
 
 from maestral.main import Maestral
 from maestral.core import WriteMode, FileMetadata, FolderMetadata, Metadata
@@ -657,26 +657,24 @@ def test_local_folder_replaced_by_file(m: Maestral) -> None:
     assert_no_errors(m)
 
 
-def test_local_folder_replaced_by_file_and_deleted(m: Maestral) -> None:
-    """Tests the upload sync when a local folder is replaced by a file and immediately
-    deleted afterwards."""
+def test_local_folder_file_deleted_event(m: Maestral) -> None:
+    """Tests the upload sync when a local folder is deleted but a FileDeletedEvent
+    is emitted instead. The deletion should fail."""
 
     os.mkdir(m.dropbox_path + "/folder")
     wait_for_idle(m)
 
     with m.sync.sync_lock:
-        # replace local folder with file
-        delete(m.dropbox_path + "/folder")
-        shutil.copy(resources + "/file.txt", m.dropbox_path + "/folder")
-        # remove the file
-        delete(m.dropbox_path + "/folder")
+        # Remove the folder.
+        with m.sync.fs_events.ignore(DirDeletedEvent(m.dropbox_path + "/folder")):
+            delete(m.dropbox_path + "/folder")
+        # Queue an artificial file deleted event.
+        m.sync.fs_events.queue_event(FileDeletedEvent(m.dropbox_path + "/folder"))
 
     wait_for_idle(m)
 
-    assert_child_count(m, "/", 0)
-
-    assert_synced(m)
-    assert_no_errors(m)
+    # Assert that the remote folder is not deleted.
+    assert_child_count(m, "/", 1)
 
 
 def test_local_folder_replaced_by_file_and_unsynced_remote_changes(m: Maestral) -> None:
@@ -727,20 +725,19 @@ def test_local_file_replaced_by_folder(m: Maestral) -> None:
     assert_no_errors(m)
 
 
-def test_local_file_replaced_by_folder_and_deleted(m: Maestral) -> None:
-    """Tests the upload sync when a local file is replaced by a folder and deleted
-    immediately afterwards."""
+def test_local_file_folder_deleted_event(m: Maestral) -> None:
+    """Tests the upload sync when a local file is deleted but a folder deleted event is
+    emitted instead. The deletion should succeed."""
 
     shutil.copy(resources + "/file.txt", m.dropbox_path + "/file.txt")
     wait_for_idle(m)
 
     with m.sync.sync_lock:
-        # replace local file with folder
-        os.unlink(m.dropbox_path + "/file.txt")
-        os.mkdir(m.dropbox_path + "/file.txt")
-
-        # delete local folder
-        delete(m.dropbox_path + "/file.txt")
+        # Delete local file, suppress FS event.
+        with m.sync.fs_events.ignore(FileDeletedEvent(m.dropbox_path + "/file.txt")):
+            delete(m.dropbox_path + "/file.txt")
+        # Queue fake DirDeletedEvent.
+        m.sync.fs_events.queue_event(DirDeletedEvent(m.dropbox_path + "/file.txt"))
 
     wait_for_idle(m)
 
