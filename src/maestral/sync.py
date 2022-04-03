@@ -3279,7 +3279,6 @@ class SyncEngine:
                     return True
 
                 # Recurse over children.
-                # TODO: Handle symlinks with entry.is_symlink()
                 with os.scandir(local_path) as it:
                     for entry in it:
                         if entry.is_dir(follow_symlinks=False):
