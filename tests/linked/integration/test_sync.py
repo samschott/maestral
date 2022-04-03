@@ -488,7 +488,6 @@ def test_remote_file_replaced_by_folder(m: Maestral) -> None:
     wait_for_idle(m)
 
     with m.sync.sync_lock:
-
         # Replace the remote file with folder.
         m.client.remove("/file.txt")
         m.client.make_dir("/file.txt")
@@ -514,7 +513,6 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m: Maestral) 
     wait_for_idle(m)
 
     with m.sync.sync_lock:
-
         # replace remote file with folder
         m.client.remove("/file.txt")
         m.client.make_dir("/file.txt")
@@ -565,7 +563,6 @@ def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m: Maestral) 
     wait_for_idle(m)
 
     with m.sync.sync_lock:
-
         # Replace the remote folder with a file.
         # Remote state:
         # - '/Sync Tests/folder'
@@ -601,7 +598,6 @@ def test_local_folder_replaced_by_file(m: Maestral) -> None:
     wait_for_idle(m)
 
     with m.sync.sync_lock:
-
         # replace local folder with file
         delete(m.dropbox_path + "/folder")
         shutil.copy(resources + "/file.txt", m.dropbox_path + "/folder")
@@ -627,7 +623,6 @@ def test_local_folder_replaced_by_file_and_unsynced_remote_changes(m: Maestral) 
     wait_for_idle(m)
 
     with m.sync.sync_lock:
-
         # replace local folder with file
         delete(m.dropbox_path + "/folder")
         shutil.copy(resources + "/file.txt", m.dropbox_path + "/folder")
@@ -651,7 +646,6 @@ def test_local_file_replaced_by_folder(m: Maestral) -> None:
     wait_for_idle(m)
 
     with m.sync.sync_lock:
-
         # replace local file with folder
         os.unlink(m.dropbox_path + "/file.txt")
         os.mkdir(m.dropbox_path + "/file.txt")
@@ -678,7 +672,6 @@ def test_local_file_replaced_by_folder_and_unsynced_remote_changes(m: Maestral) 
     wait_for_idle(m)
 
     with m.sync.sync_lock:
-
         # replace local file with folder
         os.unlink(m.dropbox_path + "/file.txt")
         os.mkdir(m.dropbox_path + "/file.txt")
