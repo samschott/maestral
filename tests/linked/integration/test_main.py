@@ -1,13 +1,13 @@
+import pathlib
 import sys
 import os
 import os.path as osp
-import shutil
 import subprocess
 
 import pytest
 
 from maestral.main import Maestral
-from maestral.core import FileMetadata
+from maestral.core import FileMetadata, WriteMode
 from maestral.exceptions import (
     NotFoundError,
     UnsupportedFileTypeForDiff,
@@ -25,7 +25,15 @@ if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.en
     pytest.skip("Requires auth token", allow_module_level=True)
 
 
-# API unit tests
+def _create_file_with_content(
+    m: Maestral, tmp_path: pathlib.Path, dbx_path: str, content: str, mode: str = "w"
+) -> FileMetadata:
+
+    local_path = str(tmp_path / dbx_path.lstrip("/"))
+    with open(local_path, mode) as f:
+        f.write(content)
+
+    return m.client.upload(local_path, dbx_path, write_mode=WriteMode.Overwrite)
 
 
 def test_status_properties(m: Maestral) -> None:
@@ -124,7 +132,7 @@ def test_move_dropbox_folder_to_existing(m: Maestral) -> None:
 # API integration tests
 
 
-def test_selective_sync_api(m: Maestral) -> None:
+def test_selective_sync(m: Maestral) -> None:
     """
     Tests :meth:`Maestral.exclude_item`, :meth:`MaestralMaestral.include_item`,
     :meth:`Maestral.excluded_status` and :meth:`Maestral.excluded_items`.
@@ -183,7 +191,7 @@ def test_selective_sync_api(m: Maestral) -> None:
     assert not m.fatal_errors
 
 
-def test_selective_sync_api_global(m: Maestral) -> None:
+def test_selective_sync_global(m: Maestral) -> None:
     """Test :meth:`Maestral.exclude_items` to change all items at once."""
 
     dbx_dirs = [
@@ -226,7 +234,7 @@ def test_selective_sync_api_global(m: Maestral) -> None:
     assert not m.fatal_errors
 
 
-def test_selective_sync_api_nested(m: Maestral) -> None:
+def test_selective_sync_nested(m: Maestral) -> None:
     """Tests special cases of nested selected sync changes."""
 
     dbx_dirs = [
@@ -260,47 +268,83 @@ def test_selective_sync_api_nested(m: Maestral) -> None:
     assert not m.fatal_errors
 
 
-def test_create_file_diff(m: Maestral) -> None:
-    """Tests file diffs for supported and unsupported files."""
+def test_get_file_diff(m: Maestral, tmp_path) -> None:
+    dbx_path = "/test.txt"
 
-    def write_and_get_rev(dbx_path, content, o="w"):
-        """
-        Open the dbx_path locally and write the content to the string.
-        If it should append something, you can set 'o = "a"'.
-        """
+    md_old = _create_file_with_content(m, tmp_path, dbx_path, "old")
+    md_new = _create_file_with_content(m, tmp_path, dbx_path, "new")
+    diff = m.get_file_diff(md_old.rev, md_new.rev)
 
-        local_path = m.to_local_path(dbx_path)
-        with open(local_path, o) as f:
-            f.write(content)
-        wait_for_idle(m)
-        return m.client.get_metadata(dbx_path).rev
+    assert diff[2] == "@@ -1 +1 @@\n"
+    assert diff[3] == "-old"
+    assert diff[4] == "+new"
 
-    dbx_path_success = "/file.txt"
-    dbx_path_fail_pdf = "/diff.pdf"
-    dbx_path_fail_ext = "/bin.txt"
+
+def test_get_file_diff_local(m: Maestral, tmp_path) -> None:
+    dbx_path = "/test.txt"
+    local_path = m.to_local_path(dbx_path)
+
+    m.stop_sync()
+    wait_for_idle(m)
+
+    md_old = _create_file_with_content(m, tmp_path, dbx_path, "old")
+
+    with open(local_path, "w") as f:
+        f.write("new")
+
+    diff = m.get_file_diff(md_old.rev, None)
+
+    assert diff[2] == "@@ -1 +1 @@\n"
+    assert diff[3] == "-old"
+    assert diff[4] == "+new"
+
+
+def test_get_file_diff_not_found(m: Maestral, tmp_path) -> None:
+    dbx_path = "/test.txt"
+
+    md_new = _create_file_with_content(m, tmp_path, dbx_path, "new")
+
+    with pytest.raises(NotFoundError):
+        m.get_file_diff("015db1e6dec9da000000001f7709020", md_new.rev)
+
+
+def test_get_file_diff_unsupported_ext(m: Maestral, tmp_path) -> None:
+    """Tests file diffs for unsupported file types."""
+
+    dbx_path = "/test.pdf"
+    md_old = _create_file_with_content(m, tmp_path, dbx_path, "old")
+    md_new = _create_file_with_content(m, tmp_path, dbx_path, "new")
 
     with pytest.raises(UnsupportedFileTypeForDiff):
-        # Write some dummy stuff to create two revs
-        old_rev = write_and_get_rev(dbx_path_fail_pdf, "old")
-        new_rev = write_and_get_rev(dbx_path_fail_pdf, "new")
-        m.get_file_diff(old_rev, new_rev)
+        m.get_file_diff(md_old.rev, md_new.rev)
+
+
+def test_get_file_diff_unsupported_content(m: Maestral, tmp_path) -> None:
+    """Tests file diffs for unsupported file types."""
+
+    dbx_path = "/test.txt"
+    # Upload a compiled c file with .txt extension
+    md_old = m.client.upload(resources + "/bin.txt", dbx_path)
+    md_new = _create_file_with_content(m, tmp_path, dbx_path, "new")
 
     with pytest.raises(UnsupportedFileTypeForDiff):
-        # Add a compiled helloworld c file with .txt extension
-        shutil.copy(resources + "/bin.txt", m.dropbox_path)
-        wait_for_idle(m)
-        md = m.client.get_metadata(dbx_path_fail_ext)
-        assert isinstance(md, FileMetadata)
-        old_rev = md.rev
-        # Just some bytes
-        new_rev = write_and_get_rev(dbx_path_fail_ext, b"hi", o="ab")
-        m.get_file_diff(old_rev, new_rev)
+        m.get_file_diff(md_old.rev, md_new.rev)
 
-    old_rev = write_and_get_rev(dbx_path_success, "old")
-    new_rev = write_and_get_rev(dbx_path_success, "new")
-    # If this does not raise an error,
-    # the function should have been successful
-    _ = m.get_file_diff(old_rev, new_rev)
+
+def test_get_file_diff_unsupported_content_local(m: Maestral, tmp_path) -> None:
+    dbx_path = "/test.txt"
+    local_path = m.to_local_path(dbx_path)
+
+    m.stop_sync()
+    wait_for_idle(m)
+
+    md_old = _create_file_with_content(m, tmp_path, dbx_path, "old")
+
+    with open(local_path, "wb") as f:
+        f.write("möglich".encode("cp273"))
+
+    with pytest.raises(UnsupportedFileTypeForDiff):
+        m.get_file_diff(md_old.rev, None)
 
 
 def test_restore(m: Maestral) -> None:
