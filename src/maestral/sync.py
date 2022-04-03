@@ -2491,7 +2491,7 @@ class SyncEngine:
 
         if not local_entry:
             self._logger.debug(
-                '"%s" appears to have been modified but cannot ' "find old revision",
+                '"%s" appears to have been modified but cannot find old revision',
                 event.dbx_path,
             )
             mode = WriteMode.Add
