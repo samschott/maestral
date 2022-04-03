@@ -1733,8 +1733,7 @@ class SyncEngine:
 
     def list_local_changes(self, delay: float = 1) -> tuple[list[SyncEvent], float]:
         """
-        Waits for local file changes. Returns a list of local changes with at most one
-        entry per path.
+        Returns a list of local changes with at most one entry per path.
 
         :param delay: Delay in sec to wait for subsequent changes before returning.
         :returns: (list of sync times events, time_stamp)
