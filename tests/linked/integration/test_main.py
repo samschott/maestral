@@ -1,13 +1,15 @@
-import pathlib
+from __future__ import annotations
+
 import sys
 import os
 import os.path as osp
 import subprocess
 
 import pytest
+from dropbox import files
 
 from maestral.main import Maestral
-from maestral.core import FileMetadata, WriteMode
+from maestral.core import FileMetadata
 from maestral.exceptions import (
     NotFoundError,
     UnsupportedFileTypeForDiff,
@@ -18,7 +20,7 @@ from maestral.constants import FileStatus, IDLE
 from maestral.utils.path import delete
 from maestral.utils.integration import get_inotify_limits
 
-from .conftest import wait_for_idle, resources
+from .conftest import wait_for_idle
 
 
 if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.environ):
@@ -26,14 +28,13 @@ if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.en
 
 
 def _create_file_with_content(
-    m: Maestral, tmp_path: pathlib.Path, dbx_path: str, content: str, mode: str = "w"
+    m: Maestral, dbx_path: str, content: str | bytes
 ) -> FileMetadata:
 
-    local_path = str(tmp_path / dbx_path.lstrip("/"))
-    with open(local_path, mode) as f:
-        f.write(content)
+    if isinstance(content, str):
+        content = content.encode()
 
-    return m.client.upload(local_path, dbx_path, write_mode=WriteMode.Overwrite)
+    return m.client.dbx.files_upload(content, dbx_path, mode=files.WriteMode.overwrite)
 
 
 def test_status_properties(m: Maestral) -> None:
@@ -268,11 +269,11 @@ def test_selective_sync_nested(m: Maestral) -> None:
     assert not m.fatal_errors
 
 
-def test_get_file_diff(m: Maestral, tmp_path) -> None:
+def test_get_file_diff(m: Maestral) -> None:
     dbx_path = "/test.txt"
 
-    md_old = _create_file_with_content(m, tmp_path, dbx_path, "old")
-    md_new = _create_file_with_content(m, tmp_path, dbx_path, "new")
+    md_old = _create_file_with_content(m, dbx_path, "old")
+    md_new = _create_file_with_content(m, dbx_path, "new")
     diff = m.get_file_diff(md_old.rev, md_new.rev)
 
     assert diff[2] == "@@ -1 +1 @@\n"
@@ -280,14 +281,14 @@ def test_get_file_diff(m: Maestral, tmp_path) -> None:
     assert diff[4] == "+new"
 
 
-def test_get_file_diff_local(m: Maestral, tmp_path) -> None:
+def test_get_file_diff_local(m: Maestral) -> None:
     dbx_path = "/test.txt"
     local_path = m.to_local_path(dbx_path)
 
     m.stop_sync()
     wait_for_idle(m)
 
-    md_old = _create_file_with_content(m, tmp_path, dbx_path, "old")
+    md_old = _create_file_with_content(m, dbx_path, "old")
 
     with open(local_path, "w") as f:
         f.write("new")
@@ -299,46 +300,46 @@ def test_get_file_diff_local(m: Maestral, tmp_path) -> None:
     assert diff[4] == "+new"
 
 
-def test_get_file_diff_not_found(m: Maestral, tmp_path) -> None:
+def test_get_file_diff_not_found(m: Maestral) -> None:
     dbx_path = "/test.txt"
 
-    md_new = _create_file_with_content(m, tmp_path, dbx_path, "new")
+    md_new = _create_file_with_content(m, dbx_path, "new")
 
     with pytest.raises(NotFoundError):
         m.get_file_diff("015db1e6dec9da000000001f7709020", md_new.rev)
 
 
-def test_get_file_diff_unsupported_ext(m: Maestral, tmp_path) -> None:
+def test_get_file_diff_unsupported_ext(m: Maestral) -> None:
     """Tests file diffs for unsupported file types."""
 
     dbx_path = "/test.pdf"
-    md_old = _create_file_with_content(m, tmp_path, dbx_path, "old")
-    md_new = _create_file_with_content(m, tmp_path, dbx_path, "new")
+    md_old = _create_file_with_content(m, dbx_path, "old")
+    md_new = _create_file_with_content(m, dbx_path, "new")
 
     with pytest.raises(UnsupportedFileTypeForDiff):
         m.get_file_diff(md_old.rev, md_new.rev)
 
 
-def test_get_file_diff_unsupported_content(m: Maestral, tmp_path) -> None:
+def test_get_file_diff_unsupported_content(m: Maestral) -> None:
     """Tests file diffs for unsupported file types."""
 
     dbx_path = "/test.txt"
     # Upload a compiled c file with .txt extension
-    md_old = m.client.upload(resources + "/bin.txt", dbx_path)
-    md_new = _create_file_with_content(m, tmp_path, dbx_path, "new")
+    md_old = _create_file_with_content(m, dbx_path, b"\xcf\xfa\xed\xfe\x07")
+    md_new = _create_file_with_content(m, dbx_path, "new")
 
     with pytest.raises(UnsupportedFileTypeForDiff):
         m.get_file_diff(md_old.rev, md_new.rev)
 
 
-def test_get_file_diff_unsupported_content_local(m: Maestral, tmp_path) -> None:
+def test_get_file_diff_unsupported_content_local(m: Maestral) -> None:
     dbx_path = "/test.txt"
     local_path = m.to_local_path(dbx_path)
 
     m.stop_sync()
     wait_for_idle(m)
 
-    md_old = _create_file_with_content(m, tmp_path, dbx_path, "old")
+    md_old = _create_file_with_content(m, dbx_path, "old")
 
     with open(local_path, "wb") as f:
         f.write("möglich".encode("cp273"))

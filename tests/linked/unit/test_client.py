@@ -78,15 +78,15 @@ def test_upload_session(client: DropboxClient) -> None:
 def test_upload_hash_mismatch(client: DropboxClient, monkeypatch) -> None:
     """Test that DataCorruptionError is raised after four failed attempts."""
 
-    file = resources + "/file2.txt"
+    file = resources + "/file.txt"
 
     hasher = failing_content_hasher()
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     with pytest.raises(DataCorruptionError):
-        client.upload(file, "/file2.txt")
+        client.upload(file, "/file.txt")
 
-    assert not client.get_metadata("/file2.txt")
+    assert not client.get_metadata("/file.txt")
 
 
 def test_upload_session_start_hash_mismatch(client: DropboxClient, monkeypatch) -> None:
@@ -196,14 +196,14 @@ def test_upload_session_finish_hash_mismatch_retry(
 def test_download_hash_mismatch(client: DropboxClient, monkeypatch, tmp_path) -> None:
     # not tested during integration tests
 
-    file = resources + "/file2.txt"
-    client.upload(file, "/file2.txt")
+    file = resources + "/file.txt"
+    client.upload(file, "/file.txt")
 
     hasher = failing_content_hasher(0, 4)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     with pytest.raises(DataCorruptionError):
-        client.download("/file2.txt", str(tmp_path / "file2.txt"))
+        client.download("/file.txt", str(tmp_path / "file.txt"))
 
 
 @pytest.mark.parametrize("batch_size", [10, 30])
