@@ -55,6 +55,9 @@ def m():
     for entry in res.entries:
         m.client.remove(entry.path_lower)
 
+    # disable throttling for tests
+    m.sync.max_cpu_percent = 20 * 100
+
     # start syncing
     m.start_sync()
     wait_for_idle(m)
