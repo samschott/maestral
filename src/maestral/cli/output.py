@@ -173,7 +173,7 @@ class DateField(Field):
     """
 
     def __init__(self, dt: datetime, **style) -> None:
-        self.dt = dt
+        self.dt = dt.astimezone()
         self.style = style
 
     @property
