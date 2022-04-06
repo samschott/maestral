@@ -11,7 +11,6 @@ from __future__ import annotations
 import os
 import time
 import enum
-from datetime import timezone
 from typing import TYPE_CHECKING
 
 # external imports
@@ -318,7 +317,7 @@ class SyncEvent(Model):
             symlink_target = md.symlink_target
             dbx_id = md.id
             size = md.size
-            change_time = md.client_modified.replace(tzinfo=timezone.utc).timestamp()
+            change_time = md.client_modified.timestamp()
             if sync_engine.get_local_rev(md.path_lower):
                 change_type = ChangeType.Modified
             else:
