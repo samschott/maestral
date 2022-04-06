@@ -1571,8 +1571,8 @@ def convert_metadata(res):
             res.path_lower,
             res.path_display,
             res.id,
-            res.client_modified,
-            res.server_modified,
+            res.client_modified.replace(tzinfo=timezone.utc),
+            res.server_modified.replace(tzinfo=timezone.utc),
             res.rev,
             res.size,
             symlink_target,
@@ -1637,8 +1637,13 @@ def convert_shared_link_metadata(res: sharing.SharedLinkMetadata) -> SharedLinkM
         link_access_level,
         require_password,
     )
+
     return SharedLinkMetadata(
-        res.url, res.name, res.path_lower, res.expires, link_permissions
+        res.url,
+        res.name,
+        res.path_lower,
+        res.expires.replace(tzinfo=timezone.utc) if res.expires else None,
+        link_permissions,
     )
 
 
