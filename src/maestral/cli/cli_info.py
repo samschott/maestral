@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import time
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import click
@@ -164,9 +165,10 @@ def history(m: Maestral) -> None:
     )
 
     for event in events:
-        table.append(
-            [event.dbx_path, event.change_type.value, event.change_time_or_sync_time]
-        )
+        dt_local_naive = datetime.fromtimestamp(event.change_time_or_sync_time)
+        dt_field = DateField(dt_local_naive)
+
+        table.append([event.dbx_path, event.change_type.value, dt_field])
 
     echo("")
     table.echo()

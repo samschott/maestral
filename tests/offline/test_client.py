@@ -1,4 +1,5 @@
-import datetime
+from datetime import datetime
+from datetime import timezone
 
 import pytest
 import requests
@@ -255,8 +256,8 @@ def test_convert_metadata_file():
         path_lower="/folder/hello",
         path_display="/folder/Hello",
         id="id-0123456789",
-        client_modified=datetime.datetime.fromtimestamp(10),
-        server_modified=datetime.datetime.fromtimestamp(20),
+        client_modified=datetime.utcfromtimestamp(10),
+        server_modified=datetime.utcfromtimestamp(20),
         rev="abcdf12687980",
         size=658,
         symlink_info=files.SymlinkInfo(target="/symlink-target"),
@@ -276,8 +277,8 @@ def test_convert_metadata_file():
     assert md.path_display == "/folder/Hello"
     assert md.path_lower == "/folder/hello"
     assert md.id == "id-0123456789"
-    assert md.client_modified == datetime.datetime.fromtimestamp(10)
-    assert md.server_modified == datetime.datetime.fromtimestamp(20)
+    assert md.client_modified == datetime.fromtimestamp(10, tz=timezone.utc)
+    assert md.server_modified == datetime.fromtimestamp(20, tz=timezone.utc)
     assert md.rev == "abcdf12687980"
     assert md.size == 658
     assert md.symlink_target == "/symlink-target"
@@ -349,7 +350,7 @@ def test_convert_sharedlink_metdata():
         url="/url",
         name="Hello",
         path_lower="/folder/hello",
-        expires=datetime.datetime.fromtimestamp(10),
+        expires=datetime.utcfromtimestamp(10),
         link_permissions=sharing.LinkPermissions(
             can_revoke=False,
             effective_audience=sharing.LinkAudience.public,
@@ -365,7 +366,7 @@ def test_convert_sharedlink_metdata():
     assert md.url == "/url"
     assert md.name == "Hello"
     assert md.path_lower == "/folder/hello"
-    assert md.expires == datetime.datetime.fromtimestamp(10)
+    assert md.expires == datetime.fromtimestamp(10, tz=timezone.utc)
     assert md.link_permissions.require_password is True
     assert md.link_permissions.can_revoke is False
     assert md.link_permissions.allow_download is True
@@ -390,7 +391,7 @@ def test_convert_sharedlink_metdata():
         url="/url",
         name="Hello",
         path_lower="/folder/hello",
-        expires=datetime.datetime.fromtimestamp(10),
+        expires=datetime.utcfromtimestamp(10),
         link_permissions=sharing.LinkPermissions(
             can_revoke=False,
             resolved_visibility=sharing.ResolvedVisibility.public,
@@ -405,7 +406,7 @@ def test_convert_sharedlink_metdata():
     assert md.url == "/url"
     assert md.name == "Hello"
     assert md.path_lower == "/folder/hello"
-    assert md.expires == datetime.datetime.fromtimestamp(10)
+    assert md.expires == datetime.fromtimestamp(10, tz=timezone.utc)
     assert md.link_permissions.require_password is False
     assert md.link_permissions.can_revoke is False
     assert md.link_permissions.allow_download is True
