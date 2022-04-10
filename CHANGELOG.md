@@ -20,6 +20,9 @@
   sync.
 * Fixes occasional conflicting copies of folders during initial sync due to a race
   condition for out-of-order sync events.
+* Fixes the display of timestamps in the CLI from `maestral ls` and `maestral history`
+  commands. The former would show times in UTC instead of the device's timezone and the
+  latter would show Unix timestamps instead of formatted output.
 
 ## v1.6.1
 
