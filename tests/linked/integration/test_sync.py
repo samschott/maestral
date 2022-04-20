@@ -219,8 +219,17 @@ def test_case_change_local(m: Maestral) -> None:
     """
 
     # Start with nested folders.
-    os.mkdir(m.dropbox_path + "/folder")
-    os.mkdir(m.dropbox_path + "/folder/Subfolder")
+    tree: DirTreeType = {
+        "folder": {
+            "sub_file_1.txt": "content",
+            "sub_file_2.txt": "content",
+            "sub_folder_1": {},
+            "sub_folder_2": {
+                "sub_sub_file.txt": "content",
+            },
+        }
+    }
+    create_local_tree(m.dropbox_path, tree)
     wait_for_idle(m)
 
     # Rename local parent folder to upper case.
@@ -232,8 +241,6 @@ def test_case_change_local(m: Maestral) -> None:
     md = m.client.get_metadata("/folder")
 
     assert isinstance(md, FolderMetadata)
-    assert osp.isdir(m.dropbox_path + "/FOLDER")
-    assert osp.isdir(m.dropbox_path + "/FOLDER/Subfolder")
     assert md.name == "FOLDER", "casing was not propagated to Dropbox"
 
     assert_synced(m)
