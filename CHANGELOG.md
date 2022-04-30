@@ -1,3 +1,9 @@
+## v1.6.3.dev
+
+#### Fixed:
+
+* Fixed a segfault on startup for a small number of macOS users.
+
 ## v1.6.2
 
 #### Changed:
