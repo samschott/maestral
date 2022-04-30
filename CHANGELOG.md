@@ -1,5 +1,10 @@
 ## v1.6.3.dev
 
+#### Changed:
+
+* The macOS app bundle now uses Python 3.10 instead of 3.9. This comes with some
+  performance improvements.
+
 #### Fixed:
 
 * Fixed a segfault on startup for a small number of macOS users.
