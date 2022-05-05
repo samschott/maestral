@@ -180,7 +180,7 @@ jobs:
 
       - name: Test with pytest
         run: |
-          pytest -v --cov=maestral --cov-report=xml tests/linked/integration
+          pytest -x --verbose --cov=maestral --cov-report=xml tests/linked/integration
 
       - name: Upload Code Coverage
         uses: codecov/codecov-action@v3
