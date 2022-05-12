@@ -356,7 +356,7 @@ def move(
     try:
         shutil.move(src_path, dest_path)
     except FileNotFoundError:
-        # do nothing of source or dest path no longer exist
+        # do nothing if source or dest path no longer exist
         pass
     except OSError as exc:
         err = exc
