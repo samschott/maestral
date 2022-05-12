@@ -1214,7 +1214,7 @@ class SyncEngine:
             dbx_path_cased = entry.dbx_path_cased
         else:
             # Fall back to querying from server.
-            md = client.get_metadata(dbx_path)
+            md = client.get_metadata(dbx_path_lower)
             if md:
                 # Recurse over parent directories.
                 dbx_path_cased = self.correct_case(md.path_display, client)
@@ -2273,7 +2273,7 @@ class SyncEngine:
         if self._handle_normalization_conflict(event):
             return None
 
-        dbx_path_from = cast(str, event.dbx_path_from)
+        dbx_path_from_lower = cast(str, event.dbx_path_from_lower)
 
         # If a file at the destination should be replaced, remove it first, but only if
         # its rev matches the rev of the local overwritten file.
@@ -2292,7 +2292,9 @@ class SyncEngine:
 
         # Perform the move.
         try:
-            md_to_new = client.move(dbx_path_from, event.dbx_path, autorename=True)
+            md_to_new = client.move(
+                dbx_path_from_lower, event.dbx_path, autorename=True
+            )
         except NotFoundError:
             # If not on Dropbox, e.g., because its old name was invalid,
             # create it instead of moving it.
@@ -2312,7 +2314,7 @@ class SyncEngine:
 
         if not self._handle_upload_conflict(md_to_new, event, client):
             self._logger.debug(
-                'Moved "%s" to "%s" on Dropbox', dbx_path_from, event.dbx_path
+                'Moved "%s" to "%s" on Dropbox', event.dbx_path_from, event.dbx_path
             )
         self._update_index_recursive(md_to_new, client)
 
@@ -2427,7 +2429,7 @@ class SyncEngine:
 
         try:
             if client.is_team_space and event.dbx_path.count("/") == 1:
-                md_new = client.share_dir(event.dbx_path)
+                md_new = client.share_dir(event.dbx_path_lower)
 
                 if not md_new:
                     # Remote folder has been deleted after creating. Reflect changes
@@ -2450,7 +2452,7 @@ class SyncEngine:
                 'No conflict for "%s": the folder already exists', event.local_path
             )
             try:
-                md = client.get_metadata(event.dbx_path)
+                md = client.get_metadata(event.dbx_path_lower)
                 if isinstance(md, FolderMetadata):
                     self.update_index_from_dbx_metadata(md, client)
             except NotFoundError:
@@ -2581,7 +2583,7 @@ class SyncEngine:
 
         local_rev = self.get_local_rev(event.dbx_path_lower)
 
-        md = client.get_metadata(event.dbx_path, include_deleted=True)
+        md = client.get_metadata(event.dbx_path_lower, include_deleted=True)
 
         if not md:
             self._logger.debug(
@@ -2626,7 +2628,7 @@ class SyncEngine:
         try:
             # Will only perform delete if Dropbox remote rev matches `local_rev`.
             md_deleted = client.remove(
-                event.dbx_path, parent_rev=local_rev if event.is_file else None
+                event.dbx_path_lower, parent_rev=local_rev if event.is_file else None
             )
         except NotFoundError:
             self._logger.debug(
@@ -2701,7 +2703,7 @@ class SyncEngine:
         if not (event.is_file and (event.is_changed or event.is_added)):
             raise ValueError("Can only be called with added or modified files")
 
-        md_old = client.get_metadata(event.dbx_path)
+        md_old = client.get_metadata(event.dbx_path_lower)
 
         if isinstance(md_old, FileMetadata):
 
@@ -2750,9 +2752,9 @@ class SyncEngine:
 
         with self.sync_lock:
 
-            md = client.get_metadata(dbx_path, include_deleted=True)
-
             dbx_path_lower = normalize(dbx_path)
+
+            md = client.get_metadata(dbx_path_lower, include_deleted=True)
 
             if md is None:
                 # Create a fake deleted event.
@@ -2768,7 +2770,7 @@ class SyncEngine:
             event = SyncEvent.from_metadata(md, self)
 
             if event.is_directory:
-                success = self._get_remote_folder(dbx_path, client)
+                success = self._get_remote_folder(dbx_path_lower, client)
             else:
                 self.syncing[event.local_path] = event
                 e = self._create_local_entry(event)
@@ -2779,13 +2781,13 @@ class SyncEngine:
             return success
 
     def _get_remote_folder(
-        self, dbx_path: str, client: DropboxClient | None = None
+        self, dbx_path_lower: str, client: DropboxClient | None = None
     ) -> bool:
         """
         Gets all files/folders from a Dropbox folder and writes them to the local folder
         :attr:`dropbox_path`.
 
-        :param dbx_path: Path relative to Dropbox folder.
+        :param dbx_path_lower: Normalized path relative to Dropbox folder.
         :param client: Client instance to use. If not given, use the instance provided
             in the constructor.
         :returns: Whether download was successful.
@@ -2800,7 +2802,7 @@ class SyncEngine:
                 idx = 0
 
                 # Iterate over index and download results.
-                list_iter = client.list_folder_iterator(dbx_path, recursive=True)
+                list_iter = client.list_folder_iterator(dbx_path_lower, recursive=True)
 
                 for res in list_iter:
 
