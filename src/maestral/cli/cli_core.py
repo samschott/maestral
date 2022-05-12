@@ -17,7 +17,7 @@ from .common import (
     inject_proxy,
 )
 from .core import DropboxPath, CliException
-from ..core import FolderMetadata
+from ..core import FolderMetadata, LinkAudience, LinkAccessLevel
 
 if TYPE_CHECKING:
     from ..daemon import MaestralProxy
@@ -415,6 +415,22 @@ def sharelink():
     type=click.DateTime(formats=["%Y-%m-%d", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M"]),
     help="Expiry time for the link (e.g. '2025-07-24 20:50').",
 )
+@click.option(
+    "-v",
+    "--visibility",
+    type=click.Choice(("PUBLIC", "TEAM", "PRIVATE"), case_sensitive=False),
+    default="PUBLIC",
+    show_default=True,
+    help="Who can use the link to access its target.",
+)
+@click.option(
+    "-a",
+    "--access-type",
+    type=click.Choice(("VIEW", "EDIT"), case_sensitive=False),
+    default="VIEW",
+    show_default=True,
+    help="The type of access granted by the link.",
+)
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def sharelink_create(
@@ -422,8 +438,28 @@ def sharelink_create(
     dropbox_path: str,
     password: str,
     expiry: datetime | None,
+    visibility: str,
+    access_type: str,
 ) -> None:
-    link_info = m.create_shared_link(dropbox_path, password=password, expires=expiry)
+    if access_type == "EDIT":
+        access_level = LinkAccessLevel.Editor
+    else:
+        access_level = LinkAccessLevel.Viewer
+
+    if visibility == "PRIVATE":
+        audience = LinkAudience.NoOne
+    elif visibility == "TEAM":
+        audience = LinkAudience.Team
+    else:
+        audience = LinkAudience.Public
+
+    link_info = m.create_shared_link(
+        dropbox_path,
+        password=password,
+        expires=expiry,
+        access_level=access_level,
+        visibility=audience,
+    )
     echo(link_info.url)
 
 
@@ -444,10 +480,9 @@ def sharelink_revoke(m: Maestral, url: str) -> None:
 @convert_api_errors
 def sharelink_list(m: Maestral, dropbox_path: str | None) -> None:
     links = m.list_shared_links(dropbox_path)
-    link_table = Table(["URL", "Item", "Access", "Expires"])
+    link_table = Table(["URL", "Item", "Visibility", "Access Type", "Expires"])
 
     for link in links:
-
         dt_field: Field
 
         if link.expires:
@@ -456,14 +491,22 @@ def sharelink_list(m: Maestral, dropbox_path: str | None) -> None:
             dt_field = TextField("-")
 
         if link.link_permissions.require_password:
-            access = "password"
+            visibility = "password"
         else:
-            access = link.link_permissions.effective_audience.value
+            visibility = link.link_permissions.effective_audience.value
+
+        if link.link_permissions.link_access_level is LinkAccessLevel.Editor:
+            access = "edit"
+        elif link.link_permissions.link_access_level is LinkAccessLevel.Viewer:
+            access = "view"
+        else:
+            access = "unknown"
 
         link_table.append(
             [
                 link.url,
                 link.name,
+                visibility,
                 access,
                 dt_field,
             ]
