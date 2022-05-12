@@ -2564,7 +2564,7 @@ class SyncEngine:
 
         home_path = self._state.get("account", "home_path")
 
-        if event.dbx_path == home_path:
+        if event.dbx_path_lower == normalize(home_path):
             raise SyncError(
                 title="Could not delete item",
                 message="Cannot delete the user's home folder",
@@ -2665,7 +2665,7 @@ class SyncEngine:
         if event.is_deleted:
             raise ValueError("Cannot process deleted event.")
 
-        if md_new.name == osp.basename(event.local_path):
+        if md_new.path_lower == event.dbx_path_lower:
             # No conflicting copy was created.
             return False
 
