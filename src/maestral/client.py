@@ -1391,18 +1391,18 @@ class DropboxClient:
     ) -> SharedLinkMetadata:
         """
         Creates a shared link for the given path. Some options are only available for
-        Professional and Business accounts. Note that the requested visibility and
-        access level for the link may not be granted, depending on the Dropbox folder or
-        team settings. Check the returned link metadata to verify the visibility and
-        access level.
+        Professional and Business accounts.
+
+        Note that the requested visibility and access level for the link may not be
+        granted, depending on the Dropbox folder or team settings. Check the returned
+        link metadata to verify the visibility and access level.
 
         :param dbx_path: Dropbox path to file or folder to share.
         :param visibility: The visibility of the shared link. Can be public, team-only,
-            or no-one. In case of the latter, the link merely points the user to the
-            content and does not grant additional rights to the user. Users of this link
-            can only access the content with their pre-existing access rights.
-        :param access_level: The level of access granted with the link. Can be viewer,
-            editor, or max for maximum possible access level.
+            or no-one. In the last case, only users who can already view the file are
+            able to use the link, for example if they have access to the same shared
+            folder.
+        :param access_level: Type of access granted with the link: viewer or editor.
         :param allow_download: Whether to allow download capabilities for the link.
         :param password: If given, enables password protection for the link.
         :param expires: Expiry time for shared link. If no timezone is given, assume
