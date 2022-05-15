@@ -1,7 +1,12 @@
 import os
 from pathlib import Path
 
-from watchdog.events import DirCreatedEvent, DirMovedEvent
+from watchdog.events import (
+    DirModifiedEvent,
+    DirCreatedEvent,
+    DirMovedEvent,
+    FileMovedEvent,
+)
 
 from maestral.sync import SyncDirection, SyncEngine
 from maestral.models import ItemType, ChangeType
@@ -36,7 +41,15 @@ def test_receiving_events(sync: SyncEngine) -> None:
     assert event.local_path == str(new_dir)
 
 
-def test_ignore_tree_creation(sync: SyncEngine) -> None:
+def test_always_ignored_events(sync: SyncEngine) -> None:
+    sync.fs_events.on_any_event(DirModifiedEvent("/test"))
+    sync.fs_events.on_any_event(DirMovedEvent("/test", "/test"))
+    sync.fs_events.on_any_event(FileMovedEvent("/test", "/test"))
+
+    assert sync.fs_events.local_file_event_queue.empty()
+
+
+def test_fs_ignore_tree_creation(sync: SyncEngine) -> None:
 
     new_dir = Path(sync.dropbox_path) / "parent"
 
@@ -51,7 +64,7 @@ def test_ignore_tree_creation(sync: SyncEngine) -> None:
     assert len(sync_events) == 0
 
 
-def test_ignore_tree_move(sync: SyncEngine) -> None:
+def test_fs_ignore_tree_move(sync: SyncEngine) -> None:
 
     new_dir = Path(sync.dropbox_path) / "parent"
 
@@ -86,4 +99,4 @@ def test_catching_non_ignored_events(sync: SyncEngine) -> None:
 
     sync.wait_for_local_changes()
     sync_events, _ = sync.list_local_changes()
-    assert all(not si.is_directory for si in sync_events)
+    assert all(not event.is_directory for event in sync_events)
