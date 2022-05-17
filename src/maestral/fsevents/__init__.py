@@ -17,10 +17,12 @@ if platform.is_linux():
     except UnsupportedLibc:
         from .polling import OrderedPollingObserver as Observer
 elif platform.is_bsd():
-    try:
-        from watchdog.observers.kqueue import KqueueObserver as Observer
-    except UnsupportedLibc:
-        from .polling import OrderedPollingObserver as Observer
+    from watchdog.observers import Observer
+# This is disabled pending an exhaustive test.
+#    try:
+#        from watchdog.observers.kqueue import KqueueObserver as Observer
+#    except UnsupportedLibc:
+#        from .polling import OrderedPollingObserver as Observer
 
 else:
     from watchdog.observers import Observer
