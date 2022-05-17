@@ -260,7 +260,7 @@ class Lock:
 
             try:
                 lockdata = fcntl.fcntl(fh.fileno(), fcntl.F_GETLK, flock)
-            except:
+            except OSError:
                 return None
 
             lockdata_list = struct.unpack(fmt, lockdata)
