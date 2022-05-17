@@ -71,7 +71,7 @@ def get_conf_path(
     """
     if platform.system() == "Darwin":
         conf_path = osp.join(get_home_dir(), "Library", "Application Support")
-    elif platform.system() == "Linux":
+    elif platform.system() == "Linux" or platform.system() == "OpenBSD":
         fallback = osp.join(get_home_dir(), ".config")
         conf_path = os.environ.get("XDG_CONFIG_HOME", fallback)
     else:
@@ -99,7 +99,7 @@ def get_data_path(
     """
     if platform.system() == "Darwin":
         state_path = osp.join(get_home_dir(), "Library", "Application Support")
-    elif platform.system() == "Linux":
+    elif platform.system() == "Linux" or platform.system() == "OpenBSD":
         fallback = osp.join(get_home_dir(), ".local", "share")
         state_path = os.environ.get("XDG_DATA_HOME", fallback)
     else:
@@ -124,7 +124,7 @@ def get_cache_path(
     """
     if platform.system() == "Darwin":
         cache_path = osp.join(home_dir, "Library", "Caches")
-    elif platform.system() == "Linux":
+    elif platform.system() == "Linux" or platform.system() == "OpenBSD":
         fallback = osp.join(home_dir, ".cache")
         cache_path = os.environ.get("XDG_CACHE_HOME", fallback)
     else:
@@ -150,7 +150,7 @@ def get_log_path(
 
     if platform.system() == "Darwin":
         log_path = osp.join(home_dir, "Library", "Logs")
-    elif platform.system() == "Linux":
+    elif platform.system() == "Linux" or platform.system() == "OpenBSD":
         log_path = get_cache_path(create=False)
     else:
         raise RuntimeError("Platform not supported")
@@ -171,7 +171,7 @@ def get_autostart_path(filename: Optional[str] = None, create: bool = True) -> s
     """
     if platform.system() == "Darwin":
         autostart_path = osp.join(home_dir, "Library", "LaunchAgents")
-    elif platform.system() == "Linux":
+    elif platform.system() == "Linux" or platform.system() == "OpenBSD":
         autostart_path = get_conf_path("autostart", create=create)
     else:
         raise RuntimeError("Platform not supported")
@@ -199,7 +199,7 @@ def get_runtime_path(
 
     if platform.system() == "Darwin":
         runtime_path = get_conf_path(create=False)
-    elif platform.system() == "Linux":
+    elif platform.system() == "Linux" or platform.system() == "OpenBSD":
         fallback = get_cache_path(create=False)
         runtime_path = os.environ.get("XDG_RUNTIME_DIR", fallback)
     else:
