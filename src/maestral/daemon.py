@@ -258,7 +258,11 @@ class Lock:
                 pid_index = 4
                 flock = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0)
 
-            lockdata = fcntl.fcntl(fh.fileno(), fcntl.F_GETLK, flock)
+            try:
+                lockdata = fcntl.fcntl(fh.fileno(), fcntl.F_GETLK, flock)
+            except:
+                return None
+
             lockdata_list = struct.unpack(fmt, lockdata)
             pid = lockdata_list[pid_index]
 
