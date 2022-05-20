@@ -1,4 +1,5 @@
 import logging
+import platform
 
 from click.testing import CliRunner
 
@@ -112,6 +113,11 @@ def test_filestatus(m: Maestral) -> None:
 
 
 def test_autostart(m: Maestral) -> None:
+    # OpenBSD doesn't have an autostart mechanism (beyond the .xsession file)
+    # so this test can be skipped on that platform
+    if platform.system() == 'OpenBSD':
+        return
+
     autostart = AutoStart(m.config_name)
     autostart.disable()
 
