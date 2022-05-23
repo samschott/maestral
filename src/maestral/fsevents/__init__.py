@@ -16,6 +16,14 @@ if platform.is_linux():
         from watchdog.observers.inotify import InotifyObserver as Observer
     except UnsupportedLibc:
         from .polling import OrderedPollingObserver as Observer
+elif platform.is_bsd():
+    from watchdog.observers import Observer
+# This is disabled pending an exhaustive test.
+#    try:
+#        from watchdog.observers.kqueue import KqueueObserver as Observer
+#    except UnsupportedLibc:
+#        from .polling import OrderedPollingObserver as Observer
+
 else:
     from watchdog.observers import Observer
 

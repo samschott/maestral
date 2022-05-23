@@ -40,7 +40,7 @@ from fasteners import InterProcessLock
 # local imports
 from .utils import exc_info_tuple
 from .utils.appdirs import get_runtime_path
-from .constants import IS_MACOS, ENV
+from .constants import IS_MACOS, IS_FREEBSD, ENV
 from . import core, models, exceptions
 
 
@@ -249,7 +249,7 @@ class Lock:
             except OSError:
                 return None
 
-            if IS_MACOS:
+            if IS_MACOS or IS_FREEBSD:
                 fmt = "qqihh"
                 pid_index = 2
                 flock = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0)
@@ -258,7 +258,11 @@ class Lock:
                 pid_index = 4
                 flock = struct.pack(fmt, fcntl.F_WRLCK, 0, 0, 0, 0, 0)
 
-            lockdata = fcntl.fcntl(fh.fileno(), fcntl.F_GETLK, flock)
+            try:
+                lockdata = fcntl.fcntl(fh.fileno(), fcntl.F_GETLK, flock)
+            except OSError:
+                return None
+
             lockdata_list = struct.unpack(fmt, lockdata)
             pid = lockdata_list[pid_index]
 
