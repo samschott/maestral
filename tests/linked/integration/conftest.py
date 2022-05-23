@@ -4,6 +4,7 @@ import time
 
 import pytest
 
+import maestral.manager
 from maestral.main import Maestral
 from maestral.config import remove_configuration
 from maestral.utils.path import generate_cc_name, delete
@@ -20,13 +21,37 @@ fsevents_logger = logging.getLogger("fsevents")
 fsevents_logger.setLevel(logging.DEBUG)
 
 
+def pytest_addoption(parser):
+    parser.addoption("--fs-observer", action="store", default="auto", dest="OBSERVER")
+
+
 @pytest.fixture
-def m():
+def m(pytestconfig):
     """
     Returns a Maestral instance linked to a test account and syncing. Acquires a lock
     on the account for the duration of the test and removes all items from the server
     after completing the test.
     """
+
+    # Patch file event observer backend if requested.
+    if pytestconfig.option.OBSERVER == "inotify":
+        from watchdog.observers.inotify import InotifyObserver
+
+        maestral.manager.Observer = InotifyObserver
+    elif pytestconfig.option.OBSERVER == "fsevents":
+        from watchdog.observers.fsevents import FSEventsObserver
+
+        maestral.manager.Observer = FSEventsObserver
+    elif pytestconfig.option.OBSERVER == "kqueue":
+        from watchdog.observers.kqueue import KqueueObserver
+
+        maestral.manager.Observer = KqueueObserver
+    elif pytestconfig.option.OBSERVER == "polling":
+        from maestral.fsevents.polling import OrderedPollingObserver
+
+        maestral.manager.Observer = OrderedPollingObserver
+
+    # Initialize Maestral.
     config_name = "test-config"
 
     m = Maestral(config_name)
