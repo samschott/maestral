@@ -15,10 +15,13 @@ from threading import Event, RLock, Thread
 from tempfile import TemporaryDirectory
 from typing import Iterator, cast, TypeVar, Callable, Any, Generic
 
+# external imports
+from watchdog.observers import Observer
+
 # local imports
 from . import __url__
 from . import notify
-from .client import DropboxClient, API_HOST
+from .client import API_HOST
 from .core import TeamRootInfo, UserRootInfo
 from .config import MaestralConfig, MaestralState, PersistentMutableSet
 from .config.user import UserConfig
@@ -41,7 +44,6 @@ from .exceptions import (
     DropboxServerError,
 )
 from .sync import SyncEngine
-from .fsevents import Observer
 from .logging import scoped_logger
 from .utils import removeprefix
 from .utils.integration import check_connection, get_inotify_limits
@@ -119,13 +121,11 @@ class SyncManager:
     download_queue: PersistentQueue[str]
     """Queue of remote paths which have been newly included in syncing."""
 
-    def __init__(self, client: DropboxClient):
-
-        self.client = client
-        self.config_name = self.client.config_name
-        self._conf = MaestralConfig(self.config_name)
-        self._state = MaestralState(self.config_name)
-        self._logger = scoped_logger(__name__, self.config_name)
+    def __init__(self, sync: SyncEngine):
+        self.sync = sync
+        self._conf = MaestralConfig(self.sync.config_name)
+        self._state = MaestralState(self.sync.config_name)
+        self._logger = scoped_logger(__name__, self.sync.config_name)
 
         self._lock = RLock()
 
@@ -134,8 +134,6 @@ class SyncManager:
         self.autostart = Event()
 
         self.download_queue = PersistentQueue(self._state, "sync", "pending_downloads")
-
-        self.sync = SyncEngine(self.client)
 
         self._startup_time = -1.0
 
@@ -449,8 +447,8 @@ class SyncManager:
 
         self._logger.debug("Checking path root...")
 
-        account_info = self.client.get_account_info()
-        return self.client.namespace_id != account_info.root_info.root_namespace_id
+        account_info = self.sync.client.get_account_info()
+        return self.sync.client.namespace_id != account_info.root_info.root_namespace_id
 
     def _update_path_root(self) -> None:
         """
@@ -468,8 +466,8 @@ class SyncManager:
                 "Inconsistent namespace information found.",
             )
 
-        root_info = self.client.account_info.root_info
-        team = self.client.account_info.team
+        root_info = self.sync.client.account_info.root_info
+        team = self.sync.client.account_info.team
 
         team_name = team.name if team else "team"
 
@@ -615,7 +613,7 @@ class SyncManager:
                 self.sync.excluded_items = new_excluded
 
             # Update path root of client.
-            self.client.update_path_root(root_info)
+            self.sync.client.update_path_root(root_info)
 
             #  Trigger reindex.
             self.sync.reset_sync_state()
@@ -786,7 +784,7 @@ class SyncManager:
             # Reload mignore rules.
             self.sync.load_mignore_file()
 
-            self.client.get_space_usage()
+            self.sync.client.get_space_usage()
 
             # Update path root and migrate local folders. This is required when a user
             # joins or leaves a team and their root namespace changes.
