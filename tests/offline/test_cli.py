@@ -1,5 +1,6 @@
 import logging
 import platform
+import pytest
 
 from click.testing import CliRunner
 
@@ -112,11 +113,8 @@ def test_filestatus(m: Maestral) -> None:
     assert "'/invalid-dir' does not exist" in result.output
 
 
+@pytest.mark.skipif(platform.system() == 'OpenBSD', reason="OpenBSD doesn't have an autostart mechanism (beyond the .xsession file)")
 def test_autostart(m: Maestral) -> None:
-    # OpenBSD doesn't have an autostart mechanism (beyond the .xsession file)
-    # so this test can be skipped on that platform
-    if platform.system() == 'OpenBSD':
-        return
 
     autostart = AutoStart(m.config_name)
     autostart.disable()
