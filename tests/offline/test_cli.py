@@ -113,7 +113,10 @@ def test_filestatus(m: Maestral) -> None:
     assert "'/invalid-dir' does not exist" in result.output
 
 
-@pytest.mark.skipif(platform.system() == 'OpenBSD', reason="OpenBSD doesn't have an autostart mechanism (beyond the .xsession file)")
+@pytest.mark.skipif(
+    platform.system() == "OpenBSD",
+    reason="OpenBSD doesn't have an autostart mechanism (beyond the .xsession file)",
+)
 def test_autostart(m: Maestral) -> None:
 
     autostart = AutoStart(m.config_name)
