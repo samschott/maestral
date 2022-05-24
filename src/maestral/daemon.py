@@ -544,7 +544,10 @@ def start_maestral_daemon_process(
     script = f'import maestral.daemon; maestral.daemon.start_maestral_daemon("{cc}")'
 
     env = os.environ.copy()
-    env.update(ENV)
+    # Don't copy the environment on OpenBSD because it makes the daemon want
+    # everything in ASCII.
+    if not IS_OPENBSD:
+        env.update(ENV)
 
     pid = os.spawnve(os.P_NOWAIT, sys.executable, [sys.executable, "-c", script], env)
 
