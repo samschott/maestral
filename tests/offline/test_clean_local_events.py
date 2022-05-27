@@ -11,12 +11,13 @@ from watchdog.events import (
 
 from maestral.sync import SyncEngine
 from maestral.client import DropboxClient
+from maestral.keyring import CredentialStorage
 from maestral.config import remove_configuration
 
 
 @pytest.fixture
 def sync():
-    sync = SyncEngine(DropboxClient("test-config"))
+    sync = SyncEngine(DropboxClient("test-config", CredentialStorage("test-config")))
     sync.dropbox_path = "/"
 
     yield sync

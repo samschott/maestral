@@ -62,7 +62,7 @@ def m(pytestconfig):
     refresh_token = os.environ.get("DROPBOX_REFRESH_TOKEN")
     token = access_token or refresh_token
     token_type = TokenType.Legacy if access_token else TokenType.Offline
-    m.client.cred_storage.save_creds("1234", token, token_type)
+    m.cred_storage.save_creds("1234", token, token_type)
     m.client.update_path_root()
 
     # set local Dropbox directory
@@ -116,7 +116,7 @@ def m(pytestconfig):
     lock.release()
 
     # remove creds from system keyring
-    m.client.cred_storage.delete_creds()
+    m.cred_storage.delete_creds()
 
 
 # helper functions

@@ -133,13 +133,14 @@ class DropboxClient:
     def __init__(
         self,
         config_name: str,
+        cred_storage: CredentialStorage,
         timeout: float = 100,
         session: requests.Session | None = None,
     ) -> None:
 
         self.config_name = config_name
         self._auth_flow: DropboxOAuth2FlowNoRedirect | None = None
-        self.cred_storage = CredentialStorage(config_name)
+        self._cred_storage = cred_storage
 
         self._state = MaestralState(config_name)
         self._logger = scoped_logger(__name__, self.config_name)
@@ -184,7 +185,7 @@ class DropboxClient:
 
         :raises KeyringAccessError: if keyring access fails.
         """
-        return self.cred_storage.token is not None
+        return self._cred_storage.token is not None
 
     def get_auth_url(self) -> str:
         """
@@ -204,7 +205,7 @@ class DropboxClient:
     def link(self, token: str) -> int:
         """
         Links Maestral with a Dropbox account using the given access token. The token
-        will be stored for future usage as documented in the :mod:`oauth` module.
+        will be stored for future usage in the provided credential store.
 
         :param token: OAuth token for Dropbox access.
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
@@ -227,7 +228,7 @@ class DropboxClient:
         except CONNECTION_ERRORS:
             return 2
 
-        self.cred_storage.save_creds(
+        self._cred_storage.save_creds(
             res.account_id, res.refresh_token, TokenType.Offline
         )
         self._auth_flow = None
@@ -236,7 +237,8 @@ class DropboxClient:
 
     def unlink(self) -> None:
         """
-        Unlinks the Dropbox account.
+        Unlinks the Dropbox account. The password will be deleted from the provided
+        credential storage.
 
         :raises KeyringAccessError: if keyring access fails.
         :raises DropboxAuthError: if we cannot authenticate with Dropbox.
@@ -248,7 +250,7 @@ class DropboxClient:
 
         with convert_api_errors():
             self.dbx_base.auth_token_revoke()
-            self.cred_storage.delete_creds()
+            self._cred_storage.delete_creds()
 
     def _init_sdk(
         self, token: str | None = None, token_type: TokenType | None = None
@@ -268,13 +270,13 @@ class DropboxClient:
             if self._dbx:
                 return
 
-            if not (token or self.cred_storage.token):
+            if not (token or self._cred_storage.token):
                 raise NotLinkedError(
                     "No auth token set", "Please link a Dropbox account first."
                 )
 
-            token = token or self.cred_storage.token
-            token_type = token_type or self.cred_storage.token_type
+            token = token or self._cred_storage.token
+            token_type = token_type or self._cred_storage.token_type
 
             if token_type is TokenType.Offline:
 
@@ -349,6 +351,7 @@ class DropboxClient:
     def clone(
         self,
         config_name: str | None = None,
+        cred_storage: CredentialStorage | None = None,
         timeout: float | None = None,
         session: requests.Session | None = None,
     ) -> DropboxClient:
@@ -365,8 +368,9 @@ class DropboxClient:
         config_name = config_name or self.config_name
         timeout = timeout or self._timeout
         session = session or self._session
+        cred_storage = cred_storage or self._cred_storage
 
-        client = self.__class__(config_name, timeout, session)
+        client = self.__class__(config_name, cred_storage, timeout, session)
 
         if self._dbx:
             client._dbx = self._dbx.clone(session=session)

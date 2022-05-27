@@ -10,6 +10,7 @@ from maestral.fsevents import Observer
 from maestral.client import DropboxClient
 from maestral.config import list_configs, remove_configuration
 from maestral.daemon import stop_maestral_daemon_process, Stop
+from maestral.keyring import CredentialStorage
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import delete
 
@@ -28,7 +29,7 @@ def sync():
     local_dir = osp.join(get_home_dir(), "dummy_dir")
     os.mkdir(local_dir)
 
-    sync = SyncEngine(DropboxClient("test-config"))
+    sync = SyncEngine(DropboxClient("test-config", CredentialStorage("test-config")))
     sync.fs_events.enable()
     sync.dropbox_path = local_dir
 
@@ -47,7 +48,7 @@ def sync():
 
 @pytest.fixture
 def client():
-    yield DropboxClient("test-config")
+    yield DropboxClient("test-config", CredentialStorage("test-config"))
     remove_configuration("test-config")
 
 
