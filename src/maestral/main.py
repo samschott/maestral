@@ -1527,8 +1527,7 @@ class Maestral:
 
     def _schedule_task(self, coro: Awaitable) -> None:
         """Schedules a task in our asyncio loop."""
-
-        task = self._loop.create_task(coro)
+        task = asyncio.ensure_future(coro, loop=self._loop)
         self._tasks.add(task)
 
     async def _periodic_refresh_profile(self) -> None:
