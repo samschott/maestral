@@ -7,6 +7,7 @@ from __future__ import annotations
 
 # system imports
 import os
+import re
 import time
 import errno
 import contextlib
@@ -823,13 +824,18 @@ def get_bad_path_error_msg(
 
 
 def retry_on_error(
-    error_cls: type[Exception], max_retries: int, backoff: int = 0
+    error_cls: type[Exception],
+    max_retries: int,
+    backoff: int = 0,
+    msg_regex: str | None = None,
 ) -> Callable[[FT], FT]:
     """
     A decorator to retry a function call if a specified exception occurs.
 
     :param error_cls: Error type to catch.
     :param max_retries: Maximum number of retries.
+    :param msg_regex: If provided, retry errors only if the regex matches the error
+        message. Matches are found with :meth:`re.search()`.
     :param backoff: Time in seconds to sleep before retry.
     """
 
@@ -842,6 +848,14 @@ def retry_on_error(
                 try:
                     return func(*args, **kwargs)
                 except error_cls as exc:
+
+                    if msg_regex is not None:
+                        # Raise if there is no error message to match.
+                        if len(exc.args[0]) == 0 or not isinstance(exc.args[0], str):
+                            raise exc
+                        # Raise if regex does not match message.
+                        if not re.search(msg_regex, exc.args[0]):
+                            raise exc
 
                     if tries < max_retries:
                         tries += 1
