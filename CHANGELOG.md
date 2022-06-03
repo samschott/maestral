@@ -7,6 +7,8 @@
 
 #### Fixed:
 
+* Work around transitory server-side errors when refreshing access tokens by retrying
+  the refresh up to three times.
 * Fixed a segfault on startup for a small number of macOS users.
 * Fixed an issue where files which contain decomposed unicode characters could be
   deleted after renaming them locally on some versions of macOS.
