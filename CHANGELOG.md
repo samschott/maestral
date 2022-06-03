@@ -1,4 +1,4 @@
-## v1.6.3.dev
+## v1.6.3
 
 #### Changed:
 
@@ -12,6 +12,7 @@
 * Fixed a segfault on startup for a small number of macOS users.
 * Fixed an issue where files which contain decomposed unicode characters could be
   deleted after renaming them locally on some versions of macOS.
+* Fixes an issue where the `maestral gui` command would fail for macOS app bundles.
 
 ## v1.6.2
 
