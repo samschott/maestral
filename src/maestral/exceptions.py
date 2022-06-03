@@ -40,6 +40,7 @@ class MaestralApiError(Exception):
         local_path: str | None = None,
         local_path_from: str | None = None,
     ) -> None:
+        super().__init__(f"{title}. {message}")
         self.title = title
         self.message = message
         self.dbx_path = dbx_path
@@ -48,7 +49,7 @@ class MaestralApiError(Exception):
         self.local_path_from = local_path_from
 
     def __str__(self) -> str:
-        return ". ".join([self.title, self.message])
+        return f"{self.title}. {self.message}"
 
 
 # ==== regular sync errors =============================================================
