@@ -7,6 +7,8 @@
 
 #### Fixed:
 
+* Work around transitory server-side errors when refreshing access tokens by retrying
+  the refresh up to three times.
 * Fixed a segfault on startup for a small number of macOS users.
 
 ## v1.6.2
