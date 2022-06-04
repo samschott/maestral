@@ -6,6 +6,116 @@
     <description>Prereleases of Maestral</description>
     <language>en</language>
         <item>
+        <title>v1.6.3 available</title>
+        <pubDate>2022-06-04T00:40:48Z</pubDate>
+        <sparkle:version>63</sparkle:version>
+        <sparkle:shortVersionString>1.6.3</sparkle:shortVersionString>
+        <sparkle:minimumSystemVersion>10.14</sparkle:minimumSystemVersion>
+        <description><![CDATA[
+            <!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>v1.6.3</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="" />
+  <style>
+        :root {
+            font-size: 11px;
+        }
+        body {
+            padding: 0 0.5rem 0 0.5rem;
+            font-family: -apple-system;
+            line-height: 1.2rem;
+        }
+        h1 {
+            font-size: 1.3rem;
+        }
+        h2,h3,h4 {
+            font-size: 1.2rem;
+            margin-block-end: 1rem;
+        }
+        ul {
+            padding-left: 2rem;
+            margin-top: 0rem;
+            margin-bottom: 1.3rem;
+        }
+        li, p {
+            margin-left: 0;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+        .annotation {
+            font-size: 1.1rem;
+        }
+        @media (prefers-color-scheme: light) {
+            h1 {
+                color: #272727;
+            }
+            a {
+                color: #0948be;
+            }
+        }
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1e1e1e;
+                color: #D9D9D9; /* For headers */
+            }
+            li, p {
+                color:#FFFFFF;
+            }
+            a {
+                color: #3586FF;
+            }
+        }
+    </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">v1.6.3</h1>
+</header>
+<h4 id="changed">Changed:</h4>
+<ul>
+<li>The macOS app bundle now uses Python 3.10 instead of 3.9. This comes
+with some performance improvements.</li>
+</ul>
+<h4 id="fixed">Fixed:</h4>
+<ul>
+<li>Work around transitory server-side errors when refreshing access
+tokens by retrying the refresh up to five times.</li>
+<li>Fixed a segfault on startup for a small number of macOS users.</li>
+<li>Fixed an issue where files which contain decomposed unicode
+characters could be deleted after renaming them locally on some versions
+of macOS.</li>
+<li>Fixes an issue where the <code>maestral gui</code> command would
+fail for macOS app bundles.</li>
+</ul>
+</body>
+</html>
+
+        ]]>
+        </description>
+        <enclosure
+            url="https://github.com/samschott/maestral/releases/download/v1.6.3/Maestral-1.6.3.dmg"
+            sparkle:edSignature="2jLCZl+bIP6+jJutLegKHB9t5/nNDj1nILs4t9g1dbWMxQc5y/UDvLb07obQb38XzLE4S7NxylwGJa19FUboAw==" length="18119763"
+            type="application/octet-stream"
+        />
+    </item>
+    <item>
         <title>v1.6.2 available</title>
         <pubDate>2022-04-20T15:52:36Z</pubDate>
         <sparkle:version>59</sparkle:version>
@@ -488,119 +598,6 @@ instead of the working directory of the sync daemon.</li>
         <enclosure
             url="https://github.com/samschott/maestral/releases/download/v1.5.3/Maestral-1.5.3.dmg"
             sparkle:edSignature="1PKf8TTy1V6H1KnUKqmua2dixtdPhytOJJ53AhisRiqRbpsjImq3NF9QGLESXgmM8wZpUfOGYg9MIodS3LxkAA==" length="17691136"
-            type="application/octet-stream"
-        />
-    </item>
-    <item>
-        <title>v1.5.2 available</title>
-        <pubDate>2022-01-13T14:44:56Z</pubDate>
-        <sparkle:version>46</sparkle:version>
-        <sparkle:shortVersionString>1.5.2</sparkle:shortVersionString>
-        <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
-        <description><![CDATA[
-            <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
-<head>
-  <meta charset="utf-8" />
-  <meta name="generator" content="pandoc" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>v1.5.2</title>
-  <style>
-    code{white-space: pre-wrap;}
-    span.smallcaps{font-variant: small-caps;}
-    span.underline{text-decoration: underline;}
-    div.column{display: inline-block; vertical-align: top; width: 50%;}
-    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-    ul.task-list{list-style: none;}
-    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
-  </style>
-  <link rel="stylesheet" href="" />
-  <style>
-        :root {
-            font-size: 11px;
-        }
-        body {
-            padding: 0 0.5rem 0 0.5rem;
-            font-family: -apple-system;
-            line-height: 1.2rem;
-        }
-        h1 {
-            font-size: 1.3rem;
-        }
-        h2,h3,h4 {
-            font-size: 1.2rem;
-            margin-block-end: 1rem;
-        }
-        ul {
-            padding-left: 2rem;
-            margin-top: 0rem;
-            margin-bottom: 1.3rem;
-        }
-        li, p {
-            margin-left: 0;
-            margin-top: 0;
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
-        }
-        .annotation {
-            font-size: 1.1rem;
-        }
-        @media (prefers-color-scheme: light) {
-            h1 {
-                color: #272727;
-            }
-            a {
-                color: #0948be;
-            }
-        }
-        @media (prefers-color-scheme: dark) {
-            body {
-                background-color: #1e1e1e;
-                color: #D9D9D9; /* For headers */
-            }
-            li, p {
-                color:#FFFFFF;
-            }
-            a {
-                color: #3586FF;
-            }
-        }
-    </style>
-  <!--[if lt IE 9]>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
-  <![endif]-->
-</head>
-<body>
-<header id="title-block-header">
-<h1 class="title">v1.5.2</h1>
-</header>
-<h4 id="changed">Changed:</h4>
-<ul>
-<li>Improved dialog flow on Linux when the local Dropbox folder is
-missing.</li>
-<li>Improved error handling when determining the change time (ctime) of
-a local file fails.</li>
-</ul>
-<h4 id="fixed">Fixed:</h4>
-<ul>
-<li>Fixes an issue where the output of CLI commands would get truncated
-to 80 characters when piped to another command and not attached to an
-interactive stream such as a terminal.</li>
-<li>Fixes Python 3.10 compatibility of Linux (Qt) GUI, thanks to <span
-class="citation" data-cites="raffaem">@raffaem</span>.</li>
-<li>Fixes an issue where the CLI fails to install on Apple Silicon
-Macs.</li>
-<li>Fixes a startup loop of the Linux GUI when the local Dropbox folder
-is missing.</li>
-</ul>
-</body>
-</html>
-
-        ]]>
-        </description>
-        <enclosure
-            url="https://github.com/samschott/maestral/releases/download/v1.5.2/Maestral-1.5.2.dmg"
-            sparkle:edSignature="5Dp/Q87hsE8TpikHN6DO4DeA7QSEHJlI0s5bgJstYn4+zZnG8JknMpnD4R1c68pUfEyyxuZ/kIqL0DcfeBImDQ==" length="17944034"
             type="application/octet-stream"
         />
     </item>
