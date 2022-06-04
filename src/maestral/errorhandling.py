@@ -7,12 +7,9 @@ from __future__ import annotations
 
 # system imports
 import os
-import re
-import time
 import errno
 import contextlib
-import functools
-from typing import Iterator, Union, TypeVar, Callable, Any, cast
+from typing import Iterator, Union, TypeVar, Callable, Any
 
 # external imports
 import requests
@@ -59,7 +56,6 @@ __all__ = [
     "dropbox_to_maestral_error",
     "os_to_maestral_error",
     "convert_api_errors",
-    "retry_on_error",
 ]
 
 CONNECTION_ERRORS = (
@@ -818,52 +814,3 @@ def get_bad_path_error_msg(
         text = "An unexpected error occurred. Please try again later."
 
     return text, err_cls
-
-
-# ==== decorator to retry on errors ====================================================
-
-
-def retry_on_error(
-    error_cls: type[Exception],
-    max_retries: int,
-    backoff: int = 0,
-    msg_regex: str | None = None,
-) -> Callable[[FT], FT]:
-    """
-    A decorator to retry a function call if a specified exception occurs.
-
-    :param error_cls: Error type to catch.
-    :param max_retries: Maximum number of retries.
-    :param msg_regex: If provided, retry errors only if the regex matches the error
-        message. Matches are found with :meth:`re.search()`.
-    :param backoff: Time in seconds to sleep before retry.
-    """
-
-    def decorator(func: FT) -> FT:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            tries = 0
-
-            while True:
-                try:
-                    return func(*args, **kwargs)
-                except error_cls as exc:
-
-                    if msg_regex is not None:
-                        # Raise if there is no error message to match.
-                        if len(exc.args[0]) == 0 or not isinstance(exc.args[0], str):
-                            raise exc
-                        # Raise if regex does not match message.
-                        if not re.search(msg_regex, exc.args[0]):
-                            raise exc
-
-                    if tries < max_retries:
-                        tries += 1
-                        if backoff > 0:
-                            time.sleep(backoff)
-                    else:
-                        raise exc
-
-        return cast(FT, wrapper)
-
-    return decorator
