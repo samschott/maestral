@@ -149,6 +149,7 @@ class SyncManager:
 
         self.local_observer_thread: Observer | None = None
 
+    @staticmethod
     def _with_lock(fn: FT) -> FT:  # type: ignore
         @wraps(fn)
         def wrapper(self, *args, **kwargs):
