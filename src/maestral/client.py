@@ -1503,18 +1503,11 @@ class DropboxClient:
         :param results: List of results to flatten.
         :returns: Flattened result.
         """
-
-        all_entries = []
-
-        for res in results:
-            all_entries += res.entries
-
+        all_entries = [entry for res in results for entry in res.entries]
         result_cls = type(results[0])
-        results_flattened = result_cls(
+        return result_cls(
             entries=all_entries, has_more=False, cursor=results[-1].cursor
         )
-
-        return results_flattened
 
 
 # ==== type conversions ================================================================
