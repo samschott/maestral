@@ -8,9 +8,9 @@
         <item>
         <title>v1.6.3 available</title>
         <pubDate>2022-06-04T00:40:48Z</pubDate>
-        <sparkle:version>63</sparkle:version>
+        <sparkle:version>64</sparkle:version>
         <sparkle:shortVersionString>1.6.3</sparkle:shortVersionString>
-        <sparkle:minimumSystemVersion>10.14</sparkle:minimumSystemVersion>
+        <sparkle:minimumSystemVersion>10.12</sparkle:minimumSystemVersion>
         <description><![CDATA[
             <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
@@ -110,8 +110,8 @@ fail for macOS app bundles.</li>
         ]]>
         </description>
         <enclosure
-            url="https://github.com/samschott/maestral/releases/download/v1.6.3/Maestral-1.6.3.dmg"
-            sparkle:edSignature="2jLCZl+bIP6+jJutLegKHB9t5/nNDj1nILs4t9g1dbWMxQc5y/UDvLb07obQb38XzLE4S7NxylwGJa19FUboAw==" length="18119763"
+            url="https://github.com/samschott/maestral/releases/download/v1.6.3/Maestral-1.6.3-macOS_10_12_build.dmg"
+            sparkle:edSignature="D2KLmyD/+Zf9axqm+Lfdq76oYYE+VdGzos1m+Cfwv3TS1KIYVnwTKrFFc6NiWDeuSGr8xih/J+DVW4u7WXDMCQ==" length="18102467"
             type="application/octet-stream"
         />
     </item>
