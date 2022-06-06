@@ -27,7 +27,7 @@ The basic requirements to run the daemon are:
 
 - Mac OS X High Sierra or higher
 - Linux 2.6 or higher
-- For the Python package: Python 3.6 or higher
+- For the Python package: Python 3.7 or higher
 
 ### GUI
 
