@@ -4,6 +4,7 @@ A script that generates an appcast from GitHub releases.
 """
 
 import os
+import shlex
 import shutil
 import plistlib
 import subprocess
@@ -109,13 +110,13 @@ def generate():
                 continue
 
             # Get edSignature
-            cmd = f"./{SPARKLE_SIGN_PATH} {download_path}"
+            cmd = f"./{SPARKLE_SIGN_PATH} {shlex.quote(download_path)}"
 
             if SPARKLE_PRIVATE_KEY:
                 cmd += f" -s {SPARKLE_PRIVATE_KEY}"
 
             signature_and_length = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).decode()
-            signature_and_length = signature_and_length[0:-1]
+            signature_and_length = signature_and_length.strip("\n")
 
             # Assemble collected data into appcast.xml-ready item-string
             item_string = f"""\
