@@ -111,7 +111,7 @@ fail for macOS app bundles.</li>
         </description>
         <enclosure
             url="https://github.com/samschott/maestral/releases/download/v1.6.3/Maestral-1.6.3-macOS_10_12_build.dmg"
-            sparkle:edSignature="D2KLmyD/+Zf9axqm+Lfdq76oYYE+VdGzos1m+Cfwv3TS1KIYVnwTKrFFc6NiWDeuSGr8xih/J+DVW4u7WXDMCQ==" length="18102467"
+            sparkle:edSignature="r7xQwXd8SgPwA1UgTZSdbFqutelb+IV9WKImAFs/8HtJWkVu6BgRvHoJOJzCdXQykFnkxyVqfP8hCxupIvQqDg==" length="18118285"
             type="application/octet-stream"
         />
     </item>
