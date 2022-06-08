@@ -18,11 +18,7 @@ APP_NAME = "Maestral"
 BUNDLE_ID = "com.samschott.maestral"
 APP_ICON_PATH = path("maestral.resources", "maestral.png").__enter__()
 
-if platform.system == "OpenBSD":
-    #ENV = {"PYTHONOPTIMIZE": "2", "LC_CTYPE": "C.UTF-8"}
-    ENV = {}
-else:
-    ENV = {"PYTHONOPTIMIZE": "2", "LC_CTYPE": "UTF-8"}
+ENV = {"PYTHONOPTIMIZE": "2", "LC_CTYPE": "C.UTF-8"}
 
 # sync
 OLD_REV_FILE = ".maestral"

@@ -389,7 +389,6 @@ def start_maestral_daemon(
     :param log_to_stderr: If ``True``, write logs to stderr.
     :raises RuntimeError: if a daemon for the given ``config_name`` is already running.
     """
-
     import asyncio
     from .main import Maestral
     from .logging import scoped_logger, setup_logging
@@ -542,12 +541,10 @@ def start_maestral_daemon_process(
     cc = quote(config_name).strip("'")
 
     script = f'import maestral.daemon; maestral.daemon.start_maestral_daemon("{cc}")'
+    
 
     env = os.environ.copy()
-    # Don't copy the environment on OpenBSD because it makes the daemon want
-    # everything in ASCII.
-    if not IS_OPENBSD:
-        env.update(ENV)
+    env.update(ENV)
 
     pid = os.spawnve(os.P_NOWAIT, sys.executable, [sys.executable, "-c", script], env)
 
