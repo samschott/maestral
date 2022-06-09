@@ -8,6 +8,7 @@
 
 #### Fixed:
 
+* Fixes an error which would prevent running Maestral on Python 3.7.
 * Fixes a regression where the CLI command `maestral activity` would fail when run from
   a macOS app bundle.
 

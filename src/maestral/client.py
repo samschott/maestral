@@ -159,8 +159,7 @@ class DropboxClient:
         self._is_team_space = self._state.get("account", "path_root_type") == "team"
         self._lock = threading.Lock()
 
-    @staticmethod
-    def _retry_on_error(
+    def _retry_on_error(  # type: ignore
         error_cls: type[Exception],
         max_retries: int,
         backoff: int = 0,
