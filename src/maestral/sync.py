@@ -358,6 +358,12 @@ class FSEventHandler(FileSystemEventHandler):
         if not event.is_directory and event.event_type not in self.file_event_types:
             return
 
+        # Ignore moves onto itself, they may be erroneuosly emitted on older versions of
+        # macOS when changing the unicode normalisation of a path with os.rename().
+        # See https://github.com/samschott/maestral/issues/671.
+        if event.event_type == EVENT_TYPE_MOVED and event.src_path == event.dest_path:
+            return
+
         # Check if event should be ignored.
         if self._is_ignored(event):
             return

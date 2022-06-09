@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import platform
 import sys
 import os
 import os.path as osp
 import time
 import shutil
 import timeit
-from typing import Union, Mapping
+from typing import Union, Mapping, TypeVar, cast
 
 import pytest
 from watchdog.events import FileCreatedEvent, FileDeletedEvent, DirDeletedEvent
@@ -21,6 +22,7 @@ from maestral.utils.path import (
     move,
     is_fs_case_sensitive,
     normalize,
+    normalize_unicode,
     fs_max_lengths_for_path,
     to_existing_unnormalized_path,
     walk,
@@ -41,7 +43,7 @@ from .conftest import wait_for_idle
 
 # mypy cannot yet check recursive type definitions...
 DirTreeType = Mapping[str, Union[str, Mapping[str, Union[str, Mapping[str, str]]]]]
-
+T = TypeVar("T", dict, DirTreeType)
 
 if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.environ):
     pytest.skip("Requires auth token", allow_module_level=True)
@@ -58,12 +60,21 @@ def test_setup(m: Maestral) -> None:
     assert_no_errors(m)
 
 
-def test_file_lifecycle(m: Maestral) -> None:
+@pytest.mark.parametrize(
+    "name",
+    [
+        "test_file.txt",
+        # Test composed unicode character (NFC) "ó" in file name. Decomposed characters
+        # are tested separately in test_unicode_decomposed because they are renamed on
+        # upload.
+        b"f\xc3\xb3lder".decode(),
+    ],
+)
+def test_file_lifecycle(m: Maestral, name: str) -> None:
     """Tests creating, modifying and deleting a file."""
 
     # Test local file creation.
-
-    tree: DirTreeType = {"file.txt": "content"}
+    tree: DirTreeType = {name: "content"}
     create_local_tree(m.dropbox_path, tree)
 
     wait_for_idle(m)
@@ -72,7 +83,7 @@ def test_file_lifecycle(m: Maestral) -> None:
     assert_synced(m, tree)
 
     # Test local file changes.
-    tree = {"file.txt": "content changed"}
+    tree = {name: "content changed"}
     create_local_tree(m.dropbox_path, tree)
 
     wait_for_idle(m)
@@ -81,7 +92,7 @@ def test_file_lifecycle(m: Maestral) -> None:
     assert_synced(m, tree)
 
     # Test remote file changes.
-    tree = {"file.txt": "content 1"}
+    tree = {name: "content 1"}
     create_remote_tree(m, tree)
 
     wait_for_idle(m)
@@ -90,8 +101,7 @@ def test_file_lifecycle(m: Maestral) -> None:
     assert_synced(m, tree)
 
     # Test remote file deletion.
-
-    m.client.remove("/file.txt")
+    m.client.remove(f"/{name}")
 
     wait_for_idle(m)
 
@@ -422,24 +432,6 @@ def test_unix_permissions(m: Maestral) -> None:
 
     assert_synced(m)
     assert_no_errors(m)
-
-
-@pytest.mark.parametrize(
-    "name",
-    [
-        "tést_file",  # U+00E9
-        "täst_file",  # U+00E4
-    ],
-)
-def test_unicode_allowed(m, name) -> None:
-    """Tests syncing files with exotic unicode characters."""
-
-    create_local_tree(m.dropbox_path, {name: {}})
-
-    wait_for_idle(m)
-
-    assert_no_errors(m)
-    assert_synced(m, {name: {}})
 
 
 # ==== test conflict resolution ========================================================
@@ -798,26 +790,68 @@ def test_case_conflict(m: Maestral) -> None:
     assert_synced(m, new_tree)
 
 
+def test_unicode_decomposed(m: Maestral) -> None:
+    """
+    Tests the lifecycle of a file with decomposed unicode characters.
+    """
+    file_name = b"fo\xcc\x81lder".decode()  # decomposed ó (NFD)
+    local_path = f"{m.dropbox_path}/{file_name}"
+
+    os.mkdir(local_path)
+    wait_for_idle(m)
+
+    if platform.system() == "Darwin":
+        # Local file stays as is, macOS treats unicode normalisations transparently.
+        assert osp.exists(local_path)
+        assert osp.samefile(local_path, normalize_unicode(local_path))
+    else:
+        # Rename to NFC version on Dropbox servers is mirrored locally.
+        assert not osp.exists(local_path)
+        assert osp.exists(normalize_unicode(local_path))
+
+    assert_no_errors(m)
+    assert_synced(m)
+
+    # Test rename.
+    target_path = local_path + "_target"
+    os.rename(normalize_unicode(local_path), target_path)
+    wait_for_idle(m)
+
+    if platform.system() == "Darwin":
+        # Local file stays as is, macOS treats unicode normalisations transparently.
+        assert osp.exists(target_path)
+        assert osp.samefile(target_path, normalize_unicode(target_path))
+    else:
+        # Rename to NFC version on Dropbox servers is mirrored locally.
+        assert not osp.exists(target_path)
+        assert osp.exists(normalize_unicode(target_path))
+
+    assert_no_errors(m)
+    assert_synced(m)
+
+
 def test_unicode_conflict(m: Maestral) -> None:
     """
     Tests the creation of a unicode conflict when a local item is created with a path
     that only differs in utf-8 form from an existing path.
     """
+    name_decomposed = b"fo\xcc\x81lder"  # decomposed "ó"
+    name_composed = b"f\xc3\xb3lder"  # composed "ó"
 
-    os.mkdir(m.dropbox_path.encode() + b"/fo\xcc\x81lder")  # decomposed "ó"
+    os.mkdir(m.dropbox_path.encode() + b"/" + name_decomposed)
     wait_for_idle(m)
 
     try:
-        os.mkdir(m.dropbox_path.encode() + b"/f\xc3\xb3lder")  # composed "ó"
+        os.mkdir(m.dropbox_path.encode() + b"/" + name_composed)
     except FileExistsError:
-        # file system / OS does not allow for unicode conflicts
+        # File system / OS does not allow for unicode conflicts, e.g., on macOS.
         return
 
     wait_for_idle(m)
 
     new_tree: DirTreeType = {
-        "fólder": {},
-        "fólder (unicode conflict)": {},
+        name_decomposed.decode(): {},
+        f"{name_composed.decode()} (unicode conflict)": {},
     }
 
     assert_no_errors(m)
@@ -1310,8 +1344,11 @@ def assert_sync_error(
 
 
 def assert_synced(m: Maestral, tree: DirTreeType | None = None) -> None:
-    """Asserts that the ``local_folder`` and ``remote_folder`` are synced. If a tree
-    is a given, assert that the file layout corresponds to the given tree."""
+    """
+    Asserts that the local and remote folders are synced:
+
+    local file system state == local sync index state == tree
+    """
 
     listing = m.client.list_folder("/", recursive=True)
 
@@ -1362,6 +1399,13 @@ def assert_synced(m: Maestral, tree: DirTreeType | None = None) -> None:
             local_path_expected_casing
         )
 
+        # Allow for unicode normalisation differences on macOS since the reported local
+        # normalisation may vary depending on the version of macOS and APFS. Either will
+        # be accepted since they are treated as the same path by macOS file system APIs.
+        if platform.system() == "Darwin":
+            local_path_expected_casing = normalize_unicode(local_path_expected_casing)
+            local_path_actual_casing = normalize_unicode(local_path_actual_casing)
+
         assert (
             local_path_expected_casing == local_path_actual_casing
         ), "casing on drive does not match index"
@@ -1402,6 +1446,13 @@ def assert_local_tree(m: Maestral, tree: DirTreeType) -> None:
             with open(osp.join(dirpath, filename)) as f:
                 node[filename] = f.read()
 
+    # Allow for unicode normalisation differences on macOS since the reported local
+    # normalisation may vary depending on the version of macOS and APFS. Either will be
+    # accepted since they are treated as the same path by macOS file system APIs.
+    if platform.system() == "Darwin":
+        tree = tree_normalize_unicode(tree)
+        actual_tree = tree_normalize_unicode(actual_tree)
+
     assert tree == actual_tree
 
 
@@ -1437,3 +1488,17 @@ def create_remote_tree(m: Maestral, tree: DirTreeType, prefix: str = "/") -> Non
             except FolderConflictError:
                 pass
             create_remote_tree(m, content, dbx_path)
+
+
+def tree_normalize_unicode(tree: T) -> T:
+    """Recursively normalize all keys to the given unicode form."""
+    new_tree: dict[str, str | T] = {}
+
+    for key, value in tree.items():
+        key_norm = normalize_unicode(key)
+        if isinstance(value, str):
+            new_tree[key_norm] = value
+        else:
+            new_tree[key_norm] = tree_normalize_unicode(value)
+
+    return cast(T, new_tree)

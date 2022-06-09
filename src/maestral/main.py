@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 # local imports
 from . import __version__
 from .client import DropboxClient
+from .keyring import CredentialStorage
 from .core import (
     SharedLinkMetadata,
     FullAccount,
@@ -38,7 +39,7 @@ from .core import (
     LinkAccessLevel,
     UpdateCheckResult,
 )
-from .sync import SyncDirection
+from .sync import SyncDirection, SyncEngine
 from .manager import SyncManager
 from .models import SyncEvent, SyncErrorEntry
 from .exceptions import (
@@ -130,13 +131,13 @@ class Maestral:
     def __init__(
         self, config_name: str = "maestral", log_to_stderr: bool = False
     ) -> None:
-
         self._config_name = validate_config_name(config_name)
-        self._conf = MaestralConfig(self._config_name)
-        self._state = MaestralState(self._config_name)
+        self._conf = MaestralConfig(self.config_name)
+        self._state = MaestralState(self.config_name)
+        self.cred_storage = CredentialStorage(self.config_name)
 
         # Set up logging.
-        self._logger = scoped_logger(__name__, config_name)
+        self._logger = scoped_logger(__name__, self.config_name)
         self._log_to_stderr = log_to_stderr
         self._setup_logging()
 
@@ -144,9 +145,9 @@ class Maestral:
         self._check_and_run_post_update_scripts()
 
         # Set up sync infrastructure.
-        self.client = DropboxClient(config_name=self.config_name)
-        self.manager = SyncManager(self.client)
-        self.sync = self.manager.sync
+        self.client = DropboxClient(self.config_name, self.cred_storage)
+        self.sync = SyncEngine(self.client)
+        self.manager = SyncManager(self.sync)
 
         # Schedule background tasks.
         self._loop = asyncio.get_event_loop_policy().get_event_loop()
@@ -217,7 +218,7 @@ class Maestral:
             self._logger.debug("Could not remove token from keyring", exc_info=True)
 
         try:
-            self.client.cred_storage.delete_creds()
+            self.cred_storage.delete_creds()
         except KeyringAccessError:
             self._logger.debug("Could not remove token from keyring", exc_info=True)
 
@@ -231,8 +232,8 @@ class Maestral:
 
     def _setup_logging(self) -> None:
         """
-        Sets up logging to log files, status and error properties, desktop notifications,
-        the systemd journal if available, and to stderr if requested.
+        Sets up logging to log files, status and error properties, desktop
+        notifications, the systemd journal if available, and to stderr if requested.
         """
         self._root_logger = scoped_logger("maestral", self.config_name)
         (
@@ -1526,8 +1527,7 @@ class Maestral:
 
     def _schedule_task(self, coro: Awaitable) -> None:
         """Schedules a task in our asyncio loop."""
-
-        task = self._loop.create_task(coro)
+        task = asyncio.ensure_future(coro, loop=self._loop)
         self._tasks.add(task)
 
     async def _periodic_refresh_profile(self) -> None:
@@ -1537,7 +1537,7 @@ class Maestral:
 
         while True:
 
-            if self.client.cred_storage.loaded:
+            if self.cred_storage.loaded:
 
                 # Only run if we have loaded the access token, we don't
                 # want to trigger any keyring access from here.

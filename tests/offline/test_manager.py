@@ -11,8 +11,8 @@ from maestral.keyring import TokenType
 
 
 def fake_linked(m: Maestral, account_info: FullAccount) -> None:
-    m.sync.client.get_account_info = mock.Mock(return_value=account_info)  # type: ignore
-    m.sync.client.cred_storage.save_creds("account_id", "1234", TokenType.Offline)
+    m.client.get_account_info = mock.Mock(return_value=account_info)  # type: ignore
+    m.cred_storage.save_creds("account_id", "1234", TokenType.Offline)
 
 
 def verify_folder_structure(root: str, structure: dict) -> None:

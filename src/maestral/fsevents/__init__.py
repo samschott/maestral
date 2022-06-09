@@ -8,15 +8,15 @@ events.
 """
 
 from watchdog.utils import platform
-from watchdog.utils import UnsupportedLibc
 
 
 if platform.is_linux():
-    try:
-        from watchdog.observers.inotify import InotifyObserver as Observer
-    except UnsupportedLibc:
-        from .polling import OrderedPollingObserver as Observer
+    from watchdog.observers.inotify import InotifyObserver as Observer
+elif platform.is_darwin():
+    from watchdog.observers.fsevents import FSEventsObserver as Observer
+elif platform.is_bsd():
+    from watchdog.observers.kqueue import KqueueObserver as Observer
 else:
-    from watchdog.observers import Observer
+    from .polling import OrderedPollingObserver as Observer
 
 __all__ = ["Observer"]

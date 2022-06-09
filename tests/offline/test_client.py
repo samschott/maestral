@@ -23,33 +23,36 @@ from maestral.exceptions import NotLinkedError
 
 
 def test_get_auth_url():
-    client = DropboxClient("test-config")
+    cred_storage = CredentialStorage("test-config")
+    client = DropboxClient("test-config", cred_storage)
     assert client.get_auth_url().startswith("https://")
 
 
 def test_link():
-    client = DropboxClient("test-config")
+    cred_storage = Mock(spec_set=CredentialStorage)
+    client = DropboxClient("test-config", cred_storage)
 
     client._auth_flow = Mock(spec_set=DropboxOAuth2FlowNoRedirect)
-    client.cred_storage = Mock(spec_set=CredentialStorage)
     client.update_path_root = Mock()
 
     res = client.link("token")
 
     assert res == 0
     client.update_path_root.assert_called_once()
-    client.cred_storage.save_creds.assert_called_once()
+    cred_storage.save_creds.assert_called_once()
 
 
 def test_link_error():
-    client = DropboxClient("test-config")
+    cred_storage = CredentialStorage("test-config")
+    client = DropboxClient("test-config", cred_storage)
 
     with pytest.raises(RuntimeError):
         client.link("token")
 
 
 def test_link_failed_1():
-    client = DropboxClient("test-config")
+    cred_storage = CredentialStorage("test-config")
+    client = DropboxClient("test-config", cred_storage)
 
     client._auth_flow = Mock(spec_set=DropboxOAuth2FlowNoRedirect)
     client._auth_flow.finish = Mock(side_effect=requests.exceptions.HTTPError("failed"))
@@ -60,7 +63,8 @@ def test_link_failed_1():
 
 
 def test_link_failed_2():
-    client = DropboxClient("test-config")
+    cred_storage = Mock(spec_set=CredentialStorage)
+    client = DropboxClient("test-config", cred_storage)
 
     client._auth_flow = Mock(spec_set=DropboxOAuth2FlowNoRedirect)
     client._auth_flow.finish = Mock(side_effect=ConnectionError("failed"))
@@ -78,7 +82,8 @@ def test_link_failed_2():
 
 
 def test_unlink_error():
-    client = DropboxClient("test-config")
+    cred_storage = CredentialStorage("test-config")
+    client = DropboxClient("test-config", cred_storage)
 
     with pytest.raises(NotLinkedError):
         client.unlink()
