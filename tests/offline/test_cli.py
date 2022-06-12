@@ -10,6 +10,7 @@ from maestral.autostart import AutoStart
 from maestral.notify import level_number_to_name, level_name_to_number
 from maestral.daemon import MaestralProxy, start_maestral_daemon_process, Start
 from maestral.logging import scoped_logger
+from maestral.constants import IS_BSD
 
 
 TEST_TIMEOUT = 60
@@ -114,8 +115,8 @@ def test_filestatus(m: Maestral) -> None:
 
 
 @pytest.mark.skipif(
-    platform.system() == "OpenBSD",
-    reason="OpenBSD doesn't have an autostart mechanism (beyond the .xsession file)",
+    IS_BSD,
+    reason="BSD doesn't have an autostart mechanism (beyond the .xsession file)",
 )
 def test_autostart(m: Maestral) -> None:
 
