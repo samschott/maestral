@@ -1,6 +1,6 @@
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from dropbox import files
 
@@ -90,7 +90,9 @@ class DropboxTestLock:
         if not md:
             return False
 
-        elif isinstance(md, FileMetadata) and md.client_modified < datetime.utcnow():
+        elif isinstance(md, FileMetadata) and md.client_modified < datetime.now(
+            timezone.utc
+        ):
             # lock has expired, remove
             try:
                 self.client.remove(self.lock_path, parent_rev=md.rev)
