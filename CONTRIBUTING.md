@@ -44,18 +44,19 @@ whenever code may be difficult to understand for others.
 
 ### Tests
 
-The test suite uses a mixture of [unittest](https://docs.python.org/3.8/library/unittest.html)
-and [pytest](https://pytest-cov.readthedocs.io/en/latest/), depending on what is most
-convenient for the actual test and the preference of the author. Pytest should be used
-as the test runner.
+The test suite uses [pytest](https://pytest-cov.readthedocs.io/en/latest/) to define
+and run all tests.
 
 Test are grouped into those which require a linked Dropbox account ("linked") and those
 who can run by themselves ("offline"). The former tend to be integration test while the
-latter are mostly unit tests. The current focus currently lies on integration tests,
-especially for the sync engine, as they are easier to maintain when the implementation
-and internal APIs change. Exceptions are made for performance tests, for instance for
-indexing and cleaning up sync events, and for particularly complex functions that are
-prone to regressions.
+latter are mostly unit tests. The focus currently lies on integration tests, especially
+for the sync engine, as they are easier to maintain when the implementation and internal
+APIs change. Exceptions are made for performance tests, for instance for indexing and
+cleaning up sync events, and for particularly complex functions that are prone to
+regressions.
+
+**Important**: The entire content of the Dropbox folder is deleted before and after
+running each test case. You should therefore use a dedicated account to run tests.
 
 The current test suite uses a Dropbox access token provided by the environment variable
 `DROPBOX_ACCESS_TOKEN` or a refresh token provided by `DROPBOX_REFRESH_TOKEN` to connect
@@ -64,7 +65,7 @@ to a real account. The GitHub action which is running the tests will set the
 expires after 4 hours. Tests are run on `ubuntu-latest` and `macos-latest` in parallel
 on different accounts.
 
-When using the GitHub test runner, you should acquire a "lock" on the account before
+When you create a new test case, you should acquire a "lock" on the account before
 running tests to prevent them from interfering which each other by creating a folder
 `test.lock` in the root of the Dropbox folder. This folder should have a 
 `client_modified` time set in the future, to the expiry time of the lock. Fixtures to
