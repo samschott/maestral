@@ -81,7 +81,7 @@ through the Python API:
 from maestral.main import Maestral
 
 m = Maestral()
-print(m.client.auth.refresh_token)
+print(m.cred_storage.token)
 ```
 
 You can then store the retrieved refresh token in the environment variable
