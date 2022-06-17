@@ -249,11 +249,7 @@ class Lock:
             except OSError:
                 return None
 
-            if IS_MACOS:
-                fmt = "qqihh"
-                pid_index = 2
-                flock = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0)
-            elif IS_BSD:
+            if IS_MACOS or IS_BSD:
                 fmt = "qqihh"
                 pid_index = 2
                 flock = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0)
@@ -541,7 +537,6 @@ def start_maestral_daemon_process(
     cc = quote(config_name).strip("'")
 
     script = f'import maestral.daemon; maestral.daemon.start_maestral_daemon("{cc}")'
-    
 
     env = os.environ.copy()
     env.update(ENV)

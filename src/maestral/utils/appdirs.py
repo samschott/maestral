@@ -5,12 +5,10 @@ data. It supports macOS and Linux.
 
 # system imports
 import os
-import platform
 from os import path as osp
 from typing import Optional
 
-from maestral.constants import IS_BSD
-
+from ..constants import IS_BSD, IS_LINUX, IS_MACOS
 
 __all__ = [
     "get_log_path",
@@ -71,9 +69,9 @@ def get_conf_path(
     :param filename: The filename to append for the app.
     :param create: If ``True``, the folder ``subfolder`` will be created on-demand.
     """
-    if platform.system() == "Darwin":
+    if IS_MACOS:
         conf_path = osp.join(get_home_dir(), "Library", "Application Support")
-    elif platform.system() == "Linux" or IS_BSD:
+    elif IS_LINUX or IS_BSD:
         fallback = osp.join(get_home_dir(), ".config")
         conf_path = os.environ.get("XDG_CONFIG_HOME", fallback)
     else:
@@ -99,9 +97,9 @@ def get_data_path(
     :param filename: The filename to append for the app.
     :param create: If ``True``, the folder ``subfolder`` will be created on-demand.
     """
-    if platform.system() == "Darwin":
+    if IS_MACOS:
         state_path = osp.join(get_home_dir(), "Library", "Application Support")
-    elif platform.system() == "Linux" or IS_BSD:
+    elif IS_LINUX or IS_BSD:
         fallback = osp.join(get_home_dir(), ".local", "share")
         state_path = os.environ.get("XDG_DATA_HOME", fallback)
     else:
@@ -124,9 +122,9 @@ def get_cache_path(
     :param filename: The filename to append for the app.
     :param create: If ``True``, the folder ``subfolder`` will be created on-demand.
     """
-    if platform.system() == "Darwin":
+    if IS_MACOS:
         cache_path = osp.join(home_dir, "Library", "Caches")
-    elif platform.system() == "Linux" or IS_BSD:
+    elif IS_LINUX or IS_BSD:
         fallback = osp.join(home_dir, ".cache")
         cache_path = os.environ.get("XDG_CACHE_HOME", fallback)
     else:
@@ -150,9 +148,9 @@ def get_log_path(
     :param create: If ``True``, the folder ``subfolder`` will be created on-demand.
     """
 
-    if platform.system() == "Darwin":
+    if IS_MACOS:
         log_path = osp.join(home_dir, "Library", "Logs")
-    elif platform.system() == "Linux" or IS_BSD:
+    elif IS_LINUX or IS_BSD:
         log_path = get_cache_path(create=False)
     else:
         raise RuntimeError("Platform not supported")
@@ -171,9 +169,9 @@ def get_autostart_path(filename: Optional[str] = None, create: bool = True) -> s
     :param filename: The filename to append for the app.
     :param create: If ``True``, the folder ``subfolder`` will be created on-demand.
     """
-    if platform.system() == "Darwin":
+    if IS_MACOS:
         autostart_path = osp.join(home_dir, "Library", "LaunchAgents")
-    elif platform.system() == "Linux" or IS_BSD:
+    elif IS_LINUX or IS_BSD:
         autostart_path = get_conf_path("autostart", create=create)
     else:
         raise RuntimeError("Platform not supported")
@@ -199,9 +197,9 @@ def get_runtime_path(
     :param create: If ``True``, the folder ``subfolder`` will be created on-demand.
     """
 
-    if platform.system() == "Darwin":
+    if IS_MACOS:
         runtime_path = get_conf_path(create=False)
-    elif platform.system() == "Linux" or IS_BSD:
+    elif IS_LINUX or IS_BSD:
         fallback = get_cache_path(create=False)
         runtime_path = os.environ.get("XDG_RUNTIME_DIR", fallback)
     else:
