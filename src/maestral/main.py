@@ -194,7 +194,6 @@ class Maestral:
         :param token: OAuth token for Dropbox access.
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
-
         return self.client.link(token)
 
     def unlink(self) -> None:
@@ -206,7 +205,6 @@ class Maestral:
 
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
         self.stop_sync()
 
@@ -340,7 +338,6 @@ class Maestral:
     @excluded_items.setter
     def excluded_items(self, items: list[str]) -> None:
         """Setter: excluded_items"""
-
         excluded_items = self.sync.clean_excluded_items_list(items)
         old_excluded_items = self.excluded_items
 
@@ -464,7 +461,6 @@ class Maestral:
     @property
     def connected(self) -> bool:
         """Indicates if Dropbox servers can be reached (read only)."""
-
         if self.pending_link:
             return False
         else:
@@ -491,7 +487,6 @@ class Maestral:
 
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         return self.sync.sync_errors
 
     @property
@@ -508,7 +503,6 @@ class Maestral:
         This list is populated from all log messages with level ERROR or higher that
         have ``exc_info`` attached.
         """
-
         errors: list[MaestralApiError] = []
 
         for r in self._log_handler_error_cache.cached_records:
@@ -592,9 +586,7 @@ class Maestral:
             downloaded with the events furthest up in the queue coming first.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
-
         return list(self.manager.activity.values())[:limit]
 
     def get_history(self, limit: int | None = 100) -> list[SyncEvent]:
@@ -609,7 +601,6 @@ class Maestral:
             the oldest event first.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
         if limit:
             return self.manager.history[-limit:]
@@ -657,7 +648,6 @@ class Maestral:
         :raises ConnectionError: if the connection to Dropbox fails.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
 
         account_info = self.client.get_account_info()
@@ -717,7 +707,6 @@ class Maestral:
         :raises ConnectionError: if the connection to Dropbox fails.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
 
         with self.client.clone_with_new_session() as client:
@@ -769,7 +758,6 @@ class Maestral:
         :raises ConnectionError: if the connection to Dropbox fails.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
 
         with self.client.clone_with_new_session() as client:
@@ -803,7 +791,6 @@ class Maestral:
         :raises DropboxServerError: for internal Dropbox errors.
         :raises ConnectionError: if the connection to Dropbox fails.
         """
-
         self._check_linked()
 
         with self.client.clone_with_new_session() as client:
@@ -918,7 +905,6 @@ class Maestral:
         :raises DropboxServerError: for internal Dropbox errors.
         :raises ConnectionError: if the connection to Dropbox fails.
         """
-
         self._check_linked()
         self._logger.info(f"Restoring '{dbx_path} to {rev}'")
         return self.client.restore(dbx_path, rev)
@@ -944,7 +930,6 @@ class Maestral:
         :raises NotLinkedError: if no Dropbox account is linked.
         :raises NoDropboxDirError: if local Dropbox folder is not set up.
         """
-
         self._check_linked()
         self._check_dropbox_dir()
 
@@ -957,7 +942,6 @@ class Maestral:
         :raises NotLinkedError: if no Dropbox account is linked.
         :raises NoDropboxDirError: if local Dropbox folder is not set up.
         """
-
         self._check_linked()
         self._check_dropbox_dir()
 
@@ -978,7 +962,6 @@ class Maestral:
 
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
         self.manager.reset_sync_state()
 
@@ -1003,7 +986,6 @@ class Maestral:
         :raises NotLinkedError: if no Dropbox account is linked.
         :raises NoDropboxDirError: if local Dropbox folder is not set up.
         """
-
         self._check_linked()
         self._check_dropbox_dir()
 
@@ -1047,7 +1029,6 @@ class Maestral:
             raise BusyError("Cannot exclude item", "Please try again when idle.")
 
     def _remove_after_excluded(self, dbx_path_lower: str) -> None:
-
         # Perform housekeeping.
         self.sync.remove_node_from_index(dbx_path_lower)
         self.sync.clear_sync_errors_for_path(dbx_path_lower, recursive=True)
@@ -1086,7 +1067,6 @@ class Maestral:
         :raises NotLinkedError: if no Dropbox account is linked.
         :raises NoDropboxDirError: if local Dropbox folder is not set up.
         """
-
         self._check_linked()
         self._check_dropbox_dir()
 
@@ -1168,7 +1148,6 @@ class Maestral:
         :returns: Excluded status.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
 
         dbx_path_lower = normalize(dbx_path.rstrip("/"))
@@ -1191,7 +1170,6 @@ class Maestral:
         :raises NotLinkedError: if no Dropbox account is linked.
         :raises NoDropboxDirError: if local Dropbox folder is not set up.
         """
-
         self._check_linked()
         self._check_dropbox_dir()
 
@@ -1238,7 +1216,6 @@ class Maestral:
         :raises OSError: if creation fails.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
 
         # Pause syncing.
@@ -1289,9 +1266,7 @@ class Maestral:
             UTC. May not be supported for all account types.
         :returns: Metadata for shared link.
         """
-
         self._check_linked()
-
         return self.client.create_shared_link(
             dbx_path=dbx_path,
             visibility=visibility,
@@ -1312,7 +1287,6 @@ class Maestral:
         :raises ConnectionError: if the connection to Dropbox fails.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
         self.client.revoke_shared_link(url)
 
@@ -1331,7 +1305,6 @@ class Maestral:
         :raises ConnectionError: if the connection to Dropbox fails.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         self._check_linked()
         return self.client.list_shared_links(dbx_path)
 
@@ -1418,7 +1391,6 @@ class Maestral:
         to shut down the event loop and exit the running process if Maestral was started
         as a daemon.
         """
-
         self.stop_sync()
 
         for task in self._tasks:
@@ -1432,7 +1404,6 @@ class Maestral:
     # ==== Verifiers ===================================================================
 
     def _check_linked(self) -> None:
-
         if not self.client.linked:
             raise NotLinkedError(
                 "No Dropbox account linked",
@@ -1440,7 +1411,6 @@ class Maestral:
             )
 
     def _check_dropbox_dir(self) -> None:
-
         if self.pending_dropbox_folder:
             raise NoDropboxDirError(
                 "No local Dropbox directory",
@@ -1453,7 +1423,6 @@ class Maestral:
         """
         Runs post-update scripts if necessary.
         """
-
         updated_from = self._state.get("app", "updated_scripts_completed")
 
         if Version(updated_from) < Version("1.2.1"):
@@ -1474,15 +1443,12 @@ class Maestral:
         raise RuntimeError("Cannot upgrade from version before v1.2.1")
 
     def _update_from_pre_v1_3_2(self) -> None:
-
         if self._conf.get("app", "keyring") == "keyring.backends.OS_X.Keyring":
             self._logger.info("Migrating keyring after update from pre v1.3.2")
             self._conf.set("app", "keyring", "keyring.backends.macOS.Keyring")
 
     def _update_from_pre_v1_4_8(self) -> None:
-
         # Migrate config and state keys to new sections.
-
         self._logger.info("Migrating config after update from pre v1.4.8")
 
         mapping = {
@@ -1509,7 +1475,6 @@ class Maestral:
                 self._state.set(sections["new"], key, value)
 
     def _update_from_pre_v1_6_0(self) -> None:
-
         self._logger.info("Scheduling reindex after update from pre v1.6.0")
 
         db_path = get_data_path("maestral", f"{self.config_name}.db")
@@ -1532,7 +1497,6 @@ class Maestral:
 
     async def _periodic_refresh_profile(self) -> None:
         """Periodically refresh some infos."""
-
         await asyncio.sleep(60 * 5)
 
         while True:
@@ -1555,7 +1519,6 @@ class Maestral:
         Trigger periodic reindexing, determined by the 'reindex_interval' setting. Don't
         reindex if we are running on battery power.
         """
-
         while True:
 
             if self.manager.running.is_set():
@@ -1572,7 +1535,6 @@ class Maestral:
             await sleep_rand(60 * 5)
 
     def __repr__(self) -> str:
-
         email = self._state.get("account", "email")
         account_type = self._state.get("account", "type")
 
