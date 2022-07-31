@@ -324,9 +324,6 @@ class DropboxClient:
 
         with self._lock:
 
-            if self._dbx:
-                return
-
             if not (token or self._cred_storage.token):
                 raise NotLinkedError(
                     "No auth token set", "Please link a Dropbox account first."
