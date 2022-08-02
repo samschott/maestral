@@ -13,7 +13,7 @@ jobs:
         with:
           ref: website
 
-      - uses: actions/setup-python@v4.1.0
+      - uses: actions/setup-python@v4.2.0
 
       - name: Install requirements
         run: |
