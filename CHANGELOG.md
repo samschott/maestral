@@ -1,3 +1,17 @@
+## v1.6.4.dev
+
+#### Changed:
+
+* Drops support for macOS 10.13 and 10.14. macOS 10.15 or later is now required,
+  reflected the support status from Apple. In the future, we will drop support for macOS
+  versions once they no longer receive security updates.
+
+#### Fixed:
+
+* Fixes an error which would prevent running Maestral on Python 3.7.
+* Fixes a regression where the CLI command `maestral activity` would fail when run from
+  a macOS app bundle.
+
 ## v1.6.3
 
 #### Changed:

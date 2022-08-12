@@ -7,7 +7,9 @@ from __future__ import annotations
 
 # system imports
 import os
+import re
 import time
+import functools
 import contextlib
 import threading
 from datetime import datetime, timezone
@@ -68,7 +70,6 @@ from .exceptions import (
 from .errorhandling import (
     convert_api_errors,
     dropbox_to_maestral_error,
-    retry_on_error,
     CONNECTION_ERRORS,
 )
 from .config import MaestralState
@@ -158,6 +159,60 @@ class DropboxClient:
         self._is_team_space = self._state.get("account", "path_root_type") == "team"
         self._lock = threading.Lock()
 
+    def _retry_on_error(  # type: ignore
+        error_cls: type[Exception],
+        max_retries: int,
+        backoff: int = 0,
+        msg_regex: str | None = None,
+    ) -> Callable[[FT], FT]:
+        """
+        A decorator to retry a function call if a specified exception occurs.
+
+        :param error_cls: Error type to catch.
+        :param max_retries: Maximum number of retries.
+        :param msg_regex: If provided, retry errors only if the regex matches the error
+            message. Matches are found with :meth:`re.search()`.
+        :param backoff: Time in seconds to sleep before retry.
+        """
+
+        def decorator(func: FT) -> FT:
+            @functools.wraps(func)
+            def wrapper(self, *args, **kwargs):
+                tries = 0
+
+                while True:
+                    try:
+                        return func(self, *args, **kwargs)
+                    except error_cls as exc:
+
+                        if msg_regex is not None:
+                            # Raise if there is no error message to match.
+                            if len(exc.args[0]) == 0 or not isinstance(
+                                exc.args[0], str
+                            ):
+                                raise exc
+                            # Raise if regex does not match message.
+                            if not re.search(msg_regex, exc.args[0]):
+                                raise exc
+
+                        if tries < max_retries:
+                            tries += 1
+                            if backoff > 0:
+                                time.sleep(backoff)
+                            self._logger.debug(
+                                "Retrying call %s on %s: %s/%s",
+                                func,
+                                error_cls,
+                                tries,
+                                max_retries,
+                            )
+                        else:
+                            raise exc
+
+            return cast(FT, wrapper)
+
+        return decorator
+
     # ---- Linking API -----------------------------------------------------------------
 
     @property
@@ -236,7 +291,7 @@ class DropboxClient:
 
         return 0
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def unlink(self) -> None:
         """
         Unlinks the Dropbox account. The password will be deleted from the provided
@@ -268,9 +323,6 @@ class DropboxClient:
         """
 
         with self._lock:
-
-            if self._dbx:
-                return
 
             if not (token or self._cred_storage.token):
                 raise NotLinkedError(
@@ -462,7 +514,7 @@ class DropboxClient:
     def get_account_info(self, dbid: str) -> Account:
         ...
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def get_account_info(self, dbid=None):
         """
         Gets current account information.
@@ -504,7 +556,7 @@ class DropboxClient:
 
         return self._cached_account_info
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def get_space_usage(self) -> SpaceUsage:
         """
         :returns: The space usage of the currently linked account.
@@ -537,7 +589,7 @@ class DropboxClient:
 
         return convert_space_usage(res)
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def get_metadata(
         self, dbx_path: str, include_deleted: bool = False
     ) -> Metadata | None:
@@ -560,7 +612,7 @@ class DropboxClient:
         except (NotFoundError, PathError):
             return None
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def list_revisions(
         self, dbx_path: str, mode: str = "path", limit: int = 10
     ) -> list[FileMetadata]:
@@ -580,7 +632,7 @@ class DropboxClient:
 
         return [convert_metadata(entry) for entry in res.entries]
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def restore(self, dbx_path: str, rev: str) -> FileMetadata:
         """
         Restore an old revision of a file.
@@ -596,8 +648,8 @@ class DropboxClient:
 
         return convert_metadata(res)
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
-    @retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def download(
         self,
         dbx_path: str,
@@ -781,8 +833,8 @@ class DropboxClient:
 
         return convert_metadata(res)
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
-    @retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_helper(
         self,
         local_path: str,
@@ -811,8 +863,8 @@ class DropboxClient:
 
         return md
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
-    @retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_session_start_helper(
         self,
         f: BinaryIO,
@@ -839,8 +891,8 @@ class DropboxClient:
 
         return session_start.session_id
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
-    @retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_session_append_helper(
         self,
         f: BinaryIO,
@@ -881,8 +933,8 @@ class DropboxClient:
         if sync_event:
             sync_event.completed = f.tell()
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
-    @retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_session_finish_helper(
         self,
         f: BinaryIO,
@@ -941,7 +993,7 @@ class DropboxClient:
 
         return md
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def remove(
         self, dbx_path: str, parent_rev: str | None = None
     ) -> FileMetadata | FolderMetadata:
@@ -959,7 +1011,7 @@ class DropboxClient:
 
         return convert_metadata(res.metadata)
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def remove_batch(
         self, entries: Sequence[tuple[str, str | None]], batch_size: int = 900
     ) -> list[FileMetadata | FolderMetadata | MaestralApiError]:
@@ -1037,7 +1089,7 @@ class DropboxClient:
 
         return result_list
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def move(
         self, dbx_path: str, new_path: str, autorename: bool = False
     ) -> FileMetadata | FolderMetadata:
@@ -1062,7 +1114,7 @@ class DropboxClient:
 
         return convert_metadata(res.metadata)
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def make_dir(self, dbx_path: str, autorename: bool = False) -> FolderMetadata:
         """
         Creates a folder on Dropbox.
@@ -1079,7 +1131,7 @@ class DropboxClient:
         md = cast(files.FolderMetadata, res.metadata)
         return convert_metadata(md)
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def make_dir_batch(
         self,
         dbx_paths: list[str],
@@ -1152,7 +1204,7 @@ class DropboxClient:
 
         return result_list
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def share_dir(self, dbx_path: str, **kwargs) -> FolderMetadata | None:
         """
         Converts a Dropbox folder to a shared folder. Creates the folder if it does not
@@ -1216,7 +1268,7 @@ class DropboxClient:
         else:
             return None
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def get_latest_cursor(
         self, dbx_path: str, include_non_downloadable_files: bool = False, **kwargs
     ) -> str:
@@ -1243,7 +1295,7 @@ class DropboxClient:
 
         return res.cursor
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def list_folder(
         self,
         dbx_path: str,
@@ -1281,7 +1333,7 @@ class DropboxClient:
 
         return self.flatten_results(list(iterator))
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def list_folder_iterator(
         self,
         dbx_path: str,
@@ -1332,12 +1384,14 @@ class DropboxClient:
                 res = self._list_folder_continue_helper(res.cursor)
                 yield convert_list_folder_result(res)
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
-    @retry_on_error(requests.exceptions.ReadTimeout, MAX_LIST_FOLDER_RETRIES, backoff=3)
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(
+        requests.exceptions.ReadTimeout, MAX_LIST_FOLDER_RETRIES, backoff=3
+    )
     def _list_folder_continue_helper(self, cursor: str) -> files.ListFolderResult:
         return self.dbx.files_list_folder_continue(cursor)
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def wait_for_remote_changes(self, last_cursor: str, timeout: int = 40) -> bool:
         """
         Waits for remote changes since ``last_cursor``. Call this method after
@@ -1382,7 +1436,7 @@ class DropboxClient:
         iterator = self.list_remote_changes_iterator(last_cursor)
         return self.flatten_results(list(iterator))
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def list_remote_changes_iterator(
         self, last_cursor: str
     ) -> Iterator[ListFolderResult]:
@@ -1408,7 +1462,7 @@ class DropboxClient:
                 res = self.dbx.files_list_folder_continue(res.cursor)
                 yield convert_list_folder_result(res)
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def create_shared_link(
         self,
         dbx_path: str,
@@ -1459,7 +1513,7 @@ class DropboxClient:
 
         return convert_shared_link_metadata(res)
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def revoke_shared_link(self, url: str) -> None:
         """
         Revokes a shared link.
@@ -1469,7 +1523,7 @@ class DropboxClient:
         with convert_api_errors():
             self.dbx.sharing_revoke_shared_link(url)
 
-    @retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
+    @_retry_on_error(BadInputError, max_retries=5, backoff=2, msg_regex="v1_retired")
     def list_shared_links(
         self, dbx_path: str | None = None
     ) -> list[SharedLinkMetadata]:
@@ -1503,18 +1557,11 @@ class DropboxClient:
         :param results: List of results to flatten.
         :returns: Flattened result.
         """
-
-        all_entries = []
-
-        for res in results:
-            all_entries += res.entries
-
+        all_entries = [entry for res in results for entry in res.entries]
         result_cls = type(results[0])
-        results_flattened = result_cls(
+        return result_cls(
             entries=all_entries, has_more=False, cursor=results[-1].cursor
         )
-
-        return results_flattened
 
 
 # ==== type conversions ================================================================

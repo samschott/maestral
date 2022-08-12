@@ -15,14 +15,12 @@ from threading import Event, RLock, Thread
 from tempfile import TemporaryDirectory
 from typing import Iterator, cast, TypeVar, Callable, Any, Generic
 
-# external imports
-from watchdog.observers import Observer
-
 # local imports
 from . import __url__
 from . import notify
 from .client import API_HOST
 from .core import TeamRootInfo, UserRootInfo
+from .fsevents import Observer
 from .config import MaestralConfig, MaestralState, PersistentMutableSet
 from .config.user import UserConfig
 from .constants import (

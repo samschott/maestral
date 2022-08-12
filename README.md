@@ -158,7 +158,7 @@ month to offset the cost of an Apple Developer account to sign and notarize the 
 ## System requirements
 
 - macOS 10.13 High Sierra or higher or Linux
-- Python 3.6 or higher
+- Python 3.7 or higher
 - For the system tray icon on Linux:
   - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
     on Gnome 3.26 and higher
