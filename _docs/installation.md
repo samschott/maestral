@@ -103,7 +103,7 @@ $ maestral start
 ```
 
 This will prompt you to authorize Maestral to access your Dropbox account and
-establish your Dropbox folder at `/dropbox/Maestral`.
+establish your Dropbox folder at `/dropbox/Dropbox (Maestral)`.
 
 You can then start the Maestral daemon by starting the container
 
