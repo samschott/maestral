@@ -92,11 +92,20 @@ For the first run, get access to the shell within the Docker container
 $ docker run -it -v /mnt/dropbox:/dropbox maestraldbx/maestral:latest ash
 ```
 
-where `/mnt/dropbox` is the directory which contains the `Dropbox` directory.
-Maestral runs with `UID` 1000, make sure that the user owns `/mnt/dropbox` and the
-contents within (`chown -R 1000 /mnt/dropbox`).
+where `/mnt/dropbox` is the directory which contains the `Dropbox` directory and
+Maestral's configuration. Maestral runs with `UID` 1000, make sure that the user
+owns `/mnt/dropbox` and the contents within (`chown -R 1000 /mnt/dropbox`).
 
-Later, if you want just a `maestral start`, just execute
+Then run Maestral's setup
+
+```console
+$ maestral start
+```
+
+This will prompt you to authorize Maestral to access your Dropbox account and
+establish your Dropbox folder at `/dropbox/Dropbox (Maestral)`.
+
+You can then start the Maestral daemon by starting the container
 
 ```console
 $ docker run \
@@ -106,6 +115,9 @@ $ docker run \
   -v /mnt/dropbox:/dropbox \
   maestraldbx/maestral:latest
 ```
+
+You can check the sync status of the daemon by running
+`docker exec -it maestral maestral status`.
 
 To step into the Maestral container use `docker exec -it maestral ash`. To list the logs
 of the container use `docker logs maestral`. To get the build info of a running container:
