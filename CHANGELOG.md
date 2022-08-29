@@ -11,6 +11,7 @@
 * Fixes an error which would prevent running Maestral on Python 3.7.
 * Fixes a regression where the CLI command `maestral activity` would fail when run from
   a macOS app bundle.
+* Fixes an issue where reauthorizing Maestral's Dropbox access could hang indefinately.
 
 ## v1.6.3
 
@@ -32,9 +33,9 @@
 
 #### Changed:
 
-* Improved error message for file names with incompatible characters that are rejected 
+* Improved error message for file names with incompatible characters that are rejected
   by Dropbox servers, e.g., emoji or slashes at the end of a file name.
-* Capture Dropbox SDK logs in Maestral's log output. This will log which API endpoints 
+* Capture Dropbox SDK logs in Maestral's log output. This will log which API endpoints
   are called and any retries on errors or rate limiting.
 
 #### Fixed:
