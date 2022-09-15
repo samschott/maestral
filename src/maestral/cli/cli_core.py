@@ -17,7 +17,7 @@ from .common import (
     inject_proxy,
 )
 from .core import DropboxPath, CliException
-from ..core import FolderMetadata
+from ..core import FolderMetadata, SharedLinkMetadata
 
 if TYPE_CHECKING:
     from ..daemon import MaestralProxy
@@ -441,36 +441,56 @@ def sharelink_revoke(m: Maestral, url: str) -> None:
 @sharelink.command(
     name="list", help="List shared links for given paths or all shared links."
 )
-@click.argument("dropbox_path", required=False, type=DropboxPath())
+@click.argument("dropbox_path", nargs=-1, type=DropboxPath())
+@click.option(
+    "-l",
+    "--long",
+    is_flag=True,
+    default=False,
+    help="Show output in long format with metadata.",
+)
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def sharelink_list(m: Maestral, dropbox_path: str | None) -> None:
-    links = m.list_shared_links(dropbox_path)
-    link_table = Table(["URL", "Item", "Access", "Expires"])
+def sharelink_list(m: Maestral, dropbox_path: list[str], long: bool) -> None:
 
-    for link in links:
+    links: list[SharedLinkMetadata]
 
-        dt_field: Field
+    if len(dropbox_path) > 0:
+        links = []
+        for dbx_path in dropbox_path:
+            links.extend(m.list_shared_links(dbx_path))
+    else:
+        links = m.list_shared_links()
 
-        if link.expires:
-            dt_field = DateField(link.expires)
-        else:
-            dt_field = TextField("-")
+    if long:
+        link_table = Table(["URL", "Item", "Access", "Expires"])
 
-        if link.link_permissions.require_password:
-            access = "password"
-        else:
-            access = link.link_permissions.effective_audience.value
+        for link in links:
 
-        link_table.append(
-            [
-                link.url,
-                link.name,
-                access,
-                dt_field,
-            ]
-        )
+            dt_field: Field
 
-    echo("")
-    link_table.echo()
-    echo("")
+            if link.expires:
+                dt_field = DateField(link.expires)
+            else:
+                dt_field = TextField("-")
+
+            if link.link_permissions.require_password:
+                access = "password"
+            else:
+                access = link.link_permissions.effective_audience.value
+
+            link_table.append(
+                [
+                    link.url,
+                    link.name,
+                    access,
+                    dt_field,
+                ]
+            )
+
+        echo("")
+        link_table.echo()
+        echo("")
+
+    else:
+        echo("\n".join(link.url for link in links))
