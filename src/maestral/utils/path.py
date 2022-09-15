@@ -208,8 +208,8 @@ def denormalize_path(path: str, root: str = osp.sep) -> str:
     """
     Returns a denormalized version of the given path as far as corresponding nodes with
     the same normalization exist in the given root directory. If multiple matches are
-    found, only one is returned. If ``path`` does not exist in root ``root`` or ``root``
-    does not exist, the return value will be ``os.path.join(root, path)``.
+    found, only one is returned. If ``path`` does not exist in ``root`` or ``root`` does
+    not exist, the return value will be ``os.path.join(root, path)``.
 
     :param path: Original path relative to ``root``.
     :param root: Parent directory to search in. There are significant performance
