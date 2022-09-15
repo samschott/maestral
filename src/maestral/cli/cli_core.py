@@ -401,7 +401,9 @@ def sharelink():
     pass
 
 
-@sharelink.command(name="create", help="Create a shared link for a file or folder.")
+@sharelink.command(
+    name="create", help="Create a shared link for a file or folder. Return the URL."
+)
 @click.argument("dropbox_path", type=DropboxPath())
 @click.option(
     "-p",
@@ -437,7 +439,7 @@ def sharelink_revoke(m: Maestral, url: str) -> None:
 
 
 @sharelink.command(
-    name="list", help="List shared links for a path or all shared links."
+    name="list", help="List shared links for given paths or all shared links."
 )
 @click.argument("dropbox_path", required=False, type=DropboxPath())
 @inject_proxy(fallback=True, existing_config=True)
