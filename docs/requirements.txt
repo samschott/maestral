@@ -1,5 +1,5 @@
 m2r2
-sphinx==5.1.1
+sphinx==5.2.2
 sphinx-autoapi==1.9.0
 sphinxext-opengraph==0.6.3
 sphinx_rtd_theme==1.0.0
