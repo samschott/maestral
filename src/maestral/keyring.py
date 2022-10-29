@@ -206,7 +206,7 @@ class CredentialStorage:
         """
         Loads auth token from system keyring. This will be called automatically when
         accessing the :attr:`token` property. This call will block until the keyring is
-        unlocked.
+        unlocked or unlocking is declined by the user.
 
         :raises KeyringAccessError: if the system keyring is locked or otherwise cannot
             be accessed (for example if the app bundle signature has been invalidated).
@@ -220,9 +220,7 @@ class CredentialStorage:
         accessor = self._get_accessor(self.account_id)
 
         try:
-
             token = self.keyring.get_password("Maestral", accessor)
-
         except (KeyringLocked, InitError):
             title = "Could not load auth token"
             msg = (
