@@ -302,15 +302,28 @@ def generate_cc_name(path: str, suffix: str = "conflicting copy") -> str:
 # ==== higher level file operations ====================================================
 
 
-def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
+def delete(
+    path: str, force_case_sensitive: bool = False, raise_error: bool = False
+) -> Optional[OSError]:
     """
     Deletes a file or folder at ``path``. Symlinks will not be followed.
 
     :param path: Path of item to delete.
+    :param force_case_sensitive: Whether to perform the deletion only if the item
+        appears with the same casing as provided in `path`. This can be used on
+        case-insensitive but preserving file systems to ensure that the intended item is
+        deleted.
     :param raise_error: Whether to raise errors or return them.
     :returns: Any caught exception during the deletion.
     """
-    err = None
+    err: Optional[OSError] = None
+
+    if force_case_sensitive and path != to_existing_unnormalized_path(path):
+        err = FileNotFoundError(f"No such file '{path}'")
+        if raise_error:
+            raise err
+        else:
+            return err
 
     try:
         shutil.rmtree(path)  # Will raise OSError when it finds a symlink.
