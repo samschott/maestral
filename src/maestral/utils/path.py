@@ -9,11 +9,15 @@ import errno
 import shutil
 import itertools
 import unicodedata
+import fcntl
+import platform
 from stat import S_ISDIR
 from typing import List, Optional, Tuple, Callable, Iterator, Iterable, Union
 
 # local imports
 from .hashing import DropboxContentHasher
+
+F_GETPATH = 50
 
 
 def _path_components(path: str) -> List[str]:
@@ -221,7 +225,16 @@ def denormalize_path(path: str, root: str = osp.sep) -> str:
     return candidates[0]
 
 
-def to_existing_unnormalized_path(path: str, root: str = osp.sep) -> str:
+def _macos_get_canonically_cased_path(path: str) -> str:
+    # Use fcntl to get FS path, there can only be one.
+    fd = open(path, "a", opener=opener_no_symlink)
+    fs_path = fcntl.fcntl(fd.fileno(), F_GETPATH, b"\x00" * 1024)
+    return os.fsdecode(fs_path.strip(b"\x00"))
+
+
+def to_existing_unnormalized_path(
+    path: str, root: str = osp.sep, norm_func: Callable = normalize
+) -> str:
     """
     Returns a cased version of the given path if corresponding nodes (with arbitrary
     casing) exist in the given root directory. If multiple matches are found, only one
@@ -230,10 +243,20 @@ def to_existing_unnormalized_path(path: str, root: str = osp.sep) -> str:
     :param path: Original path relative to ``root``.
     :param root: Parent directory to search in. There are significant performance
         improvements if a root directory with a small tree is given.
+    :param norm_func: Normalization function to use. Defaults to :func:`normalize`.
     :returns: Absolute and cased version of given path.
     :raises FileNotFoundError: if ``path`` does not exist in root ``root`` or ``root``
         itself does not exist.
     """
+
+    if platform.system() == "Darwin" and norm_func is normalize:
+        try:
+            return _macos_get_canonically_cased_path(path)
+        except (FileNotFoundError, IsADirectoryError):
+            raise
+        except OSError:
+            # Fall back to cross-platform method.
+            pass
 
     candidates = equivalent_path_candidates(path, root)
 
