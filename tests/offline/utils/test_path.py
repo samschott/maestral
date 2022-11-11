@@ -4,7 +4,7 @@ import pytest
 
 from maestral.utils.path import (
     normalized_path_exists,
-    equivalent_path_candidates,
+    get_existing_equivalent_paths,
     is_fs_case_sensitive,
     is_child,
 )
@@ -37,11 +37,11 @@ def test_cased_path_candidates(tmp_path):
 
     path = str(tmp_path)
 
-    candidates = equivalent_path_candidates(path.upper())
+    candidates = get_existing_equivalent_paths(path.upper())
 
     assert candidates == [path]
 
-    candidates = equivalent_path_candidates("/test", root=path)
+    candidates = get_existing_equivalent_paths("/test", root=path)
 
     assert len(candidates) == 1
     assert f"{path}/test" in candidates
@@ -71,14 +71,14 @@ def test_multiple_cased_path_candidates(tmp_path):
     path = osp.join(dir0.lower(), "File.txt")
 
     # find matches for original path itself
-    candidates = equivalent_path_candidates(path)
+    candidates = get_existing_equivalent_paths(path)
 
     assert len(candidates) == 2
     assert osp.join(dir0, "File.txt") in candidates
     assert osp.join(dir1, "File.txt") in candidates
 
     # find matches for children
-    candidates = equivalent_path_candidates(
+    candidates = get_existing_equivalent_paths(
         "/test folder/subfolder/File.txt", root=str(tmp_path)
     )
 

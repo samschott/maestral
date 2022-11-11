@@ -117,7 +117,7 @@ from .utils.path import (
     normalize,
     normalize_case,
     normalize_unicode,
-    equivalent_path_candidates,
+    get_existing_equivalent_paths,
     to_existing_unnormalized_path,
     get_symlink_target,
 )
@@ -1034,7 +1034,6 @@ class SyncEngine:
 
         :raises NoDropboxDirError: When local Dropbox directory does not exist.
         """
-
         exception = NoDropboxDirError(
             "Dropbox folder missing",
             "Please move the Dropbox folder back to its original location "
@@ -1047,9 +1046,7 @@ class SyncEngine:
         # If the file system is not case-sensitive but preserving, a path which was
         # renamed with a case change only will still exist at the old location. We
         # therefore explicitly check for case changes here.
-
         if not self.is_fs_case_sensitive:
-
             try:
                 cased_path = to_existing_unnormalized_path(self.dropbox_path)
             except (FileNotFoundError, NotADirectoryError):
@@ -2100,7 +2097,7 @@ class SyncEngine:
             return False
 
         dirname, basename = osp.split(event.local_path)
-        equivalent_paths = equivalent_path_candidates(basename, root=dirname)
+        equivalent_paths = get_existing_equivalent_paths(basename, root=dirname)
 
         if len(equivalent_paths) > 1:
 

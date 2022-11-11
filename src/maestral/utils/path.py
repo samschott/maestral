@@ -22,8 +22,7 @@ F_GETPATH = 50
 
 def _path_components(path: str) -> List[str]:
     components = path.strip(osp.sep).split(osp.sep)
-    cleaned_components = [c for c in components if c]
-    return cleaned_components
+    return [c for c in components if c]
 
 
 Path = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
@@ -133,18 +132,15 @@ def is_fs_case_sensitive(path: str) -> bool:
         return not osp.samefile(path, check_path)
 
 
-def equivalent_path_candidates(
+def get_existing_equivalent_paths(
     path: str,
     root: str = osp.sep,
     norm_func: Callable = normalize,
 ) -> List[str]:
     """
     Given a "normalized" path using an injective (one-directional) normalization
-    function, this method returns a list of matching un-normalized local paths.
-
-    If no such local path exists, the normalized path itself is returned. If a local
-    path can be followed up to a certain parent in the hierarchy, it will be taken and
-    the remaining normalized path will be appended.
+    function, this method returns a list of matching un-normalized local paths. If no
+    such local paths exist, list will be empty.
 
     :Example:
 
@@ -156,9 +152,8 @@ def equivalent_path_candidates(
     :param root: Parent directory to search in. There are significant performance
         improvements if a root directory with a small tree is given.
     :param norm_func: Normalization function to use. Defaults to :func:`normalize`.
-    :returns: Candidates for correctly cased local paths.
+    :returns: List of existing paths for which `normalized(local_path) == normalized(path)`.
     """
-
     path = path.lstrip(osp.sep)
 
     if path == "":
@@ -167,10 +162,9 @@ def equivalent_path_candidates(
     components = _path_components(path)
     n_components_root = len(_path_components(root))
 
-    candidates = {-1: [root]}
+    potential_candidates = {-1: [root]}
 
     for root, dirs, files in os.walk(root):
-
         n_components_current_root = len(_path_components(root))
         depth = n_components_current_root - n_components_root
 
@@ -180,49 +174,34 @@ def equivalent_path_candidates(
         dirs.clear()
         files.clear()
 
+        # If current path is too deep to be match, skip it.
         if depth >= len(components):
-            # Current path is too deep to be match, skip it.
             continue
 
-        dirname_normalized = norm_func(components[depth])
+        component_normalized = norm_func(components[depth])
 
         for dirname in all_dirs:
-            if norm_func(dirname) == dirname_normalized:
+            if norm_func(dirname) == component_normalized:
                 dirs.append(dirname)
 
+        # Only check files if we are at the end of the path.
         if depth + 1 == len(components):
-            # Any matching entries must be direct children of root: check files.
             for filename in all_files:
-                if norm_func(filename) == dirname_normalized:
+                if norm_func(filename) == component_normalized:
                     files.append(filename)
 
         new_candidates = [osp.join(root, name) for name in itertools.chain(dirs, files)]
 
         if new_candidates:
-            candidates[depth] = candidates.get(depth, []) + new_candidates
+            potential_candidates[depth] = (
+                potential_candidates.get(depth, []) + new_candidates
+            )
 
-    i_max = max(candidates.keys())
-    best_candidates = candidates[i_max]
-    local_paths = [osp.join(path, *components[i_max + 1 :]) for path in best_candidates]
+    i_max = max(potential_candidates.keys())
 
-    return local_paths
-
-
-def denormalize_path(path: str, root: str = osp.sep) -> str:
-    """
-    Returns a denormalized version of the given path as far as corresponding nodes with
-    the same normalization exist in the given root directory. If multiple matches are
-    found, only one is returned. If ``path`` does not exist in ``root`` or ``root`` does
-    not exist, the return value will be ``os.path.join(root, path)``.
-
-    :param path: Original path relative to ``root``.
-    :param root: Parent directory to search in. There are significant performance
-        improvements if a root directory with a small tree is given.
-    :returns: Absolute and cased version of given path.
-    """
-
-    candidates = equivalent_path_candidates(path, root)
-    return candidates[0]
+    if i_max + 1 == len(components):
+        return potential_candidates[i_max]
+    return []
 
 
 def _macos_get_canonically_cased_path(path: str) -> str:
@@ -240,6 +219,11 @@ def to_existing_unnormalized_path(
     casing) exist in the given root directory. If multiple matches are found, only one
     is returned.
 
+    This is similar to :func:`get_existing_equivalent_paths` but returns only the first
+    candidate or raises a :class:`FileNotFoundError` if no candidates can be found.
+
+    On macOS, we use fcntl F_GETPATH for a more efficient implementation.
+
     :param path: Original path relative to ``root``.
     :param root: Parent directory to search in. There are significant performance
         improvements if a root directory with a small tree is given.
@@ -248,23 +232,20 @@ def to_existing_unnormalized_path(
     :raises FileNotFoundError: if ``path`` does not exist in root ``root`` or ``root``
         itself does not exist.
     """
-
     if platform.system() == "Darwin" and norm_func is normalize:
         try:
             return _macos_get_canonically_cased_path(path)
-        except (FileNotFoundError, IsADirectoryError):
+        except FileNotFoundError:
             raise
         except OSError:
             # Fall back to cross-platform method.
             pass
 
-    candidates = equivalent_path_candidates(path, root)
+    candidates = get_existing_equivalent_paths(path, root)
 
-    for candidate in candidates:
-        if exists(candidate):
-            return candidate
-
-    raise FileNotFoundError(f'No matches with different casing found in "{root}"')
+    if len(candidates) == 0:
+        raise FileNotFoundError(f'No matches with different casing found in "{root}"')
+    return candidates[0]
 
 
 def normalized_path_exists(path: str, root: str = osp.sep) -> bool:
@@ -279,7 +260,7 @@ def normalized_path_exists(path: str, root: str = osp.sep) -> bool:
     :returns: Whether an arbitrarily cased version of ``path`` exists.
     """
 
-    candidates = equivalent_path_candidates(path, root)
+    candidates = get_existing_equivalent_paths(path, root)
 
     for c in candidates:
         if exists(c):
