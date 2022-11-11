@@ -2440,7 +2440,10 @@ class SyncEngine:
                         "deleting local copy",
                         event.dbx_path,
                     )
-                    err = delete(event.local_path)
+                    err = delete(
+                        event.local_path,
+                        force_case_sensitive=not self.is_fs_case_sensitive,
+                    )
 
                     if err:
                         raise os_to_maestral_error(err)
@@ -3542,7 +3545,7 @@ class SyncEngine:
 
         if isdir(local_path):
             with self.fs_events.ignore(DirDeletedEvent(local_path)):
-                delete(local_path)
+                delete(local_path, force_case_sensitive=not self.is_fs_case_sensitive)
 
         # Preserve permissions of the destination file if we are only syncing an update
         # to the file content (Dropbox ID of the file remains the same).
@@ -3641,7 +3644,9 @@ class SyncEngine:
                 FileModifiedEvent(event.local_path),  # May be emitted on macOS.
                 FileDeletedEvent(event.local_path),
             ):
-                delete(event.local_path)
+                delete(
+                    event.local_path, force_case_sensitive=not self.is_fs_case_sensitive
+                )
 
         try:
             with self.fs_events.ignore(
@@ -3684,11 +3689,13 @@ class SyncEngine:
 
         event_cls = DirDeletedEvent if isdir(event.local_path) else FileDeletedEvent
         with self.fs_events.ignore(event_cls(event.local_path)):
-            exc = delete(event.local_path)
+            exc = delete(
+                event.local_path, force_case_sensitive=not self.is_fs_case_sensitive
+            )
 
         if not exc:
             self.update_index_from_sync_event(event)
-            self._logger.debug('Deleted local item "%s"', event.dbx_path)
+            self._logger.debug('Deleted local item "%s"', event.local_path)
             return event
         elif isinstance(exc, (FileNotFoundError, NotADirectoryError)):
             self.update_index_from_sync_event(event)
