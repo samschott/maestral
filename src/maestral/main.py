@@ -538,7 +538,7 @@ class Maestral:
 
         .. versionadded:: 1.4.4
            Recursive behavior. Previous versions would return "up to date" for a folder,
-           even if some of the contained files would be syncing.
+           even if some contained files would be syncing.
 
         :param local_path: Path to file on the local drive. May be relative to the
             current working directory.
