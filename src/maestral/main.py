@@ -58,6 +58,7 @@ from .logging import CachedHandler, setup_logging, scoped_logger
 from .utils import get_newer_version
 from .utils.path import (
     is_child,
+    isdir,
     is_equal_or_child,
     normalize,
     to_existing_unnormalized_path,
@@ -1041,7 +1042,7 @@ class Maestral:
         except FileNotFoundError:
             return
 
-        event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
+        event_cls = DirDeletedEvent if isdir(local_path) else FileDeletedEvent
         with self.manager.sync.fs_events.ignore(event_cls(local_path)):
             delete(local_path)
 
