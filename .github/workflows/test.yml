@@ -31,7 +31,7 @@ jobs:
         if: github.event_name != 'pull_request_target'
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4.2.0
+        uses: actions/setup-python@v4.3.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -84,7 +84,7 @@ jobs:
         if: github.event_name != 'pull_request_target'
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4.2.0
+        uses: actions/setup-python@v4.3.0
         with:
           python-version: '3.10'
 
@@ -157,7 +157,7 @@ jobs:
         if: github.event_name != 'pull_request_target'
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4.2.0
+        uses: actions/setup-python@v4.3.0
         with:
           python-version: '3.10'
 
