@@ -419,6 +419,8 @@ class Maestral:
         """
         Blocks until there is a change in status or until a timeout occurs. This method
         can be used by frontends to wait for status changes without constant polling.
+        Status changes are for example transitions from syncing to idle or vice-versa,
+        new errors, or connection status changes.
 
         :param timeout: Maximum time to block before returning, even if there is no
             status change.
