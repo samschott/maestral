@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import os
 import sys
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 
 import click
 
 from .output import echo, Column, Table, Elide, Align, TextField, Field, DateField, Grid
 from .common import convert_api_errors, check_for_fatal_errors, inject_proxy
 from .core import DropboxPath
-from ..models import SyncDirection, SyncStatus
+from ..models import SyncDirection, SyncEvent
 from ..core import FileMetadata, FolderMetadata, DeletedMetadata
 
 if TYPE_CHECKING:
@@ -83,72 +82,74 @@ def filestatus(m: Maestral, local_path: str) -> None:
 @convert_api_errors
 def activity(m: Maestral) -> None:
 
-    import curses
-    from ..utils import natural_size
+    from rich.console import Console
+    from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn, TaskID
 
     if check_for_fatal_errors(m):
         return
 
-    def curses_loop(screen) -> None:  # no type hints for screen provided yet
-        curses.use_default_colors()  # don't change terminal background
-        screen.nodelay(1)  # sets `screen.getch()` to non-blocking
+    EventKey = Tuple[str, SyncDirection]
 
-        while True:
-            height, width = screen.getmaxyx()
+    progressbar_for_path: dict[EventKey, tuple[TaskID, SyncEvent]] = {}
+    new_progressbar_for_path: dict[EventKey, tuple[TaskID, SyncEvent]] = {}
+    progress_bars_to_clear: set[TaskID] = set()
 
-            # create header
-            lines = [
-                f"Status: {m.status}, Sync errors: {len(m.sync_errors)}",
-                "",
-            ]
+    def _event_key(e: SyncEvent) -> EventKey:
+        return e.dbx_path, e.direction
 
-            # create table
-            filenames = []
-            states = []
-            col_len = 4
+    console = Console()
 
-            for event in m.get_activity(limit=height - 3):
+    with console.screen():
+        with Progress(
+            TextColumn("[bold bright_blue]{task.description}"),
+            TextColumn("[bright_blue]{task.fields[filename]}"),
+            " ",
+            BarColumn(bar_width=None),
+            "[progress.percentage]{task.percentage:>3.1f}%",
+            "•",
+            DownloadColumn(),
+            auto_refresh=False,
+            console=console,
+        ) as progress:
+            status_msg = f"\rStatus: {m.status}, Sync errors: {len(m.sync_errors)}"
+            progress.console.print(status_msg)
 
-                filename = os.path.basename(event.dbx_path)
-                filenames.append(filename)
+            while True:
+                status_msg = f"\rStatus: {m.status}, Sync errors: {len(m.sync_errors)}"
+                progress.console.clear()
+                progress.console.print(status_msg)
 
-                arrow = "↓" if event.direction is SyncDirection.Down else "↑"
-
-                if event.completed > 0:
-                    done_str = natural_size(event.completed, sep=False)
-                    todo_str = natural_size(event.size, sep=False)
-                    states.append(f"{done_str}/{todo_str} {arrow}")
-                else:
-                    if event.status is SyncStatus.Syncing:
-                        if event.direction is SyncDirection.Up:
-                            states.append("uploading")
-                        else:
-                            states.append("downloading")
+                for event in m.get_activity():
+                    try:
+                        task_id, _ = progressbar_for_path.pop(_event_key(event))
+                    except KeyError:
+                        arrow = "↓" if event.direction is SyncDirection.Down else "↑"
+                        description = f"{arrow} {event.change_type.name}"
+                        task_id = progress.add_task(
+                            description,
+                            total=event.size,
+                            completed=event.completed,
+                            filename=event.dbx_path,
+                        )
                     else:
-                        states.append(event.status.value)
+                        progress.update(task_id, completed=event.completed)
+                    new_progressbar_for_path[_event_key(event)] = (task_id, event)
 
-                col_len = max(len(filename), col_len)
+                for task_id in progress_bars_to_clear:
+                    progress.remove_task(task_id)
+                progress_bars_to_clear.clear()
 
-            for name, state in zip(filenames, states):  # create rows
-                lines.append(name.ljust(col_len + 2) + state)
+                while len(progressbar_for_path) > 0:
+                    _, task_tuple = progressbar_for_path.popitem()
+                    task_id, event = task_tuple
+                    progress.update(task_id, completed=event.size)
+                    progress_bars_to_clear.add(task_id)
 
-            # print to console screen
-            screen.clear()
-            try:
-                screen.addstr("\n".join(lines))
-            except curses.error:
-                pass
-            screen.refresh()
+                progressbar_for_path.update(new_progressbar_for_path)
+                new_progressbar_for_path.clear()
 
-            # abort when user presses 'q', refresh otherwise
-            key = screen.getch()
-            if key == ord("q"):
-                break
-            elif key < 0:
-                time.sleep(1)
-
-    # enter curses event loop
-    curses.wrapper(curses_loop)
+                time.sleep(0.5)
+                progress.refresh()
 
 
 @click.command(help="Show recently changed or added files.")
