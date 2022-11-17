@@ -5,18 +5,24 @@ be kept free of memory heavy imports.
 
 # system imports
 import platform
+import pathlib
 from enum import Enum
+from typing import ContextManager
 
 try:
-    from importlib.resources import path
+    from importlib.resources import as_file, files  # type: ignore
+
+    def resource_path(package: str, resource: str) -> ContextManager[pathlib.Path]:
+        return as_file(files(package) / resource)
+
 except ImportError:
-    from importlib_resources import path  # type: ignore
+    from importlib.resources import path as resource_path  # type: ignore
 
 
 # app
 APP_NAME = "Maestral"
 BUNDLE_ID = "com.samschott.maestral"
-APP_ICON_PATH = path("maestral.resources", "maestral.png").__enter__()
+APP_ICON_PATH = resource_path("maestral.resources", "maestral.png").__enter__()
 ENV = {"PYTHONOPTIMIZE": "2", "LC_CTYPE": "UTF-8"}
 
 # sync
