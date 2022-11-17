@@ -128,7 +128,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        observer: [inotify, fsevents, kqueue]
+        observer: [inotify, fsevents]
         include:
           - observer: inotify
             platform: ubuntu-latest
@@ -138,9 +138,9 @@ jobs:
             platform: macos-latest
             token: DROPBOX_REFRESH_TOKEN_2
 
-          - observer: kqueue
-            platform: macos-latest
-            token: DROPBOX_REFRESH_TOKEN_3
+#          - observer: kqueue
+#            platform: macos-latest
+#            token: DROPBOX_REFRESH_TOKEN_3
 
 
     runs-on: ${{ matrix.platform }}
