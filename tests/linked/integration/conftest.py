@@ -122,7 +122,7 @@ def m(pytestconfig):
 # helper functions
 
 
-def wait_for_idle(m: Maestral, cycles: int = 4) -> None:
+def wait_for_idle(m: Maestral, cycles: int = 6) -> None:
     """Blocks until Maestral instance is idle for at least ``cycles`` sync cycles."""
 
     count = 0
