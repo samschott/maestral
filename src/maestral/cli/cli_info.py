@@ -6,8 +6,13 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Tuple
 
 import click
+from rich.console import Console, ConsoleRenderable
+from rich.table import Table, Column
+from rich.text import Text
+from rich.columns import Columns
+from rich.filesize import decimal
 
-from .output import echo, Column, Table, Elide, Align, TextField, Field, DateField, Grid
+from .output import echo, RichDateField, TABLE_STYLE
 from .common import convert_api_errors, check_for_fatal_errors, inject_proxy
 from .core import DropboxPath
 from ..models import SyncDirection, SyncEvent
@@ -21,42 +26,43 @@ if TYPE_CHECKING:
 @inject_proxy(fallback=False, existing_config=True)
 @convert_api_errors
 def status(m: Maestral) -> None:
+
+    console = Console()
+
     email = m.get_state("account", "email")
     account_type = m.get_state("account", "type").capitalize()
     usage = m.get_state("account", "usage")
     status_info = m.status
 
     account_str = f"{email} ({account_type})" if email else "--"
-    usage_str = usage or "--"
+    usage_str = Text(usage or "--")
 
     n_errors = len(m.sync_errors)
     color = "red" if n_errors > 0 else "green"
-    n_errors_str = click.style(str(n_errors), fg=color)
+    n_errors_str = Text(str(n_errors), style=color)
 
-    echo("")
-    echo(f"Account:      {account_str}")
-    echo(f"Usage:        {usage_str}")
-    echo(f"Status:       {status_info}")
-    echo(f"Sync errors:  {n_errors_str}")
-    echo("")
+    status_table = Table.grid(padding=(0, 2, 0, 0))
+    status_table.add_row("Account", account_str)
+    status_table.add_row("Usage", usage_str)
+    status_table.add_row("Status", status_info)
+    status_table.add_row("Sync errors", n_errors_str)
+
+    console.print("")
+    console.print(status_table, highlight=False)
+    console.print("")
 
     check_for_fatal_errors(m)
 
     sync_errors = m.sync_errors
 
     if len(sync_errors) > 0:
-
-        path_column = Column(title="Path")
-        message_column = Column(title="Error", wraps=True)
+        table = Table("Path", "Error", **TABLE_STYLE)
 
         for error in sync_errors:
-            path_column.append(error.dbx_path)
-            message_column.append(f"{error.title}. {error.message}")
+            table.add_row(error.dbx_path, f"{error.title}. {error.message}")
 
-        table = Table([path_column, message_column])
-
-        table.echo()
-        echo("")
+        console.print(table)
+        console.print("")
 
 
 @click.command(
@@ -82,7 +88,6 @@ def filestatus(m: Maestral, local_path: str) -> None:
 @convert_api_errors
 def activity(m: Maestral) -> None:
 
-    from rich.console import Console
     from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn, TaskID
 
     if check_for_fatal_errors(m):
@@ -103,10 +108,10 @@ def activity(m: Maestral) -> None:
         with Progress(
             TextColumn("[bold bright_blue]{task.description}"),
             TextColumn("[bright_blue]{task.fields[filename]}"),
-            " ",
+            TextColumn(" "),
             BarColumn(bar_width=None),
-            "[progress.percentage]{task.percentage:>3.1f}%",
-            "•",
+            TextColumn("[progress.percentage]{task.percentage:>3.1f}%"),
+            TextColumn("•"),
             DownloadColumn(),
             auto_refresh=False,
             console=console,
@@ -157,24 +162,17 @@ def activity(m: Maestral) -> None:
 @convert_api_errors
 def history(m: Maestral) -> None:
     events = m.get_history()
-
-    table = Table(
-        [
-            Column("Path", elide=Elide.Leading),
-            Column("Change"),
-            Column("Time"),
-        ]
-    )
+    table = Table("Path", "Change", "Time", **TABLE_STYLE)
 
     for event in events:
         dt_local_naive = datetime.fromtimestamp(event.change_time_or_sync_time)
-        dt_field = DateField(dt_local_naive)
+        table.add_row(
+            Text(event.dbx_path, overflow="ellipsis", no_wrap=True),
+            Text(event.change_type.value),
+            RichDateField(dt_local_naive),
+        )
 
-        table.append([event.dbx_path, event.change_type.value, dt_field])
-
-    echo("")
-    table.echo()
-    echo("")
+    Console().print(table)
 
 
 @click.command(help="List contents of a Dropbox directory.")
@@ -196,9 +194,6 @@ def history(m: Maestral) -> None:
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> None:
-
-    from ..utils import natural_size
-
     echo("Loading...\r", nl=False)
 
     entries_iter = m.list_folder_iterator(
@@ -207,17 +202,17 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
         include_deleted=include_deleted,
     )
 
-    if long:
+    console = Console()
 
+    if long:
         table = Table(
-            columns=[
-                Column("Name"),
-                Column("Type"),
-                Column("Size", align=Align.Right),
-                Column("Shared"),
-                Column("Syncing"),
-                Column("Last Modified"),
-            ]
+            Column("Name"),
+            Column("Type"),
+            Column("Size", justify="right"),
+            Column("Shared"),
+            Column("Syncing"),
+            Column("Last Modified"),
+            **TABLE_STYLE,
         )
 
         for entries in entries_iter:
@@ -226,56 +221,55 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
 
                 text = "shared" if getattr(entry, "shared", False) else "private"
                 color = "bright_black" if text == "private" else None
-                shared_field = TextField(text, fg=color)
+                shared_field = Text(text, style=color)
 
                 excluded_status = m.excluded_status(entry.path_lower)
                 color = "green" if excluded_status == "included" else None
                 text = "✓" if excluded_status == "included" else excluded_status
-                excluded_field = TextField(text, fg=color)
+                excluded_field = Text(text, style=color)
 
-                dt_field: Field
+                dt_field: ConsoleRenderable
 
                 if isinstance(entry, FileMetadata):
-                    size = natural_size(entry.size)
-                    dt_field = DateField(entry.client_modified)
+                    size = decimal(entry.size)
+                    dt_field = RichDateField(entry.client_modified)
                     item_type = "file"
                 elif isinstance(entry, FolderMetadata):
                     size = "-"
-                    dt_field = TextField("-")
+                    dt_field = Text("-")
                     item_type = "folder"
                 else:
                     size = "-"
-                    dt_field = TextField("-")
+                    dt_field = Text("-")
                     item_type = "deleted"
 
-                table.append(
-                    [
-                        entry.name,
-                        item_type,
-                        size,
-                        shared_field,
-                        excluded_field,
-                        dt_field,
-                    ]
+                table.add_row(
+                    Text(entry.name, overflow="ellipsis", no_wrap=True),
+                    item_type,
+                    size,
+                    shared_field,
+                    excluded_field,
+                    dt_field,
                 )
 
-        echo(" " * 15)
-        table.echo()
-        echo(" " * 15)
+        console.print(table)
 
     if not sys.stdout.isatty():
         names = [entry.name for entries in entries_iter for entry in entries]
-        echo("\n".join(names))
+        names.sort()
+        console.print("\n".join(names))
 
     else:
-        grid = Grid()
+        fields: list[Text] = []
 
         for entries in entries_iter:
             for entry in entries:
                 color = "blue" if isinstance(entry, DeletedMetadata) else None
-                grid.append(TextField(entry.name, fg=color))
+                fields.append(Text(entry.name, style=color))
 
-        grid.echo()
+        fields.sort(key=lambda t: t.plain)
+
+        console.print(Columns(fields, equal=True, column_first=True))
 
 
 @click.command(help="List all configured Dropbox accounts.")
@@ -296,9 +290,7 @@ def config_files(clean: bool) -> None:
     )
 
     if clean:
-
         # Clean up stale config files.
-
         for name in list_configs():
             conf = MaestralConfig(name)
             dbid = conf.get("auth", "account_id")
@@ -309,25 +301,15 @@ def config_files(clean: bool) -> None:
 
     else:
         # Display config files.
-        names = list_configs()
-        emails = []
-        paths = []
-
-        for name in names:
+        table = Table("Config name", "Account", "Path", **TABLE_STYLE)
+        for name in list_configs():
             conf = MaestralConfig(name)
             state = MaestralState(name)
 
-            emails.append(state.get("account", "email"))
-            paths.append(conf.config_path)
+            table.add_row(
+                name,
+                state.get("account", "email"),
+                Text(conf.config_path, overflow="ellipsis", no_wrap=True),
+            )
 
-        table = Table(
-            [
-                Column("Config name", names),
-                Column("Account", emails),
-                Column("Path", paths, elide=Elide.Leading),
-            ]
-        )
-
-        echo("")
-        table.echo()
-        echo("")
+        Console().print(table)

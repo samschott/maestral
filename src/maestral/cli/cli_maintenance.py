@@ -5,10 +5,13 @@ from os import path as osp
 from typing import cast, TYPE_CHECKING
 
 import click
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 
 from .cli_core import select_dbx_path_dialog
 from .dialogs import confirm, select
-from .output import ok, echo, Table, TextField, DateField, warn
+from .output import ok, warn, echo, echo_via_pager, RichDateField, TABLE_STYLE
 from .utils import get_term_width
 from .common import convert_api_errors, existing_config_option, inject_proxy
 from .core import DropboxPath, ConfigKey, CliException
@@ -81,16 +84,13 @@ def rebuild_index(m: Maestral, yes: bool) -> None:
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def revs(m: Maestral, dropbox_path: str, limit: int) -> None:
-    entries = m.list_revisions(dropbox_path, limit=limit)
+    table = Table("Revision", "Modified Time", **TABLE_STYLE)
 
-    table = Table(["Revision", "Modified Time"])
+    for entry in m.list_revisions(dropbox_path, limit=limit):
+        table.add_row(Text(entry.rev), RichDateField(entry.client_modified))
 
-    for entry in entries:
-        table.append([TextField(entry.rev), DateField(entry.client_modified)])
-
-    echo("")
-    table.echo()
-    echo("")
+    console = Console()
+    console.print(table)
 
 
 @click.command(
@@ -143,8 +143,8 @@ def diff(
         modified_dates: list[str] = []
 
         for entry in entries:
-            field = DateField(entry.client_modified)
-            modified_dates.append(field.format(40)[0])
+            field = RichDateField(entry.client_modified)
+            modified_dates.append(field.format(40))
 
         dbx_path = entries[0].path_display
         local_path = m.to_local_path(dbx_path)
@@ -188,12 +188,12 @@ def diff(
     # If an unknown file type was found, everything that doesn't match
     # 'text/*', an error message gets printed.
 
-    click.echo("Loading ...\r", nl=False)
+    echo("Loading ...\r", nl=False)
 
     diff_output = m.get_file_diff(old_rev, new_rev)
 
     if len(diff_output) == 0:
-        click.echo("There are no changes between the two revisions.")
+        echo("There are no changes between the two revisions.")
         return
 
     def color(ind: int, line: str) -> str:
@@ -220,9 +220,9 @@ def diff(
 
     # Enter pager if diff is too long
     if len(diff_output) > 30 and not no_pager:
-        click.echo_via_pager("".join(diff_output))
+        echo_via_pager("".join(diff_output))
     else:
-        click.echo("".join(diff_output))
+        echo("".join(diff_output))
 
 
 @click.command(
@@ -250,8 +250,8 @@ def restore(m: Maestral, dropbox_path: str, rev: str, limit: int) -> None:
         entries = m.list_revisions(dropbox_path, limit=limit)
         dates = []
         for entry in entries:
-            field = DateField(entry.client_modified)
-            dates.append(field.format(40)[0])
+            field = RichDateField(entry.client_modified)
+            dates.append(field.format(40))
 
         index = select(
             message="Select a version to restore:",
@@ -288,7 +288,7 @@ def log_show(external: bool, config_name: str) -> None:
         try:
             with open(log_file) as f:
                 text = f.read()
-            click.echo_via_pager(text)
+            echo_via_pager(text)
         except OSError:
             res = 1
         else:
@@ -448,9 +448,9 @@ def config_show(no_pager: bool, config_name: str) -> None:
     with io.StringIO() as fp:
         conf.write(fp)
         if no_pager:
-            click.echo(fp.getvalue())
+            echo(fp.getvalue())
         else:
-            click.echo_via_pager(fp.getvalue())
+            echo_via_pager(fp.getvalue())
 
 
 @click.command(
@@ -520,6 +520,6 @@ def completion(shell: str) -> None:
     comp = comp_cls(main, {}, "maestral", "_MAESTRAL_COMPLETE")
 
     try:
-        click.echo(comp.source())
+        echo(comp.source())
     except RuntimeError as exc:
         warn(exc.args[0])
