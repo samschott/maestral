@@ -26,9 +26,6 @@ if TYPE_CHECKING:
 @inject_proxy(fallback=False, existing_config=True)
 @convert_api_errors
 def status(m: Maestral) -> None:
-
-    console = Console()
-
     email = m.get_state("account", "email")
     account_type = m.get_state("account", "type").capitalize()
     usage = m.get_state("account", "usage")
@@ -47,6 +44,8 @@ def status(m: Maestral) -> None:
     status_table.add_row("Status", status_info)
     status_table.add_row("Sync errors", n_errors_str)
 
+    console = Console()
+
     console.print("")
     console.print(status_table, highlight=False)
     console.print("")
@@ -56,12 +55,12 @@ def status(m: Maestral) -> None:
     sync_errors = m.sync_errors
 
     if len(sync_errors) > 0:
-        table = Table("Path", "Error", **TABLE_STYLE)
+        sync_errors_table = Table("Path", "Error", **TABLE_STYLE)
 
         for error in sync_errors:
-            table.add_row(error.dbx_path, f"{error.title}. {error.message}")
+            sync_errors_table.add_row(error.dbx_path, f"{error.title}. {error.message}")
 
-        console.print(table)
+        console.print(sync_errors_table)
         console.print("")
 
 
@@ -174,7 +173,8 @@ def history(m: Maestral) -> None:
             RichDateField(dt_local_naive),
         )
 
-    Console().print(table)
+    console = Console()
+    console.print(table)
 
 
 @click.command(help="List contents of a Dropbox directory.")
@@ -314,4 +314,5 @@ def config_files(clean: bool) -> None:
                 Text(conf.config_path, overflow="ellipsis", no_wrap=True),
             )
 
-        Console().print(table)
+        console = Console()
+        console.print(table)
