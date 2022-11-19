@@ -6,12 +6,11 @@ from typing import cast, TYPE_CHECKING
 
 import click
 from rich.console import Console
-from rich.table import Table
 from rich.text import Text
 
 from .cli_core import select_dbx_path_dialog
 from .dialogs import confirm, select
-from .output import ok, warn, echo, echo_via_pager, RichDateField, TABLE_STYLE
+from .output import ok, warn, echo, echo_via_pager, RichDateField, rich_table
 from .utils import get_term_width
 from .common import convert_api_errors, existing_config_option, inject_proxy
 from .core import DropboxPath, ConfigKey, CliException
@@ -84,7 +83,7 @@ def rebuild_index(m: Maestral, yes: bool) -> None:
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def revs(m: Maestral, dropbox_path: str, limit: int) -> None:
-    table = Table("Revision", "Modified Time", **TABLE_STYLE)
+    table = rich_table("Revision", "Modified Time")
 
     for entry in m.list_revisions(dropbox_path, limit=limit):
         table.add_row(Text(entry.rev), RichDateField(entry.client_modified))

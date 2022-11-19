@@ -8,10 +8,9 @@ from typing import TYPE_CHECKING
 import click
 
 from rich.console import Console, ConsoleRenderable
-from rich.table import Table
 
 from .dialogs import select_path, select, confirm, prompt, select_multiple
-from .output import warn, ok, info, echo, RichDateField, TABLE_STYLE
+from .output import warn, ok, info, echo, RichDateField, rich_table
 from .common import (
     convert_api_errors,
     check_for_fatal_errors,
@@ -466,7 +465,7 @@ def sharelink_list(m: Maestral, dropbox_path: list[str], long: bool) -> None:
         links = m.list_shared_links()
 
     if long:
-        link_table = Table("URL", "Item", "Access", "Expires", **TABLE_STYLE)
+        link_table = rich_table("URL", "Item", "Access", "Expires")
 
         for link in links:
             dt_field: ConsoleRenderable | str

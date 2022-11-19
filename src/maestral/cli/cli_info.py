@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, Tuple
 
 import click
 from rich.console import Console, ConsoleRenderable
-from rich.table import Table, Column
+from rich.table import Column
 from rich.text import Text
 from rich.columns import Columns
 from rich.filesize import decimal
 
-from .output import echo, RichDateField, TABLE_STYLE
+from .output import echo, RichDateField, rich_table
 from .common import convert_api_errors, check_for_fatal_errors, inject_proxy
 from .core import DropboxPath
 from ..models import SyncDirection, SyncEvent
@@ -38,7 +38,7 @@ def status(m: Maestral) -> None:
     color = "red" if n_errors > 0 else "green"
     n_errors_str = Text(str(n_errors), style=color)
 
-    status_table = Table.grid(padding=(0, 2, 0, 0))
+    status_table = rich_table()
     status_table.add_row("Account", account_str)
     status_table.add_row("Usage", usage_str)
     status_table.add_row("Status", status_info)
@@ -55,7 +55,7 @@ def status(m: Maestral) -> None:
     sync_errors = m.sync_errors
 
     if len(sync_errors) > 0:
-        sync_errors_table = Table("Path", "Error", **TABLE_STYLE)
+        sync_errors_table = rich_table("Path", "Error")
 
         for error in sync_errors:
             sync_errors_table.add_row(error.dbx_path, f"{error.title}. {error.message}")
@@ -161,7 +161,7 @@ def activity(m: Maestral) -> None:
 @convert_api_errors
 def history(m: Maestral) -> None:
     events = m.get_history()
-    table = Table("Path", "Change", "Location", "Time", **TABLE_STYLE)
+    table = rich_table("Path", "Change", "Location", "Time")
 
     for event in events:
         dt_local_naive = datetime.fromtimestamp(event.change_time_or_sync_time)
@@ -207,14 +207,13 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
     console = Console()
 
     if long:
-        table = Table(
+        table = rich_table(
             Column("Name"),
             Column("Type"),
             Column("Size", justify="right"),
             Column("Shared"),
             Column("Syncing"),
             Column("Last Modified"),
-            **TABLE_STYLE,
         )
 
         for entries in entries_iter:
@@ -222,11 +221,11 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
             for entry in entries:
 
                 text = "shared" if getattr(entry, "shared", False) else "private"
-                color = "bright_black" if text == "private" else None
+                color = "bright_black" if text == "private" else ""
                 shared_field = Text(text, style=color)
 
                 excluded_status = m.excluded_status(entry.path_lower)
-                color = "green" if excluded_status == "included" else None
+                color = "green" if excluded_status == "included" else ""
                 text = "✓" if excluded_status == "included" else excluded_status
                 excluded_field = Text(text, style=color)
 
@@ -266,7 +265,7 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
 
         for entries in entries_iter:
             for entry in entries:
-                color = "blue" if isinstance(entry, DeletedMetadata) else None
+                color = "blue" if isinstance(entry, DeletedMetadata) else ""
                 fields.append(Text(entry.name, style=color))
 
         fields.sort(key=lambda t: t.plain)
@@ -303,7 +302,7 @@ def config_files(clean: bool) -> None:
 
     else:
         # Display config files.
-        table = Table("Config name", "Account", "Path", **TABLE_STYLE)
+        table = rich_table("Config name", "Account", "Path")
         for name in list_configs():
             conf = MaestralConfig(name)
             state = MaestralState(name)

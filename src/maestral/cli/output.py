@@ -12,6 +12,7 @@ from typing import Iterable, Callable
 import click
 from rich.console import Console, ConsoleOptions, Measurement, Text, RenderResult
 from rich.text import Style
+from rich.table import Table, Column
 
 TABLE_STYLE = dict(padding=(0, 2, 0, 0), box=None)
 
@@ -19,10 +20,14 @@ TABLE_STYLE = dict(padding=(0, 2, 0, 0), box=None)
 # ==== printing structured data to console =============================================
 
 
+def rich_table(*headers: Column | str) -> Table:
+    return Table(*headers, padding=(0, 2, 0, 0), box=None, show_header=len(headers) > 0)
+
+
 class RichDateField:
     """A datetime renderable."""
 
-    def __init__(self, dt: datetime, style: str | Style = None) -> None:
+    def __init__(self, dt: datetime, style: str | Style = "") -> None:
         self.dt = dt.astimezone()
         self.style = style
         self._shortest_string = self.dt.strftime("%x")
