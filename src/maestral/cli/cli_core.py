@@ -7,8 +7,11 @@ from typing import TYPE_CHECKING
 
 import click
 
+from rich.console import Console, ConsoleRenderable
+from rich.table import Table
+
 from .dialogs import select_path, select, confirm, prompt, select_multiple
-from .output import warn, ok, info, echo, Table, Field, DateField, TextField
+from .output import warn, ok, info, echo, RichDateField, TABLE_STYLE
 from .common import (
     convert_api_errors,
     check_for_fatal_errors,
@@ -35,16 +38,16 @@ def stop_daemon_with_cli_feedback(config_name: str) -> None:
 
     from ..daemon import stop_maestral_daemon_process, Stop
 
-    click.echo("Stopping Maestral...", nl=False)
+    echo("Stopping Maestral...", nl=False)
     res = stop_maestral_daemon_process(config_name)
     if res == Stop.Ok:
-        click.echo("\rStopping Maestral...        " + OK)
+        echo("\rStopping Maestral...        " + OK)
     elif res == Stop.NotRunning:
-        click.echo("\rMaestral daemon is not running.")
+        echo("\rMaestral daemon is not running.")
     elif res == Stop.Killed:
-        click.echo("\rStopping Maestral...        " + KILLED)
+        echo("\rStopping Maestral...        " + KILLED)
     elif res == Stop.Failed:
-        click.echo("\rStopping Maestral...        " + FAILED)
+        echo("\rStopping Maestral...        " + FAILED)
 
 
 def select_dbx_path_dialog(
@@ -176,7 +179,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
     )
 
     if is_running(config_name):
-        click.echo("Daemon is already running.")
+        echo("Daemon is already running.")
         return
 
     @convert_api_errors
@@ -463,34 +466,25 @@ def sharelink_list(m: Maestral, dropbox_path: list[str], long: bool) -> None:
         links = m.list_shared_links()
 
     if long:
-        link_table = Table(["URL", "Item", "Access", "Expires"])
+        link_table = Table("URL", "Item", "Access", "Expires", **TABLE_STYLE)
 
         for link in links:
-
-            dt_field: Field
+            dt_field: ConsoleRenderable | str
 
             if link.expires:
-                dt_field = DateField(link.expires)
+                dt_field = RichDateField(link.expires)
             else:
-                dt_field = TextField("-")
+                dt_field = "-"
 
             if link.link_permissions.require_password:
                 access = "password"
             else:
                 access = link.link_permissions.effective_audience.value
 
-            link_table.append(
-                [
-                    link.url,
-                    link.name,
-                    access,
-                    dt_field,
-                ]
-            )
+            link_table.add_row(link.url, link.name, access, dt_field)
 
-        echo("")
-        link_table.echo()
-        echo("")
+        console = Console()
+        console.print(link_table)
 
     else:
         echo("\n".join(link.url for link in links))
