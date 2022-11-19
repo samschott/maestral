@@ -162,13 +162,15 @@ def activity(m: Maestral) -> None:
 @convert_api_errors
 def history(m: Maestral) -> None:
     events = m.get_history()
-    table = Table("Path", "Change", "Time", **TABLE_STYLE)
+    table = Table("Path", "Change", "Location", "Time", **TABLE_STYLE)
 
     for event in events:
         dt_local_naive = datetime.fromtimestamp(event.change_time_or_sync_time)
+        location = "local" if event.direction is SyncDirection.Up else "remote"
         table.add_row(
             Text(event.dbx_path, overflow="ellipsis", no_wrap=True),
             Text(event.change_type.value),
+            Text(location),
             RichDateField(dt_local_naive),
         )
 
