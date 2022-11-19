@@ -20,7 +20,7 @@ import re
 import pickle
 from pprint import pformat
 from shlex import quote
-from typing import Any, Iterable, TYPE_CHECKING
+from typing import Any, Iterable, ContextManager, TYPE_CHECKING
 from types import TracebackType
 
 # external imports
@@ -607,7 +607,7 @@ def stop_maestral_daemon_process(
     return Stop.Killed
 
 
-class MaestralProxy:
+class MaestralProxy(ContextManager["MaestralProxy"]):
     """A Proxy to the Maestral daemon
 
     All methods and properties of Maestral's public API are accessible and calls /
@@ -677,7 +677,10 @@ class MaestralProxy:
         return self
 
     def __exit__(
-        self, exc_type: type[Exception], exc_value: Exception, tb: TracebackType
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        tb: TracebackType | None,
     ) -> None:
         self._disconnect()
         del self._m

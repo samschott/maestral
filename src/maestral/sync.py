@@ -1448,10 +1448,10 @@ class SyncEngine:
 
         self._logger.info("Could not sync %s", printable_file_name, exc_info=True)
 
-        def callback():
+        def callback() -> None:
             if err.local_path:
                 click.launch(err.local_path, locate=True)
-            else:
+            elif err.dbx_path:
                 url_path = urllib.parse.quote(err.dbx_path)
                 click.launch(f"https://www.dropbox.com/preview{url_path}")
 

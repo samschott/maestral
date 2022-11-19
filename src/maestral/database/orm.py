@@ -419,7 +419,9 @@ class Manager(Generic[M]):
 
 
 class ModelBase(type):
-    def __new__(mcs, cls_name, bases, namespace, **kwargs):
+    def __new__(
+        mcs, cls_name: str, bases: tuple[type], namespace: dict[str, Any], **kwargs
+    ):
 
         columns: list[Column] = []
         slots: list[str] = []

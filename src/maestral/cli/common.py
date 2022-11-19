@@ -103,8 +103,8 @@ def inject_proxy(fallback: bool, existing_config: bool):
             except CommunicationError:
                 click.echo("Maestral daemon is not running.")
                 ctx.exit(0)
-
-            return ctx.invoke(f, proxy, *args, **kwargs)
+            else:
+                return ctx.invoke(f, proxy, *args, **kwargs)
 
         if existing_config:
             f = existing_config_option(f)
