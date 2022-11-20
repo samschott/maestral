@@ -204,6 +204,9 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
         include_deleted=include_deleted,
     )
 
+    entries = [entry for entries in entries_iter for entry in entries]
+    entries.sort(key=lambda e: e.name)
+
     console = Console()
 
     if long:
@@ -216,61 +219,54 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
             Column("Last Modified"),
         )
 
-        for entries in entries_iter:
+        for entry in entries:
+            text = "shared" if getattr(entry, "shared", False) else "private"
+            color = "bright_black" if text == "private" else ""
+            shared_field = Text(text, style=color)
 
-            for entry in entries:
+            excluded_status = m.excluded_status(entry.path_lower)
+            color = "green" if excluded_status == "included" else ""
+            text = "✓" if excluded_status == "included" else excluded_status
+            excluded_field = Text(text, style=color)
 
-                text = "shared" if getattr(entry, "shared", False) else "private"
-                color = "bright_black" if text == "private" else ""
-                shared_field = Text(text, style=color)
+            dt_field: ConsoleRenderable
 
-                excluded_status = m.excluded_status(entry.path_lower)
-                color = "green" if excluded_status == "included" else ""
-                text = "✓" if excluded_status == "included" else excluded_status
-                excluded_field = Text(text, style=color)
+            if isinstance(entry, FileMetadata):
+                size = decimal(entry.size)
+                dt_field = RichDateField(entry.client_modified)
+                item_type = "file"
+            elif isinstance(entry, FolderMetadata):
+                size = "-"
+                dt_field = Text("-")
+                item_type = "folder"
+            else:
+                size = "-"
+                dt_field = Text("-")
+                item_type = "deleted"
 
-                dt_field: ConsoleRenderable
-
-                if isinstance(entry, FileMetadata):
-                    size = decimal(entry.size)
-                    dt_field = RichDateField(entry.client_modified)
-                    item_type = "file"
-                elif isinstance(entry, FolderMetadata):
-                    size = "-"
-                    dt_field = Text("-")
-                    item_type = "folder"
-                else:
-                    size = "-"
-                    dt_field = Text("-")
-                    item_type = "deleted"
-
-                table.add_row(
-                    Text(entry.name, overflow="ellipsis", no_wrap=True),
-                    item_type,
-                    size,
-                    shared_field,
-                    excluded_field,
-                    dt_field,
-                )
+            table.add_row(
+                Text(entry.name, overflow="ellipsis", no_wrap=True),
+                item_type,
+                size,
+                shared_field,
+                excluded_field,
+                dt_field,
+            )
 
         console.print(table)
 
-    if not sys.stdout.isatty():
+    elif not sys.stdout.isatty():
         names = [entry.name for entries in entries_iter for entry in entries]
-        names.sort()
         console.print("\n".join(names))
 
     else:
         fields: list[Text] = []
 
-        for entries in entries_iter:
-            for entry in entries:
-                color = "blue" if isinstance(entry, DeletedMetadata) else ""
-                fields.append(Text(entry.name, style=color))
+        for entry in entries:
+            color = "blue" if isinstance(entry, DeletedMetadata) else ""
+            fields.append(Text(entry.name, style=color))
 
-        fields.sort(key=lambda f: f.plain)
         max_len = max(len(f) for f in fields)
-
         console.print(Columns(fields, width=max_len, column_first=True))
 
 
