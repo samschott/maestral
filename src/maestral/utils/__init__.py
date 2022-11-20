@@ -13,7 +13,7 @@ ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]
 
 def natural_size(num: float, unit: str = "B", sep: bool = True) -> str:
     """
-    Convert number to a human readable string with decimal prefix.
+    Convert number to a human-readable string with decimal prefix.
 
     :param float num: Value in given unit.
     :param unit: Unit suffix.

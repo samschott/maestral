@@ -3227,8 +3227,8 @@ class SyncEngine:
             )
             > 0
         ):
-            # Local version could not be uploaded due to a sync error. Do not over-
-            # write unsynced changes but declare a conflict.
+            # Local version could not be uploaded due to a sync error. Do not
+            # over-write unsynced changes but declare a conflict.
             self._logger.debug(
                 'Unresolved upload error for "%s": conflict', event.dbx_path
             )

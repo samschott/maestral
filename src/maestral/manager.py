@@ -113,7 +113,7 @@ class PersistentQueue(Generic[T]):
 class SyncManager:
     """Class to manage sync threads
 
-    :param client: The Dropbox API client, a wrapper around the Dropbox Python SDK.
+    :param sync: The SyncEngine.
     """
 
     download_queue: PersistentQueue[str]
