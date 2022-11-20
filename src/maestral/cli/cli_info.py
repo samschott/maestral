@@ -268,9 +268,10 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
                 color = "blue" if isinstance(entry, DeletedMetadata) else ""
                 fields.append(Text(entry.name, style=color))
 
-        fields.sort(key=lambda t: t.plain)
+        fields.sort(key=lambda f: f.plain)
+        max_len = max(len(f) for f in fields)
 
-        console.print(Columns(fields, equal=True, column_first=True))
+        console.print(Columns(fields, width=max_len, column_first=True))
 
 
 @click.command(help="List all configured Dropbox accounts.")
