@@ -8,23 +8,28 @@ import logging
 from logging.handlers import RotatingFileHandler
 from collections import deque
 from concurrent.futures import Future
-
-try:
-    from concurrent.futures import InvalidStateError  # type: ignore
-except ImportError:
-    # Python 3.7 and lower
-    InvalidStateError = RuntimeError
+from typing import Any, TextIO, Type
 
 import sdnotify
+
+from .config import MaestralConfig
+from .utils import sanitize_string
+from .utils.appdirs import get_log_path
 
 try:
     from systemd import journal
 except ImportError:
     journal = None
 
-from .config import MaestralConfig
-from .utils import sanitize_string
-from .utils.appdirs import get_log_path
+InvalidStateError: Type[Exception]
+
+try:
+    from concurrent.futures import (  # type:ignore[attr-defined, no-redef]
+        InvalidStateError,
+    )
+except ImportError:
+    # Python 3.7 and lower
+    InvalidStateError = RuntimeError
 
 
 __all__ = [
@@ -35,10 +40,9 @@ __all__ = [
 ]
 
 
-def safe_journal_sender(MESSAGE: str, **kwargs) -> None:
+def safe_journal_sender(MESSAGE: str, **kwargs: Any) -> None:
 
-    if journal:
-
+    if journal is not None:
         MESSAGE = sanitize_string(MESSAGE)
 
         for key, value in kwargs.items():
@@ -85,7 +89,7 @@ class CachedHandler(logging.Handler):
     """
 
     cached_records: deque[logging.LogRecord]
-    _emit_future: Future
+    _emit_future: Future[bool]
 
     def __init__(self, level: int = logging.NOTSET, maxlen: int | None = None) -> None:
         super().__init__(level=level)
@@ -155,7 +159,7 @@ class SdNotificationHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         """
-        Sends the record massage to systemd as service status.
+        Sends the record message to systemd as service status.
 
         :param record: Log record.
         """
@@ -193,7 +197,7 @@ def setup_logging(
     config_name: str, log_to_stderr: bool = True
 ) -> tuple[
     RotatingFileHandler,
-    logging.StreamHandler | logging.NullHandler,
+    logging.StreamHandler[TextIO] | logging.NullHandler,
     SdNotificationHandler,
     journal.JournalHandler | logging.NullHandler,
 ]:
@@ -265,7 +269,7 @@ def setup_logging(
     root_logger.addHandler(log_handler_sd)
 
     # Log to stderr if requested.
-    log_handler_stream: logging.StreamHandler | logging.NullHandler
+    log_handler_stream: logging.StreamHandler[TextIO] | logging.NullHandler
 
     if log_to_stderr:
         log_handler_stream = logging.StreamHandler()

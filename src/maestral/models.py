@@ -24,7 +24,7 @@ from watchdog.events import (
 
 # local imports
 from .core import Metadata, DeletedMetadata, FileMetadata, FolderMetadata
-from .database.orm import Model, Column
+from .database.orm import Model, Column, NonNullColumn
 from .database.types import SqlInt, SqlLargeInt, SqlFloat, SqlString, SqlPath, SqlEnum
 from .utils.path import normalize
 from .exceptions import SyncError, NotLinkedError
@@ -96,115 +96,115 @@ class SyncEvent(Model):
 
     __tablename__ = "history"
 
-    id: Column[int] = Column(SqlInt(), primary_key=True)
+    id = Column(SqlInt(), primary_key=True)
     """A unique identifier of the SyncEvent."""
 
-    direction: Column[SyncDirection] = Column(SqlEnum(SyncDirection), nullable=False)
+    direction = NonNullColumn(SqlEnum(SyncDirection))
     """The :class:`SyncDirection`."""
 
-    item_type: Column[ItemType] = Column(SqlEnum(ItemType), nullable=False)
+    item_type = NonNullColumn(SqlEnum(ItemType))
     """
     The :class:`ItemType`. May be undetermined for remote deletions.
     """
 
-    sync_time: Column[float] = Column(SqlFloat(), nullable=False)
+    sync_time = NonNullColumn(SqlFloat())
     """The time the SyncEvent was registered."""
 
-    dbx_id: Column[str | None] = Column(SqlString())
+    dbx_id = Column(SqlString())
     """
     A unique dropbox ID for the file or folder. Will only be set for download events
     which are not deletions.
     """
 
-    dbx_path: Column[str] = Column(SqlPath(), nullable=False)
+    dbx_path = NonNullColumn(SqlPath())
     """
     Correctly cased Dropbox path of the item to sync. If the sync represents a move
     operation, this will be the destination path. Follows the casing from the
     path_display attribute of Dropbox metadata.
     """
 
-    dbx_path_lower: Column[str] = Column(SqlPath(), nullable=False)
+    dbx_path_lower = NonNullColumn(SqlPath())
     """
     Dropbox path of the item to sync. If the sync represents a move operation, this will
     be the destination path. This is normalised as the path_lower attribute of Dropbox
     metadata.
     """
 
-    local_path: Column[str] = Column(SqlPath(), nullable=False)
+    local_path = NonNullColumn(SqlPath())
     """
     Local path of the item to sync. If the sync represents a move operation, this will
     be the destination path. This will be correctly cased.
     """
 
-    dbx_path_from: Column[str | None] = Column(SqlPath())
+    dbx_path_from = Column(SqlPath())
     """
     Dropbox path that this item was moved from. Will only be set if :attr:`change_type`
     is :attr:`ChangeType.Moved`. Follows the casing from the path_display attribute of
     Dropbox metadata.
     """
 
-    dbx_path_from_lower: Column[str | None] = Column(SqlPath())
+    dbx_path_from_lower = Column(SqlPath())
     """
     Dropbox path that this item was moved from. Will only be set if :attr:`change_type`
     is :attr:`ChangeType.Moved`. This is normalised as the path_lower attribute of
     Dropbox metadata.
     """
 
-    local_path_from: Column[str | None] = Column(SqlPath())
+    local_path_from = Column(SqlPath())
     """
     Local path that this item was moved from. Will only be set if :attr:`change_type`
     is :attr:`ChangeType.Moved`. This will be correctly cased.
     """
 
-    rev: Column[str | None] = Column(SqlString())
+    rev = Column(SqlString())
     """
     The file revision. Will only be set for remote changes. Will be ``'folder'`` for
     folders and ``None`` for deletions.
     """
 
-    content_hash: Column[str | None] = Column(SqlString())
+    content_hash = Column(SqlString())
     """
     A hash representing the file content. Will be ``'folder'`` for folders and ``None``
     for deletions. Set for both local and remote changes.
     """
 
-    symlink_target: Column[str | None] = Column(SqlPath())
+    symlink_target = Column(SqlPath())
     """
     If the file is a symlink, its target path. This should only be set for files.
     """
 
-    change_type: Column[ChangeType] = Column(SqlEnum(ChangeType), nullable=False)
+    change_type = NonNullColumn(SqlEnum(ChangeType))
     """
     The :class:`ChangeType`. Remote SyncEvents currently do not generate moved events
     but are reported as deleted and added at the new location.
     """
 
-    change_time: Column[float | None] = Column(SqlFloat())
+    change_time = Column(SqlFloat())
     """
     Local ctime or remote ``client_modified`` time for files. ``None`` for folders or
     for remote deletions. Note that ``client_modified`` may not be reliable as it is set
     by other clients and not verified.
     """
 
-    change_dbid: Column[str | None] = Column(SqlString())
+    change_dbid = Column(SqlString())
     """
     The Dropbox ID of the account which performed the changes. This may not be set for
     added folders or deletions on the server.
     """
 
-    change_user_name: Column[str | None] = Column(SqlString())
+    change_user_name = Column(SqlString())
     """
     The user name corresponding to :attr:`change_dbid`, if the account still exists.
     This field may not be set for performance reasons.
     """
 
-    status: Column[SyncStatus] = Column(SqlEnum(SyncStatus), nullable=False)
+    status = NonNullColumn(SqlEnum(SyncStatus))
     """The :class:`SyncStatus`."""
 
-    size: Column[int] = Column(SqlInt(), nullable=False)
+    size = NonNullColumn(SqlInt())
     """Size of the item in bytes. Always zero for folders."""
 
-    completed: Column[int] = Column(SqlInt(), default=0, nullable=False)
+    completed = NonNullColumn(SqlInt(), default=0)
     """
     File size in bytes which has already been uploaded or downloaded. Always zero for
     folders.
@@ -258,7 +258,7 @@ class SyncEvent(Model):
         """Returns True for changes to download"""
         return self.direction == SyncDirection.Down
 
-    def __repr__(self):
+    def __repr__(self) -> str:
 
         properties = ["direction", "change_type", "item_type", "dbx_path"]
 
@@ -368,7 +368,8 @@ class SyncEvent(Model):
         try:
             change_dbid = sync_engine.client.account_info.account_id
         except NotLinkedError:
-            # Allow converting events when we are not linked. This is useful for testing.
+            # Allow converting events when we are not linked.
+            # This is useful for testing.
             change_dbid = ""
 
         to_path = getattr(event, "dest_path", event.src_path)
@@ -448,40 +449,40 @@ class IndexEntry(Model):
 
     __tablename__ = "'index'"
 
-    dbx_path_lower: Column[str] = Column(SqlPath(), primary_key=True, nullable=False)
+    dbx_path_lower = NonNullColumn(SqlPath(), primary_key=True)
     """
     Dropbox path of the item in lower case. This acts as a primary key for the SQLites
     database since there can only be one entry per case-insensitive Dropbox path.
     Corresponds to the path_lower field of Dropbox metadata.
     """
 
-    dbx_path_cased: Column[str] = Column(SqlPath(), nullable=False)
+    dbx_path_cased = NonNullColumn(SqlPath())
     """
     Dropbox path of the item, correctly cased. Corresponds to the path_display field of
     Dropbox metadata.
     """
 
-    dbx_id: Column[str] = Column(SqlString(), nullable=False)
+    dbx_id = NonNullColumn(SqlString())
     """The unique dropbox ID for the item."""
 
-    item_type: Column[ItemType] = Column(SqlEnum(ItemType), nullable=False)
+    item_type = NonNullColumn(SqlEnum(ItemType))
     """The :class:`ItemType`."""
 
-    last_sync: Column[float | None] = Column(SqlFloat())
+    last_sync = Column(SqlFloat())
     """
     The last time a local change was uploaded. Should be the ctime of the local item.
     """
 
-    rev: Column[str] = Column(SqlString(), nullable=False)
+    rev = NonNullColumn(SqlString())
     """The file revision. Will be ``'folder'`` for folders."""
 
-    content_hash: Column[str | None] = Column(SqlString())
+    content_hash = Column(SqlString())
     """
     A hash representing the file content. Will be ``'folder'`` for folders. May be
     ``None`` if not yet calculated.
     """
 
-    symlink_target: Column[str | None] = Column(SqlPath())
+    symlink_target = Column(SqlPath())
     """
     If the file is a symlink, its target path. This should only be set for files.
     """
@@ -501,7 +502,7 @@ class IndexEntry(Model):
         """Returns True for symlinks"""
         return self.symlink_target is not None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<{self.__class__.__name__}(item_type={self.item_type.name}, "
             f"dbx_path='{self.dbx_path_cased}')>"
@@ -513,16 +514,16 @@ class HashCacheEntry(Model):
 
     __tablename__ = "hash_cache"
 
-    inode: Column[int] = Column(SqlLargeInt(), primary_key=True, nullable=False)
+    inode = NonNullColumn(SqlLargeInt(), primary_key=True)
     """The inode of the item."""
 
-    local_path: Column[str] = Column(SqlPath(), nullable=False)
+    local_path = NonNullColumn(SqlPath())
     """The local path of the item."""
 
-    hash_str: Column[str | None] = Column(SqlString())
+    hash_str = Column(SqlString())
     """The content hash of the item."""
 
-    mtime: Column[float | None] = Column(SqlFloat())
+    mtime = Column(SqlFloat())
     """
     The mtime of the item just before the hash was computed. When the current mtime is
     newer, the hash will need to be recalculated.
@@ -534,13 +535,13 @@ class SyncErrorEntry(Model):
 
     __tablename__ = "sync_errors"
 
-    dbx_path: Column[str] = Column(SqlPath(), nullable=False)
-    dbx_path_lower: Column[str] = Column(SqlPath(), primary_key=True, nullable=False)
-    dbx_path_from: Column[str | None] = Column(SqlPath())
-    dbx_path_from_lower: Column[str | None] = Column(SqlPath())
-    local_path: Column[str] = Column(SqlPath(), nullable=False)
-    local_path_from: Column[str | None] = Column(SqlPath())
-    direction: Column[SyncDirection] = Column(SqlEnum(SyncDirection), nullable=False)
-    title: Column[str | None] = Column(SqlString())
-    message: Column[str | None] = Column(SqlString())
-    type: Column[str | None] = Column(SqlString())
+    dbx_path = NonNullColumn(SqlPath())
+    dbx_path_lower = NonNullColumn(SqlPath(), primary_key=True)
+    dbx_path_from = Column(SqlPath())
+    dbx_path_from_lower = Column(SqlPath())
+    local_path = NonNullColumn(SqlPath())
+    local_path_from = Column(SqlPath())
+    direction = NonNullColumn(SqlEnum(SyncDirection))
+    title = Column(SqlString())
+    message = Column(SqlString())
+    type = Column(SqlString())

@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import time
 import asyncio
-from typing import Callable
+from typing import Callable, Any, cast
 
 # external imports
 from desktop_notifier import DesktopNotifier, Urgency, Button
@@ -111,7 +111,7 @@ class MaestralDesktopNotifier:
     def notify_level(self) -> int:
         """Custom notification level. Notifications with a lower level will be
         discarded."""
-        return self._conf.get("app", "notification_level")
+        return cast(int, self._conf.get("app", "notification_level"))
 
     @notify_level.setter
     def notify_level(self, level: int) -> None:
@@ -133,8 +133,8 @@ class MaestralDesktopNotifier:
         title: str,
         message: str,
         level: int = FILECHANGE,
-        on_click: Callable | None = None,
-        actions: dict[str, Callable] | None = None,
+        on_click: Callable[[], Any] | None = None,
+        actions: dict[str, Callable[[], Any]] | None = None,
     ) -> None:
         """
         Sends a desktop notification. This will schedule a notification task in the

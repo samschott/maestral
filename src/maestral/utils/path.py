@@ -25,7 +25,7 @@ def _path_components(path: str) -> List[str]:
     return [c for c in components if c]
 
 
-Path = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
+_AnyPath = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
 
 # ==== path relationships ==============================================================
 
@@ -135,7 +135,7 @@ def is_fs_case_sensitive(path: str) -> bool:
 def get_existing_equivalent_paths(
     path: str,
     root: str = osp.sep,
-    norm_func: Callable = normalize,
+    norm_func: Callable[[str], str] = normalize,
 ) -> List[str]:
     """
     Given a "normalized" path using an injective (one-directional) normalization
@@ -212,7 +212,7 @@ def _macos_get_canonically_cased_path(path: str) -> str:
 
 
 def to_existing_unnormalized_path(
-    path: str, root: str = osp.sep, norm_func: Callable = normalize
+    path: str, root: str = osp.sep, norm_func: Callable[[str], str] = normalize
 ) -> str:
     """
     Returns a cased version of the given path if corresponding nodes (with arbitrary
@@ -343,7 +343,7 @@ def move(
     src_path: str,
     dest_path: str,
     raise_error: bool = False,
-    preserve_dest_permissions=False,
+    preserve_dest_permissions: bool = False,
 ) -> Optional[OSError]:
     """
     Moves a file or folder from ``src_path`` to ``dest_path``. If either the source or
@@ -392,10 +392,8 @@ def move(
 
 
 def walk(
-    root: Union[str, os.PathLike],
-    listdir: Callable[
-        [Union[str, "os.PathLike[str]"]], Iterable[os.DirEntry]
-    ] = os.scandir,
+    root: str,
+    listdir: Callable[[str], Iterable["os.DirEntry[str]"]] = os.scandir,
 ) -> Iterator[Tuple[str, os.stat_result]]:
     """
     Iterates recursively over the content of a folder.
@@ -414,7 +412,7 @@ def walk(
             yield path, stat
 
             if S_ISDIR(stat.st_mode):
-                yield from walk(entry.path, listdir=listdir)
+                yield from walk(entry.path, listdir)
 
         except OSError as exc:
             # Directory may have been deleted between finding it in the directory
@@ -508,7 +506,7 @@ def fs_max_lengths_for_path(path: str = "/") -> Tuple[int, int]:
 # ==== symlink-proof os methods ========================================================
 
 
-def opener_no_symlink(path: Path, flags: int) -> int:
+def opener_no_symlink(path: _AnyPath, flags: int) -> int:
     """
     Opener that does not follow symlinks. Uses :meth:`os.open` under the hood.
 
@@ -520,19 +518,19 @@ def opener_no_symlink(path: Path, flags: int) -> int:
     return os.open(path, flags=flags)
 
 
-def _get_stats_no_symlink(path: Path) -> Optional[os.stat_result]:
+def _get_stats_no_symlink(path: _AnyPath) -> Optional[os.stat_result]:
     try:
         return os.stat(path, follow_symlinks=False)
     except (FileNotFoundError, NotADirectoryError):
         return None
 
 
-def exists(path: Path) -> bool:
+def exists(path: _AnyPath) -> bool:
     """Returns whether an item exists at the path. Returns True for symlinks."""
     return _get_stats_no_symlink(path) is not None
 
 
-def isfile(path: Path) -> bool:
+def isfile(path: _AnyPath) -> bool:
     """Returns whether a file exists at the path. Returns True for symlinks."""
     stat = _get_stats_no_symlink(path)
 
@@ -542,7 +540,7 @@ def isfile(path: Path) -> bool:
         return not S_ISDIR(stat.st_mode)
 
 
-def isdir(path: Path) -> bool:
+def isdir(path: _AnyPath) -> bool:
     """Returns whether a folder exists at the path. Returns False for symlinks."""
     stat = _get_stats_no_symlink(path)
 
@@ -552,7 +550,7 @@ def isdir(path: Path) -> bool:
         return S_ISDIR(stat.st_mode)
 
 
-def getsize(path: Path) -> int:
+def getsize(path: _AnyPath) -> int:
     """Returns the size. Returns False for symlinks."""
     stat = os.stat(path, follow_symlinks=False)
     return stat.st_size

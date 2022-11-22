@@ -125,7 +125,7 @@ def check_signature(signature: str, obj: bytes) -> None:
     pass
 
 
-def serialize_api_types(obj: Any) -> dict:
+def serialize_api_types(obj: Any) -> dict[str, Any]:
     """
     :param obj: Object to serialize.
     :returns: Serialized object.
@@ -134,7 +134,7 @@ def serialize_api_types(obj: Any) -> dict:
     return {"__class__": type(obj).__name__, "object": res, "signature": ""}
 
 
-def deserialize_api_types(class_name: str, d: dict) -> Any:
+def deserialize_api_types(class_name: str, d: dict[str, Any]) -> Any:
     """
     Deserializes an API type. Allowed classes are defined in:
         * :mod:`maestral.core`
@@ -205,7 +205,6 @@ class Lock:
         with self._lock:
             if self._external_lock.acquired:
                 return False
-
             return self._external_lock.acquire(blocking=False)
 
     def release(self) -> None:
@@ -693,7 +692,7 @@ class MaestralProxy(ContextManager["MaestralProxy"]):
         else:
             return self._m.__getattribute__(item)
 
-    def __setattr__(self, key, value) -> None:
+    def __setattr__(self, key: str, value: Any) -> None:
         if key.startswith("_"):
             super().__setattr__(key, value)
         else:

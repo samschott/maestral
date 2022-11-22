@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import functools
 import sys
-from typing import Callable, cast, TypeVar, Any, TYPE_CHECKING
+from typing import Callable, Any, TypeVar, TYPE_CHECKING
+from typing_extensions import ParamSpec
 
 import click
 
@@ -15,10 +16,11 @@ if TYPE_CHECKING:
     from ..main import Maestral
 
 
-F = TypeVar("F", bound=Callable[..., Any])
+P = ParamSpec("P")
+T = TypeVar("T")
 
 
-def convert_api_errors(func: Callable) -> Callable:
+def convert_api_errors(func: Callable[P, T]) -> Callable[P, T]:
     """
     Decorator that catches a MaestralApiError and prints a formatted error message to
     stdout before exiting. Calls ``sys.exit(1)`` after printing the error to stdout.
@@ -27,7 +29,7 @@ def convert_api_errors(func: Callable) -> Callable:
     from ..exceptions import MaestralApiError
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         try:
             return func(*args, **kwargs)
         except MaestralApiError as exc:
@@ -87,9 +89,11 @@ existing_config_option = click.option(
 )
 
 
-def inject_proxy(fallback: bool, existing_config: bool):
-    def decorator(f: F) -> F:
-        def wrapper(*args, **kwargs):
+def inject_proxy(
+    fallback: bool, existing_config: bool
+) -> Callable[[Callable[P, T]], Callable[P, Any]]:
+    def decorator(f: Callable[P, T]) -> Callable[P, Any]:
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
 
             from ..daemon import MaestralProxy, CommunicationError
 
@@ -111,6 +115,6 @@ def inject_proxy(fallback: bool, existing_config: bool):
         else:
             f = config_option(f)
 
-        return functools.update_wrapper(cast(F, wrapper), f)
+        return functools.update_wrapper(wrapper, f)
 
     return decorator

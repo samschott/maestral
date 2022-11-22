@@ -18,7 +18,9 @@ def _style_hint(hint: str) -> str:
 
 
 def prompt(
-    message: str, default: str | None = None, validate: Callable | None = None
+    message: str,
+    default: str | None = None,
+    validate: Callable[[str], bool] | None = None,
 ) -> str:
 
     import survey
@@ -31,9 +33,7 @@ def prompt(
         else:
             return True
 
-    res = survey.input(styled_message, default=default, check=check)
-
-    return res
+    return survey.input(styled_message, default=default, check=check)
 
 
 def confirm(message: str, default: bool | None = True) -> bool:
@@ -45,7 +45,7 @@ def confirm(message: str, default: bool | None = True) -> bool:
     return survey.confirm(styled_message, default=default)
 
 
-def select(message: str, options: Sequence[str], hint="") -> int:
+def select(message: str, options: Sequence[str], hint: str = "") -> int:
 
     import survey
 
@@ -61,7 +61,7 @@ def select(message: str, options: Sequence[str], hint="") -> int:
         raise
 
 
-def select_multiple(message: str, options: Sequence[str], hint="") -> list[int]:
+def select_multiple(message: str, options: Sequence[str], hint: str = "") -> list[int]:
 
     import survey
 
@@ -93,7 +93,7 @@ def select_multiple(message: str, options: Sequence[str], hint="") -> list[int]:
 def select_path(
     message: str,
     default: str | None = None,
-    validate: Callable = lambda x: True,
+    validate: Callable[[str], bool] = lambda x: True,
     exists: bool = False,
     files_allowed: bool = True,
     dirs_allowed: bool = True,
@@ -137,11 +137,9 @@ def select_path(
 
         return not failed
 
-    res = survey.input(
+    return survey.input(
         styled_message,
         default=default,
         callback=track.invoke,
         check=check,
     )
-
-    return res

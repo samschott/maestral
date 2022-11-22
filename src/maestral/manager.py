@@ -13,7 +13,8 @@ from functools import wraps
 from queue import Empty, Queue
 from threading import Event, RLock, Thread
 from tempfile import TemporaryDirectory
-from typing import Iterator, cast, TypeVar, Callable, Any, Generic
+from typing import Iterator, TypeVar, Callable, Any, Generic
+from typing_extensions import ParamSpec, Concatenate
 
 # local imports
 from . import __url__
@@ -53,17 +54,17 @@ __all__ = ["SyncManager"]
 DROPBOX_API_HOSTNAME = "https://" + API_HOST
 
 
-FT = TypeVar("FT", bound=Callable[..., Any])
+P = ParamSpec("P")
 T = TypeVar("T")
 
-malloc_trim: Callable
+malloc_trim: Callable[[int], None]
 
 try:
     libc = ctypes.CDLL("libc.so.6")
     malloc_trim = libc.malloc_trim
 except (OSError, AttributeError):
 
-    def malloc_trim(*args):
+    def malloc_trim(pad: int) -> None:
         pass
 
 
@@ -147,13 +148,15 @@ class SyncManager:
 
         self.local_observer_thread: Observer | None = None
 
-    def _with_lock(fn: FT) -> FT:  # type: ignore
+    def _with_lock(  # type:ignore[misc]
+        fn: Callable[Concatenate[SyncManager, P], T]
+    ) -> Callable[Concatenate[SyncManager, P], T]:
         @wraps(fn)
-        def wrapper(self, *args, **kwargs):
-            with self._lock:
-                return fn(self, *args, **kwargs)
+        def wrapper(__self: SyncManager, *args: P.args, **kwargs: P.kwargs) -> T:
+            with __self._lock:
+                return fn(__self, *args, **kwargs)
 
-        return cast(FT, wrapper)
+        return wrapper
 
     # ---- config and state ------------------------------------------------------------
 
@@ -856,7 +859,7 @@ class SyncManager:
             self.sync.desktop_notifier.notify(title, message, level=notify.ERROR)
             self.stop()
 
-    def __del__(self):
+    def __del__(self) -> None:
         try:
             self.stop()
             self._connection_helper_running = False

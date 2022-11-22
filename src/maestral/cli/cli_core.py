@@ -182,7 +182,7 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         return
 
     @convert_api_errors
-    def startup_dialog():
+    def startup_dialog() -> None:
 
         try:
             wait_for_startup(config_name)
@@ -290,15 +290,16 @@ def gui(config_name: str) -> None:
 
     if default_entry_point:
         # check gui requirements
-        requirements = [Requirement(r) for r in requires("maestral")]
-
-        for r in requirements:
-            if r.marker and r.marker.evaluate({"extra": "gui"}):
-                version_str = version(r.name)
-                if not r.specifier.contains(Version(version_str), prereleases=True):
-                    raise CliException(
-                        f"{r.name}{r.specifier} required but you have {version_str}"
-                    )
+        requirement_names = requires("maestral")
+        if requirement_names is not None:
+            for name in requirement_names:
+                r = Requirement(name)
+                if r.marker and r.marker.evaluate({"extra": "gui"}):
+                    version_str = version(r.name)
+                    if not r.specifier.contains(Version(version_str), prereleases=True):
+                        raise CliException(
+                            f"{r.name}{r.specifier} required but you have {version_str}"
+                        )
 
         # load entry point
         run = default_entry_point.load()
@@ -327,7 +328,7 @@ def resume(m: Maestral) -> None:
 
 
 @click.group(help="Link, unlink and view the Dropbox account.")
-def auth():
+def auth() -> None:
     pass
 
 
@@ -399,7 +400,7 @@ def auth_status(config_name: str) -> None:
 
 
 @click.group(help="Create and manage shared links.")
-def sharelink():
+def sharelink() -> None:
     pass
 
 

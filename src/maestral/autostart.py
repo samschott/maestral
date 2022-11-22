@@ -24,6 +24,7 @@ import plistlib
 import configparser
 from pathlib import Path
 from enum import Enum
+from typing import Any
 
 try:
     from importlib.metadata import files, PackageNotFoundError
@@ -144,7 +145,7 @@ class AutoStartLaunchd(AutoStartBase):
         booleans, lists or dictionaries.
     """
 
-    def __init__(self, bundle_id: str, start_cmd: str, **kwargs) -> None:
+    def __init__(self, bundle_id: str, start_cmd: str, **kwargs: Any) -> None:
 
         super().__init__()
         filename = bundle_id + ".plist"
@@ -273,7 +274,7 @@ def get_maestral_command_path() -> str:
         # we may have had installation issues
         dist_files = []
 
-    path: os.PathLike | None
+    path: os.PathLike[str] | None
 
     if dist_files:
         try:

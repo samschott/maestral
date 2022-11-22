@@ -451,7 +451,8 @@ class SyncEngine:
             self.remote_cursor = ""
             self.local_cursor = 0.0
 
-        self._db = Database(self._db_path, check_same_thread=False)
+        self._connection = sqlite3.connect(self._db_path, check_same_thread=False)
+        self._db = Database(self._connection)
         self._index_table = Manager(self._db, IndexEntry)
         self._history_table = Manager(self._db, SyncEvent)
         self._hash_table = Manager(self._db, HashCacheEntry)
@@ -470,13 +471,15 @@ class SyncEngine:
         directly instead of using :class:`SyncEngine` APIs.
         """
 
-        self._dropbox_path = self._conf.get("sync", "path")
-        self._mignore_path = osp.join(self._dropbox_path, MIGNORE_FILE)
-        self._file_cache_path = osp.join(self._dropbox_path, FILE_CACHE)
+        self._dropbox_path: str = self._conf.get("sync", "path")
+        self._mignore_path: str = osp.join(self._dropbox_path, MIGNORE_FILE)
+        self._file_cache_path: str = osp.join(self._dropbox_path, FILE_CACHE)
 
-        self._excluded_items = self._conf.get("sync", "excluded_items")
-        self._max_cpu_percent = self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
-        self._local_cursor = self._state.get("sync", "lastsync")
+        self._excluded_items: list[str] = self._conf.get("sync", "excluded_items")
+        self._max_cpu_percent: float = (
+            self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
+        )
+        self._local_cursor: float = self._state.get("sync", "lastsync")
 
         self._is_fs_case_sensitive = self._check_fs_case_sensitive()
 
@@ -1709,7 +1712,7 @@ class SyncEngine:
 
         return self.fs_events.wait_for_event(timeout)
 
-    def upload_sync_cycle(self):
+    def upload_sync_cycle(self) -> None:
         """
         Performs a full upload sync cycle by calling in order:
 
@@ -2060,7 +2063,7 @@ class SyncEngine:
 
         return cleaned_events
 
-    def _should_split_excluded(self, event: FileMovedEvent | DirMovedEvent):
+    def _should_split_excluded(self, event: FileMovedEvent | DirMovedEvent) -> bool:
 
         if event.event_type != EVENT_TYPE_MOVED:
             raise ValueError("Can only split moved events")
@@ -3097,7 +3100,7 @@ class SyncEngine:
 
         client = client or self.client
 
-        buttons: dict[str, Callable]
+        buttons: dict[str, Callable[[], None]]
 
         changes = [e for e in sync_events if e.status != SyncStatus.Skipped]
 
@@ -3132,7 +3135,7 @@ class SyncEngine:
             file_name = osp.basename(event.dbx_path)
             change_type = event.change_type.value
 
-            def callback():
+            def callback() -> None:
                 click.launch(event.local_path, locate=True)
 
             buttons = {"Show": callback}
@@ -3154,14 +3157,14 @@ class SyncEngine:
             else:
                 file_name = f"{n_changed} items"
 
-            def callback():
+            def callback() -> None:
                 pass
 
             buttons = {}
 
         if change_type == ChangeType.Removed.value:
 
-            def callback():
+            def callback() -> None:
                 # Show Dropbox website with deleted files.
                 click.launch("https://www.dropbox.com/deleted_files")
 
@@ -3785,7 +3788,7 @@ class SyncEngine:
                 else:
                     self.fs_events.queue_event(FileDeletedEvent(local_path))
 
-    def _clean_history(self):
+    def _clean_history(self) -> None:
         """Commits new events and removes all events older than ``_keep_history`` from
         history."""
 
@@ -3803,7 +3806,7 @@ class SyncEngine:
 
     def _scandir_with_ignore(
         self, path: str | os.PathLike[str]
-    ) -> Iterator[os.DirEntry]:
+    ) -> Iterator[os.DirEntry[str]]:
 
         with os.scandir(path) as it:
             for entry in it:
@@ -3827,7 +3830,9 @@ def get_dest_path(event: FileSystemEvent) -> str:
     :param event: Watchdog file system event.
     :returns: Destination path for moved event, source path otherwise.
     """
-    return getattr(event, "dest_path", event.src_path)
+    if isinstance(event, (FileMovedEvent, DirMovedEvent)):
+        return event.dest_path
+    return event.src_path
 
 
 def split_moved_event(

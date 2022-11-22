@@ -15,20 +15,21 @@ import threading
 from datetime import datetime, timezone
 from typing import (
     Callable,
-    Any,
     Iterator,
     Sequence,
     TypeVar,
+    Any,
     BinaryIO,
     overload,
     cast,
     TYPE_CHECKING,
 )
+from typing_extensions import ParamSpec, Concatenate
 
 # external imports
 import requests
 from dropbox import files, sharing, users, common
-from dropbox import Dropbox, create_session, exceptions  # type: ignore
+from dropbox import Dropbox, create_session, exceptions
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 from dropbox.session import API_HOST
 
@@ -85,10 +86,11 @@ __all__ = ["DropboxClient", "API_HOST"]
 
 
 PRT = TypeVar("PRT", ListFolderResult, ListSharedLinkResult)
-FT = TypeVar("FT", bound=Callable[..., Any])
+P = ParamSpec("P")
+T = TypeVar("T")
 
-_major_minor_version = ".".join(__version__.split(".")[:2])
-USER_AGENT = f"Maestral/v{_major_minor_version}"
+major_minor_version = ".".join(__version__.split(".")[:2])
+USER_AGENT = f"Maestral/v{major_minor_version}"
 
 
 def get_hash(data: bytes) -> str:
@@ -163,7 +165,10 @@ class DropboxClient:
         max_retries: int,
         backoff: int = 0,
         msg_regex: str | None = None,
-    ) -> Callable[[FT], FT]:
+    ) -> Callable[
+        [Callable[Concatenate[DropboxClient, P], T]],
+        Callable[Concatenate[DropboxClient, P], T],
+    ]:
         """
         A decorator to retry a function call if a specified exception occurs.
 
@@ -174,14 +179,16 @@ class DropboxClient:
         :param backoff: Time in seconds to sleep before retry.
         """
 
-        def decorator(func: FT) -> FT:
+        def decorator(
+            func: Callable[Concatenate[DropboxClient, P], T]
+        ) -> Callable[Concatenate[DropboxClient, P], T]:
             @functools.wraps(func)
-            def wrapper(self, *args, **kwargs):
+            def wrapper(__self: DropboxClient, *args: P.args, **kwargs: P.kwargs) -> T:
                 tries = 0
 
                 while True:
                     try:
-                        return func(self, *args, **kwargs)
+                        return func(__self, *args, **kwargs)
                     except error_cls as exc:
 
                         if msg_regex is not None:
@@ -198,7 +205,7 @@ class DropboxClient:
                             tries += 1
                             if backoff > 0:
                                 time.sleep(backoff)
-                            self._logger.debug(
+                            __self._logger.debug(
                                 "Retrying call %s on %s: %s/%s",
                                 func,
                                 error_cls,
@@ -208,7 +215,7 @@ class DropboxClient:
                         else:
                             raise exc
 
-            return cast(FT, wrapper)
+            return wrapper
 
         return decorator
 
@@ -397,7 +404,7 @@ class DropboxClient:
     def __enter__(self) -> DropboxClient:
         return self
 
-    def __exit__(self, *args) -> None:
+    def __exit__(self, *args: Any) -> None:
         self.close()
 
     def clone(
@@ -512,7 +519,7 @@ class DropboxClient:
     def get_account_info(self, dbid: str) -> Account:
         ...
 
-    def get_account_info(self, dbid=None):
+    def get_account_info(self, dbid: str | None = None) -> Account:
         """
         Gets current account information.
 
@@ -1187,21 +1194,19 @@ class DropboxClient:
 
         return result_list
 
-    def share_dir(self, dbx_path: str, **kwargs) -> FolderMetadata | None:
+    def share_dir(self, dbx_path: str) -> FolderMetadata | None:
         """
         Converts a Dropbox folder to a shared folder. Creates the folder if it does not
         exist. May return None if the folder is immediately deleted after creation.
 
         :param dbx_path: Path of Dropbox folder.
-        :param kwargs: Keyword arguments for the Dropbox API sharing/share_folder
-            endpoint.
         :returns: Metadata of shared folder.
         """
 
         dbx_path = "" if dbx_path == "/" else dbx_path
 
         with convert_api_errors(dbx_path=dbx_path):
-            res = self.dbx.sharing_share_folder(dbx_path, **kwargs)
+            res = self.dbx.sharing_share_folder(dbx_path)
 
         if res.is_complete():
             shared_folder_md = res.get_complete()
@@ -1251,7 +1256,7 @@ class DropboxClient:
             return None
 
     def get_latest_cursor(
-        self, dbx_path: str, include_non_downloadable_files: bool = False, **kwargs
+        self, dbx_path: str, include_non_downloadable_files: bool = False
     ) -> str:
         """
         Gets the latest cursor for the given folder and subfolders.
@@ -1271,7 +1276,6 @@ class DropboxClient:
                 dbx_path,
                 include_non_downloadable_files=include_non_downloadable_files,
                 recursive=True,
-                **kwargs,
             )
 
         return res.cursor
@@ -1612,7 +1616,7 @@ def convert_space_usage(res: users.SpaceUsage) -> SpaceUsage:
         return SpaceUsage(res.used, 0, None)
 
 
-def convert_metadata(res):
+def convert_metadata(res):  # type:ignore[no-untyped-def]
     if isinstance(res, files.FileMetadata):
         symlink_target = res.symlink_info.target if res.symlink_info else None
         shared = res.sharing_info is not None or res.has_explicit_shared_members

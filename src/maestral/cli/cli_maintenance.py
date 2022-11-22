@@ -266,7 +266,7 @@ def restore(m: Maestral, dropbox_path: str, rev: str, limit: int) -> None:
 
 
 @click.group(help="View and manage the log.")
-def log():
+def log() -> None:
     pass
 
 
@@ -373,7 +373,7 @@ Currently available config keys are:
 - download: if download sync is enabled
 """,
 )
-def config():
+def config() -> None:
     pass
 
 
