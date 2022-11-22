@@ -25,7 +25,6 @@ from types import TracebackType
 
 # external imports
 import Pyro5
-import sdnotify
 from Pyro5.errors import CommunicationError
 from Pyro5.api import (
     Daemon,
@@ -40,6 +39,7 @@ from fasteners import InterProcessLock
 # local imports
 from .utils import exc_info_tuple
 from .utils.appdirs import get_runtime_path
+from .utils.integration import SystemdNotifier
 from .constants import IS_MACOS, ENV
 from . import core, models, exceptions
 
@@ -388,7 +388,7 @@ def start_maestral_daemon(
 
     setup_logging(config_name, log_to_stderr)
     dlogger = scoped_logger(__name__, config_name)
-    sd_notifier = sdnotify.SystemdNotifier()
+    sd_notifier = SystemdNotifier()
 
     dlogger.info("Starting daemon")
 

@@ -10,6 +10,7 @@ import resource
 import requests
 import time
 import logging
+import socket
 from pathlib import Path
 from typing import Union, Tuple, Optional
 from urllib.parse import urlparse
@@ -21,6 +22,7 @@ __all__ = [
     "CPU_COUNT",
     "cpu_usage_percent",
     "check_connection",
+    "SystemdNotifier",
 ]
 
 
@@ -210,3 +212,27 @@ def check_connection(
         if logger:
             logger.debug("Could not reach %s", hostname, exc_info=True)
         return False
+
+
+class SystemdNotifier:
+    def __init__(self) -> None:
+        self._socket = None
+
+        addr = os.getenv("NOTIFY_SOCKET")
+        if addr is None:
+            return
+        elif addr[0] == "@":
+            addr = "\0" + addr[1:]
+
+        try:
+            self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            self._socket.connect(addr)
+        except OSError:
+            pass
+
+    def notify(self, state: str) -> None:
+        if self._socket:
+            try:
+                self._socket.sendall(state.encode(errors="replace"))
+            except OSError:
+                pass

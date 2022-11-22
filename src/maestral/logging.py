@@ -10,11 +10,10 @@ from collections import deque
 from concurrent.futures import Future
 from typing import Any, TextIO, Type
 
-import sdnotify
-
 from .config import MaestralConfig
 from .utils import sanitize_string
 from .utils.appdirs import get_log_path
+from .utils.integration import SystemdNotifier
 
 try:
     from systemd import journal
@@ -155,7 +154,7 @@ class SdNotificationHandler(logging.Handler):
     NOTIFY_SOCKET is provided.
     """
 
-    notifier = sdnotify.SystemdNotifier()
+    notifier = SystemdNotifier()
 
     def emit(self, record: logging.LogRecord) -> None:
         """
