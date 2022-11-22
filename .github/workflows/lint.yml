@@ -15,7 +15,7 @@ jobs:
     - run:  python -m pip install -U .[lint]
     - name: black
       run: |
-        black --check src tests
+        black --check --diff src tests
     - name: flake8
       run: |
         flake8 src tests
