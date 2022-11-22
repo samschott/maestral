@@ -1194,19 +1194,24 @@ class DropboxClient:
 
         return result_list
 
-    def share_dir(self, dbx_path: str) -> FolderMetadata | None:
+    def share_dir(
+        self, dbx_path: str, force_async: bool = False
+    ) -> FolderMetadata | None:
         """
         Converts a Dropbox folder to a shared folder. Creates the folder if it does not
         exist. May return None if the folder is immediately deleted after creation.
 
         :param dbx_path: Path of Dropbox folder.
+        :param force_async: Whether to force async creation of the Dropbox directory.
+            This only changes implementation details and is currently used to reliably
+            test the async route.
         :returns: Metadata of shared folder.
         """
 
         dbx_path = "" if dbx_path == "/" else dbx_path
 
         with convert_api_errors(dbx_path=dbx_path):
-            res = self.dbx.sharing_share_folder(dbx_path)
+            res = self.dbx.sharing_share_folder(dbx_path, force_async=force_async)
 
         if res.is_complete():
             shared_folder_md = res.get_complete()
