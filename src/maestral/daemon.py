@@ -68,13 +68,10 @@ __all__ = [
 
 
 # systemd environment
-INVOCATION_ID = os.getenv("INVOCATION_ID")
 NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
-WATCHDOG_PID = os.getenv("WATCHDOG_PID")
+WATCHDOG_PID = int(os.getenv("WATCHDOG_PID", os.getpid()))
 WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
-IS_WATCHDOG = WATCHDOG_USEC and (
-    WATCHDOG_PID is None or int(WATCHDOG_PID) == os.getpid()
-)
+IS_WATCHDOG = WATCHDOG_USEC and WATCHDOG_PID == os.getpid()
 
 
 URI = "PYRO:maestral.{0}@{1}"
@@ -435,7 +432,8 @@ def start_maestral_daemon(
         if NOTIFY_SOCKET:
             dlogger.debug("Running as systemd notify service")
             dlogger.debug("NOTIFY_SOCKET = %s", NOTIFY_SOCKET)
-            sd_notifier.notify("READY=1")
+
+        sd_notifier.notify("READY=1")
 
         # Notify systemd periodically if alive.
         if IS_WATCHDOG and WATCHDOG_USEC:
@@ -502,9 +500,8 @@ def start_maestral_daemon(
         dlogger.error(exc.args[0], exc_info=True)
     finally:
 
-        if NOTIFY_SOCKET:
-            # Notify systemd that we are shutting down.
-            sd_notifier.notify("STOPPING=1")
+        # Notify systemd that we are shutting down.
+        sd_notifier.notify("STOPPING=1")
 
         lock.release()
 
