@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 from os import path as osp
-from typing import IO
+from typing import Any
 
 import click
 from click.shell_completion import CompletionItem
@@ -256,5 +256,5 @@ class CliException(click.ClickException):
     message.
     """
 
-    def show(self, file: IO | None = None) -> None:
+    def show(self, file: Any = None) -> None:
         warn(self.format_message())

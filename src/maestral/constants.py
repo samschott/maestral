@@ -16,7 +16,7 @@ try:
         return as_file(files(package) / resource)
 
 except ImportError:
-    from importlib.resources import path as resource_path  # type: ignore
+    from importlib.resources import path as resource_path
 
 
 # app

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class Query:
     """Base type for query"""
 
-    def clause(self) -> tuple[str, Sequence]:
+    def clause(self) -> tuple[str, Sequence[Any]]:
         """
         Generate the corresponding SQL clause.
 
@@ -34,8 +34,7 @@ class PathTreeQuery(Query):
     :param path: Root path for the subtree.
     """
 
-    def __init__(self, column: Column, path: str):
-
+    def __init__(self, column: Column[Any, Any], path: str):
         if not isinstance(column.type, SqlPath):
             raise ValueError("Only accepts columns with type SqlPath")
 
@@ -43,7 +42,7 @@ class PathTreeQuery(Query):
         self.file_blob = os.fsencode(path)
         self.dir_blob = os.path.join(self.file_blob, b"")
 
-    def clause(self):
+    def clause(self) -> tuple[str, Sequence[Any]]:
         query_part = f"({self.column.name} = ? OR substr({self.column.name}, 1, ?) = ?)"
         args = (self.file_blob, len(self.dir_blob), self.dir_blob)
 
@@ -58,11 +57,11 @@ class MatchQuery(Query):
     :param value: Value to match.
     """
 
-    def __init__(self, column: Column, value: Any):
+    def __init__(self, column: Column[Any, Any], value: Any):
         self.column = column
         self.value = value
 
-    def clause(self):
+    def clause(self) -> tuple[str, Sequence[Any]]:
         args = (self.column.py_to_sql(self.value),)
         return f"{self.column.name} = ?", args
 
@@ -72,7 +71,7 @@ class AllQuery(Query):
     Query to match everything.
     """
 
-    def clause(self):
+    def clause(self) -> tuple[str, Sequence[Any]]:
         # Note: Use "1" instead of "TRUE" here for compatibility with SQLite versions
         # pre SQLite 3.23.0 (2018-04-02).
         return "1", ()
@@ -102,7 +101,7 @@ class CollectionQuery(Query):
     def __contains__(self, item: Query) -> bool:
         return item in self.subqueries
 
-    def clause_with_joiner(self, joiner: str) -> tuple[str, Sequence]:
+    def clause_with_joiner(self, joiner: str) -> tuple[str, Sequence[Any]]:
         """Return a clause created by joining together the clauses of
         all subqueries with the string joiner (padded by spaces).
         """
@@ -117,21 +116,21 @@ class CollectionQuery(Query):
         clause = (" " + joiner + " ").join(clause_parts)
         return clause, subvals
 
-    def clause(self):
+    def clause(self) -> tuple[str, Sequence[Any]]:
         raise NotImplementedError()
 
 
 class AndQuery(CollectionQuery):
     """A conjunction of a list of other queries."""
 
-    def clause(self):
+    def clause(self) -> tuple[str, Sequence[Any]]:
         return self.clause_with_joiner("AND")
 
 
 class OrQuery(CollectionQuery):
     """A conjunction of a list of other queries."""
 
-    def clause(self):
+    def clause(self) -> tuple[str, Sequence[Any]]:
         return self.clause_with_joiner("OR")
 
 
@@ -145,7 +144,7 @@ class NotQuery(Query):
     def __init__(self, subquery: Query):
         self.subquery = subquery
 
-    def clause(self):
+    def clause(self) -> tuple[str, Sequence[Any]]:
         clause, subvals = self.subquery.clause()
         if clause:
             return f"not ({clause})", subvals

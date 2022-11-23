@@ -168,7 +168,7 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
     if interval <= 0:
         raise ValueError(f"interval is not positive (got {interval!r})")
 
-    def timer():
+    def timer() -> float:
         return time.monotonic() * CPU_COUNT
 
     st1 = timer()

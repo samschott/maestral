@@ -4,40 +4,23 @@ This model defines our core SQLite database interface.
 
 from __future__ import annotations
 
+from typing import Any
+
 import sqlite3
 
 
 class Database:
-    """Proxy class to access sqlite3.connect method."""
+    """Wrapper around sqlite3.Connection with atomic transactions."""
 
-    def __init__(self, *args, **kwargs) -> None:
-        self.args = args
-        self.kwargs = kwargs
-        self._connection: sqlite3.Connection | None = None
-
-    @property
-    def connection(self) -> sqlite3.Connection:
-        """Returns an existing SQL connection or creates a new one."""
-
-        if self._connection:
-            return self._connection
-        else:
-            connection = sqlite3.connect(*self.args, **self.kwargs)
-            connection.row_factory = sqlite3.Row
-            self._connection = connection
-            return connection
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        connection.row_factory = sqlite3.Row
+        self.connection = connection
 
     def close(self) -> None:
         """Closes the SQL connection."""
-        if self._connection:
-            self._connection.close()
-        self._connection = None
+        self.connection.close()
 
-    def commit(self) -> None:
-        """Commits SQL changes."""
-        self.connection.commit()
-
-    def execute(self, sql: str, *args) -> sqlite3.Cursor:
+    def execute(self, sql: str, *args: Any) -> sqlite3.Cursor:
         """
         Creates a cursor and executes the given SQL statement.
 

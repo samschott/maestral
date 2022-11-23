@@ -73,7 +73,7 @@ from watchdog.observers.polling import (
     DEFAULT_OBSERVER_TIMEOUT,
     BaseObserver,
 )
-from watchdog.utils.dirsnapshot import DirectorySnapshotDiff
+from watchdog.utils.dirsnapshot import DirectorySnapshot, DirectorySnapshotDiff
 
 
 class OrderedPollingEmitter(PollingEmitter):
@@ -84,7 +84,9 @@ class OrderedPollingEmitter(PollingEmitter):
     state from the old one.
     """
 
-    def queue_events(self, timeout):
+    _snapshot: DirectorySnapshot
+
+    def queue_events(self, timeout: float) -> None:
         # We don't want to hit the disk continuously.
         # timeout behaves like an interval for polling emitters.
         if self.stopped_event.wait(timeout):
@@ -128,7 +130,7 @@ class OrderedPollingEmitter(PollingEmitter):
 
 
 class OrderedPollingObserver(PollingObserver):
-    def __init__(self, timeout=DEFAULT_OBSERVER_TIMEOUT):
+    def __init__(self, timeout: float = DEFAULT_OBSERVER_TIMEOUT) -> None:
         BaseObserver.__init__(
             self, emitter_class=OrderedPollingEmitter, timeout=timeout
         )

@@ -18,16 +18,15 @@ import copy
 import logging
 import configparser as cp
 from threading import RLock
-from collections import abc
-from typing import Iterator, Any, Dict, Generic, TypeVar
+from typing import Iterator, Any, Dict, TypeVar, MutableSet
 
 from packaging.version import Version
 
 
 logger = logging.getLogger(__name__)
 
-DefaultsType = Dict[str, Dict[str, Any]]
-T = TypeVar("T")
+_DefaultsType = Dict[str, Dict[str, Any]]
+_T = TypeVar("_T")
 
 # =============================================================================
 # Auxiliary classes
@@ -108,7 +107,7 @@ class UserConfig(DefaultsConfig):
     def __init__(
         self,
         path: str,
-        defaults: DefaultsType | None = None,
+        defaults: _DefaultsType | None = None,
         load: bool = True,
         version: Version = Version("0.0.0"),
         backup: bool = False,
@@ -165,8 +164,8 @@ class UserConfig(DefaultsConfig):
     # --- Helpers and checkers ---------------------------------------------------------
 
     def _set_defaults(
-        self, version: Version, defaults: DefaultsType | None
-    ) -> DefaultsType:
+        self, version: Version, defaults: _DefaultsType | None
+    ) -> _DefaultsType:
         """
         Check if defaults are valid and update defaults values.
 
@@ -482,8 +481,8 @@ class UserConfig(DefaultsConfig):
 # ======================================================================================
 
 
-class PersistentMutableSet(abc.MutableSet, Generic[T]):
-    """Wraps a list in our state file as a MutableSet
+class PersistentMutableSet(MutableSet[_T]):
+    """Wraps a list in our state file as a Mapping
 
     :param conf: UserConfig instance to store the set.
     :param section: Section name in state file.
@@ -497,7 +496,7 @@ class PersistentMutableSet(abc.MutableSet, Generic[T]):
         self._conf = conf
         self._lock = RLock()
 
-    def __iter__(self) -> Iterator[T]:
+    def __iter__(self) -> Iterator[_T]:
         with self._lock:
             return iter(self._conf.get(self.section, self.option))
 
@@ -509,28 +508,28 @@ class PersistentMutableSet(abc.MutableSet, Generic[T]):
         with self._lock:
             return len(self._conf.get(self.section, self.option))
 
-    def add(self, entry: T) -> None:
+    def add(self, entry: _T) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)
             state_list.add(entry)
             self._conf.set(self.section, self.option, list(state_list))
 
-    def discard(self, entry: T) -> None:
+    def discard(self, entry: _T) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)
             state_list.discard(entry)
             self._conf.set(self.section, self.option, list(state_list))
 
-    def update(self, *others: T) -> None:
+    def update(self, *others: _T) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)
             state_list.update(*others)
             self._conf.set(self.section, self.option, list(state_list))
 
-    def difference_update(self, *others: T) -> None:
+    def difference_update(self, *others: _T) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)

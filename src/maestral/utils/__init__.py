@@ -1,14 +1,17 @@
 """Utility modules and functions"""
+
+from __future__ import annotations
+
 import os
 from types import TracebackType
-
-from packaging.version import Version
 from typing import Iterator, TypeVar, Optional, Iterable, Tuple, Type
 
+from packaging.version import Version
 
-# type definitions
+
 _N = TypeVar("_N", float, int)
-ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
+_T = TypeVar("_T")
+_ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
 
 
 def natural_size(num: float, unit: str = "B", sep: bool = True) -> str:
@@ -31,14 +34,13 @@ def natural_size(num: float, unit: str = "B", sep: bool = True) -> str:
     return f"{num:.1f}{sep_char}{prefix}{unit}"
 
 
-def chunks(lst: list, n: int, consume: bool = False) -> Iterator[list]:
+def chunks(lst: list[_T], n: int, consume: bool = False) -> Iterator[list[_T]]:
     """
-    Partitions an iterable into chunks of length ``n``.
+    Partitions a list into chunks of length ``n``.
 
     :param lst: Iterable to partition.
     :param n: Chunk size.
     :param consume: If True, the list will be consumed (emptied) during the iteration.
-        This can be used to free memory in case of large lists.
     :returns: Iterator over chunks.
     """
 
@@ -117,6 +119,6 @@ def sanitize_string(string: str) -> str:
     return os.fsencode(string).decode(errors="replace")
 
 
-def exc_info_tuple(exc: BaseException) -> ExecInfoType:
+def exc_info_tuple(exc: BaseException) -> _ExecInfoType:
     """Creates an exc-info tuple from an exception."""
     return type(exc), exc, exc.__traceback__

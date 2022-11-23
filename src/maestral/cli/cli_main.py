@@ -24,7 +24,7 @@ from .. import __version__
 
 @click.group(cls=OrderedGroup, help="Dropbox client for Linux and macOS.")
 @click.version_option(version=__version__, message="%(version)s")
-def main():
+def main() -> None:
     pass
 
 

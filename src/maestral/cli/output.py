@@ -10,8 +10,10 @@ from datetime import datetime
 from typing import Iterable, Callable
 
 import click
-from rich.console import Console, ConsoleOptions, Measurement, Text, RenderResult
-from rich.text import Style
+from rich.console import Console, ConsoleOptions, RenderResult
+from rich.measure import Measurement
+from rich.text import Text
+from rich.style import Style
 from rich.table import Table, Column
 
 TABLE_STYLE = dict(padding=(0, 2, 0, 0), box=None)

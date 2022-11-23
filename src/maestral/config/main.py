@@ -9,7 +9,7 @@ import threading
 
 from packaging.version import Version
 
-from .user import UserConfig, DefaultsType
+from .user import UserConfig, _DefaultsType
 from .. import __version__
 from ..utils.appdirs import get_conf_path, get_data_path
 
@@ -21,7 +21,7 @@ CONFIG_DIR_NAME = "maestral"
 #  Defaults
 # =============================================================================
 
-DEFAULTS_CONFIG: DefaultsType = {
+DEFAULTS_CONFIG: _DefaultsType = {
     "auth": {
         "account_id": "",  # dropbox account id, must match the saved account key
         "keyring": "automatic",  # keychain backend to use for credential storage
@@ -42,7 +42,7 @@ DEFAULTS_CONFIG: DefaultsType = {
     },
 }
 
-DEFAULTS_STATE: DefaultsType = {
+DEFAULTS_STATE: _DefaultsType = {
     "account": {  # account state, periodically updated from dropbox servers
         "email": "",
         "display_name": "",
@@ -98,9 +98,9 @@ CONF_VERSION = Version("18.0")
 def _get_conf(
     config_name: str,
     config_path: str,
-    defaults: DefaultsType,
+    defaults: _DefaultsType,
     registry: dict[str, UserConfig],
-):
+) -> UserConfig:
 
     try:
         conf = registry[config_name]

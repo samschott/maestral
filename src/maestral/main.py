@@ -152,7 +152,7 @@ class Maestral:
 
         # Schedule background tasks.
         self._loop = asyncio.get_event_loop_policy().get_event_loop()
-        self._tasks: set[asyncio.Task] = set()
+        self._tasks: set[asyncio.Task[Any]] = set()
         self._pool = ThreadPoolExecutor(
             thread_name_prefix="maestral-thread-pool",
             max_workers=2,
@@ -912,7 +912,7 @@ class Maestral:
         self._logger.info(f"Restoring '{dbx_path} to {rev}'")
         return self.client.restore(dbx_path, rev)
 
-    def _delete_old_profile_pics(self):
+    def _delete_old_profile_pics(self) -> None:
         for file in os.listdir(get_cache_path("maestral")):
             if file.startswith(f"{self._config_name}_profile_pic"):
                 try:
@@ -1481,7 +1481,8 @@ class Maestral:
         self._logger.info("Scheduling reindex after update from pre v1.6.0")
 
         db_path = get_data_path("maestral", f"{self.config_name}.db")
-        db = Database(db_path, check_same_thread=False)
+        connection = sqlite3.connect(db_path, check_same_thread=False)
+        db = Database(connection)
 
         _sql_drop_table(db, "hash_cache")
         _sql_drop_table(db, "'index'")
@@ -1493,7 +1494,7 @@ class Maestral:
 
     # ==== Periodic async jobs =========================================================
 
-    def _schedule_task(self, coro: Awaitable) -> None:
+    def _schedule_task(self, coro: Awaitable[Any]) -> None:
         """Schedules a task in our asyncio loop."""
         task = asyncio.ensure_future(coro, loop=self._loop)
         self._tasks.add(task)
@@ -1547,5 +1548,5 @@ class Maestral:
         )
 
 
-async def sleep_rand(target: float, jitter: float = 60):
+async def sleep_rand(target: float, jitter: float = 60) -> None:
     await asyncio.sleep(target + random.random() * jitter)
