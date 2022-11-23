@@ -3073,6 +3073,7 @@ class SyncEngine:
             buttons = {}
 
         if change_type == ChangeType.Removed.value:
+
             def callback() -> None:
                 # Show Dropbox website with deleted files.
                 click.launch("https://www.dropbox.com/deleted_files")
