@@ -455,7 +455,6 @@ def sharelink_revoke(m: Maestral, url: str) -> None:
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def sharelink_list(m: Maestral, dropbox_path: list[str], long: bool) -> None:
-
     links: list[SharedLinkMetadata]
 
     if len(dropbox_path) > 0:

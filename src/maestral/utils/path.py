@@ -39,7 +39,6 @@ def is_child(path: str, parent: str) -> bool:
     :param parent: Parent path.
     :returns: Whether ``path`` semantically lies inside ``parent``.
     """
-
     parent = parent.rstrip(osp.sep) + osp.sep
     path = path.rstrip(osp.sep)
 
@@ -56,7 +55,6 @@ def is_equal_or_child(path: str, parent: str) -> bool:
     :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
         ``path == parent``.
     """
-
     return is_child(path, parent) or path == parent
 
 
@@ -117,7 +115,6 @@ def is_fs_case_sensitive(path: str) -> bool:
     :param path: Path to check.
     :returns: Whether ``path`` lies on a partition with a case-sensitive file system.
     """
-
     if path == osp.pathsep:
         raise ValueError(f"Cannot check '{osp.pathsep}'")
 
@@ -259,7 +256,6 @@ def normalized_path_exists(path: str, root: str = osp.sep) -> bool:
         performance improvements if a root directory with a small tree is given.
     :returns: Whether an arbitrarily cased version of ``path`` exists.
     """
-
     candidates = get_existing_equivalent_paths(path, root)
 
     for c in candidates:
@@ -285,7 +281,6 @@ def generate_cc_name(path: str, suffix: str = "conflicting copy") -> str:
     :param suffix: Suffix to use. Defaults to "conflicting copy".
     :returns: New path.
     """
-
     dirname, basename = osp.split(path)
     filename, ext = osp.splitext(basename)
 
@@ -359,7 +354,6 @@ def move(
         path to the destination path. Permissions will not be set recursively.
     :returns: Any caught exception during the move.
     """
-
     err: Optional[OSError] = None
     orig_mode: Optional[int] = None
 
@@ -402,9 +396,7 @@ def walk(
     :param listdir: Function to call to get the folder content.
     :returns: Iterator over (path, stat) results.
     """
-
     for entry in listdir(root):
-
         try:
             path = entry.path
             stat = entry.stat(follow_symlinks=False)
@@ -440,7 +432,6 @@ def content_hash(
     :returns: Content hash to compare with Dropbox's content hash and mtime just before
         the hash was computed.
     """
-
     hasher = DropboxContentHasher()
 
     try:
@@ -483,7 +474,6 @@ def fs_max_lengths_for_path(path: str = "/") -> Tuple[int, int]:
         existing parent directory in the tree be taken.
     :returns: Tuple giving the maximum file name and total path lengths.
     """
-
     path = osp.abspath(path)
     dirname = osp.dirname(path)
 
@@ -564,7 +554,6 @@ def get_symlink_target(local_path: str) -> Optional[str]:
     :returns: Symlink target of local file. None if the local path does not refer to
         a symlink or does not exist.
     """
-
     try:
         return os.readlink(local_path)
     except (FileNotFoundError, NotADirectoryError):

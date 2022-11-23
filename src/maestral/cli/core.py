@@ -161,7 +161,6 @@ class ConfigName(click.ParamType):
         from ..config import validate_config_name, list_configs
 
         if not self.existing:
-
             # accept all valid config names
             try:
                 return validate_config_name(value)
@@ -169,7 +168,6 @@ class ConfigName(click.ParamType):
                 raise CliException("Configuration name may not contain any whitespace")
 
         else:
-
             # accept only existing config names
             if value in list_configs():
                 return value

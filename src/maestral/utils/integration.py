@@ -36,7 +36,6 @@ def multi_cat(*paths: Path) -> Union[int, bytes, None]:
     content of the first file which can be read. If none of them can be read return
     None. Returns an integer if the content is a digit.
     """
-
     for path in paths:
         try:
             ret = path.read_bytes().strip()
@@ -62,7 +61,6 @@ def get_ac_state() -> ACState:
 
     :returns: ``True`` if the device has AC power, ``False`` otherwise.
     """
-
     if platform.system() == "Darwin":
 
         from ctypes import c_double
@@ -81,7 +79,6 @@ def get_ac_state() -> ACState:
             return ACState.Disconnected
 
     elif platform.system() == "Linux":
-
         # taken from https://github.com/giampaolo/psutil
 
         supply_entry = list(os.scandir(LINUX_POWER_SUPPLY_PATH))
@@ -107,7 +104,6 @@ def get_ac_state() -> ACState:
                 return ACState.Disconnected
 
         elif len(battery_paths) > 0:
-
             # Get the first available battery. Usually this is "BAT0", except
             # some rare exceptions:
             # https://github.com/giampaolo/psutil/issues/1238
@@ -134,7 +130,6 @@ def get_inotify_limits() -> Tuple[int, int, int]:
     :raises OSError: if the settings cannot be read from /proc/sys/fs/inotify. This may
         happen if /proc/sys is left out of the kernel image or simply not mounted.
     """
-
     root = Path("/proc/sys/fs/inotify")
 
     max_user_watches_path = root / "max_user_watches"
@@ -166,7 +161,6 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
     :param interval: Interval in sec between comparisons of CPU times.
     :returns: CPU usage during interval in percent.
     """
-
     if interval <= 0:
         raise ValueError(f"interval is not positive (got {interval!r})")
 

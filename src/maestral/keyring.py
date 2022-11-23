@@ -81,7 +81,6 @@ class CredentialStorage:
     _lock = RLock()
 
     def __init__(self, config_name: str) -> None:
-
         self._config_name = config_name
         self._logger = scoped_logger(config_name, __name__)
 
@@ -109,7 +108,6 @@ class CredentialStorage:
 
         :param ring: Keyring backend to use.
         """
-
         if not ring:
             self._conf.set("auth", "keyring", "automatic")
         else:
@@ -123,7 +121,6 @@ class CredentialStorage:
 
     def _keyring_from_config(self) -> KeyringBackend | None:
         """Initialise keyring specified in config."""
-
         keyring_class: str = self._conf.get("auth", "keyring").strip()
 
         if keyring_class == "automatic":
@@ -145,7 +142,6 @@ class CredentialStorage:
         """Find and initialise the most secure of the available and supported keyring
         backends.
         """
-
         import keyring.backends
 
         # Get preferred keyring backends for platform.
@@ -173,7 +169,6 @@ class CredentialStorage:
         """The type of token (read only). If 'legacy', we have a long-lived access
         token. If 'offline', we have a long-lived refresh token which can be used to
         generate new short-lived access tokens."""
-
         with self._lock:
             token_access_type = self._state.get("auth", "token_access_type")
 
@@ -188,17 +183,14 @@ class CredentialStorage:
     def token(self) -> str | None:
         """The saved token (read only). This call will block until the keyring is
         unlocked."""
-
         with self._lock:
             if not self._loaded:
                 self.load_creds()
-
             return self._token
 
     @property
     def account_id(self) -> str | None:
         """The saved account id (read only)."""
-
         with self._lock:
             return self._conf.get("auth", "account_id") or None
 
@@ -211,7 +203,6 @@ class CredentialStorage:
         :raises KeyringAccessError: if the system keyring is locked or otherwise cannot
             be accessed (for example if the app bundle signature has been invalidated).
         """
-
         if not (self.keyring and self.account_id):
             return
 
@@ -249,9 +240,7 @@ class CredentialStorage:
         :param token: The access token.
         :param token_type: The type of access token.
         """
-
         with self._lock:
-
             if self._keyring:
                 keyring = self._keyring
             else:
@@ -286,11 +275,8 @@ class CredentialStorage:
         :raises KeyringAccessError: if the system keyring is locked or otherwise cannot
             be accessed (for example if the app bundle signature has been invalidated).
         """
-
         with self._lock:
-
             if self.keyring and self.account_id:
-
                 accessor = self._get_accessor(self.account_id)
 
                 try:

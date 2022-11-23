@@ -92,7 +92,9 @@ existing_config_option = click.option(
 def inject_proxy(
     fallback: bool, existing_config: bool
 ) -> Callable[[Callable[P, T]], Callable[P, Any]]:
+
     def decorator(f: Callable[P, T]) -> Callable[P, Any]:
+
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
 
             from ..daemon import MaestralProxy, CommunicationError

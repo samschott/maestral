@@ -364,7 +364,6 @@ class SyncEvent(Model):
         :returns: An instance of this class with attributes populated from the given
             SyncEvent.
         """
-
         try:
             change_dbid = sync_engine.client.account_info.account_id
         except NotLinkedError:

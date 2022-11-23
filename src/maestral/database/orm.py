@@ -254,7 +254,6 @@ class Manager(Generic[M]):
 
     def create_table(self) -> None:
         """Creates the table as defined by the model."""
-
         column_defs = [col.render_column() for col in self.model.__columns__]
         column_defs_str = ", ".join(column_defs)
         sql = f"CREATE TABLE {self.table_name} ({column_defs_str});"
@@ -313,7 +312,6 @@ class Manager(Generic[M]):
 
         :param primary_key: Primary key for row.
         """
-
         pk_sql = self.pk_column.py_to_sql(primary_key)
         sql = f"DELETE from {self.table_name} WHERE {self.pk_column.name} = ?"
         self.db.execute(sql, pk_sql)
@@ -331,7 +329,6 @@ class Manager(Generic[M]):
         :param primary_key: Primary key for row.
         :returns: Model object representing the row.
         """
-
         pk_sql = self.pk_column.py_to_sql(primary_key)
 
         try:
@@ -356,7 +353,6 @@ class Manager(Generic[M]):
         :param primary_key: The primary key.
         :returns: Whether the corresponding row exists in the table.
         """
-
         pk_sql = self.pk_column.py_to_sql(primary_key)
         sql = f"SELECT {self.pk_column.name} FROM {self.table_name} WHERE {self.pk_column.name} = ?"
         result = self.db.execute(sql, pk_sql)
@@ -398,7 +394,6 @@ class Manager(Generic[M]):
 
         :param obj: The object to update.
         """
-
         pk_sql = self._get_primary_key(obj)
 
         if pk_sql is None:
@@ -445,7 +440,6 @@ class Manager(Generic[M]):
         :param kwargs: Column values.
         :returns: Model object.
         """
-
         # Convert any types as appropriate.
         for key, value in kwargs.items():
             col = getattr(self.model, key)
@@ -508,7 +502,6 @@ class Model(metaclass=ModelBase):
 
         :param kwargs: Keyword arguments assigning values to table columns.
         """
-
         columns_names = {col.name for col in self.__columns__}
         missing_columns = {
             c.name for c in self.__columns__ if isinstance(c, NonNullColumn)

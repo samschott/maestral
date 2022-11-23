@@ -43,7 +43,6 @@ def chunks(lst: list[_T], n: int, consume: bool = False) -> Iterator[list[_T]]:
     :param consume: If True, the list will be consumed (emptied) during the iteration.
     :returns: Iterator over chunks.
     """
-
     if consume:
         while lst:
             chunk = lst[0:n]
@@ -63,7 +62,6 @@ def clamp(n: _N, minn: _N, maxn: _N) -> _N:
     :param maxn: Maximum allowed value.
     :returns: Clamped value.
     """
-
     if n > maxn:
         return maxn
     elif n < minn:
@@ -81,7 +79,6 @@ def get_newer_version(version: str, releases: Iterable[str]) -> Optional[str]:
     :param releases: A list of valid cleaned releases.
     :returns: The version string of the latest release if a newer release is available.
     """
-
     releases = [r for r in releases if not Version(r).is_prerelease]
     releases.sort(key=Version)
     latest_release = releases[-1]
@@ -100,7 +97,6 @@ def removeprefix(string: str, prefix: str) -> str:
     :param prefix: Prefix to remove.
     :returns: String without prefix.
     """
-
     if string.startswith(prefix):
         return string[len(prefix) :]
     else:

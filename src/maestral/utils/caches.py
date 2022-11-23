@@ -49,6 +49,5 @@ class LRUCache:
         """
         Clears the cache.
         """
-
         with self._lock:
             self._cache.clear()

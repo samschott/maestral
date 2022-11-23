@@ -314,7 +314,6 @@ class Maestral:
 
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         if self.pending_link:
             return ""
         else:
@@ -348,11 +347,8 @@ class Maestral:
         has_changes = len(added_excluded_items) > 0 or len(added_included_items) > 0
 
         if has_changes:
-
             if self.sync.sync_lock.acquire(blocking=False):
-
                 try:
-
                     self.sync.excluded_items = excluded_items
 
                     if self.pending_first_download:
@@ -1009,18 +1005,14 @@ class Maestral:
             return
 
         if self.sync.sync_lock.acquire(blocking=False):
-
             try:
-
                 # ---- update excluded items list --------------------------------------
-
                 excluded_items = self.sync.excluded_items
                 excluded_items.append(dbx_path_lower)
 
                 self.sync.excluded_items = excluded_items
 
                 # ---- remove item from local Dropbox ----------------------------------
-
                 self._remove_after_excluded(dbx_path_lower)
 
                 self._logger.info("Excluded %s", dbx_path_lower)
@@ -1076,7 +1068,6 @@ class Maestral:
         dbx_path_lower = normalize(dbx_path.rstrip("/"))
 
         # ---- input validation --------------------------------------------------------
-
         md = self.client.get_metadata(dbx_path_lower)
 
         if not md:
@@ -1091,7 +1082,6 @@ class Maestral:
             return
 
         # ---- update excluded items list ----------------------------------------------
-
         excluded_items = set(self.sync.excluded_items)
 
         # Remove dbx_path from list.
@@ -1121,13 +1111,10 @@ class Maestral:
                 excluded_items.remove(folder)
 
         if self.sync.sync_lock.acquire(blocking=False):
-
             try:
-
                 self.sync.excluded_items = list(excluded_items)
 
                 # ---- download item from Dropbox --------------------------------------
-
                 if excluded_parent:
                     self._logger.info(
                         "Included '%s' and parent directories", dbx_path_lower
@@ -1504,12 +1491,9 @@ class Maestral:
         await asyncio.sleep(60 * 5)
 
         while True:
-
             if self.cred_storage.loaded:
-
                 # Only run if we have loaded the access token, we don't
                 # want to trigger any keyring access from here.
-
                 try:
                     await self._loop.run_in_executor(self._pool, self.get_profile_pic)
                     await self._loop.run_in_executor(self._pool, self.get_account_info)

@@ -40,7 +40,6 @@ __all__ = [
 
 
 def safe_journal_sender(MESSAGE: str, **kwargs: Any) -> None:
-
     if journal is not None:
         MESSAGE = sanitize_string(MESSAGE)
 
@@ -173,7 +172,6 @@ def scoped_logger_name(module_name: str, config_name: str = "maestral") -> str:
     :param config_name: Config name.
     :returns: Scoped logger name.
     """
-
     if config_name == "maestral":
         return module_name
     else:
@@ -188,7 +186,6 @@ def scoped_logger(module_name: str, config_name: str = "maestral") -> logging.Lo
     :param config_name: Config name.
     :returns: Logger instances scoped to the config.
     """
-
     return logging.getLogger(scoped_logger_name(module_name, config_name))
 
 
@@ -220,7 +217,6 @@ def setup_logging(
     :param log_to_stderr: Whether to log to stderr.
     :returns: (log_handler_file, log_handler_stream, log_handler_sd, log_handler_journal)
     """
-
     conf = MaestralConfig(config_name)
 
     # Get log level from config or fallback to DEBUG level if config file is corrupt.

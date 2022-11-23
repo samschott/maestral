@@ -71,7 +71,6 @@ def level_number_to_name(number: int) -> str:
     :param number: Level number.
     :returns: Level name.
     """
-
     try:
         return _level_to_name[number]
     except KeyError:
@@ -85,7 +84,6 @@ def level_name_to_number(name: str) -> int:
     :param name: Level name.
     :returns: Level number.
     """
-
     try:
         return _name_to_level[name]
     except KeyError:
@@ -148,11 +146,9 @@ class MaestralDesktopNotifier:
         :param actions: A dictionary with button names and callbacks for the
             notification.
         """
-
         snoozed = self.snoozed and level <= FILECHANGE
 
         if level >= self.notify_level and not snoozed:
-
             urgency = Urgency.Critical if level >= ERROR else Urgency.Normal
 
             if actions:

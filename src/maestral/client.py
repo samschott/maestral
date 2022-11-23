@@ -140,7 +140,6 @@ class DropboxClient:
         timeout: float = 100,
         session: requests.Session | None = None,
     ) -> None:
-
         self.config_name = config_name
         self._auth_flow: DropboxOAuth2FlowNoRedirect | None = None
         self._cred_storage = cred_storage
@@ -224,19 +223,15 @@ class DropboxClient:
     @property
     def dbx_base(self) -> Dropbox:
         """The underlying Dropbox SDK instance without namespace headers."""
-
         if not self._dbx_base:
             self._init_sdk()
-
         return self._dbx_base
 
     @property
     def dbx(self) -> Dropbox:
         """The underlying Dropbox SDK instance with namespace headers."""
-
         if not self._dbx:
             self._init_sdk()
-
         return self._dbx
 
     @property
@@ -272,7 +267,6 @@ class DropboxClient:
         :param token: OAuth token for Dropbox access.
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
-
         if not self._auth_flow:
             raise RuntimeError("Please start auth flow with 'get_auth_url' first")
 
@@ -305,7 +299,6 @@ class DropboxClient:
         :raises KeyringAccessError: if keyring access fails.
         :raises DropboxAuthError: if we cannot authenticate with Dropbox.
         """
-
         self._dbx = None
         self._dbx_base = None
         self._cached_account_info = None
@@ -326,9 +319,7 @@ class DropboxClient:
         :raises RuntimeError: if token is not available from storage and no token is
             passed as an argument.
         """
-
         with self._lock:
-
             if not (token or self._cred_storage.token):
                 raise NotLinkedError(
                     "No auth token set", "Please link a Dropbox account first."
@@ -373,7 +364,6 @@ class DropboxClient:
     def account_info(self) -> FullAccount:
         """Returns cached account info. Use :meth:`get_account_info` to get the latest
         account info from Dropbox servers."""
-
         if not self._cached_account_info:
             return self.get_account_info()
         else:
@@ -423,7 +413,6 @@ class DropboxClient:
         :param session: Requests session to use.
         :returns: A new instance of DropboxClient.
         """
-
         config_name = config_name or self.config_name
         timeout = timeout or self._timeout
         session = session or self._session
@@ -475,7 +464,6 @@ class DropboxClient:
             root. If not given, the latest root info will be fetched from Dropbox
             servers.
         """
-
         if not root_info:
             account_info = self.get_account_info()
             root_info = account_info.root_info
@@ -527,9 +515,7 @@ class DropboxClient:
             currently linked account.
         :returns: Account info.
         """
-
         with convert_api_errors():
-
             if dbid:
                 res = self.dbx_base.users_get_account(dbid)
                 return convert_account(res)
@@ -604,7 +590,6 @@ class DropboxClient:
         :param include_deleted: Whether to return data for deleted items.
         :returns: Metadata of item at the given path or ``None`` if item cannot be found.
         """
-
         try:
             with convert_api_errors(dbx_path=dbx_path):
                 res = self.dbx.files_get_metadata(
@@ -626,11 +611,9 @@ class DropboxClient:
         :param limit: Maximum number of revisions to list.
         :returns: File revision history.
         """
-
         with convert_api_errors(dbx_path=dbx_path):
             dbx_mode = files.ListRevisionsMode(mode)
             res = self.dbx.files_list_revisions(dbx_path, mode=dbx_mode, limit=limit)
-
         return [convert_metadata(entry) for entry in res.entries]
 
     def restore(self, dbx_path: str, rev: str) -> FileMetadata:
@@ -642,10 +625,8 @@ class DropboxClient:
             :meth:`list_revisions`.
         :returns: Metadata of restored file.
         """
-
         with convert_api_errors(dbx_path=dbx_path):
             res = self.dbx.files_restore(dbx_path, rev)
-
         return convert_metadata(res)
 
     @_retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
@@ -665,9 +646,7 @@ class DropboxClient:
         :returns: Metadata of downloaded item.
         :raises DataCorruptionError: if data is corrupted during download.
         """
-
         with convert_api_errors(dbx_path=dbx_path):
-
             md = self.dbx.files_get_metadata(dbx_path)
 
             if isinstance(md, files.FileMetadata) and md.symlink_info:
@@ -765,7 +744,6 @@ class DropboxClient:
         :returns: Metadata of uploaded file.
         :raises DataCorruptionError: if data is corrupted during upload.
         """
-
         chunk_size = clamp(chunk_size, 10**5, 150 * 10**6)
 
         if write_mode is WriteMode.Add:
@@ -842,7 +820,6 @@ class DropboxClient:
         autorename: bool,
         sync_event: SyncEvent | None,
     ) -> files.FileMetadata:
-
         with open(local_path, "rb", opener=opener_no_symlink) as f:
             data = f.read()
 
@@ -869,7 +846,6 @@ class DropboxClient:
         dbx_path: str,
         sync_event: SyncEvent | None,
     ) -> str:
-
         initial_offset = f.tell()
         data = f.read(chunk_size)
 
@@ -897,7 +873,6 @@ class DropboxClient:
         dbx_path: str,
         sync_event: SyncEvent | None,
     ) -> None:
-
         initial_offset = f.tell()
         data = f.read(chunk_size)
 
@@ -941,7 +916,6 @@ class DropboxClient:
         autorename: bool,
         sync_event: SyncEvent | None,
     ) -> files.FileMetadata:
-
         initial_offset = f.tell()
         data = f.read(chunk_size)
 
@@ -999,10 +973,8 @@ class DropboxClient:
             latest "rev". This field does not support deleting a folder.
         :returns: Metadata of deleted item.
         """
-
         with convert_api_errors(dbx_path=dbx_path):
             res = self.dbx.files_delete_v2(dbx_path, parent_rev=parent_rev)
-
         return convert_metadata(res.metadata)
 
     def remove_batch(
@@ -1019,7 +991,6 @@ class DropboxClient:
         :returns: List of Metadata for deleted items or SyncErrors for failures. Results
             will be in the same order as the original input.
         """
-
         batch_size = clamp(batch_size, 1, 1000)
 
         res_entries = []
@@ -1094,7 +1065,6 @@ class DropboxClient:
             conflict.
         :returns: Metadata of moved item.
         """
-
         with convert_api_errors(dbx_path=new_path):
             res = self.dbx.files_move_v2(
                 dbx_path,
@@ -1103,7 +1073,6 @@ class DropboxClient:
                 allow_ownership_transfer=True,
                 autorename=autorename,
             )
-
         return convert_metadata(res.metadata)
 
     def make_dir(self, dbx_path: str, autorename: bool = False) -> FolderMetadata:
@@ -1147,7 +1116,6 @@ class DropboxClient:
         result_list: list[FolderMetadata | MaestralApiError] = []
 
         with convert_api_errors():
-
             # Up two ~ 1,000 entries allowed per batch:
             # https://www.dropbox.com/developers/reference/data-ingress-guide
             for chunk in chunks(dbx_paths, n=batch_size):
@@ -1207,7 +1175,6 @@ class DropboxClient:
             test the async route.
         :returns: Metadata of shared folder.
         """
-
         dbx_path = "" if dbx_path == "/" else dbx_path
 
         with convert_api_errors(dbx_path=dbx_path):
@@ -1273,7 +1240,6 @@ class DropboxClient:
             files/list_folder/get_latest_cursor endpoint.
         :returns: The latest cursor representing a state of a folder and its subfolders.
         """
-
         dbx_path = "" if dbx_path == "/" else dbx_path
 
         with convert_api_errors(dbx_path=dbx_path):
@@ -1311,7 +1277,6 @@ class DropboxClient:
             are not downloadable, i.e. Google Docs.
         :returns: Content of given folder.
         """
-
         iterator = self.list_folder_iterator(
             dbx_path,
             recursive=recursive,
@@ -1352,7 +1317,6 @@ class DropboxClient:
             are not downloadable, i.e. Google Docs.
         :returns: Iterator over content of given folder.
         """
-
         with convert_api_errors(dbx_path):
 
             dbx_path = "" if dbx_path == "/" else dbx_path
@@ -1388,7 +1352,6 @@ class DropboxClient:
             Dropbox API will add a random jitter of up to 60 sec to this value.
         :returns: ``True`` if changes are available, ``False`` otherwise.
         """
-
         if not 30 <= timeout <= 480:
             raise ValueError("Timeout must be in range [30, 480]")
 
@@ -1418,7 +1381,6 @@ class DropboxClient:
         :param last_cursor: Last to cursor to compare for changes.
         :returns: Remote changes since given cursor.
         """
-
         iterator = self.list_remote_changes_iterator(last_cursor)
         return self.flatten_results(list(iterator))
 
@@ -1436,7 +1398,6 @@ class DropboxClient:
         :param last_cursor: Last to cursor to compare for changes.
         :returns: Iterator over remote changes since given cursor.
         """
-
         with convert_api_errors():
 
             res = self.dbx.files_list_folder_continue(last_cursor)
@@ -1476,7 +1437,6 @@ class DropboxClient:
             UTC. May not be supported for all account types.
         :returns: Metadata for shared link.
         """
-
         # Convert timestamp to utc time if not naive.
         if expires is not None:
             has_timezone = expires.tzinfo and expires.tzinfo.utcoffset(expires)
@@ -1517,7 +1477,6 @@ class DropboxClient:
         :returns: Shared links for a path, including any shared links for parents
             through which this path is accessible.
         """
-
         results = []
 
         with convert_api_errors(dbx_path=dbx_path):

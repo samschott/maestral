@@ -24,16 +24,12 @@ __all__ = [
 def to_full_path(
     path: str, subfolder: Optional[str], filename: Optional[str], create: bool
 ) -> str:
-
     if subfolder:
         path = osp.join(path, subfolder)
-
     if create:
         os.makedirs(path, exist_ok=True)
-
     if filename:
         path = osp.join(path, filename)
-
     return path
 
 
@@ -46,7 +42,6 @@ def get_home_dir() -> str:
 
     if osp.isdir(path):
         return path
-
     raise RuntimeError(
         "Please set the environment variable HOME to your user/home directory."
     )
@@ -147,7 +142,6 @@ def get_log_path(
     :param filename: The filename to append for the app.
     :param create: If ``True``, the folder ``subfolder`` will be created on-demand.
     """
-
     if platform.system() == "Darwin":
         log_path = osp.join(home_dir, "Library", "Logs")
     elif platform.system() == "Linux":
@@ -196,7 +190,6 @@ def get_runtime_path(
     :param filename: The filename to append for the app.
     :param create: If ``True``, the folder ``subfolder`` will be created on-demand.
     """
-
     if platform.system() == "Darwin":
         runtime_path = get_conf_path(create=False)
     elif platform.system() == "Linux":
