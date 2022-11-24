@@ -818,7 +818,6 @@ class Maestral:
             """
             Download a rev to a tmp file, read it and return the content + metadata.
             """
-
             with tempfile.NamedTemporaryFile(mode="w+") as f:
                 md = self.client.download(f"rev:{rev}", f.name)
 
