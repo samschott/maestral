@@ -823,7 +823,7 @@ class Maestral:
 
                 # Read from the file.
                 try:
-                    with convert_api_errors(dbx_path=dbx_path, local_path=f.name):
+                    with convert_api_errors(md.path_display, f.name):
                         content = f.readlines()
                 except UnicodeDecodeError:
                     raise UnsupportedFileTypeForDiff(
