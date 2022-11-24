@@ -209,6 +209,17 @@ def check_connection(
 
 
 class SystemdNotifier:
+    """
+    An interface to notify the systemd the service manager about status changes.
+
+    Sends a status message to the systemd the service manager on the socket address
+    provided by the NOTIFY_SOCKET environment variable. Does nothing NOTIFY_SOCKET is
+    not set.
+
+    See https://www.freedesktop.org/software/systemd/man/sd_notify.html for a
+    documentation of message formats expected by systemd.
+    """
+
     def __init__(self) -> None:
         self._socket = None
 
@@ -224,9 +235,14 @@ class SystemdNotifier:
         except OSError:
             pass
 
-    def notify(self, state: str) -> None:
+    def notify(self, status: str) -> None:
+        """
+        Send a status update to the service manager.
+
+        :param status: The status update to send.
+        """
         if self._socket:
             try:
-                self._socket.sendall(state.encode(errors="replace"))
+                self._socket.sendall(status.encode(errors="replace"))
             except OSError:
                 pass
