@@ -378,7 +378,7 @@ def start_maestral_daemon(
     from .main import Maestral
     from .logging import scoped_logger, setup_logging
 
-    setup_logging(config_name, log_to_stderr)
+    setup_logging(config_name, stderr=log_to_stderr)
     dlogger = scoped_logger(__name__, config_name)
     sd_notifier = SystemdNotifier()
 
@@ -533,7 +533,7 @@ def start_maestral_daemon_process(
     except Exception as exc:
         from .logging import scoped_logger, setup_logging
 
-        setup_logging(config_name, log_to_stderr=False)
+        setup_logging(config_name, stderr=False)
         clogger = scoped_logger(__name__, config_name)
 
         clogger.error("Could not communicate with daemon", exc_info=exc_info_tuple(exc))
