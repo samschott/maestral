@@ -9,21 +9,26 @@ import shutil
 import sqlite3
 import time
 import warnings
-import logging.handlers
 import asyncio
 import random
 import gc
 import tempfile
 import mimetypes
 import difflib
+import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Iterator, Awaitable, Any
+from typing import Iterator, Awaitable, Any, Sequence
 
 # external imports
 import requests
 from watchdog.events import DirDeletedEvent, FileDeletedEvent
 from packaging.version import Version
 from datetime import datetime, timezone
+
+try:
+    from systemd import journal
+except ImportError:
+    journal = None
 
 # local imports
 from . import __version__
@@ -54,20 +59,25 @@ from .exceptions import (
 )
 from .errorhandling import convert_api_errors, CONNECTION_ERRORS
 from .config import MaestralConfig, MaestralState, validate_config_name
-from .logging import CachedHandler, setup_logging, scoped_logger
+from .logging import (
+    CachedHandler,
+    scoped_logger,
+    setup_logging,
+    LOG_FMT_SHORT,
+)
 from .utils import get_newer_version
 from .utils.path import (
-    is_child,
     isdir,
+    is_child,
     is_equal_or_child,
-    normalize,
     to_existing_unnormalized_path,
+    normalize,
     delete,
 )
 from .utils.appdirs import get_cache_path, get_data_path
 from .utils.integration import get_ac_state, ACState
 from .database.core import Database
-from .constants import IDLE, PAUSED, CONNECTING, FileStatus, GITHUB_RELEASES_API
+from .constants import IDLE, PAUSED, CONNECTING, GITHUB_RELEASES_API, FileStatus
 
 
 __all__ = ["Maestral"]
@@ -129,18 +139,26 @@ class Maestral:
         in the systemd journal. Defaults to ``False``.
     """
 
+    _external_log_handlers: Sequence[logging.Handler]
+    _log_handler_info_cache: CachedHandler
+    _log_handler_error_cache: CachedHandler
+
     def __init__(
         self, config_name: str = "maestral", log_to_stderr: bool = False
     ) -> None:
         self._config_name = validate_config_name(config_name)
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
+        self._logger = scoped_logger(__name__, self.config_name)
         self.cred_storage = CredentialStorage(self.config_name)
 
         # Set up logging.
-        self._logger = scoped_logger(__name__, self.config_name)
         self._log_to_stderr = log_to_stderr
-        self._setup_logging()
+        self._root_logger = scoped_logger("maestral", self.config_name)
+        self._root_logger.setLevel(min(self.log_level, logging.INFO))
+        self._root_logger.handlers.clear()
+        self._setup_logging_external()
+        self._setup_logging_internal()
 
         # Run update scripts after init of loggers and config / state.
         self._check_and_run_post_update_scripts()
@@ -164,6 +182,31 @@ class Maestral:
         # Create a future which will return once `shutdown_daemon` is called.
         # This can be used by an event loop to wait until maestral has been stopped.
         self.shutdown_complete = self._loop.create_future()
+
+    def _setup_logging_external(self) -> None:
+        """
+        Sets up logging to external channels:
+          * Log files.
+          * The systemd journal, if started by systemd.
+          * The systemd notify status, if started by systemd.
+          * Stderr, if requested.
+        """
+        self._external_log_handlers = setup_logging(
+            self.config_name, stderr=self._log_to_stderr
+        )
+
+    def _setup_logging_internal(self) -> None:
+        """Sets up logging to internal info and error caches."""
+        # Log to cached handlers for status and error APIs.
+        self._log_handler_info_cache = CachedHandler(maxlen=1)
+        self._log_handler_info_cache.setFormatter(LOG_FMT_SHORT)
+        self._log_handler_info_cache.setLevel(logging.INFO)
+        self._root_logger.addHandler(self._log_handler_info_cache)
+
+        self._log_handler_error_cache = CachedHandler()
+        self._log_handler_error_cache.setFormatter(LOG_FMT_SHORT)
+        self._log_handler_error_cache.setLevel(logging.ERROR)
+        self._root_logger.addHandler(self._log_handler_error_cache)
 
     @property
     def version(self) -> str:
@@ -228,32 +271,6 @@ class Maestral:
         self.sync.reload_cached_config()
 
         self._logger.info("Unlinked Dropbox account.")
-
-    def _setup_logging(self) -> None:
-        """
-        Sets up logging to log files, status and error properties, desktop
-        notifications, the systemd journal if available, and to stderr if requested.
-        """
-        self._root_logger = scoped_logger("maestral", self.config_name)
-        (
-            self._log_handler_file,
-            self._log_handler_stream,
-            self._log_handler_sd,
-            self._log_handler_journal,
-        ) = setup_logging(self.config_name, self._log_to_stderr)
-
-        log_fmt_short = logging.Formatter(fmt="%(message)s")
-
-        # Log to cached handlers for status and error APIs.
-        self._log_handler_info_cache = CachedHandler(maxlen=1)
-        self._log_handler_info_cache.setFormatter(log_fmt_short)
-        self._log_handler_info_cache.setLevel(logging.INFO)
-        self._root_logger.addHandler(self._log_handler_info_cache)
-
-        self._log_handler_error_cache = CachedHandler()
-        self._log_handler_error_cache.setFormatter(log_fmt_short)
-        self._log_handler_error_cache.setLevel(logging.ERROR)
-        self._root_logger.addHandler(self._log_handler_error_cache)
 
     # ==== Methods to access config and saved state ====================================
 
@@ -380,13 +397,12 @@ class Maestral:
         return self._conf.get("app", "log_level")
 
     @log_level.setter
-    def log_level(self, level_num: int) -> None:
+    def log_level(self, level: int) -> None:
         """Setter: log_level."""
-        self._root_logger.setLevel(min(level_num, logging.INFO))
-        self._log_handler_file.setLevel(level_num)
-        self._log_handler_stream.setLevel(level_num)
-        self._log_handler_journal.setLevel(level_num)
-        self._conf.set("app", "log_level", level_num)
+        self._root_logger.setLevel(min(level, logging.INFO))
+        for handler in self._external_log_handlers:
+            handler.setLevel(level)
+        self._conf.set("app", "log_level", level)
 
     @property
     def notification_snooze(self) -> float:
