@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import os
+import io
+import ast
+import logging
+import textwrap
 from os import path as osp
 from typing import cast, TYPE_CHECKING
 
 import click
+from click.shell_completion import get_completion_class
 from rich.console import Console
 from rich.text import Text
 
@@ -44,9 +49,6 @@ Rebuilding may take several minutes, depending on the size of your Dropbox.
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def rebuild_index(m: Maestral, yes: bool) -> None:
-
-    import textwrap
-
     width = get_term_width()
 
     msg = textwrap.fill(
@@ -332,9 +334,6 @@ def log_clear(config_name: str) -> None:
 )
 @inject_proxy(fallback=True, existing_config=True)
 def log_level(m: Maestral, level_name: str) -> None:
-
-    import logging
-
     if level_name:
         m.log_level = cast(int, getattr(logging, level_name))
         ok(f"Log level set to {level_name}.")
@@ -410,7 +409,6 @@ instance, setting a boolean config value to 1 will actually set it to True.
 @convert_api_errors
 def config_set(m: Maestral, key: str, value: str) -> None:
 
-    import ast
     from ..config.main import KEY_SECTION_MAP, DEFAULTS_CONFIG
 
     section = KEY_SECTION_MAP.get(key, "")
@@ -438,8 +436,6 @@ def config_set(m: Maestral, key: str, value: str) -> None:
 @click.option("--no-pager", help="Don't use a pager for output.", is_flag=True)
 @existing_config_option
 def config_show(no_pager: bool, config_name: str) -> None:
-
-    import io
     from ..config import MaestralConfig
 
     conf = MaestralConfig(config_name)
@@ -507,7 +503,6 @@ For the current user only:
 @click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
 def completion(shell: str) -> None:
 
-    from click.shell_completion import get_completion_class
     from .cli_main import main
 
     comp_cls = get_completion_class(shell)

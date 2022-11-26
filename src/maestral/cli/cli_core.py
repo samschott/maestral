@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from datetime import datetime
 from os import path as osp
 from typing import TYPE_CHECKING
@@ -20,6 +21,7 @@ from .common import (
 )
 from .core import DropboxPath, CliException
 from ..core import FolderMetadata, SharedLinkMetadata
+from ..utils.path import delete
 
 if TYPE_CHECKING:
     from ..daemon import MaestralProxy
@@ -62,9 +64,6 @@ def select_dbx_path_dialog(
         deleting it. Defaults to ``False``.
     :returns: Path given by user.
     """
-
-    from ..utils.path import delete
-
     default_dir_name = default_dir_name or f"Dropbox ({config_name.capitalize()})"
 
     while True:
@@ -166,7 +165,6 @@ def link_dialog(m: MaestralProxy | Maestral) -> None:
 @convert_api_errors
 def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
-    import threading
     from ..daemon import (
         MaestralProxy,
         start_maestral_daemon,

@@ -11,6 +11,7 @@ from rich.table import Column
 from rich.text import Text
 from rich.columns import Columns
 from rich.filesize import decimal
+from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn, TaskID
 
 from .output import echo, RichDateField, rich_table
 from .common import convert_api_errors, check_for_fatal_errors, inject_proxy
@@ -86,9 +87,6 @@ def filestatus(m: Maestral, local_path: str) -> None:
 @inject_proxy(fallback=False, existing_config=True)
 @convert_api_errors
 def activity(m: Maestral) -> None:
-
-    from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn, TaskID
-
     if check_for_fatal_errors(m):
         return
 
