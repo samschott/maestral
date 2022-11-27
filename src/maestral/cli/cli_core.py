@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 import threading
 from datetime import datetime
 from os import path as osp
@@ -272,22 +271,25 @@ def gui(config_name: str) -> None:
     except ImportError:
         from importlib_metadata import entry_points, requires, version  # type: ignore
 
-    # find all "maestral_gui" entry points registered by other packages
-    gui_entry_points = entry_points().get("maestral_gui")
+    # Find all entry points for "maestral_gui" registered by other packages.
+    gui_entry_points = entry_points(group="maestral_gui")
 
-    if not gui_entry_points or len(gui_entry_points) == 0:
+    if len(gui_entry_points) == 0:
         raise CliException(
             "No maestral GUI installed. Please run 'pip3 install maestral[gui]'."
         )
 
-    # check if 1st party defaults "maestral_cocoa" or "maestral_qt" are installed
-    default_gui = "maestral_cocoa" if sys.platform == "darwin" else "maestral_qt"
-    default_entry_point = next(
-        (e for e in gui_entry_points if e.name == default_gui), None
-    )
+    if len(gui_entry_points) > 1:
+        _prompt = "Multiple GUIs found, please choose:"
+        index = select(_prompt, [e.name for e in gui_entry_points])
+    else:
+        index = 0
 
-    if default_entry_point:
-        # check gui requirements
+    entry_point = gui_entry_points[index]
+
+    if entry_point in {"maestral_cocoa", "maestral_qt"}:
+        # For 1st party GUIs "maestral_cocoa" or "maestral_qt", check if the installed
+        # version fulfills requirements in maestral's gui extra.
         requirement_names = requires("maestral")
         if requirement_names is not None:
             for name in requirement_names:
@@ -299,14 +301,8 @@ def gui(config_name: str) -> None:
                             f"{r.name}{r.specifier} required but you have {version_str}"
                         )
 
-        # load entry point
-        run = default_entry_point.load()
-
-    else:
-        # load any 3rd party GUI
-        fallback_entry_point = next(iter(gui_entry_points))
-        run = fallback_entry_point.load()
-
+    # Run the GUI.
+    run = entry_point.load()
     run(config_name)
 
 
