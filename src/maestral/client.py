@@ -462,7 +462,7 @@ class DropboxClient:
         """
         return self.clone(session=create_session())
 
-    def update_path_root(self, root_info: RootInfo | None = None) -> None:
+    def update_path_root(self, root_info: RootInfo) -> None:
         """
         Updates the root path for the Dropbox client. All files paths given as arguments
         to API calls such as :meth:`list_folder` or :meth:`get_metadata` will be
@@ -483,14 +483,9 @@ class DropboxClient:
             calls. Be prepared to handle :exc:`maestral.exceptions.PathRootError`
             and act accordingly for all methods.
 
-        :param root_info: Optional :class:`core.RootInfo` describing the path
-            root. If not given, the latest root info will be fetched from Dropbox
-            servers.
+        :param root_info: :class:`core.RootInfo` describing the path root. Use
+            :meth:`get_account_info` to retrieve.
         """
-        if not root_info:
-            account_info = self.get_account_info()
-            root_info = account_info.root_info
-
         root_nsid = root_info.root_namespace_id
 
         path_root = common.PathRoot.root(root_nsid)
