@@ -247,10 +247,10 @@ class DropboxClient:
     def get_auth_url(self) -> str:
         """
         Returns a URL to authorize access to a Dropbox account. To link a Dropbox
-        account, retrieve an auth token from the URL and link Maestral by calling
-        :meth:`link` with the provided token.
+        account, retrieve an authorization code from the URL and link Maestral by
+        calling :meth:`link` with the provided code.
 
-        :returns: URL to retrieve an OAuth token.
+        :returns: URL to retrieve an authorization code.
         """
         self._auth_flow = DropboxOAuth2FlowNoRedirect(
             consumer_key=DROPBOX_APP_KEY,
@@ -259,34 +259,57 @@ class DropboxClient:
         )
         return self._auth_flow.start()
 
-    def link(self, token: str) -> int:
+    def link(
+        self,
+        code: str | None = None,
+        refresh_token: str | None = None,
+        access_token: str | None = None,
+    ) -> int:
         """
-        Links Maestral with a Dropbox account using the given access token. The token
-        will be stored for future usage in the provided credential store.
+        Links Maestral with a Dropbox account using the given authorization code. The
+        code will be exchanged for an access token and a refresh token with Dropbox
+        servers. The refresh token will be stored for future usage in the provided
+        credential store.
 
-        :param token: OAuth token for Dropbox access.
+        :param code: Authorization code.
+        :param refresh_token: Optionally, instead of an authorization code, directly
+            provide a refresh token.
+        :param access_token: Optionally, instead of an authorization code or a refresh
+            token, directly provide an access token. Note that access tokens are
+            short-lived.
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
-        if not self._auth_flow:
-            raise RuntimeError("Please start auth flow with 'get_auth_url' first")
+        if code:
+            if not self._auth_flow:
+                raise RuntimeError("Please start auth flow with 'get_auth_url' first")
+
+            try:
+                res = self._auth_flow.finish(code)
+            except requests.exceptions.HTTPError:
+                return 1
+            except CONNECTION_ERRORS:
+                return 2
+
+            token = res.refresh_token
+            token_type = TokenType.Offline
+        elif refresh_token:
+            token = refresh_token
+            token_type = TokenType.Offline
+        elif access_token:
+            token = access_token
+            token_type = TokenType.Legacy
+        else:
+            raise RuntimeError("No auth code, refresh token ior access token provided.")
+
+        self._init_sdk(token, token_type)
 
         try:
-            res = self._auth_flow.finish(token)
-        except requests.exceptions.HTTPError:
-            return 1
+            account_info = self.get_account_info()
+            self.update_path_root(account_info.root_info)
         except CONNECTION_ERRORS:
             return 2
 
-        self._init_sdk(res.refresh_token, TokenType.Offline)
-
-        try:
-            self.update_path_root()
-        except CONNECTION_ERRORS:
-            return 2
-
-        self._cred_storage.save_creds(
-            res.account_id, res.refresh_token, TokenType.Offline
-        )
+        self._cred_storage.save_creds(account_info.account_id, token, token_type)
         self._auth_flow = None
 
         return 0
@@ -439,7 +462,7 @@ class DropboxClient:
         """
         return self.clone(session=create_session())
 
-    def update_path_root(self, root_info: RootInfo | None = None) -> None:
+    def update_path_root(self, root_info: RootInfo) -> None:
         """
         Updates the root path for the Dropbox client. All files paths given as arguments
         to API calls such as :meth:`list_folder` or :meth:`get_metadata` will be
@@ -460,14 +483,9 @@ class DropboxClient:
             calls. Be prepared to handle :exc:`maestral.exceptions.PathRootError`
             and act accordingly for all methods.
 
-        :param root_info: Optional :class:`core.RootInfo` describing the path
-            root. If not given, the latest root info will be fetched from Dropbox
-            servers.
+        :param root_info: :class:`core.RootInfo` describing the path root. Use
+            :meth:`get_account_info` to retrieve.
         """
-        if not root_info:
-            account_info = self.get_account_info()
-            root_info = account_info.root_info
-
         root_nsid = root_info.root_namespace_id
 
         path_root = common.PathRoot.root(root_nsid)

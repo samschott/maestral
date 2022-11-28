@@ -216,29 +216,47 @@ class Maestral:
     def get_auth_url(self) -> str:
         """
         Returns a URL to authorize access to a Dropbox account. To link a Dropbox
-        account, retrieve an auth token from the URL and link Maestral by calling
-        :meth:`link` with the provided token.
+        account, retrieve an authorization code from the URL and link Maestral by
+        calling :meth:`link` with the provided code.
 
-        :returns: URL to retrieve an OAuth token.
+        :returns: URL to retrieve an authorization code.
         """
         return self.client.get_auth_url()
 
-    def link(self, token: str) -> int:
+    def link(
+        self,
+        code: str | None = None,
+        refresh_token: str | None = None,
+        access_token: str | None = None,
+    ) -> int:
         """
-        Links Maestral with a Dropbox account using the given access token. The token
-        will be stored for future usage as documented in the :mod:`oauth` module.
-        Supported keyring backends are, in order of preference:
+        Links Maestral with a Dropbox account using the given authorization code. The
+        code will be exchanged for an access token and a refresh token with Dropbox
+        servers. The refresh token will be stored for future usage as documented in the
+        :mod:`oauth` module. Supported keyring backends are, in order of preference:
 
-            * MacOS Keychain
+            * macOS Keychain
             * Any keyring implementing the SecretService Dbus specification
             * KWallet
             * Gnome Keyring
             * Plain text storage
 
-        :param token: OAuth token for Dropbox access.
+        For testing, it is also possible to directly provide a long-lived refresh token
+        or a short-lived access token. Note that the tokens must be issued for Maestral,
+        with the required scopes, and will be validated with Dropbox servers as part of
+        this call.
+
+        :param code: Authorization code.
+        :param refresh_token: Optionally, instead of an authorization code, directly
+            provide a refresh token.
+        :param access_token: Optionally, instead of an authorization code or a refresh
+            token, directly provide an access token. Note that access tokens are
+            short-lived.
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
-        return self.client.link(token)
+        return self.client.link(
+            code=code, refresh_token=refresh_token, access_token=access_token
+        )
 
     def unlink(self) -> None:
         """

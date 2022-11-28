@@ -334,11 +334,26 @@ def auth() -> None:
     default=False,
     help="Relink to the existing account. Keeps the sync state.",
 )
+@click.option(
+    "--refresh-token",
+    hidden=True,
+    help="Refresh token to bypass OAuth exchange.",
+)
+@click.option(
+    "--access-token",
+    hidden=True,
+    help="Access token to bypass OAuth exchange.",
+)
 @inject_proxy(fallback=True, existing_config=False)
 @convert_api_errors
-def auth_link(m: Maestral, relink: bool) -> None:
+def auth_link(
+    m: Maestral, relink: bool, refresh_token: str | None, access_token: str | None
+) -> None:
     if m.pending_link or relink:
-        link_dialog(m)
+        if refresh_token or access_token:
+            m.link(refresh_token=refresh_token, access_token=access_token)
+        else:
+            link_dialog(m)
     else:
         echo(
             "Maestral is already linked. Use '-r' to relink to the same "
