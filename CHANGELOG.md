@@ -10,7 +10,9 @@
 * `maestral sharelink list` now outputs plain urls, separated by new lines. Use
   the `--long | -l` option if you would like a pretty-printed table with additional
   information about each link.
-* `maestral history` now shows where the listed changes occurred (local vs remote). 
+* `maestral history` now shows where the listed changes occurred (local vs remote).
+* When multiple GUIs are installed (for example Qt and Cocoa), ask the user to choose
+  when running `maestral gui` instead of selecting a default.
 
 #### Fixed:
 
