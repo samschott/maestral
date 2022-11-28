@@ -242,7 +242,9 @@ class Maestral:
             * Plain text storage
 
         For testing, it is also possible to directly provide a long-lived refresh token
-        or a short-lived access token.
+        or a short-lived access token. Note that the tokens must be issued for Maestral,
+        with the required scopes, and will be validated with Dropbox servers as part of
+        this call.
 
         :param code: Authorization code.
         :param refresh_token: Optionally, instead of an authorization code, directly
