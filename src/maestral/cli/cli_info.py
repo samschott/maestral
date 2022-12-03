@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import os
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Tuple
@@ -91,10 +92,7 @@ def activity(m: Maestral) -> None:
         return
 
     EventKey = Tuple[str, SyncDirection]
-
-    progressbar_for_path: dict[EventKey, tuple[TaskID, SyncEvent]] = {}
-    new_progressbar_for_path: dict[EventKey, tuple[TaskID, SyncEvent]] = {}
-    progress_bars_to_clear: set[TaskID] = set()
+    progressbar_for_path: dict[EventKey, TaskID] = {}
 
     def _event_key(e: SyncEvent) -> EventKey:
         return e.dbx_path, e.direction
@@ -121,9 +119,17 @@ def activity(m: Maestral) -> None:
                 progress.console.clear()
                 progress.console.print(status_msg)
 
-                for event in m.get_activity():
+                events = m.get_activity(limit=console.height - 1)
+                event_keys = set(_event_key(e) for e in events)
+
+                for key, task_id in progressbar_for_path.copy().items():
+                    if key not in event_keys:
+                        progress.remove_task(task_id)
+                        progressbar_for_path.pop(key)
+
+                for event in events:
                     try:
-                        task_id, _ = progressbar_for_path.pop(_event_key(event))
+                        task_id = progressbar_for_path[_event_key(event)]
                     except KeyError:
                         arrow = "↓" if event.direction is SyncDirection.Down else "↑"
                         description = f"{arrow} {event.change_type.name}"
@@ -131,26 +137,13 @@ def activity(m: Maestral) -> None:
                             description,
                             total=event.size,
                             completed=event.completed,
-                            filename=event.dbx_path,
+                            filename=os.path.basename(event.dbx_path),
                         )
+                        progressbar_for_path[_event_key(event)] = task_id
                     else:
                         progress.update(task_id, completed=event.completed)
-                    new_progressbar_for_path[_event_key(event)] = (task_id, event)
 
-                for task_id in progress_bars_to_clear:
-                    progress.remove_task(task_id)
-                progress_bars_to_clear.clear()
-
-                while len(progressbar_for_path) > 0:
-                    _, task_tuple = progressbar_for_path.popitem()
-                    task_id, event = task_tuple
-                    progress.update(task_id, completed=event.size)
-                    progress_bars_to_clear.add(task_id)
-
-                progressbar_for_path.update(new_progressbar_for_path)
-                new_progressbar_for_path.clear()
-
-                time.sleep(0.5)
+                time.sleep(0.1)
                 progress.refresh()
 
 

@@ -9,7 +9,7 @@ import click
 
 from .core import ConfigName
 from .output import warn
-from .utils import get_term_width
+from .utils import get_term_size
 
 if TYPE_CHECKING:
     from ..daemon import MaestralProxy
@@ -54,10 +54,10 @@ def check_for_fatal_errors(m: MaestralProxy | Maestral) -> bool:
 
     if len(maestral_err_list) > 0:
 
-        width = get_term_width()
+        size = get_term_size()
 
         err = maestral_err_list[0]
-        wrapped_msg = textwrap.fill(err.message, width=width)
+        wrapped_msg = textwrap.fill(err.message, width=size.columns)
 
         click.echo("")
         click.secho(err.title, fg="red")
