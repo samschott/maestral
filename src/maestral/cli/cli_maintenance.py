@@ -16,7 +16,7 @@ from rich.text import Text
 from .cli_core import select_dbx_path_dialog
 from .dialogs import confirm, select
 from .output import ok, warn, echo, echo_via_pager, RichDateField, rich_table
-from .utils import get_term_width
+from .utils import get_term_size
 from .common import convert_api_errors, existing_config_option, inject_proxy
 from .core import DropboxPath, ConfigKey, CliException
 
@@ -49,7 +49,7 @@ Rebuilding may take several minutes, depending on the size of your Dropbox.
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def rebuild_index(m: Maestral, yes: bool) -> None:
-    width = get_term_width()
+    size = get_term_size()
 
     msg = textwrap.fill(
         "Rebuilding the index may take several minutes, depending on the size of "
@@ -57,7 +57,7 @@ def rebuild_index(m: Maestral, yes: bool) -> None:
         "has completed. If you stop the daemon during the process, rebuilding will "
         "start again on the next launch.\nIf the daemon is not currently running, "
         "a rebuild will be scheduled for the next startup.",
-        width=width,
+        width=size.columns,
     )
 
     echo(msg + "\n")
