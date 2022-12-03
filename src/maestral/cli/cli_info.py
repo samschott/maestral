@@ -143,7 +143,7 @@ def activity(m: Maestral) -> None:
                     else:
                         progress.update(task_id, completed=event.completed)
 
-                time.sleep(0.1)
+                time.sleep(0.2)
                 progress.refresh()
 
 
