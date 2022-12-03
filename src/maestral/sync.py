@@ -13,17 +13,17 @@ import uuid
 import urllib.parse
 import enum
 import sqlite3
-import logging
 import gc
 from stat import S_ISDIR
 from pprint import pformat
 from threading import Event, Condition, RLock, current_thread
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue, Empty
 from collections import defaultdict
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
-from typing import Any, Iterator, Callable, cast
+from typing import Any, Iterator, Iterable, Collection, Callable, TypeVar, cast
+from typing_extensions import ParamSpec
 
 # external imports
 import click
@@ -137,6 +137,10 @@ __all__ = [
 umask = os.umask(0o22)
 os.umask(umask)
 
+NUM_THREADS = min(64, CPU_COUNT * 4)
+
+P = ParamSpec("P")
+T = TypeVar("T")
 
 # ======================================================================================
 # Syncing functionality
@@ -1497,13 +1501,12 @@ class SyncEngine:
     ) -> list[SyncEvent]:
         """Convert local file system events to sync events. This is done in a thread
         pool to parallelize content hashing."""
-        with ThreadPoolExecutor(
-            max_workers=self._num_threads,
+        res = do_parallel(
+            self._sync_event_from_fs_event,
+            fs_events,
             thread_name_prefix="maestral-local-indexer",
-        ) as executor:
-            res = executor.map(self._sync_event_from_fs_event, fs_events)
-
-            return list(res)
+        )
+        return list(res)
 
     # ==== Upload sync =================================================================
 
@@ -1754,40 +1757,31 @@ class SyncEngine:
         if deleted:
             self._logger.info("Uploading deletions...")
 
-        with ThreadPoolExecutor(
-            max_workers=self._num_threads,
+        res = do_parallel(
+            self._create_remote_entry,
+            deleted,
+            on_progress=lambda x, y: self._logger.info(f"Deleting {x}/{y}"),
             thread_name_prefix="maestral-upload-pool",
-        ) as executor:
-            res = executor.map(self._create_remote_entry, deleted)
-
-            n_items = len(deleted)
-            for n, r in enumerate(res):
-                throttled_log(self._logger, f"Deleting {n + 1}/{n_items}...")
-                results.append(r)
+        )
+        results.extend(res)
 
         if dir_moved:
             self._logger.info("Moving folders...")
 
         for event in dir_moved:
-            self._logger.info(f"Moving {event.dbx_path_from}...")
+            self._logger.info(f"Moving {event.dbx_path_from}")
             r = self._create_remote_entry(event)
             results.append(r)
 
         # Apply other events in parallel, processing each hierarchy level successively.
-
         for level in sorted(other):
-            items = other[level]
-
-            with ThreadPoolExecutor(
-                max_workers=self._num_threads,
+            res = do_parallel(
+                self._create_remote_entry,
+                other[level],
+                on_progress=lambda x, y: self._logger.info(f"Syncing ↑ {x}/{y}"),
                 thread_name_prefix="maestral-upload-pool",
-            ) as executor:
-                res = executor.map(self._create_remote_entry, items)
-
-                n_items = len(items)
-                for n, r in enumerate(res):
-                    throttled_log(self._logger, f"Syncing ↑ {n + 1}/{n_items}")
-                    results.append(r)
+            )
+            results.extend(res)
 
         self._clean_history()
 
@@ -2955,45 +2949,35 @@ class SyncEngine:
             self._logger.info("Applying deletions...")
 
         for level in sorted(deleted):
-            items = deleted[level]
-            with ThreadPoolExecutor(
-                max_workers=self._num_threads,
+            res = do_parallel(
+                self._create_local_entry,
+                deleted[level],
+                on_progress=lambda x, y: self._logger.info(f"Deleting {x}/{y}"),
                 thread_name_prefix="maestral-download-pool",
-            ) as executor:
-                res = executor.map(self._create_local_entry, items)
-
-                n_items = len(items)
-                for n, r in enumerate(res):
-                    throttled_log(self._logger, f"Deleting {n + 1}/{n_items}...")
-                    results.append(r)
+            )
+            results.extend(res)
 
         # Create local folders, start with top-level and work your way down.
         if folders:
             self._logger.info("Creating folders...")
 
         for level in sorted(folders):
-            items = folders[level]
-            with ThreadPoolExecutor(
-                max_workers=self._num_threads,
+            res = do_parallel(
+                self._create_local_entry,
+                folders[level],
+                on_progress=lambda x, y: self._logger.info(f"Creating folder {x}/{y}"),
                 thread_name_prefix="maestral-download-pool",
-            ) as executor:
-                res = executor.map(self._create_local_entry, items)
-
-                n_items = len(items)
-                for n, r in enumerate(res):
-                    throttled_log(self._logger, f"Creating folder {n + 1}/{n_items}...")
-                    results.append(r)
+            )
+            results.extend(res)
 
         # Apply created files.
-        with ThreadPoolExecutor(
-            max_workers=self._num_threads, thread_name_prefix="maestral-download-pool"
-        ) as executor:
-            res = executor.map(self._create_local_entry, files)
-
-            n_items = len(files)
-            for n, r in enumerate(res):
-                throttled_log(self._logger, f"Syncing ↓ {n + 1}/{n_items}")
-                results.append(r)
+        res = do_parallel(
+            self._create_local_entry,
+            files,
+            on_progress=lambda x, y: self._logger.info(f"Syncing ↓ {x}/{y}"),
+            thread_name_prefix="maestral-download-pool",
+        )
+        results.extend(res)
 
         self._clean_history()
 
@@ -3711,6 +3695,26 @@ class SyncEngine:
 # ======================================================================================
 
 
+def do_parallel(
+    fn: Callable[P, T],
+    *args_iter: Collection[P.args],
+    thread_name_prefix: str = "",
+    max_workers: int = NUM_THREADS,
+    on_progress: Callable[[int, int], Any] | None = None,
+) -> Iterable[T]:
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix=thread_name_prefix
+    ) as tpe:
+        fs = [tpe.submit(fn, *args) for args in zip(*args_iter)]
+
+        n_done = 0
+        for f in as_completed(fs):
+            n_done += 1
+            if on_progress:
+                on_progress(n_done, len(args_iter[0]))
+            yield f.result()
+
+
 def get_dest_path(event: FileSystemEvent) -> str:
     """
     Returns the dest_path of a file system event if present (moved events only)
@@ -3769,27 +3773,6 @@ class pf_repr:
 
 
 _last_emit = time.time()
-
-
-def throttled_log(
-    log: logging.Logger, msg: str, level: int = logging.INFO, limit: int = 2
-) -> None:
-    """
-    Emits the given log message only if the previous message was emitted more than
-    ``limit`` seconds ago. This can be used to prevent spamming a log with frequent
-    updates.
-
-    :param log: Logger used to emit the message.
-    :param msg: Log message.
-    :param level: Log level.
-    :param limit: Minimum time between log messages.
-    """
-
-    global _last_emit
-
-    if time.time() - _last_emit > limit:
-        log.log(level=level, msg=msg)
-        _last_emit = time.time()
 
 
 def validate_encoding(local_path: str) -> None:
