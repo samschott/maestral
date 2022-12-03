@@ -1761,7 +1761,7 @@ class SyncEngine:
         res = do_parallel(
             self._create_remote_entry,
             deleted,
-            on_progress=lambda x, y: throttled_log(self._logger, f"Deleting {x}/{y}"),
+            on_progress=lambda x, y: self._logger.info(f"Deleting {x}/{y}"),
             thread_name_prefix="maestral-upload-pool",
         )
         results.extend(res)
@@ -1779,9 +1779,7 @@ class SyncEngine:
             res = do_parallel(
                 self._create_remote_entry,
                 other[level],
-                on_progress=lambda x, y: throttled_log(
-                    self._logger, f"Syncing ↑ {x}/{y}"
-                ),
+                on_progress=lambda x, y: self._logger.info(f"Syncing ↑ {x}/{y}"),
                 thread_name_prefix="maestral-upload-pool",
             )
             results.extend(res)
@@ -2955,9 +2953,7 @@ class SyncEngine:
             res = do_parallel(
                 self._create_local_entry,
                 deleted[level],
-                on_progress=lambda x, y: throttled_log(
-                    self._logger, f"Deleting {x}/{y}"
-                ),
+                on_progress=lambda x, y: self._logger.info(f"Deleting {x}/{y}"),
                 thread_name_prefix="maestral-download-pool",
             )
             results.extend(res)
@@ -2970,9 +2966,7 @@ class SyncEngine:
             res = do_parallel(
                 self._create_local_entry,
                 folders[level],
-                on_progress=lambda x, y: throttled_log(
-                    self._logger, f"Creating folder {x}/{y}"
-                ),
+                on_progress=lambda x, y: self._logger.info(f"Creating folder {x}/{y}"),
                 thread_name_prefix="maestral-download-pool",
             )
             results.extend(res)
@@ -2981,7 +2975,7 @@ class SyncEngine:
         res = do_parallel(
             self._create_local_entry,
             files,
-            on_progress=lambda x, y: throttled_log(self._logger, f"Syncing ↓ {x}/{y}"),
+            on_progress=lambda x, y: self._logger.info(f"Syncing ↓ {x}/{y}"),
             thread_name_prefix="maestral-download-pool",
         )
         results.extend(res)
@@ -3785,29 +3779,6 @@ class pf_repr:
 
     def __repr__(self) -> str:
         return pformat(self.obj)
-
-
-_last_emit = time.time()
-
-
-def throttled_log(
-    log: logging.Logger, msg: str, level: int = logging.INFO, limit: int = 1
-) -> None:
-    """
-    Emits the given log message only if the previous message was emitted more than
-    ``limit`` seconds ago. This can be used to prevent spamming a log with frequent
-    updates.
-
-    :param log: Logger used to emit the message.
-    :param msg: Log message.
-    :param level: Log level.
-    :param limit: Minimum time between log messages.
-    """
-    global _last_emit
-
-    if time.time() - _last_emit > limit:
-        log.log(level=level, msg=msg)
-        _last_emit = time.time()
 
 
 def validate_encoding(local_path: str) -> None:
