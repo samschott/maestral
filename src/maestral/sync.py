@@ -14,6 +14,7 @@ import urllib.parse
 import enum
 import sqlite3
 import gc
+import logging
 from stat import S_ISDIR
 from pprint import pformat
 from threading import Event, Condition, RLock, current_thread
@@ -1760,7 +1761,7 @@ class SyncEngine:
         res = do_parallel(
             self._create_remote_entry,
             deleted,
-            on_progress=lambda x, y: self._logger.info(f"Deleting {x}/{y}"),
+            on_progress=lambda x, y: throttled_log(self._logger, f"Deleting {x}/{y}"),
             thread_name_prefix="maestral-upload-pool",
         )
         results.extend(res)
@@ -1778,7 +1779,9 @@ class SyncEngine:
             res = do_parallel(
                 self._create_remote_entry,
                 other[level],
-                on_progress=lambda x, y: self._logger.info(f"Syncing ↑ {x}/{y}"),
+                on_progress=lambda x, y: throttled_log(
+                    self._logger, f"Syncing ↑ {x}/{y}"
+                ),
                 thread_name_prefix="maestral-upload-pool",
             )
             results.extend(res)
@@ -2952,7 +2955,9 @@ class SyncEngine:
             res = do_parallel(
                 self._create_local_entry,
                 deleted[level],
-                on_progress=lambda x, y: self._logger.info(f"Deleting {x}/{y}"),
+                on_progress=lambda x, y: throttled_log(
+                    self._logger, f"Deleting {x}/{y}"
+                ),
                 thread_name_prefix="maestral-download-pool",
             )
             results.extend(res)
@@ -2965,7 +2970,9 @@ class SyncEngine:
             res = do_parallel(
                 self._create_local_entry,
                 folders[level],
-                on_progress=lambda x, y: self._logger.info(f"Creating folder {x}/{y}"),
+                on_progress=lambda x, y: throttled_log(
+                    self._logger, f"Creating folder {x}/{y}"
+                ),
                 thread_name_prefix="maestral-download-pool",
             )
             results.extend(res)
@@ -2974,7 +2981,7 @@ class SyncEngine:
         res = do_parallel(
             self._create_local_entry,
             files,
-            on_progress=lambda x, y: self._logger.info(f"Syncing ↓ {x}/{y}"),
+            on_progress=lambda x, y: throttled_log(self._logger, f"Syncing ↓ {x}/{y}"),
             thread_name_prefix="maestral-download-pool",
         )
         results.extend(res)
@@ -3696,22 +3703,30 @@ class SyncEngine:
 
 
 def do_parallel(
-    fn: Callable[P, T],
-    *args_iter: Collection[P.args],
+    func: Callable[P, T],
+    *iterable: Collection[P.args],
     thread_name_prefix: str = "",
-    max_workers: int = NUM_THREADS,
     on_progress: Callable[[int, int], Any] | None = None,
 ) -> Iterable[T]:
+    """
+    Similar to ``ThreadPoolExecutor.map()`` but yields results as they become available.
+
+    :param func: Apply this callable to every item of ``iterable``.
+    :param iterable: Iterable with arguments to pass to ``func``.
+    :param thread_name_prefix: Used for internal ThreadPoolExecutor.
+    :param on_progress: Callback when each task is completed. Takes the number of
+        completed items and the total number of items as arguments.
+    """
     with ThreadPoolExecutor(
-        max_workers=max_workers, thread_name_prefix=thread_name_prefix
+        max_workers=NUM_THREADS, thread_name_prefix=thread_name_prefix
     ) as tpe:
-        fs = [tpe.submit(fn, *args) for args in zip(*args_iter)]
+        fs = [tpe.submit(func, *args) for args in zip(*iterable)]
 
         n_done = 0
         for f in as_completed(fs):
             n_done += 1
             if on_progress:
-                on_progress(n_done, len(args_iter[0]))
+                on_progress(n_done, len(iterable[0]))
             yield f.result()
 
 
@@ -3773,6 +3788,26 @@ class pf_repr:
 
 
 _last_emit = time.time()
+
+
+def throttled_log(
+    log: logging.Logger, msg: str, level: int = logging.INFO, limit: int = 1
+) -> None:
+    """
+    Emits the given log message only if the previous message was emitted more than
+    ``limit`` seconds ago. This can be used to prevent spamming a log with frequent
+    updates.
+
+    :param log: Logger used to emit the message.
+    :param msg: Log message.
+    :param level: Log level.
+    :param limit: Minimum time between log messages.
+    """
+    global _last_emit
+
+    if time.time() - _last_emit > limit:
+        log.log(level=level, msg=msg)
+        _last_emit = time.time()
 
 
 def validate_encoding(local_path: str) -> None:
