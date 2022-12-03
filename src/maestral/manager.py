@@ -393,7 +393,6 @@ class SyncManager:
         was_running = self.running.is_set()
 
         self.stop()
-
         self.reset_sync_state()
 
         if was_running:
