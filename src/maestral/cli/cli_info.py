@@ -14,7 +14,7 @@ from rich.columns import Columns
 from rich.filesize import decimal
 from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn, TaskID
 
-from .output import echo, RichDateField, rich_table
+from .output import echo, warn, RichDateField, rich_table
 from .common import convert_api_errors, check_for_fatal_errors, inject_proxy
 from .core import DropboxPath
 from ..models import SyncDirection, SyncEvent
@@ -91,6 +91,8 @@ def activity(m: Maestral) -> None:
     if check_for_fatal_errors(m):
         return
 
+    from Pyro5.errors import ConnectionClosedError
+
     EventKey = Tuple[str, SyncDirection]
     progressbar_for_path: dict[EventKey, TaskID] = {}
 
@@ -99,52 +101,52 @@ def activity(m: Maestral) -> None:
 
     console = Console()
 
-    with console.screen():
-        with Progress(
-            TextColumn("[bold bright_blue]{task.description}"),
-            TextColumn("[bright_blue]{task.fields[filename]}"),
-            TextColumn(" "),
-            BarColumn(bar_width=None),
-            TextColumn("[progress.percentage]{task.percentage:>3.1f}%"),
-            TextColumn("•"),
-            DownloadColumn(),
-            auto_refresh=False,
-            console=console,
-        ) as progress:
-            status_msg = f"\rStatus: {m.status}, Sync errors: {len(m.sync_errors)}"
-            progress.console.print(status_msg)
+    try:
+        with console.screen():
+            with Progress(
+                TextColumn("[bold bright_blue]{task.description}"),
+                TextColumn("[bright_blue]{task.fields[filename]}"),
+                TextColumn(" "),
+                BarColumn(bar_width=None),
+                TextColumn("[progress.percentage]{task.percentage:>3.1f}%"),
+                TextColumn("•"),
+                DownloadColumn(),
+                auto_refresh=False,
+                console=console,
+            ) as progress:
+                while True:
+                    status_msg = f"\rStatus: {m.status}, Sync errors: {len(m.sync_errors)}"
+                    progress.console.clear()
+                    progress.console.print(status_msg)
 
-            while True:
-                status_msg = f"\rStatus: {m.status}, Sync errors: {len(m.sync_errors)}"
-                progress.console.clear()
-                progress.console.print(status_msg)
+                    sync_events = m.get_activity(limit=console.height - 1)
+                    event_keys = set(_event_key(e) for e in sync_events)
 
-                events = m.get_activity(limit=console.height - 1)
-                event_keys = set(_event_key(e) for e in events)
+                    for key, task_id in progressbar_for_path.copy().items():
+                        if key not in event_keys:
+                            progress.remove_task(task_id)
+                            progressbar_for_path.pop(key)
 
-                for key, task_id in progressbar_for_path.copy().items():
-                    if key not in event_keys:
-                        progress.remove_task(task_id)
-                        progressbar_for_path.pop(key)
+                    for event in sync_events:
+                        try:
+                            task_id = progressbar_for_path[_event_key(event)]
+                        except KeyError:
+                            arrow = "↓" if event.direction is SyncDirection.Down else "↑"
+                            description = f"{arrow} {event.change_type.name}"
+                            task_id = progress.add_task(
+                                description,
+                                total=event.size,
+                                completed=event.completed,
+                                filename=os.path.basename(event.dbx_path),
+                            )
+                            progressbar_for_path[_event_key(event)] = task_id
+                        else:
+                            progress.update(task_id, completed=event.completed)
 
-                for event in events:
-                    try:
-                        task_id = progressbar_for_path[_event_key(event)]
-                    except KeyError:
-                        arrow = "↓" if event.direction is SyncDirection.Down else "↑"
-                        description = f"{arrow} {event.change_type.name}"
-                        task_id = progress.add_task(
-                            description,
-                            total=event.size,
-                            completed=event.completed,
-                            filename=os.path.basename(event.dbx_path),
-                        )
-                        progressbar_for_path[_event_key(event)] = task_id
-                    else:
-                        progress.update(task_id, completed=event.completed)
-
-                time.sleep(0.2)
-                progress.refresh()
+                    time.sleep(0.2)
+                    progress.refresh()
+    except ConnectionClosedError:
+        return echo("Maestral daemon is not running.")
 
 
 @click.command(help="Show recently changed or added files.")
