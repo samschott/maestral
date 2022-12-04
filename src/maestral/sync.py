@@ -14,7 +14,6 @@ import urllib.parse
 import enum
 import sqlite3
 import gc
-import logging
 from stat import S_ISDIR
 from pprint import pformat
 from threading import Event, Condition, RLock, current_thread
