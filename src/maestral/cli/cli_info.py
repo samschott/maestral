@@ -14,7 +14,7 @@ from rich.columns import Columns
 from rich.filesize import decimal
 from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn, TaskID
 
-from .output import echo, warn, RichDateField, rich_table
+from .output import echo, RichDateField, rich_table
 from .common import convert_api_errors, check_for_fatal_errors, inject_proxy
 from .core import DropboxPath
 from ..models import SyncDirection, SyncEvent
@@ -101,6 +101,8 @@ def activity(m: Maestral) -> None:
 
     console = Console()
 
+    arrow = {SyncDirection.Up: "↑", SyncDirection.Down: "↓"}
+
     try:
         with console.screen():
             with Progress(
@@ -115,9 +117,9 @@ def activity(m: Maestral) -> None:
                 console=console,
             ) as progress:
                 while True:
-                    status_msg = f"\rStatus: {m.status}, Sync errors: {len(m.sync_errors)}"
+                    msg = f"\rStatus: {m.status}, Sync errors: {len(m.sync_errors)}"
                     progress.console.clear()
-                    progress.console.print(status_msg)
+                    progress.console.print(msg)
 
                     sync_events = m.get_activity(limit=console.height - 1)
                     event_keys = set(_event_key(e) for e in sync_events)
@@ -131,10 +133,8 @@ def activity(m: Maestral) -> None:
                         try:
                             task_id = progressbar_for_path[_event_key(event)]
                         except KeyError:
-                            arrow = "↓" if event.direction is SyncDirection.Down else "↑"
-                            description = f"{arrow} {event.change_type.name}"
                             task_id = progress.add_task(
-                                description,
+                                f"{arrow[event.direction]} {event.change_type.name}",
                                 total=event.size,
                                 completed=event.completed,
                                 filename=os.path.basename(event.dbx_path),
