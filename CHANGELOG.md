@@ -5,6 +5,8 @@
 * Drops support for macOS 10.13 and 10.14. macOS 10.15 or later is now required,
   reflected the support status from Apple. In the future, we will drop support for macOS
   versions once they no longer receive security updates.
+* Improved status messages: the sync count is now updated as items are uploaded or 
+  downloaded instead of with a delay.
 * `maestral activity` now shows animating progress bars to view upload and download
   progress.
 * `maestral sharelink list` now outputs plain urls, separated by new lines. Use
