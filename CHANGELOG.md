@@ -3,8 +3,8 @@
 #### Changed:
 
 * Drops support for macOS 10.13 and 10.14. macOS 10.15 or later is now required,
-  reflected the support status from Apple. In the future, we will drop support for macOS
-  versions once they no longer receive security updates.
+  reflecting the support status from Apple. In the future, we will drop support for 
+  macOS versions once they no longer receive security updates.
 * Improved status messages: the sync count is now updated as items are uploaded or 
   downloaded instead of with a delay.
 * `maestral activity` now shows animating progress bars to view upload and download
@@ -24,6 +24,11 @@
 * Fixes an issue where reauthorizing Maestral's Dropbox access could hang indefinitely.
 * Fixes an issue on macOS where changing the casing of two local file names in the same
   folder in quick succession could result in the second file being deleted during sync.
+
+#### Dependencies:
+
+* Introduced `rich` dependency.
+* Removed `sdnotify` dependency.
 
 ## v1.6.3
 
