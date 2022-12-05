@@ -26,6 +26,6 @@ stone==3.3.1
 survey==3.4.3
 typing_extensions==4.4.0
 urllib3==1.26.13
-watchdog==2.1.9
+watchdog==2.2.0
 wrapio==2.0.0
 zipp==3.11.0
