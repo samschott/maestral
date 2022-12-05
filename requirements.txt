@@ -19,7 +19,7 @@ pyparsing==3.0.9
 Pyro5==5.14
 requests==2.28.1
 rich==12.6.0
-rubicon-objc==0.4.2
+rubicon-objc==0.4.3
 serpent==1.41
 six==1.16.0
 stone==3.3.1
