@@ -8,7 +8,7 @@ idna==3.4
 imagesize==1.4.1
 Jinja2==3.1.2
 lazy-object-proxy==1.8.0
-m2r2==0.3.2
+m2r2==0.3.3
 MarkupSafe==2.1.1
 mistune==0.8.4
 packaging==22.0
