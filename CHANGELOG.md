@@ -1,3 +1,10 @@
+## v1.6.5
+
+#### Fixed:
+
+* Fixes starting the gui with `maestral gui` from Python 3.9 and lower. This does not
+  affect the macOS app bundle.
+
 ## v1.6.4
 
 #### Changed:
