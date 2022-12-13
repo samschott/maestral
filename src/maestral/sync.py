@@ -22,8 +22,18 @@ from queue import Queue, Empty
 from collections import defaultdict
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
-from typing import Any, Iterator, Iterable, Collection, Callable, TypeVar, cast
-from typing_extensions import ParamSpec
+from typing import (
+    Any,
+    Iterator,
+    Iterable,
+    Collection,
+    Callable,
+    Type,
+    TypeVar,
+    cast,
+    overload,
+)
+from typing_extensions import ParamSpec, TypeGuard
 
 # external imports
 import click
@@ -319,14 +329,11 @@ class FSEventHandler(FileSystemEventHandler):
             recursive = ignore.recursive
 
             if event == ignore_event:
-
                 if not recursive:
                     self._ignored_events.discard(ignore)
-
                 return True
 
             elif recursive:
-
                 type_match = event.event_type == ignore_event.event_type
                 src_match = is_equal_or_child(event.src_path, ignore_event.src_path)
                 dest_match = is_equal_or_child(
@@ -358,10 +365,10 @@ class FSEventHandler(FileSystemEventHandler):
         if not event.is_directory and event.event_type not in self.file_event_types:
             return
 
-        # Ignore moves onto itself, they may be erroneuosly emitted on older versions of
+        # Ignore moves onto itself, they may be erroneously emitted on older versions of
         # macOS when changing the unicode normalisation of a path with os.rename().
         # See https://github.com/samschott/maestral/issues/671.
-        if event.event_type == EVENT_TYPE_MOVED and event.src_path == event.dest_path:
+        if is_moved(event) and event.src_path == event.dest_path:
             return
 
         # Check if event should be ignored.
@@ -1603,6 +1610,10 @@ class SyncEngine:
             # Always upload untracked items, check mtime of tracked items.
             is_modified = mtime_check and not is_new
 
+            event: FileSystemEvent
+            event0: FileSystemEvent
+            event1: FileSystemEvent
+
             if is_new:
                 if is_dir:
                     event = DirCreatedEvent(path)
@@ -1821,7 +1832,7 @@ class SyncEngine:
         moved_events: defaultdict[str, list[FileSystemEvent]] = defaultdict(list)
 
         for event in events:
-            if event.event_type == EVENT_TYPE_MOVED:
+            if is_moved(event):
                 deleted, created = split_moved_event(event)
                 events_for_path[deleted.src_path].append(deleted)
                 events_for_path[created.src_path].append(created)
@@ -1856,11 +1867,11 @@ class SyncEngine:
                 for i in reversed(range(len(events))):
                     event = events[i]
 
-                    if event.event_type == EVENT_TYPE_CREATED:
+                    if is_created(event):
                         n_created += 1
                         first_created_index = i
 
-                    if event.event_type == EVENT_TYPE_DELETED:
+                    if is_deleted(event):
                         n_deleted += 1
                         first_deleted_index = i
 
@@ -1914,6 +1925,8 @@ class SyncEngine:
                 src_path = split_events[0].src_path
                 dest_path = split_events[1].src_path
 
+                new_event: DirMovedEvent | FileMovedEvent
+
                 if split_events[0].is_directory:
                     new_event = DirMovedEvent(src_path, dest_path)
                 else:
@@ -1956,7 +1969,7 @@ class SyncEngine:
             # For each event, check if it is a child of a moved event discard it if yes.
             for events in events_for_path.values():
                 event = events[0]
-                if event.event_type == EVENT_TYPE_MOVED:
+                if is_moved(event):
                     dirnames = (
                         osp.dirname(event.src_path),
                         osp.dirname(event.dest_path),
@@ -1974,7 +1987,7 @@ class SyncEngine:
 
             for events in events_for_path.values():
                 event = events[0]
-                if event.event_type == EVENT_TYPE_DELETED:
+                if is_deleted(event):
                     dirname = osp.dirname(event.src_path)
                     if dirname in dir_deleted_paths:
                         child_deleted_paths.add(event.src_path)
@@ -1999,9 +2012,6 @@ class SyncEngine:
         return cleaned_events
 
     def _should_split_excluded(self, event: FileMovedEvent | DirMovedEvent) -> bool:
-        if event.event_type != EVENT_TYPE_MOVED:
-            raise ValueError("Can only split moved events")
-
         dbx_src_path = self.to_dbx_path(event.src_path)
         dbx_dest_path = self.to_dbx_path(event.dest_path)
 
@@ -3733,6 +3743,18 @@ def do_parallel(
             yield f.result()
 
 
+def is_moved(event: FileSystemEvent) -> TypeGuard[FileMovedEvent | DirMovedEvent]:
+    return event.event_type == EVENT_TYPE_MOVED
+
+
+def is_deleted(event: FileSystemEvent) -> TypeGuard[FileDeletedEvent | DirDeletedEvent]:
+    return event.event_type == EVENT_TYPE_DELETED
+
+
+def is_created(event: FileSystemEvent) -> TypeGuard[FileCreatedEvent | DirCreatedEvent]:
+    return event.event_type == EVENT_TYPE_CREATED
+
+
 def get_dest_path(event: FileSystemEvent) -> str:
     """
     Returns the dest_path of a file system event if present (moved events only)
@@ -3746,6 +3768,18 @@ def get_dest_path(event: FileSystemEvent) -> str:
     return event.src_path
 
 
+@overload
+def split_moved_event(
+    event: FileMovedEvent,
+) -> tuple[FileDeletedEvent, FileCreatedEvent]:
+    ...
+
+
+@overload
+def split_moved_event(event: DirMovedEvent) -> tuple[DirDeletedEvent, DirCreatedEvent]:
+    ...
+
+
 def split_moved_event(
     event: FileMovedEvent | DirMovedEvent,
 ) -> tuple[FileSystemEvent, FileSystemEvent]:
@@ -3756,6 +3790,8 @@ def split_moved_event(
     :param event: Original event.
     :returns: Tuple of deleted and created events.
     """
+    created_event_cls: Type[FileSystemEvent]
+    deleted_event_cls: Type[FileSystemEvent]
     if event.is_directory:
         created_event_cls = DirCreatedEvent
         deleted_event_cls = DirDeletedEvent
@@ -3768,8 +3804,8 @@ def split_moved_event(
 
     move_id = uuid.uuid4()
 
-    deleted_event.move_id = move_id
-    created_event.move_id = move_id
+    deleted_event.move_id = move_id  # type:ignore
+    created_event.move_id = move_id  # type:ignore
 
     return deleted_event, created_event
 
