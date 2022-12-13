@@ -14,8 +14,6 @@ if platform.is_linux():
     from watchdog.observers.inotify import InotifyObserver as Observer
 elif platform.is_darwin():
     from watchdog.observers.fsevents import FSEventsObserver as Observer
-elif platform.is_bsd():
-    from watchdog.observers.kqueue import KqueueObserver as Observer
 else:
     from .polling import OrderedPollingObserver as Observer
 
