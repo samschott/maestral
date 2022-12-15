@@ -375,7 +375,7 @@ def move(
         if orig_mode:
             # reapply dest permissions
             try:
-                os.lchmod(dest_path, orig_mode)
+                os.chmod(dest_path, orig_mode, follow_symlinks=False)
             except OSError:
                 pass
 
