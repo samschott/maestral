@@ -1097,7 +1097,7 @@ class SyncEngine:
                 self.desktop_notifier.notify(exc.title, exc.message, level=notify.ERROR)
 
     def _new_tmp_file(self) -> str:
-        """Returns a new temporary file name in our cache directory."""
+        """Creates a new temporary file in our cache directory and returns its path."""
         self.ensure_cache_dir_present()
         try:
             with NamedTemporaryFile(dir=self.file_cache_path, delete=False) as f:
@@ -2818,7 +2818,6 @@ class SyncEngine:
 
             # Download changes in chunks to reduce memory usage.
             for changes, cursor in changes_iter:
-
                 idx += len(changes)
 
                 if idx > 0:
@@ -3400,74 +3399,81 @@ class SyncEngine:
         # Ensure that parent folders are synced.
         self._ensure_parent(event, client)
 
-        # We download to a temporary file first (this may take some time).
-        tmp_fname = self._new_tmp_file()
+        if event.symlink_target is not None:
+            # Don't download but reproduce symlink locally.
+            with self.fs_events.ignore(
+                FileCreatedEvent(event.local_path), recursive=False
+            ):
+                with convert_api_errors(dbx_path=event.dbx_path):
+                    os.symlink(event.symlink_target, event.local_path)
+                    stat = os.lstat(event.local_path)
+        else:
+            # We download to a temporary file first (this may take some time).
+            tmp_fname = self._new_tmp_file()
 
-        try:
-            md = client.download(f"rev:{event.rev}", tmp_fname, sync_event=event)
-            event = SyncEvent.from_metadata(md, self)
-        except SyncError as err:
-            # Replace rev number with path.
-            err.dbx_path = event.dbx_path
-            raise err
+            try:
+                md = client.download(f"rev:{event.rev}", tmp_fname, sync_event=event)
+                event = SyncEvent.from_metadata(md, self)
+            except SyncError as err:
+                # Replace rev number with path.
+                err.dbx_path = event.dbx_path
+                raise err
 
-        # Re-check for conflict and move the conflict
-        # out of the way if anything has changed.
+            # Re-check for conflict and move the conflict
+            # out of the way if anything has changed.
+            if self._check_download_conflict(event) == Conflict.Conflict:
+                new_local_path = generate_cc_name(event.local_path)
+                event_cls = DirMovedEvent if isdir(event.local_path) else FileMovedEvent
+                with self.fs_events.ignore(event_cls(event.local_path, new_local_path)):
+                    with convert_api_errors():
+                        move(event.local_path, new_local_path, raise_error=True)
 
-        local_path = event.local_path
-
-        if self._check_download_conflict(event) == Conflict.Conflict:
-            new_local_path = generate_cc_name(local_path)
-            event_cls = DirMovedEvent if isdir(local_path) else FileMovedEvent
-            with self.fs_events.ignore(event_cls(local_path, new_local_path)):
-                with convert_api_errors():
-                    move(local_path, new_local_path, raise_error=True)
-
-            self._logger.debug(
-                'Download conflict: renamed "%s" to "%s"', local_path, new_local_path
-            )
-            self.rescan(new_local_path)
-
-        if isdir(local_path):
-            with self.fs_events.ignore(DirDeletedEvent(local_path)):
-                delete(local_path, force_case_sensitive=not self.is_fs_case_sensitive)
-
-        # Preserve permissions of the destination file if we are only syncing an update
-        # to the file content (Dropbox ID of the file remains the same).
-        old_entry = self.get_index_entry(event.dbx_path_lower)
-
-        preserve_permissions = bool(old_entry and event.dbx_id == old_entry.dbx_id)
-
-        ignore_events = [FileMovedEvent(tmp_fname, local_path)]
-
-        if preserve_permissions:
-            # Ignore FileModifiedEvent when changing permissions.
-            # Note that two FileModifiedEvents may be emitted on macOS.
-            ignore_events.append(FileModifiedEvent(local_path))
-            if IS_MACOS:
-                ignore_events.append(FileModifiedEvent(local_path))
-
-        if isfile(local_path):
-            # Ignore FileDeletedEvent when replacing old file.
-            ignore_events.append(FileDeletedEvent(local_path))
-
-        is_dir_symlink = event.is_directory and event.symlink_target is not None
-
-        if is_dir_symlink:
-            # We may get events from children of the symlink target when moving a
-            # directory symlink. Make sure to ignore those as well.
-            ignore_events.append(DirMovedEvent(tmp_fname, local_path))
-
-        # Move the downloaded file to its destination.
-        with self.fs_events.ignore(*ignore_events, recursive=is_dir_symlink):
-            with convert_api_errors(dbx_path=event.dbx_path, local_path=local_path):
-                stat = os.lstat(tmp_fname)
-                move(
-                    tmp_fname,
-                    local_path,
-                    preserve_dest_permissions=preserve_permissions,
-                    raise_error=True,
+                self._logger.debug(
+                    'Download conflict: renamed "%s" to "%s"',
+                    event.local_path,
+                    new_local_path,
                 )
+                self.rescan(new_local_path)
+
+            if isdir(event.local_path):
+                with self.fs_events.ignore(DirDeletedEvent(event.local_path)):
+                    delete(
+                        event.local_path,
+                        force_case_sensitive=not self.is_fs_case_sensitive,
+                    )
+
+            ignore_events: list[FileSystemEvent] = [
+                FileMovedEvent(tmp_fname, event.local_path)
+            ]
+
+            # Preserve permissions of the destination file if we are only syncing an
+            # update to the file content (Dropbox ID of the file remains the same).
+            old_entry = self.get_index_entry(event.dbx_path_lower)
+            preserve_permissions = bool(old_entry and event.dbx_id == old_entry.dbx_id)
+
+            if preserve_permissions:
+                # Ignore FileModifiedEvent when changing permissions.
+                # Note that two FileModifiedEvents may be emitted on macOS.
+                ignore_events.append(FileModifiedEvent(event.local_path))
+                if IS_MACOS:
+                    ignore_events.append(FileModifiedEvent(event.local_path))
+
+            if isfile(event.local_path):
+                # Ignore FileDeletedEvent when replacing old file.
+                ignore_events.append(FileDeletedEvent(event.local_path))
+
+            # Move the downloaded file to its destination.
+            with self.fs_events.ignore(*ignore_events, recursive=False):
+                with convert_api_errors(
+                    dbx_path=event.dbx_path, local_path=event.local_path
+                ):
+                    stat = os.lstat(tmp_fname)
+                    move(
+                        tmp_fname,
+                        event.local_path,
+                        preserve_dest_permissions=preserve_permissions,
+                        raise_error=True,
+                    )
 
         self.update_index_from_sync_event(event)
         self._save_local_hash(

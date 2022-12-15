@@ -259,15 +259,14 @@ class SyncEvent(Model):
         return self.direction == SyncDirection.Down
 
     def __repr__(self) -> str:
-
-        properties = ["direction", "change_type", "item_type", "dbx_path"]
-
+        attrs = ["direction", "change_type", "item_type", "dbx_path"]
         if self.change_type is ChangeType.Moved:
-            properties.append("dbx_path_from")
+            attrs.append("dbx_path_from")
+        if self.symlink_target is not None:
+            attrs.append("symlink_target")
 
-        prop_str = ", ".join(f"{p}={getattr(self, p)}" for p in properties)
-
-        return f"<{self.__class__.__name__}({prop_str})>"
+        attr_str = ", ".join(f"{attr}={getattr(self, attr)}" for attr in attrs)
+        return f"<{self.__class__.__name__}({attr_str})>"
 
     @classmethod
     def from_metadata(cls, md: Metadata, sync_engine: SyncEngine) -> SyncEvent:

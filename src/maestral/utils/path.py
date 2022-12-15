@@ -324,7 +324,7 @@ def delete(
         shutil.rmtree(path)  # Will raise OSError when it finds a symlink.
     except OSError:
         try:
-            os.unlink(path)
+            os.unlink(path)  # Does not follow symlinks.
         except OSError as e:
             err = e
 
@@ -360,7 +360,7 @@ def move(
     if preserve_dest_permissions:
         # save dest permissions
         try:
-            orig_mode = os.stat(dest_path, follow_symlinks=False).st_mode & 0o777
+            orig_mode = os.lstat(dest_path).st_mode & 0o777
         except FileNotFoundError:
             pass
 
@@ -375,7 +375,7 @@ def move(
         if orig_mode:
             # reapply dest permissions
             try:
-                os.chmod(dest_path, orig_mode)
+                os.chmod(dest_path, orig_mode, follow_symlinks=False)
             except OSError:
                 pass
 
@@ -435,7 +435,7 @@ def content_hash(
     hasher = DropboxContentHasher()
 
     try:
-        mtime = os.stat(local_path, follow_symlinks=False).st_mtime
+        mtime = os.lstat(local_path).st_mtime
 
         try:
             with open(local_path, "rb", opener=opener_no_symlink) as f:
@@ -510,7 +510,7 @@ def opener_no_symlink(path: _AnyPath, flags: int) -> int:
 
 def _get_stats_no_symlink(path: _AnyPath) -> Optional[os.stat_result]:
     try:
-        return os.stat(path, follow_symlinks=False)
+        return os.lstat(path)
     except (FileNotFoundError, NotADirectoryError):
         return None
 
@@ -542,8 +542,7 @@ def isdir(path: _AnyPath) -> bool:
 
 def getsize(path: _AnyPath) -> int:
     """Returns the size. Returns False for symlinks."""
-    stat = os.stat(path, follow_symlinks=False)
-    return stat.st_size
+    return os.lstat(path).st_size
 
 
 def get_symlink_target(local_path: str) -> Optional[str]:
