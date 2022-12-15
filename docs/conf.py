@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath("../src"))
 # -- Project information ---------------------------------------------------------------
 
 author = "Sam Schott"
-version = "1.6.5"
+version = "1.6.6.dev0"
 release = version
 project = "Maestral"
 title = "Maestral API Documentation"
