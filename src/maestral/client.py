@@ -664,33 +664,19 @@ class DropboxClient:
         :returns: Metadata of downloaded item.
         :raises DataCorruptionError: if data is corrupted during download.
         """
+        chunk_size = 2**13
+
         with convert_api_errors(dbx_path=dbx_path):
-            md = self.dbx.files_get_metadata(dbx_path)
+            md, http_resp = self.dbx.files_download(dbx_path)
 
-            if isinstance(md, files.FileMetadata) and md.symlink_info:
-                # Don't download but reproduce symlink locally.
-                try:
-                    os.unlink(local_path)
-                except FileNotFoundError:
-                    pass
-                os.symlink(md.symlink_info.target, local_path)
-
-            else:
-                chunk_size = 2**13
-
-                md, http_resp = self.dbx.files_download(dbx_path)
-
-                hasher = DropboxContentHasher()
-
+            with contextlib.closing(http_resp):
                 with open(local_path, "wb", opener=opener_no_symlink) as f:
-
+                    hasher = DropboxContentHasher()
                     wrapped_f = StreamHasher(f, hasher)
-
-                    with contextlib.closing(http_resp):
-                        for c in http_resp.iter_content(chunk_size):
-                            wrapped_f.write(c)
-                            if sync_event:
-                                sync_event.completed = wrapped_f.tell()
+                    for c in http_resp.iter_content(chunk_size):
+                        wrapped_f.write(c)
+                        if sync_event:
+                            sync_event.completed = wrapped_f.tell()
 
                     local_hash = hasher.hexdigest()
 
@@ -700,14 +686,14 @@ class DropboxClient:
                             "Data corrupted", "Please retry download."
                         )
 
-            # Dropbox SDK provides naive datetime in UTC.
-            client_mod = md.client_modified.replace(tzinfo=timezone.utc)
-            server_mod = md.server_modified.replace(tzinfo=timezone.utc)
+        # Dropbox SDK provides naive datetime in UTC.
+        client_mod = md.client_modified.replace(tzinfo=timezone.utc)
+        server_mod = md.server_modified.replace(tzinfo=timezone.utc)
 
-            # Enforce client_modified < server_modified.
-            timestamp = min(client_mod.timestamp(), server_mod.timestamp(), time.time())
-            # Set mtime of downloaded file.
-            os.utime(local_path, (time.time(), timestamp), follow_symlinks=False)
+        # Enforce client_modified < server_modified.
+        timestamp = min(client_mod.timestamp(), server_mod.timestamp(), time.time())
+        # Set mtime of downloaded file.
+        os.utime(local_path, (time.time(), timestamp), follow_symlinks=False)
 
         return convert_metadata(md)
 
