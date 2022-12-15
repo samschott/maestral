@@ -12,7 +12,7 @@ keyring==23.11.0
 keyrings.alt==4.2.0
 more-itertools==9.0.0
 packaging==22.0
-pathspec==0.10.2
+pathspec==0.10.3
 ply==3.11
 Pygments==2.13.0
 pyparsing==3.0.9
