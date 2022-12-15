@@ -1,3 +1,10 @@
+## v1.6.6.dev
+
+#### Fixed:
+
+* Fixes the download sync of remote symlinks. The local item now is an actual symlink
+  instead of a 0 KB file.
+
 ## v1.6.5
 
 #### Fixed:
