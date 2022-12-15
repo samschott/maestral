@@ -1097,7 +1097,7 @@ class SyncEngine:
                 self.desktop_notifier.notify(exc.title, exc.message, level=notify.ERROR)
 
     def _new_tmp_file(self) -> str:
-        """Returns a new temporary file name in our cache directory."""
+        """Creates a new temporary file in our cache directory and returns its path."""
         self.ensure_cache_dir_present()
         try:
             with NamedTemporaryFile(dir=self.file_cache_path, delete=False) as f:
