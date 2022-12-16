@@ -14,7 +14,7 @@ from typing import Iterator, Union, TypeVar, Callable, Any
 # external imports
 import requests
 from dropbox import files, sharing, users, async_, auth, common
-from dropbox import exceptions  # type: ignore
+from dropbox import exceptions
 from dropbox.stone_validators import ValidationError
 
 # local imports
@@ -86,7 +86,6 @@ def convert_api_errors(
     :param dbx_path: Dropbox path associated with the error.
     :param local_path: Local path associated with the error.
     """
-
     try:
         yield
     except (exceptions.DropboxException, ValidationError) as exc:
@@ -120,7 +119,6 @@ def os_to_maestral_error(
     :param local_path: Local path associated with the error.
     :returns: Converted exception.
     """
-
     title = "Could not sync file or folder"
     err_cls: type[MaestralApiError]
 
@@ -208,7 +206,6 @@ def dropbox_to_maestral_error(
     :param local_path: Local path associated with the error.
     :returns: Converted exception.
     """
-
     title = "An unexpected error occurred"
     text = "Please contact the developer with the traceback information from the logs."
     err_cls = MaestralApiError
@@ -420,9 +417,7 @@ def dropbox_to_maestral_error(
                 err_cls = CursorResetError
 
         elif isinstance(error, async_.PollError):
-
             title = "Could not get status of batch job"
-
             if error.is_internal_error():
                 text = (
                     "Something went wrong with the job on Dropbox’s end. Please "
@@ -436,17 +431,13 @@ def dropbox_to_maestral_error(
                 pass
 
         elif isinstance(error, files.ListRevisionsError):
-
             title = "Could not list file revisions"
-
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = get_lookup_error_msg(lookup_error)
 
         elif isinstance(error, files.RestoreError):
-
             title = "Could not restore file"
-
             if error.is_invalid_revision():
                 text = "Invalid revision."
                 err_cls = NotFoundError
@@ -463,14 +454,12 @@ def dropbox_to_maestral_error(
 
         elif isinstance(error, files.GetMetadataError):
             title = "Could not get metadata"
-
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = get_lookup_error_msg(lookup_error)
 
         elif isinstance(error, users.GetAccountError):
             title = "Could not get account info"
-
             if error.is_no_account():
                 text = (
                     "An account with the given Dropbox ID does not "
@@ -480,7 +469,6 @@ def dropbox_to_maestral_error(
 
         elif isinstance(error, sharing.CreateSharedLinkWithSettingsError):
             title = "Could not create shared link"
-
             if error.is_access_denied():
                 text = "You do not have access to create shared links for this path."
                 err_cls = InsufficientPermissionsError
@@ -503,7 +491,6 @@ def dropbox_to_maestral_error(
 
         elif isinstance(error, sharing.RevokeSharedLinkError):
             title = "Could not revoke shared link"
-
             if error.is_shared_link_malformed():
                 text = "The shared link is malformed."
                 err_cls = SharedLinkError
@@ -519,7 +506,6 @@ def dropbox_to_maestral_error(
 
         elif isinstance(error, sharing.ListSharedLinksError):
             title = "Could not list shared links"
-
             if error.is_path():
                 lookup_error = error.get_path()
                 text, err_cls = get_lookup_error_msg(lookup_error)
@@ -637,7 +623,6 @@ def dropbox_to_maestral_error(
 
 
 def get_write_error_msg(write_error: files.WriteError) -> tuple[str, type[SyncError]]:
-
     text = ""
     err_cls = SyncError
 
@@ -698,7 +683,6 @@ def get_write_error_msg(write_error: files.WriteError) -> tuple[str, type[SyncEr
 def get_lookup_error_msg(
     lookup_error: files.LookupError,
 ) -> tuple[str, type[SyncError]]:
-
     err_cls = SyncError
 
     if lookup_error.is_malformed_path():
@@ -735,7 +719,6 @@ def get_lookup_error_msg(
 def get_session_lookup_error_msg(
     session_lookup_error: files.UploadSessionLookupError,
 ) -> tuple[str, type[SyncError]]:
-
     err_cls = SyncError
 
     if session_lookup_error.is_closed():
@@ -770,7 +753,6 @@ def get_session_lookup_error_msg(
 def get_bad_path_error_msg(
     path_error: sharing.SharePathError,
 ) -> tuple[str, type[SyncError]]:
-
     err_cls = SyncError
 
     if path_error.is_is_file():

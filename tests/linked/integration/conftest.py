@@ -9,7 +9,6 @@ from maestral.main import Maestral
 from maestral.config import remove_configuration
 from maestral.utils.path import generate_cc_name, delete
 from maestral.utils.appdirs import get_home_dir
-from maestral.keyring import TokenType
 from maestral.exceptions import NotFoundError
 
 from ..lock import DropboxTestLock
@@ -57,13 +56,10 @@ def m(pytestconfig):
     m = Maestral(config_name)
     m.log_level = logging.DEBUG
 
-    # link with given token and store auth info in keyring for other processes
+    # link with the given token
     access_token = os.environ.get("DROPBOX_ACCESS_TOKEN")
     refresh_token = os.environ.get("DROPBOX_REFRESH_TOKEN")
-    token = access_token or refresh_token
-    token_type = TokenType.Legacy if access_token else TokenType.Offline
-    m.cred_storage.save_creds("1234", token, token_type)
-    m.client.update_path_root()
+    m.link(refresh_token=refresh_token, access_token=access_token)
 
     # set local Dropbox directory
     home = get_home_dir()
@@ -115,14 +111,14 @@ def m(pytestconfig):
     # release lock
     lock.release()
 
-    # remove creds from system keyring
+    # remove creds from system keyring but don't unlink so that tokens remain valid
     m.cred_storage.delete_creds()
 
 
 # helper functions
 
 
-def wait_for_idle(m: Maestral, cycles: int = 4) -> None:
+def wait_for_idle(m: Maestral, cycles: int = 6) -> None:
     """Blocks until Maestral instance is idle for at least ``cycles`` sync cycles."""
 
     count = 0

@@ -18,16 +18,15 @@ import copy
 import logging
 import configparser as cp
 from threading import RLock
-from collections import abc
-from typing import Iterator, Any, Dict, Generic, TypeVar
+from typing import Iterator, Any, Dict, TypeVar, MutableSet
 
 from packaging.version import Version
 
 
 logger = logging.getLogger(__name__)
 
-DefaultsType = Dict[str, Dict[str, Any]]
-T = TypeVar("T")
+_DefaultsType = Dict[str, Dict[str, Any]]
+_T = TypeVar("_T")
 
 # =============================================================================
 # Auxiliary classes
@@ -70,7 +69,6 @@ class DefaultsConfig(cp.ConfigParser):
 
     def save(self) -> None:
         """Save config into the associated file."""
-
         os.makedirs(self._dirname, exist_ok=True)
 
         with open(self.config_path, "w", encoding="utf-8") as configfile:
@@ -108,7 +106,7 @@ class UserConfig(DefaultsConfig):
     def __init__(
         self,
         path: str,
-        defaults: DefaultsType | None = None,
+        defaults: _DefaultsType | None = None,
         load: bool = True,
         version: Version = Version("0.0.0"),
         backup: bool = False,
@@ -165,15 +163,14 @@ class UserConfig(DefaultsConfig):
     # --- Helpers and checkers ---------------------------------------------------------
 
     def _set_defaults(
-        self, version: Version, defaults: DefaultsType | None
-    ) -> DefaultsType:
+        self, version: Version, defaults: _DefaultsType | None
+    ) -> _DefaultsType:
         """
         Check if defaults are valid and update defaults values.
 
         :param version: The config version.
         :param defaults: New default config values.
         """
-
         if defaults:
             defaults = copy.deepcopy(defaults)
         else:
@@ -194,7 +191,6 @@ class UserConfig(DefaultsConfig):
         :param version: If a version is provided, it will be appended to the backup
             file name.
         """
-
         os.makedirs(self._dirname, exist_ok=True)
         backup_path = self.backup_path_for_version(version)
 
@@ -210,7 +206,6 @@ class UserConfig(DefaultsConfig):
 
         :param path: Path of config file to load.
         """
-
         with self._lock:
             try:
                 self.read(path, encoding="utf-8")
@@ -280,7 +275,6 @@ class UserConfig(DefaultsConfig):
         :param version: New version to set.
         :param save: Whether to save changes to drive.
         """
-
         with self._lock:
             self.set(
                 UserConfig.DEFAULT_SECTION_NAME, "version", str(version), save=save
@@ -297,15 +291,12 @@ class UserConfig(DefaultsConfig):
         :param section: The section to reset. If not given, reset all sections.
         :param save: Whether to save the changes to the drive.
         """
-
         with self._lock:
-
             for sec, options in self.default_config.items():
                 if section is None or section == sec:
                     for option in options:
                         value = options[option]
                         self._set(sec, option, value)
-
             if save:
                 self.save()
 
@@ -319,7 +310,6 @@ class UserConfig(DefaultsConfig):
         :param option: Config option.
         :returns: Config value or None if section / option do not exist.
         """
-
         with self._lock:
             secdict = self.default_config.get(section, {})
             return secdict.get(option, NoDefault)
@@ -335,9 +325,7 @@ class UserConfig(DefaultsConfig):
         :raises cp.NoSectionError: if the section does not exist.
         :raises cp.NoOptionError: if the option does not exist and no default is given.
         """
-
         with self._lock:
-
             if not self.has_section(section):
                 if default is NoDefault:
                     raise cp.NoSectionError(section)
@@ -379,9 +367,7 @@ class UserConfig(DefaultsConfig):
 
         If the section or option does not exist, it will be created.
         """
-
         with self._lock:
-
             if section not in self.default_config:
                 self.default_config[section] = {}
 
@@ -398,9 +384,7 @@ class UserConfig(DefaultsConfig):
         :param value: Config value.
         :param save: Whether to save the changes to the drive.
         """
-
         with self._lock:
-
             default_value = self.get_default(section, option)
 
             if default_value is NoDefault:
@@ -430,7 +414,6 @@ class UserConfig(DefaultsConfig):
         :param save: Whether to save the changes to the drive.
         :returns: Whether the section was removed successfully.
         """
-
         with self._lock:
             res = super().remove_section(section)
             if save:
@@ -446,7 +429,6 @@ class UserConfig(DefaultsConfig):
         :param save: Whether to save the changes to the drive.
         :returns: Whether the section was removed successfully.
         """
-
         with self._lock:
             res = super().remove_option(section, option)
             if save:
@@ -455,9 +437,7 @@ class UserConfig(DefaultsConfig):
 
     def cleanup(self) -> None:
         """Remove files associated with config and reset to defaults."""
-
         with self._lock:
-
             self.reset_to_defaults(save=False)
             backup_path = osp.join(self._dirname, self._backup_folder)
 
@@ -482,8 +462,8 @@ class UserConfig(DefaultsConfig):
 # ======================================================================================
 
 
-class PersistentMutableSet(abc.MutableSet, Generic[T]):
-    """Wraps a list in our state file as a MutableSet
+class PersistentMutableSet(MutableSet[_T]):
+    """Wraps a list in our state file as a Mapping
 
     :param conf: UserConfig instance to store the set.
     :param section: Section name in state file.
@@ -497,7 +477,7 @@ class PersistentMutableSet(abc.MutableSet, Generic[T]):
         self._conf = conf
         self._lock = RLock()
 
-    def __iter__(self) -> Iterator[T]:
+    def __iter__(self) -> Iterator[_T]:
         with self._lock:
             return iter(self._conf.get(self.section, self.option))
 
@@ -509,28 +489,28 @@ class PersistentMutableSet(abc.MutableSet, Generic[T]):
         with self._lock:
             return len(self._conf.get(self.section, self.option))
 
-    def add(self, entry: T) -> None:
+    def add(self, entry: _T) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)
             state_list.add(entry)
             self._conf.set(self.section, self.option, list(state_list))
 
-    def discard(self, entry: T) -> None:
+    def discard(self, entry: _T) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)
             state_list.discard(entry)
             self._conf.set(self.section, self.option, list(state_list))
 
-    def update(self, *others: T) -> None:
+    def update(self, *others: _T) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)
             state_list.update(*others)
             self._conf.set(self.section, self.option, list(state_list))
 
-    def difference_update(self, *others: T) -> None:
+    def difference_update(self, *others: _T) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)

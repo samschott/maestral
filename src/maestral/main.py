@@ -9,21 +9,26 @@ import shutil
 import sqlite3
 import time
 import warnings
-import logging.handlers
 import asyncio
 import random
 import gc
 import tempfile
 import mimetypes
 import difflib
+import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Iterator, Awaitable, Any
+from typing import Iterator, Awaitable, Any, Sequence
 
 # external imports
 import requests
 from watchdog.events import DirDeletedEvent, FileDeletedEvent
 from packaging.version import Version
 from datetime import datetime, timezone
+
+try:
+    from systemd import journal
+except ImportError:
+    journal = None
 
 # local imports
 from . import __version__
@@ -54,19 +59,25 @@ from .exceptions import (
 )
 from .errorhandling import convert_api_errors, CONNECTION_ERRORS
 from .config import MaestralConfig, MaestralState, validate_config_name
-from .logging import CachedHandler, setup_logging, scoped_logger
+from .logging import (
+    CachedHandler,
+    scoped_logger,
+    setup_logging,
+    LOG_FMT_SHORT,
+)
 from .utils import get_newer_version
 from .utils.path import (
+    isdir,
     is_child,
     is_equal_or_child,
-    normalize,
     to_existing_unnormalized_path,
+    normalize,
     delete,
 )
 from .utils.appdirs import get_cache_path, get_data_path
 from .utils.integration import get_ac_state, ACState
 from .database.core import Database
-from .constants import IDLE, PAUSED, CONNECTING, FileStatus, GITHUB_RELEASES_API
+from .constants import IDLE, PAUSED, CONNECTING, GITHUB_RELEASES_API, FileStatus
 
 
 __all__ = ["Maestral"]
@@ -128,18 +139,26 @@ class Maestral:
         in the systemd journal. Defaults to ``False``.
     """
 
+    _external_log_handlers: Sequence[logging.Handler]
+    _log_handler_info_cache: CachedHandler
+    _log_handler_error_cache: CachedHandler
+
     def __init__(
         self, config_name: str = "maestral", log_to_stderr: bool = False
     ) -> None:
         self._config_name = validate_config_name(config_name)
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
+        self._logger = scoped_logger(__name__, self.config_name)
         self.cred_storage = CredentialStorage(self.config_name)
 
         # Set up logging.
-        self._logger = scoped_logger(__name__, self.config_name)
         self._log_to_stderr = log_to_stderr
-        self._setup_logging()
+        self._root_logger = scoped_logger("maestral", self.config_name)
+        self._root_logger.setLevel(min(self.log_level, logging.INFO))
+        self._root_logger.handlers.clear()
+        self._setup_logging_external()
+        self._setup_logging_internal()
 
         # Run update scripts after init of loggers and config / state.
         self._check_and_run_post_update_scripts()
@@ -151,7 +170,7 @@ class Maestral:
 
         # Schedule background tasks.
         self._loop = asyncio.get_event_loop_policy().get_event_loop()
-        self._tasks: set[asyncio.Task] = set()
+        self._tasks: set[asyncio.Task[Any]] = set()
         self._pool = ThreadPoolExecutor(
             thread_name_prefix="maestral-thread-pool",
             max_workers=2,
@@ -164,6 +183,31 @@ class Maestral:
         # This can be used by an event loop to wait until maestral has been stopped.
         self.shutdown_complete = self._loop.create_future()
 
+    def _setup_logging_external(self) -> None:
+        """
+        Sets up logging to external channels:
+          * Log files.
+          * The systemd journal, if started by systemd.
+          * The systemd notify status, if started by systemd.
+          * Stderr, if requested.
+        """
+        self._external_log_handlers = setup_logging(
+            self.config_name, stderr=self._log_to_stderr
+        )
+
+    def _setup_logging_internal(self) -> None:
+        """Sets up logging to internal info and error caches."""
+        # Log to cached handlers for status and error APIs.
+        self._log_handler_info_cache = CachedHandler(maxlen=1)
+        self._log_handler_info_cache.setFormatter(LOG_FMT_SHORT)
+        self._log_handler_info_cache.setLevel(logging.INFO)
+        self._root_logger.addHandler(self._log_handler_info_cache)
+
+        self._log_handler_error_cache = CachedHandler()
+        self._log_handler_error_cache.setFormatter(LOG_FMT_SHORT)
+        self._log_handler_error_cache.setLevel(logging.ERROR)
+        self._root_logger.addHandler(self._log_handler_error_cache)
+
     @property
     def version(self) -> str:
         """Returns the current Maestral version."""
@@ -172,29 +216,47 @@ class Maestral:
     def get_auth_url(self) -> str:
         """
         Returns a URL to authorize access to a Dropbox account. To link a Dropbox
-        account, retrieve an auth token from the URL and link Maestral by calling
-        :meth:`link` with the provided token.
+        account, retrieve an authorization code from the URL and link Maestral by
+        calling :meth:`link` with the provided code.
 
-        :returns: URL to retrieve an OAuth token.
+        :returns: URL to retrieve an authorization code.
         """
         return self.client.get_auth_url()
 
-    def link(self, token: str) -> int:
+    def link(
+        self,
+        code: str | None = None,
+        refresh_token: str | None = None,
+        access_token: str | None = None,
+    ) -> int:
         """
-        Links Maestral with a Dropbox account using the given access token. The token
-        will be stored for future usage as documented in the :mod:`oauth` module.
-        Supported keyring backends are, in order of preference:
+        Links Maestral with a Dropbox account using the given authorization code. The
+        code will be exchanged for an access token and a refresh token with Dropbox
+        servers. The refresh token will be stored for future usage as documented in the
+        :mod:`oauth` module. Supported keyring backends are, in order of preference:
 
-            * MacOS Keychain
+            * macOS Keychain
             * Any keyring implementing the SecretService Dbus specification
             * KWallet
             * Gnome Keyring
             * Plain text storage
 
-        :param token: OAuth token for Dropbox access.
+        For testing, it is also possible to directly provide a long-lived refresh token
+        or a short-lived access token. Note that the tokens must be issued for Maestral,
+        with the required scopes, and will be validated with Dropbox servers as part of
+        this call.
+
+        :param code: Authorization code.
+        :param refresh_token: Optionally, instead of an authorization code, directly
+            provide a refresh token.
+        :param access_token: Optionally, instead of an authorization code or a refresh
+            token, directly provide an access token. Note that access tokens are
+            short-lived.
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
-        return self.client.link(token)
+        return self.client.link(
+            code=code, refresh_token=refresh_token, access_token=access_token
+        )
 
     def unlink(self) -> None:
         """
@@ -227,32 +289,6 @@ class Maestral:
         self.sync.reload_cached_config()
 
         self._logger.info("Unlinked Dropbox account.")
-
-    def _setup_logging(self) -> None:
-        """
-        Sets up logging to log files, status and error properties, desktop
-        notifications, the systemd journal if available, and to stderr if requested.
-        """
-        self._root_logger = scoped_logger("maestral", self.config_name)
-        (
-            self._log_handler_file,
-            self._log_handler_stream,
-            self._log_handler_sd,
-            self._log_handler_journal,
-        ) = setup_logging(self.config_name, self._log_to_stderr)
-
-        log_fmt_short = logging.Formatter(fmt="%(message)s")
-
-        # Log to cached handlers for status and error APIs.
-        self._log_handler_info_cache = CachedHandler(maxlen=1)
-        self._log_handler_info_cache.setFormatter(log_fmt_short)
-        self._log_handler_info_cache.setLevel(logging.INFO)
-        self._root_logger.addHandler(self._log_handler_info_cache)
-
-        self._log_handler_error_cache = CachedHandler()
-        self._log_handler_error_cache.setFormatter(log_fmt_short)
-        self._log_handler_error_cache.setLevel(logging.ERROR)
-        self._root_logger.addHandler(self._log_handler_error_cache)
 
     # ==== Methods to access config and saved state ====================================
 
@@ -313,7 +349,6 @@ class Maestral:
 
         :raises NotLinkedError: if no Dropbox account is linked.
         """
-
         if self.pending_link:
             return ""
         else:
@@ -347,11 +382,8 @@ class Maestral:
         has_changes = len(added_excluded_items) > 0 or len(added_included_items) > 0
 
         if has_changes:
-
             if self.sync.sync_lock.acquire(blocking=False):
-
                 try:
-
                     self.sync.excluded_items = excluded_items
 
                     if self.pending_first_download:
@@ -383,13 +415,12 @@ class Maestral:
         return self._conf.get("app", "log_level")
 
     @log_level.setter
-    def log_level(self, level_num: int) -> None:
+    def log_level(self, level: int) -> None:
         """Setter: log_level."""
-        self._root_logger.setLevel(min(level_num, logging.INFO))
-        self._log_handler_file.setLevel(level_num)
-        self._log_handler_stream.setLevel(level_num)
-        self._log_handler_journal.setLevel(level_num)
-        self._conf.set("app", "log_level", level_num)
+        self._root_logger.setLevel(min(level, logging.INFO))
+        for handler in self._external_log_handlers:
+            handler.setLevel(level)
+        self._conf.set("app", "log_level", level)
 
     @property
     def notification_snooze(self) -> float:
@@ -418,6 +449,8 @@ class Maestral:
         """
         Blocks until there is a change in status or until a timeout occurs. This method
         can be used by frontends to wait for status changes without constant polling.
+        Status changes are for example transitions from syncing to idle or vice-versa,
+        new errors, or connection status changes.
 
         :param timeout: Maximum time to block before returning, even if there is no
             status change.
@@ -537,7 +570,7 @@ class Maestral:
 
         .. versionadded:: 1.4.4
            Recursive behavior. Previous versions would return "up to date" for a folder,
-           even if some of the contained files would be syncing.
+           even if some contained files would be syncing.
 
         :param local_path: Path to file on the local drive. May be relative to the
             current working directory.
@@ -819,13 +852,12 @@ class Maestral:
             """
             Download a rev to a tmp file, read it and return the content + metadata.
             """
-
             with tempfile.NamedTemporaryFile(mode="w+") as f:
                 md = self.client.download(f"rev:{rev}", f.name)
 
                 # Read from the file.
                 try:
-                    with convert_api_errors(dbx_path=dbx_path, local_path=f.name):
+                    with convert_api_errors(md.path_display, f.name):
                         content = f.readlines()
                 except UnicodeDecodeError:
                     raise UnsupportedFileTypeForDiff(
@@ -909,7 +941,7 @@ class Maestral:
         self._logger.info(f"Restoring '{dbx_path} to {rev}'")
         return self.client.restore(dbx_path, rev)
 
-    def _delete_old_profile_pics(self):
+    def _delete_old_profile_pics(self) -> None:
         for file in os.listdir(get_cache_path("maestral")):
             if file.startswith(f"{self._config_name}_profile_pic"):
                 try:
@@ -1006,18 +1038,14 @@ class Maestral:
             return
 
         if self.sync.sync_lock.acquire(blocking=False):
-
             try:
-
                 # ---- update excluded items list --------------------------------------
-
                 excluded_items = self.sync.excluded_items
                 excluded_items.append(dbx_path_lower)
 
                 self.sync.excluded_items = excluded_items
 
                 # ---- remove item from local Dropbox ----------------------------------
-
                 self._remove_after_excluded(dbx_path_lower)
 
                 self._logger.info("Excluded %s", dbx_path_lower)
@@ -1041,7 +1069,7 @@ class Maestral:
         except FileNotFoundError:
             return
 
-        event_cls = DirDeletedEvent if osp.isdir(local_path) else FileDeletedEvent
+        event_cls = DirDeletedEvent if isdir(local_path) else FileDeletedEvent
         with self.manager.sync.fs_events.ignore(event_cls(local_path)):
             delete(local_path)
 
@@ -1073,7 +1101,6 @@ class Maestral:
         dbx_path_lower = normalize(dbx_path.rstrip("/"))
 
         # ---- input validation --------------------------------------------------------
-
         md = self.client.get_metadata(dbx_path_lower)
 
         if not md:
@@ -1088,7 +1115,6 @@ class Maestral:
             return
 
         # ---- update excluded items list ----------------------------------------------
-
         excluded_items = set(self.sync.excluded_items)
 
         # Remove dbx_path from list.
@@ -1118,13 +1144,10 @@ class Maestral:
                 excluded_items.remove(folder)
 
         if self.sync.sync_lock.acquire(blocking=False):
-
             try:
-
                 self.sync.excluded_items = list(excluded_items)
 
                 # ---- download item from Dropbox --------------------------------------
-
                 if excluded_parent:
                     self._logger.info(
                         "Included '%s' and parent directories", dbx_path_lower
@@ -1478,7 +1501,8 @@ class Maestral:
         self._logger.info("Scheduling reindex after update from pre v1.6.0")
 
         db_path = get_data_path("maestral", f"{self.config_name}.db")
-        db = Database(db_path, check_same_thread=False)
+        connection = sqlite3.connect(db_path, check_same_thread=False)
+        db = Database(connection)
 
         _sql_drop_table(db, "hash_cache")
         _sql_drop_table(db, "'index'")
@@ -1490,7 +1514,7 @@ class Maestral:
 
     # ==== Periodic async jobs =========================================================
 
-    def _schedule_task(self, coro: Awaitable) -> None:
+    def _schedule_task(self, coro: Awaitable[Any]) -> None:
         """Schedules a task in our asyncio loop."""
         task = asyncio.ensure_future(coro, loop=self._loop)
         self._tasks.add(task)
@@ -1500,12 +1524,9 @@ class Maestral:
         await asyncio.sleep(60 * 5)
 
         while True:
-
             if self.cred_storage.loaded:
-
                 # Only run if we have loaded the access token, we don't
                 # want to trigger any keyring access from here.
-
                 try:
                     await self._loop.run_in_executor(self._pool, self.get_profile_pic)
                     await self._loop.run_in_executor(self._pool, self.get_account_info)
@@ -1544,5 +1565,5 @@ class Maestral:
         )
 
 
-async def sleep_rand(target: float, jitter: float = 60):
+async def sleep_rand(target: float, jitter: float = 60) -> None:
     await asyncio.sleep(target + random.random() * jitter)

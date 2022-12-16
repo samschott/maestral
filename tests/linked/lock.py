@@ -68,12 +68,15 @@ class DropboxTestLock:
                     )
                     self._rev = md.rev
             except FileConflictError:
+                # Check if lockfile has expired. If yes, delete it retry to acquire.
                 if not self.locked():
                     continue
             else:
                 return True
 
-            if time.time() - t0 > timeout > 0:
+            if not blocking:
+                return False
+            elif time.time() - t0 > timeout > 0:
                 return False
             else:
                 time.sleep(5)
@@ -108,7 +111,7 @@ class DropboxTestLock:
         """
         Releases the lock.
 
-        :raises: RuntimeError if the lock was not locked.
+        :raises: RuntimeError we did not acquire the lock.
         """
 
         if not self._rev:

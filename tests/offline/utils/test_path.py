@@ -1,10 +1,8 @@
-import os.path as osp
-
 import pytest
 
 from maestral.utils.path import (
     normalized_path_exists,
-    equivalent_path_candidates,
+    get_existing_equivalent_paths,
     is_fs_case_sensitive,
     is_child,
 )
@@ -30,35 +28,34 @@ def test_normalized_path_exists(tmp_path):
     assert not normalized_path_exists(child_path, root=path)
 
 
-def test_cased_path_candidates(tmp_path):
+def test_get_existing_equivalent_paths(tmp_path):
 
     # Test that we can find a unique correctly cased path
     # starting from a candidate with scrambled casing.
 
     path = str(tmp_path)
 
-    candidates = equivalent_path_candidates(path.upper())
+    candidates = get_existing_equivalent_paths(path.upper())
 
     assert candidates == [path]
 
-    candidates = equivalent_path_candidates("/test", root=path)
+    candidates = get_existing_equivalent_paths("/test", root=path)
 
-    assert len(candidates) == 1
-    assert f"{path}/test" in candidates
+    assert len(candidates) == 0
 
 
 @pytest.mark.skipif(
     not is_fs_case_sensitive(get_home_dir()),
     reason="requires case-sensitive file system",
 )
-def test_multiple_cased_path_candidates(tmp_path):
+def test_multiple_existing_equivalent_paths(tmp_path):
 
     # test that we can get multiple cased path
     # candidates on case-sensitive file systems
 
     # create two folders that differ only in casing
 
-    dir0 = tmp_path / "test folder/subfolder"
+    dir0 = tmp_path / "TeSt foLder/subfolder"
     dir1 = tmp_path / "Test Folder/subfolder"
 
     dir0.mkdir(parents=True, exist_ok=True)
@@ -68,23 +65,16 @@ def test_multiple_cased_path_candidates(tmp_path):
     dir1 = str(dir1)
 
     # scramble the casing and check if we can find matches
-    path = osp.join(dir0.lower(), "File.txt")
+    candidates = get_existing_equivalent_paths(dir0.lower())
 
-    # find matches for original path itself
-    candidates = equivalent_path_candidates(path)
-
-    assert len(candidates) == 2
-    assert osp.join(dir0, "File.txt") in candidates
-    assert osp.join(dir1, "File.txt") in candidates
+    assert set(candidates) == {dir0, dir1}
 
     # find matches for children
-    candidates = equivalent_path_candidates(
-        "/test folder/subfolder/File.txt", root=str(tmp_path)
+    candidates = get_existing_equivalent_paths(
+        "/test folder/subfolder", root=str(tmp_path)
     )
 
-    assert len(candidates) == 2
-    assert osp.join(dir0, "File.txt") in candidates
-    assert osp.join(dir1, "File.txt") in candidates
+    assert set(candidates) == {dir0, dir1}
 
 
 def test_is_child():

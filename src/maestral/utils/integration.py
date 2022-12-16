@@ -10,6 +10,7 @@ import resource
 import requests
 import time
 import logging
+import socket
 from pathlib import Path
 from typing import Union, Tuple, Optional
 from urllib.parse import urlparse
@@ -21,6 +22,7 @@ __all__ = [
     "CPU_COUNT",
     "cpu_usage_percent",
     "check_connection",
+    "SystemdNotifier",
 ]
 
 
@@ -34,7 +36,6 @@ def multi_cat(*paths: Path) -> Union[int, bytes, None]:
     content of the first file which can be read. If none of them can be read return
     None. Returns an integer if the content is a digit.
     """
-
     for path in paths:
         try:
             ret = path.read_bytes().strip()
@@ -60,7 +61,6 @@ def get_ac_state() -> ACState:
 
     :returns: ``True`` if the device has AC power, ``False`` otherwise.
     """
-
     if platform.system() == "Darwin":
 
         from ctypes import c_double
@@ -79,7 +79,6 @@ def get_ac_state() -> ACState:
             return ACState.Disconnected
 
     elif platform.system() == "Linux":
-
         # taken from https://github.com/giampaolo/psutil
 
         supply_entry = list(os.scandir(LINUX_POWER_SUPPLY_PATH))
@@ -105,7 +104,6 @@ def get_ac_state() -> ACState:
                 return ACState.Disconnected
 
         elif len(battery_paths) > 0:
-
             # Get the first available battery. Usually this is "BAT0", except
             # some rare exceptions:
             # https://github.com/giampaolo/psutil/issues/1238
@@ -132,7 +130,6 @@ def get_inotify_limits() -> Tuple[int, int, int]:
     :raises OSError: if the settings cannot be read from /proc/sys/fs/inotify. This may
         happen if /proc/sys is left out of the kernel image or simply not mounted.
     """
-
     root = Path("/proc/sys/fs/inotify")
 
     max_user_watches_path = root / "max_user_watches"
@@ -164,11 +161,10 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
     :param interval: Interval in sec between comparisons of CPU times.
     :returns: CPU usage during interval in percent.
     """
-
     if interval <= 0:
         raise ValueError(f"interval is not positive (got {interval!r})")
 
-    def timer():
+    def timer() -> float:
         return time.monotonic() * CPU_COUNT
 
     st1 = timer()
@@ -210,3 +206,43 @@ def check_connection(
         if logger:
             logger.debug("Could not reach %s", hostname, exc_info=True)
         return False
+
+
+class SystemdNotifier:
+    """
+    An interface to notify the systemd the service manager about status changes.
+
+    Sends a status message to the systemd the service manager on the socket address
+    provided by the NOTIFY_SOCKET environment variable. Does nothing NOTIFY_SOCKET is
+    not set.
+
+    See https://www.freedesktop.org/software/systemd/man/sd_notify.html for a
+    documentation of message formats expected by systemd.
+    """
+
+    def __init__(self) -> None:
+        self._socket = None
+
+        addr = os.getenv("NOTIFY_SOCKET")
+        if addr is None:
+            return
+        elif addr[0] == "@":
+            addr = "\0" + addr[1:]
+
+        try:
+            self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            self._socket.connect(addr)
+        except OSError:
+            pass
+
+    def notify(self, status: str) -> None:
+        """
+        Send a status update to the service manager.
+
+        :param status: The status update to send.
+        """
+        if self._socket:
+            try:
+                self._socket.sendall(status.encode(errors="replace"))
+            except OSError:
+                pass

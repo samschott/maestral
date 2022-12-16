@@ -10,7 +10,7 @@ memory is constrained.
 from __future__ import annotations
 
 from weakref import WeakValueDictionary
-from typing import Any, Generator, TypeVar, Generic, Union, cast, overload
+from typing import Any, Generator, TypeVar, Generic, Union, Optional, cast, overload
 
 from .core import Database
 from .query import Query
@@ -18,11 +18,13 @@ from .types import SqlType, SqlEnum
 
 SQLSafeType = Union[str, int, float, None]
 T = TypeVar("T")
+ST = TypeVar("ST")
 M = TypeVar("M", bound="Model")
 
 
 __all__ = [
     "Column",
+    "NonNullColumn",
     "NoDefault",
     "Manager",
     "Model",
@@ -37,14 +39,12 @@ class NoDefault:
     """
 
 
-class Column(Generic[T]):
+class Column(Generic[T, ST]):
     """
     Represents a column in a database table.
 
-    :param type: Column type in database table. Python types which don't have SQLite
+    :param sql_type: Column type in database table. Python types which don't have SQLite
         equivalents, such as :class:`enum.Enum`, will be converted appropriately.
-    :param nullable: When set to ``False``, will cause the “NOT NULL” phrase to be added
-        when generating the column.
     :param unique: If ``True``, sets a unique constraint on the column.
     :param primary_key: If ``True``, marks this column as a primary key column.
         Currently, only a single primary key column is supported.
@@ -56,41 +56,35 @@ class Column(Generic[T]):
 
     def __init__(
         self,
-        sql_type: SqlType,
-        nullable: bool = True,
+        sql_type: SqlType[T, ST],
         unique: bool = False,
         primary_key: bool = False,
         index: bool = False,
         default: T | type[NoDefault] | None = None,
     ):
         self.type = sql_type
-        self.nullable = nullable
         self.unique = unique
         self.primary_key = primary_key
         self.index = index
         self.name = ""
 
-        self.default: T | type[NoDefault] | None
-
-        if not nullable and default is None:
-            # If the Column is not nullable, do not accept None as a default.
-            self.default = NoDefault
-        else:
-            self.default = default
+        self.default: T | type[NoDefault] | None = default
 
     def __set_name__(self, owner: Any, name: str) -> None:
         self.name = name
         self.private_name = "_" + name
 
     @overload
-    def __get__(self, obj: None, objtype: type | None = None) -> Column[T]:
+    def __get__(self, obj: None, objtype: type | None = None) -> Column[T, ST]:
         ...
 
     @overload
-    def __get__(self, obj: Any, objtype: type | None = None) -> T:
+    def __get__(self, obj: Any, objtype: type | None = None) -> T | None:
         ...
 
-    def __get__(self, obj, objtype=None):
+    def __get__(
+        self, obj: Any, objtype: type | None = None
+    ) -> Column[T, ST] | T | None:
         if obj is None:
             return self
 
@@ -99,22 +93,22 @@ class Column(Generic[T]):
         else:
             res = getattr(obj, self.private_name, self.default)
 
-        return cast(T, res)
+        return cast(Optional[T], res)
 
     def __set__(self, obj: Any, value: T) -> None:
         setattr(obj, self.private_name, value)
 
     def render_constraints(self) -> str:
         """Returns a string with constraints for the SQLite column definition."""
-
         constraints = []
 
         if isinstance(self.type, SqlEnum):
-            values = ", ".join(repr(member.name) for member in self.type.enum_type)
+            # Mypy type narrowing does not work well with generics.
+            # See https://github.com/python/mypy/issues/12060.
+            values = ", ".join(
+                repr(member.name) for member in self.type.enum_type  # type:ignore
+            )
             constraints.append(f"CHECK( {self.name} IN ({values}) )")
-
-        if not self.nullable:
-            constraints.append("NOT NULL")
 
         if self.unique:
             constraints.append("UNIQUE")
@@ -123,7 +117,6 @@ class Column(Generic[T]):
 
     def render_properties(self) -> str:
         """Returns a string with properties for the SQLite column definition."""
-
         properties = []
 
         if self.primary_key:
@@ -147,7 +140,7 @@ class Column(Generic[T]):
             ]
         )
 
-    def py_to_sql(self, value: T) -> SQLSafeType:
+    def py_to_sql(self, value: T | None) -> ST | None:
         """
         Converts a Python value to a value which can be stored in the database column.
 
@@ -155,16 +148,64 @@ class Column(Generic[T]):
         :returns: Converted Python value to store in database. Will only return str,
             int, float or None.
         """
+        if value is None:
+            return value
         return self.type.py_to_sql(value)
 
-    def sql_to_py(self, value: SQLSafeType) -> T:
+    def sql_to_py(self, value: ST | None) -> T | None:
         """
         Converts a database column value to the original Python type.
 
         :param value: Value from database column. Only accepts  str, int, float or None.
         :returns: Converted Python value.
         """
+        if value is None:
+            return value
         return self.type.sql_to_py(value)
+
+
+class NonNullColumn(Column[T, ST]):
+    """Subclass of :class:`Column` which is not nullable, i.e., does not accept or
+    return None as a value."""
+
+    def __init__(
+        self,
+        sql_type: SqlType[T, ST],
+        unique: bool = False,
+        primary_key: bool = False,
+        index: bool = False,
+        default: T | type[NoDefault] = NoDefault,
+    ):
+        super().__init__(sql_type, unique, primary_key, index, default)
+
+    def __set__(self, obj: Any, value: T | None) -> None:
+        setattr(obj, self.private_name, value)
+
+    @overload
+    def __get__(self, obj: None, objtype: type | None = None) -> Column[T, ST]:
+        ...
+
+    @overload
+    def __get__(self, obj: Any, objtype: type | None = None) -> T:
+        ...
+
+    def __get__(self, obj: Any, objtype: type | None = None) -> Column[T, ST] | T:
+        res = super().__get__(obj, objtype)
+        return cast(T, res)
+
+    def py_to_sql(self, value: T | None) -> ST:
+        if value is None:
+            raise ValueError("This column does not allow NULL values")
+        return self.type.py_to_sql(value)
+
+    def sql_to_py(self, value: ST | None) -> T:
+        if value is None:
+            raise ValueError("Unexpected value None / NULL")
+        return self.type.sql_to_py(value)
+
+    def render_constraints(self) -> str:
+        constraints = super().render_constraints()
+        return f"{constraints} NOT NULL"
 
 
 class Manager(Generic[M]):
@@ -213,7 +254,6 @@ class Manager(Generic[M]):
 
     def create_table(self) -> None:
         """Creates the table as defined by the model."""
-
         column_defs = [col.render_column() for col in self.model.__columns__]
         column_defs_str = ", ".join(column_defs)
         sql = f"CREATE TABLE {self.table_name} ({column_defs_str});"
@@ -255,7 +295,7 @@ class Manager(Generic[M]):
             yield [self._item_from_kwargs(**row) for row in rows]
             rows = result.fetchmany(size)
 
-    def select_sql(self, sql: str, *args) -> list[M]:
+    def select_sql(self, sql: str, *args: Any) -> list[M]:
         """
         Performs the given SQL query and converts any returned rows to model objects.
 
@@ -272,7 +312,6 @@ class Manager(Generic[M]):
 
         :param primary_key: Primary key for row.
         """
-
         pk_sql = self.pk_column.py_to_sql(primary_key)
         sql = f"DELETE from {self.table_name} WHERE {self.pk_column.name} = ?"
         self.db.execute(sql, pk_sql)
@@ -290,7 +329,6 @@ class Manager(Generic[M]):
         :param primary_key: Primary key for row.
         :returns: Model object representing the row.
         """
-
         pk_sql = self.pk_column.py_to_sql(primary_key)
 
         try:
@@ -315,7 +353,6 @@ class Manager(Generic[M]):
         :param primary_key: The primary key.
         :returns: Whether the corresponding row exists in the table.
         """
-
         pk_sql = self.pk_column.py_to_sql(primary_key)
         sql = f"SELECT {self.pk_column.name} FROM {self.table_name} WHERE {self.pk_column.name} = ?"
         result = self.db.execute(sql, pk_sql)
@@ -357,7 +394,6 @@ class Manager(Generic[M]):
 
         :param obj: The object to update.
         """
-
         pk_sql = self._get_primary_key(obj)
 
         if pk_sql is None:
@@ -373,9 +409,9 @@ class Manager(Generic[M]):
         """Returns the number of rows in the table."""
         res = self.db.execute(f"SELECT COUNT(*) FROM {self.table_name};")
         counts = res.fetchone()
-        return counts[0]
+        return cast(int, counts[0])
 
-    def clear(self):
+    def clear(self) -> None:
         """Delete all rows from table."""
         self.db.execute(f"DROP TABLE {self.table_name}")
         self.clear_cache()
@@ -397,14 +433,13 @@ class Manager(Generic[M]):
         pk_py = getattr(obj, self.pk_column.name)
         return self.pk_column.py_to_sql(pk_py)
 
-    def _item_from_kwargs(self, **kwargs) -> M:
+    def _item_from_kwargs(self, **kwargs: Any) -> M:
         """
         Create a model object from SQL column values
 
         :param kwargs: Column values.
         :returns: Model object.
         """
-
         # Convert any types as appropriate.
         for key, value in kwargs.items():
             col = getattr(self.model, key)
@@ -419,9 +454,11 @@ class Manager(Generic[M]):
 
 
 class ModelBase(type):
-    def __new__(mcs, cls_name, bases, namespace, **kwargs):
+    def __new__(
+        mcs, cls_name: str, bases: tuple[type], namespace: dict[str, Any], **kwargs: Any
+    ) -> ModelBase:
 
-        columns: list[Column] = []
+        columns: list[Column[Any, Any]] = []
         slots: list[str] = []
 
         # Find all columns in namespace.
@@ -456,21 +493,21 @@ class Model(metaclass=ModelBase):
     __tablename__: str
     """The name of the database table"""
 
-    __columns__: frozenset[Column]
+    __columns__: frozenset[Column[Any, Any]]
     """The columns of the database table"""
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         """
         Initialise with keyword arguments corresponding to column names and values.
 
         :param kwargs: Keyword arguments assigning values to table columns.
         """
-
         columns_names = {col.name for col in self.__columns__}
-        missing_columns = {col.name for col in self.__columns__ if not col.nullable}
+        missing_columns = {
+            c.name for c in self.__columns__ if isinstance(c, NonNullColumn)
+        }
 
         for name, value in kwargs.items():
-
             missing_columns.discard(name)
 
             if name in columns_names:

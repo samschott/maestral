@@ -1,8 +1,10 @@
 """Module containing cache implementations."""
 
+from __future__ import annotations
+
 from collections import OrderedDict
 from threading import RLock
-from typing import Any
+from typing import Any, Hashable
 
 
 class LRUCache:
@@ -11,14 +13,12 @@ class LRUCache:
     :param capacity: Maximum number of entries to keep.
     """
 
-    _cache: OrderedDict
-
     def __init__(self, capacity: int) -> None:
         self._lock = RLock()
-        self._cache = OrderedDict()
+        self._cache: OrderedDict[Hashable, Any] = OrderedDict()
         self.capacity = capacity
 
-    def get(self, key: Any) -> Any:
+    def get(self, key: Hashable) -> Any:
         """
         Get the cached value for a key. Mark as most recently used.
 
@@ -32,7 +32,7 @@ class LRUCache:
             except KeyError:
                 return None
 
-    def put(self, key: Any, value: Any) -> None:
+    def put(self, key: Hashable, value: Any) -> None:
         """
         Set the cached value for a key. Mark as most recently used.
 
@@ -49,6 +49,5 @@ class LRUCache:
         """
         Clears the cache.
         """
-
         with self._lock:
             self._cache.clear()

@@ -11,7 +11,7 @@ from maestral.notify import level_number_to_name, level_name_to_number
 from maestral.daemon import MaestralProxy, start_maestral_daemon_process, Start
 from maestral.logging import scoped_logger
 from maestral.constants import IS_BSD
-
+from maestral.utils.appdirs import get_log_path
 
 TEST_TIMEOUT = 60
 
@@ -248,7 +248,8 @@ def test_log_clear(m: Maestral) -> None:
     result = runner.invoke(main, ["log", "clear", "-c", m.config_name])
     assert result.exit_code == 0, result.output
 
-    with open(m._log_handler_file.stream.name) as f:
+    logfile = get_log_path("maestral", f"{m.config_name}.log")
+    with open(logfile) as f:
         log_content = f.read()
 
     assert log_content == ""

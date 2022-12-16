@@ -20,12 +20,11 @@ import re
 import pickle
 from pprint import pformat
 from shlex import quote
-from typing import Any, Iterable, TYPE_CHECKING
+from typing import Any, Iterable, ContextManager, TYPE_CHECKING
 from types import TracebackType
 
 # external imports
 import Pyro5
-import sdnotify
 from Pyro5.errors import CommunicationError
 from Pyro5.api import (
     Daemon,
@@ -40,6 +39,7 @@ from fasteners import InterProcessLock
 # local imports
 from .utils import exc_info_tuple
 from .utils.appdirs import get_runtime_path
+from .utils.integration import SystemdNotifier
 from .constants import IS_MACOS, IS_BSD, ENV
 from . import core, models, exceptions
 
@@ -68,13 +68,10 @@ __all__ = [
 
 
 # systemd environment
-INVOCATION_ID = os.getenv("INVOCATION_ID")
 NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
-WATCHDOG_PID = os.getenv("WATCHDOG_PID")
+WATCHDOG_PID = int(os.getenv("WATCHDOG_PID", os.getpid()))
 WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
-IS_WATCHDOG = WATCHDOG_USEC and (
-    WATCHDOG_PID is None or int(WATCHDOG_PID) == os.getpid()
-)
+IS_WATCHDOG = WATCHDOG_USEC and WATCHDOG_PID == os.getpid()
 
 
 URI = "PYRO:maestral.{0}@{1}"
@@ -87,7 +84,6 @@ def freeze_support() -> None:
     This call will start the sync daemon if a matching command line arguments are
     detected and do nothing otherwise.
     """
-
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-c")
     parsed_args, _ = parser.parse_known_args()
@@ -125,7 +121,7 @@ def check_signature(signature: str, obj: bytes) -> None:
     pass
 
 
-def serialize_api_types(obj: Any) -> dict:
+def serialize_api_types(obj: Any) -> dict[str, Any]:
     """
     :param obj: Object to serialize.
     :returns: Serialized object.
@@ -134,7 +130,7 @@ def serialize_api_types(obj: Any) -> dict:
     return {"__class__": type(obj).__name__, "object": res, "signature": ""}
 
 
-def deserialize_api_types(class_name: str, d: dict) -> Any:
+def deserialize_api_types(class_name: str, d: dict[str, Any]) -> Any:
     """
     Deserializes an API type. Allowed classes are defined in:
         * :mod:`maestral.core`
@@ -180,7 +176,6 @@ class Lock:
 
         :param path: Path of the lock file to use / create.
         """
-
         with cls._singleton_lock:
             path = os.path.abspath(path)
 
@@ -201,17 +196,14 @@ class Lock:
 
         :returns: Whether the acquisition succeeded.
         """
-
         with self._lock:
             if self._external_lock.acquired:
                 return False
-
             return self._external_lock.acquire(blocking=False)
 
     def release(self) -> None:
         """Release the previously acquired lock."""
         with self._lock:
-
             if not self._external_lock.acquired:
                 raise RuntimeError(
                     "Cannot release a lock, it was acquired by a different process"
@@ -239,7 +231,6 @@ class Lock:
 
         :returns: The PID of the process which currently holds the lock or ``None``.
         """
-
         with self._lock:
             if self._external_lock.acquired:
                 return self.pid
@@ -321,7 +312,6 @@ def get_maestral_pid(config_name: str) -> int | None:
     :param config_name: The name of the Maestral configuration.
     :returns: The daemon's PID.
     """
-
     return maestral_lock(config_name).locking_pid()
 
 
@@ -332,7 +322,6 @@ def is_running(config_name: str) -> bool:
     :param config_name: The name of the Maestral configuration.
     :returns: Whether the daemon is running.
     """
-
     return maestral_lock(config_name).locked()
 
 
@@ -345,7 +334,6 @@ def wait_for_startup(config_name: str, timeout: float = 30) -> None:
     :raises CommunicationError: if we cannot communicate with the daemon within the
         given timeout.
     """
-
     sock_name = sockpath_for_config(config_name)
     maestral_daemon = Proxy(URI.format(config_name, "./u:" + sock_name))
 
@@ -389,9 +377,9 @@ def start_maestral_daemon(
     from .main import Maestral
     from .logging import scoped_logger, setup_logging
 
-    setup_logging(config_name, log_to_stderr)
+    setup_logging(config_name, stderr=log_to_stderr)
     dlogger = scoped_logger(__name__, config_name)
-    sd_notifier = sdnotify.SystemdNotifier()
+    sd_notifier = SystemdNotifier()
 
     dlogger.info("Starting daemon")
 
@@ -413,12 +401,10 @@ def start_maestral_daemon(
         return
 
     try:
-
         # Nice ourselves to give other processes priority.
         os.nice(10)
 
         # ==== System integration ======================================================
-
         # Integrate with CFRunLoop in macOS.
         if IS_MACOS:
 
@@ -435,7 +421,8 @@ def start_maestral_daemon(
         if NOTIFY_SOCKET:
             dlogger.debug("Running as systemd notify service")
             dlogger.debug("NOTIFY_SOCKET = %s", NOTIFY_SOCKET)
-            sd_notifier.notify("READY=1")
+
+        sd_notifier.notify("READY=1")
 
         # Notify systemd periodically if alive.
         if IS_WATCHDOG and WATCHDOG_USEC:
@@ -455,7 +442,6 @@ def start_maestral_daemon(
             loop.create_task(periodic_watchdog())
 
         # ==== Run Maestral as Pyro server =============================================
-
         # Get socket for config name.
         sockpath = sockpath_for_config(config_name)
         dlogger.debug("Socket path: %r", sockpath)
@@ -502,9 +488,8 @@ def start_maestral_daemon(
         dlogger.error(exc.args[0], exc_info=True)
     finally:
 
-        if NOTIFY_SOCKET:
-            # Notify systemd that we are shutting down.
-            sd_notifier.notify("STOPPING=1")
+        # Notify systemd that we are shutting down.
+        sd_notifier.notify("STOPPING=1")
 
         lock.release()
 
@@ -529,7 +514,6 @@ def start_maestral_daemon_process(
         that :attr:`Start.Ok` may be returned instead of :attr:`Start.AlreadyRunning`
         in case of a race but the daemon is nevertheless started only once.
     """
-
     if is_running(config_name):
         return Start.AlreadyRunning
 
@@ -548,7 +532,7 @@ def start_maestral_daemon_process(
     except Exception as exc:
         from .logging import scoped_logger, setup_logging
 
-        setup_logging(config_name, log_to_stderr=False)
+        setup_logging(config_name, stderr=False)
         clogger = scoped_logger(__name__, config_name)
 
         clogger.error("Could not communicate with daemon", exc_info=exc_info_tuple(exc))
@@ -582,7 +566,6 @@ def stop_maestral_daemon_process(
         :attr:`Stop.NotRunning` if the daemon was not running and :attr:`Stop.Failed`
         if killing the process failed because we could not retrieve its PID.
     """
-
     if not is_running(config_name):
         return Stop.NotRunning
 
@@ -606,7 +589,7 @@ def stop_maestral_daemon_process(
     return Stop.Killed
 
 
-class MaestralProxy:
+class MaestralProxy(ContextManager["MaestralProxy"]):
     """A Proxy to the Maestral daemon
 
     All methods and properties of Maestral's public API are accessible and calls /
@@ -641,7 +624,6 @@ class MaestralProxy:
     _m: Maestral | Proxy
 
     def __init__(self, config_name: str = "maestral", fallback: bool = False) -> None:
-
         self._config_name = config_name
         self._is_fallback = False
 
@@ -676,7 +658,10 @@ class MaestralProxy:
         return self
 
     def __exit__(
-        self, exc_type: type[Exception], exc_value: Exception, tb: TracebackType
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        tb: TracebackType | None,
     ) -> None:
         self._disconnect()
         del self._m
@@ -689,7 +674,7 @@ class MaestralProxy:
         else:
             return self._m.__getattribute__(item)
 
-    def __setattr__(self, key, value) -> None:
+    def __setattr__(self, key: str, value: Any) -> None:
         if key.startswith("_"):
             super().__setattr__(key, value)
         else:

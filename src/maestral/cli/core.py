@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 from os import path as osp
-from typing import IO
+from typing import Any
 
 import click
 from click.shell_completion import CompletionItem
@@ -161,7 +161,6 @@ class ConfigName(click.ParamType):
         from ..config import validate_config_name, list_configs
 
         if not self.existing:
-
             # accept all valid config names
             try:
                 return validate_config_name(value)
@@ -169,7 +168,6 @@ class ConfigName(click.ParamType):
                 raise CliException("Configuration name may not contain any whitespace")
 
         else:
-
             # accept only existing config names
             if value in list_configs():
                 return value
@@ -256,5 +254,5 @@ class CliException(click.ClickException):
     message.
     """
 
-    def show(self, file: IO | None = None) -> None:
+    def show(self, file: Any = None) -> None:
         warn(self.format_message())

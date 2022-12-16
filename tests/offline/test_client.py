@@ -33,9 +33,10 @@ def test_link():
     client = DropboxClient("test-config", cred_storage)
 
     client._auth_flow = Mock(spec_set=DropboxOAuth2FlowNoRedirect)
+    client.get_account_info = Mock()
     client.update_path_root = Mock()
 
-    res = client.link("token")
+    res = client.link("code")
 
     assert res == 0
     client.update_path_root.assert_called_once()
@@ -47,7 +48,7 @@ def test_link_error():
     client = DropboxClient("test-config", cred_storage)
 
     with pytest.raises(RuntimeError):
-        client.link("token")
+        client.link("code")
 
 
 def test_link_failed_1():
@@ -74,6 +75,7 @@ def test_link_failed_2():
     assert res == 2
 
     client._auth_flow = Mock(spec_set=DropboxOAuth2FlowNoRedirect)
+    client.get_account_info = Mock()
     client.update_path_root = Mock(side_effect=ConnectionError("failed"))
 
     res = client.link("token")

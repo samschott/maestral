@@ -8,44 +8,40 @@ import logging
 from logging.handlers import RotatingFileHandler
 from collections import deque
 from concurrent.futures import Future
-
-try:
-    from concurrent.futures import InvalidStateError  # type: ignore
-except ImportError:
-    # Python 3.7 and lower
-    InvalidStateError = RuntimeError
-
-import sdnotify
-
-try:
-    from systemd import journal
-except ImportError:
-    journal = None
+from typing import Type, Sequence
 
 from .config import MaestralConfig
 from .utils import sanitize_string
 from .utils.appdirs import get_log_path
+from .utils.integration import SystemdNotifier
+
+InvalidStateError: Type[Exception]
+
+try:
+    from concurrent.futures import (  # type:ignore[attr-defined, no-redef]
+        InvalidStateError,
+    )
+except ImportError:
+    # Python 3.7 and lower
+    InvalidStateError = RuntimeError
 
 
 __all__ = [
     "CachedHandler",
     "SdNotificationHandler",
-    "setup_logging",
+    "EncodingSafeLogRecord",
     "scoped_logger",
+    "scoped_logger_name",
+    "LOG_FMT_LONG",
+    "LOG_FMT_SHORT",
+    "setup_logging",
 ]
 
-
-def safe_journal_sender(MESSAGE: str, **kwargs) -> None:
-
-    if journal:
-
-        MESSAGE = sanitize_string(MESSAGE)
-
-        for key, value in kwargs.items():
-            if isinstance(value, str):
-                kwargs[key] = sanitize_string(value)
-
-        journal.send(MESSAGE, **kwargs)
+LOG_FMT_LONG = logging.Formatter(
+    fmt="%(asctime)s %(module)s %(levelname)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+LOG_FMT_SHORT = logging.Formatter(fmt="%(message)s")
 
 
 class EncodingSafeLogRecord(logging.LogRecord):
@@ -56,17 +52,12 @@ class EncodingSafeLogRecord(logging.LogRecord):
     a :exc:`UnicodeEncodeError` under many circumstances (printing to stdout, etc.).
     """
 
-    _safe_msg: str | None = None
-
     def getMessage(self) -> str:
         """
         Formats the log message and replaces all surrogate escapes with "�".
         """
-        if not self._safe_msg:
-            msg = super().getMessage()
-            self._safe_msg = sanitize_string(msg)
-
-        return self._safe_msg
+        msg = super().getMessage()
+        return sanitize_string(msg)
 
 
 logging.setLogRecordFactory(EncodingSafeLogRecord)
@@ -85,7 +76,7 @@ class CachedHandler(logging.Handler):
     """
 
     cached_records: deque[logging.LogRecord]
-    _emit_future: Future
+    _emit_future: Future[bool]
 
     def __init__(self, level: int = logging.NOTSET, maxlen: int | None = None) -> None:
         super().__init__(level=level)
@@ -151,11 +142,11 @@ class SdNotificationHandler(logging.Handler):
     NOTIFY_SOCKET is provided.
     """
 
-    notifier = sdnotify.SystemdNotifier()
+    notifier = SystemdNotifier()
 
     def emit(self, record: logging.LogRecord) -> None:
         """
-        Sends the record massage to systemd as service status.
+        Sends the record message to systemd as service status.
 
         :param record: Log record.
         """
@@ -170,7 +161,6 @@ def scoped_logger_name(module_name: str, config_name: str = "maestral") -> str:
     :param config_name: Config name.
     :returns: Scoped logger name.
     """
-
     if config_name == "maestral":
         return module_name
     else:
@@ -185,94 +175,71 @@ def scoped_logger(module_name: str, config_name: str = "maestral") -> logging.Lo
     :param config_name: Config name.
     :returns: Logger instances scoped to the config.
     """
-
     return logging.getLogger(scoped_logger_name(module_name, config_name))
 
 
 def setup_logging(
-    config_name: str, log_to_stderr: bool = True
-) -> tuple[
-    RotatingFileHandler,
-    logging.StreamHandler | logging.NullHandler,
-    SdNotificationHandler,
-    journal.JournalHandler | logging.NullHandler,
-]:
+    config_name: str,
+    file: bool = True,
+    stderr: bool = True,
+    journal: bool = True,
+    status: bool = True,
+) -> Sequence[logging.Handler]:
     """
-    Sets up logging handlers for the given config name. The following handlers are
-    installed for the root logger:
+    Set up loging to external channels. Systemd-related logging will fail silently if
+    the current process was not started by systemd.
 
-    * RotatingFileHandler: Writes logs to the appropriate log file for the config. Log
-      level is determined by the config value.
-    * StreamHandler: Writes logs to stderr. Log level is determined by the config value.
-      This will be replaced by a null handler if ``log_to_stderr`` is ``False``.
-    * SdNotificationHandler: Sends all log messages of level INFO and higher to the
-      NOTIFY_SOCKET if provided as an environment variable. The log level is fixed.
-    * JournalHandler: Writes logs to the systemd journal. Log level is determined by the
-      config value. Will be replaced by a null handler if not started as a systemd
-      service or if python-systemd is not installed.
-
-    Any previous loggers are cleared.
-
-    :param config_name: The config name.
-    :param log_to_stderr: Whether to log to stderr.
-    :returns: (log_handler_file, log_handler_stream, log_handler_sd, log_handler_journal)
+    :param config_name: Config name to determine log level and namespace for loggers.
+        See :meth:`scoped_logger_name` for how the logger name is determined.
+    :param file: Whether to log to files.
+    :param stderr: Whether to log to stderr.
+    :param journal: Whether to log to the systemd journal.
+    :param status: Whether to log to the systemd status notifier. Note that this will
+        always be performed at level INFO.
+    :returns: Log handlers.
     """
-
-    conf = MaestralConfig(config_name)
-
-    # Get log level from config or fallback to DEBUG level if config file is corrupt.
-    log_level = conf.get("app", "log_level", logging.DEBUG)
-
+    level = MaestralConfig(config_name).get("app", "log_level")
     root_logger = scoped_logger("maestral", config_name)
-    root_logger.setLevel(min(log_level, logging.INFO))
+    root_logger.setLevel(min(level, logging.INFO))
 
-    root_logger.handlers.clear()  # clean up any previous handlers
-
-    log_fmt_long = logging.Formatter(
-        fmt="%(asctime)s %(module)s %(levelname)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-    log_fmt_short = logging.Formatter(fmt="%(message)s")
+    handlers: list[logging.Handler] = []
 
     # Log to file.
-    log_file_path = get_log_path("maestral", f"{config_name}.log")
-    log_handler_file = RotatingFileHandler(
-        log_file_path, maxBytes=10**7, backupCount=1
-    )
-    log_handler_file.setFormatter(log_fmt_long)
-    log_handler_file.setLevel(log_level)
-    root_logger.addHandler(log_handler_file)
+    if file:
+        logfile = get_log_path("maestral", f"{config_name}.log")
+        log_handler_file = RotatingFileHandler(logfile, maxBytes=10**7, backupCount=1)
+        log_handler_file.setFormatter(LOG_FMT_LONG)
+        log_handler_file.setLevel(level)
+        root_logger.addHandler(log_handler_file)
+        handlers.append(log_handler_file)
 
-    # Log to systemd journal when running as systemd service.
-    log_handler_journal: journal.JournalHandler | logging.NullHandler
-
+    # Log to systemd journal when launched as systemd service.
     if journal and os.getenv("INVOCATION_ID"):
-        log_handler_journal = journal.JournalHandler(
-            SYSLOG_IDENTIFIER="maestral",
-            sender_function=safe_journal_sender,
-        )
-    else:
-        log_handler_journal = logging.NullHandler()
+        try:
+            from systemd.journal import JournalHandler
+        except ImportError:
+            pass
+        else:
+            log_handler_journal = JournalHandler(SYSLOG_IDENTIFIER="maestral")
+            log_handler_journal.setFormatter(LOG_FMT_SHORT)
+            log_handler_journal.setLevel(level)
+            root_logger.addHandler(log_handler_journal)
+            handlers.append(log_handler_journal)
 
-    log_handler_journal.setFormatter(log_fmt_short)
-    log_handler_journal.setLevel(log_level)
-    root_logger.addHandler(log_handler_journal)
-
-    # Log to NOTIFY_SOCKET when launched as systemd notify service.
-    log_handler_sd = SdNotificationHandler()
-    log_handler_sd.setFormatter(log_fmt_short)
-    log_handler_sd.setLevel(logging.INFO)
-    root_logger.addHandler(log_handler_sd)
+    # Log to systemd notify status when launched as systemd service.
+    if status and os.getenv("NOTIFY_SOCKET"):
+        log_handler_sd = SdNotificationHandler()
+        log_handler_sd.setFormatter(LOG_FMT_SHORT)
+        log_handler_sd.setLevel(logging.INFO)
+        root_logger.addHandler(log_handler_sd)
+        handlers.append(log_handler_sd)
 
     # Log to stderr if requested.
-    log_handler_stream: logging.StreamHandler | logging.NullHandler
-
-    if log_to_stderr:
+    if stderr:
         log_handler_stream = logging.StreamHandler()
-    else:
-        log_handler_stream = logging.NullHandler()
-    log_handler_stream.setFormatter(log_fmt_long)
-    log_handler_stream.setLevel(log_level)
-    root_logger.addHandler(log_handler_stream)
+        log_handler_stream.setFormatter(LOG_FMT_LONG)
+        log_handler_stream.setLevel(level)
+        root_logger.addHandler(log_handler_stream)
+        handlers.append(log_handler_stream)
 
-    return log_handler_file, log_handler_stream, log_handler_sd, log_handler_journal
+    return handlers

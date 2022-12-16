@@ -1,19 +1,22 @@
 """Utility modules and functions"""
+
+from __future__ import annotations
+
 import os
 from types import TracebackType
-
-from packaging.version import Version
 from typing import Iterator, TypeVar, Optional, Iterable, Tuple, Type
 
+from packaging.version import Version
 
-# type definitions
+
 _N = TypeVar("_N", float, int)
-ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
+_T = TypeVar("_T")
+_ExecInfoType = Tuple[Type[BaseException], BaseException, Optional[TracebackType]]
 
 
 def natural_size(num: float, unit: str = "B", sep: bool = True) -> str:
     """
-    Convert number to a human readable string with decimal prefix.
+    Convert number to a human-readable string with decimal prefix.
 
     :param float num: Value in given unit.
     :param unit: Unit suffix.
@@ -31,17 +34,15 @@ def natural_size(num: float, unit: str = "B", sep: bool = True) -> str:
     return f"{num:.1f}{sep_char}{prefix}{unit}"
 
 
-def chunks(lst: list, n: int, consume: bool = False) -> Iterator[list]:
+def chunks(lst: list[_T], n: int, consume: bool = False) -> Iterator[list[_T]]:
     """
-    Partitions an iterable into chunks of length ``n``.
+    Partitions a list into chunks of length ``n``.
 
     :param lst: Iterable to partition.
     :param n: Chunk size.
     :param consume: If True, the list will be consumed (emptied) during the iteration.
-        This can be used to free memory in case of large lists.
     :returns: Iterator over chunks.
     """
-
     if consume:
         while lst:
             chunk = lst[0:n]
@@ -61,7 +62,6 @@ def clamp(n: _N, minn: _N, maxn: _N) -> _N:
     :param maxn: Maximum allowed value.
     :returns: Clamped value.
     """
-
     if n > maxn:
         return maxn
     elif n < minn:
@@ -79,7 +79,6 @@ def get_newer_version(version: str, releases: Iterable[str]) -> Optional[str]:
     :param releases: A list of valid cleaned releases.
     :returns: The version string of the latest release if a newer release is available.
     """
-
     releases = [r for r in releases if not Version(r).is_prerelease]
     releases.sort(key=Version)
     latest_release = releases[-1]
@@ -98,7 +97,6 @@ def removeprefix(string: str, prefix: str) -> str:
     :param prefix: Prefix to remove.
     :returns: String without prefix.
     """
-
     if string.startswith(prefix):
         return string[len(prefix) :]
     else:
@@ -117,6 +115,6 @@ def sanitize_string(string: str) -> str:
     return os.fsencode(string).decode(errors="replace")
 
 
-def exc_info_tuple(exc: BaseException) -> ExecInfoType:
+def exc_info_tuple(exc: BaseException) -> _ExecInfoType:
     """Creates an exc-info tuple from an exception."""
     return type(exc), exc, exc.__traceback__

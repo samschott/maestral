@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-import sys
+import threading
 from datetime import datetime
 from os import path as osp
 from typing import TYPE_CHECKING
 
 import click
 
+from rich.console import Console, ConsoleRenderable
+
 from .dialogs import select_path, select, confirm, prompt, select_multiple
-from .output import warn, ok, info, echo, Table, Field, DateField, TextField
+from .output import warn, ok, info, echo, RichDateField, rich_table
 from .common import (
     convert_api_errors,
     check_for_fatal_errors,
@@ -17,7 +19,8 @@ from .common import (
     inject_proxy,
 )
 from .core import DropboxPath, CliException
-from ..core import FolderMetadata
+from ..core import FolderMetadata, SharedLinkMetadata
+from ..utils.path import delete
 
 if TYPE_CHECKING:
     from ..daemon import MaestralProxy
@@ -35,16 +38,16 @@ def stop_daemon_with_cli_feedback(config_name: str) -> None:
 
     from ..daemon import stop_maestral_daemon_process, Stop
 
-    click.echo("Stopping Maestral...", nl=False)
+    echo("Stopping Maestral...", nl=False)
     res = stop_maestral_daemon_process(config_name)
     if res == Stop.Ok:
-        click.echo("\rStopping Maestral...        " + OK)
+        echo("\rStopping Maestral...        " + OK)
     elif res == Stop.NotRunning:
-        click.echo("\rMaestral daemon is not running.")
+        echo("\rMaestral daemon is not running.")
     elif res == Stop.Killed:
-        click.echo("\rStopping Maestral...        " + KILLED)
+        echo("\rStopping Maestral...        " + KILLED)
     elif res == Stop.Failed:
-        click.echo("\rStopping Maestral...        " + FAILED)
+        echo("\rStopping Maestral...        " + FAILED)
 
 
 def select_dbx_path_dialog(
@@ -60,9 +63,6 @@ def select_dbx_path_dialog(
         deleting it. Defaults to ``False``.
     :returns: Path given by user.
     """
-
-    from ..utils.path import delete
-
     default_dir_name = default_dir_name or f"Dropbox ({config_name.capitalize()})"
 
     while True:
@@ -164,7 +164,6 @@ def link_dialog(m: MaestralProxy | Maestral) -> None:
 @convert_api_errors
 def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
-    import threading
     from ..daemon import (
         MaestralProxy,
         start_maestral_daemon,
@@ -176,11 +175,11 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
     )
 
     if is_running(config_name):
-        click.echo("Daemon is already running.")
+        echo("Daemon is already running.")
         return
 
     @convert_api_errors
-    def startup_dialog():
+    def startup_dialog() -> None:
 
         try:
             wait_for_startup(config_name)
@@ -266,46 +265,41 @@ def gui(config_name: str) -> None:
 
     from packaging.version import Version
     from packaging.requirements import Requirement
+    from importlib_metadata import entry_points, requires, version
 
-    try:
-        from importlib.metadata import entry_points, requires, version
-    except ImportError:
-        from importlib_metadata import entry_points, requires, version  # type: ignore
+    # Find all entry points for "maestral_gui" registered by other packages.
+    gui_entry_points = entry_points(group="maestral_gui")
 
-    # find all "maestral_gui" entry points registered by other packages
-    gui_entry_points = entry_points().get("maestral_gui")
-
-    if not gui_entry_points or len(gui_entry_points) == 0:
+    if len(gui_entry_points) == 0:
         raise CliException(
             "No maestral GUI installed. Please run 'pip3 install maestral[gui]'."
         )
 
-    # check if 1st party defaults "maestral_cocoa" or "maestral_qt" are installed
-    default_gui = "maestral_cocoa" if sys.platform == "darwin" else "maestral_qt"
-    default_entry_point = next(
-        (e for e in gui_entry_points if e.name == default_gui), None
-    )
+    entry_point_names = [e.name for e in gui_entry_points]
 
-    if default_entry_point:
-        # check gui requirements
-        requirements = [Requirement(r) for r in requires("maestral")]
-
-        for r in requirements:
-            if r.marker and r.marker.evaluate({"extra": "gui"}):
-                version_str = version(r.name)
-                if not r.specifier.contains(Version(version_str), prereleases=True):
-                    raise CliException(
-                        f"{r.name}{r.specifier} required but you have {version_str}"
-                    )
-
-        # load entry point
-        run = default_entry_point.load()
-
+    if len(entry_point_names) > 1:
+        index = select("Multiple GUIs found, please choose:", entry_point_names)
     else:
-        # load any 3rd party GUI
-        fallback_entry_point = next(iter(gui_entry_points))
-        run = fallback_entry_point.load()
+        index = 0
 
+    entry_point = gui_entry_points[entry_point_names[index]]
+
+    if entry_point in {"maestral_cocoa", "maestral_qt"}:
+        # For 1st party GUIs "maestral_cocoa" or "maestral_qt", check if the installed
+        # version fulfills requirements in maestral's gui extra.
+        requirement_names = requires("maestral")
+        if requirement_names is not None:
+            for name in requirement_names:
+                r = Requirement(name)
+                if r.marker and r.marker.evaluate({"extra": "gui"}):
+                    version_str = version(r.name)
+                    if not r.specifier.contains(Version(version_str), prereleases=True):
+                        raise CliException(
+                            f"{r.name}{r.specifier} required but you have {version_str}"
+                        )
+
+    # Run the GUI.
+    run = entry_point.load()
     run(config_name)
 
 
@@ -325,7 +319,7 @@ def resume(m: Maestral) -> None:
 
 
 @click.group(help="Link, unlink and view the Dropbox account.")
-def auth():
+def auth() -> None:
     pass
 
 
@@ -337,11 +331,26 @@ def auth():
     default=False,
     help="Relink to the existing account. Keeps the sync state.",
 )
+@click.option(
+    "--refresh-token",
+    hidden=True,
+    help="Refresh token to bypass OAuth exchange.",
+)
+@click.option(
+    "--access-token",
+    hidden=True,
+    help="Access token to bypass OAuth exchange.",
+)
 @inject_proxy(fallback=True, existing_config=False)
 @convert_api_errors
-def auth_link(m: Maestral, relink: bool) -> None:
+def auth_link(
+    m: Maestral, relink: bool, refresh_token: str | None, access_token: str | None
+) -> None:
     if m.pending_link or relink:
-        link_dialog(m)
+        if refresh_token or access_token:
+            m.link(refresh_token=refresh_token, access_token=access_token)
+        else:
+            link_dialog(m)
     else:
         echo(
             "Maestral is already linked. Use '-r' to relink to the same "
@@ -397,11 +406,13 @@ def auth_status(config_name: str) -> None:
 
 
 @click.group(help="Create and manage shared links.")
-def sharelink():
+def sharelink() -> None:
     pass
 
 
-@sharelink.command(name="create", help="Create a shared link for a file or folder.")
+@sharelink.command(
+    name="create", help="Create a shared link for a file or folder. Return the URL."
+)
 @click.argument("dropbox_path", type=DropboxPath())
 @click.option(
     "-p",
@@ -437,38 +448,48 @@ def sharelink_revoke(m: Maestral, url: str) -> None:
 
 
 @sharelink.command(
-    name="list", help="List shared links for a path or all shared links."
+    name="list", help="List shared links for given paths or all shared links."
 )
-@click.argument("dropbox_path", required=False, type=DropboxPath())
+@click.argument("dropbox_path", nargs=-1, type=DropboxPath())
+@click.option(
+    "-l",
+    "--long",
+    is_flag=True,
+    default=False,
+    help="Show output in long format with metadata.",
+)
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def sharelink_list(m: Maestral, dropbox_path: str | None) -> None:
-    links = m.list_shared_links(dropbox_path)
-    link_table = Table(["URL", "Item", "Access", "Expires"])
+def sharelink_list(m: Maestral, dropbox_path: list[str], long: bool) -> None:
+    links: list[SharedLinkMetadata]
 
-    for link in links:
+    if len(dropbox_path) > 0:
+        links = []
+        for dbx_path in dropbox_path:
+            links.extend(m.list_shared_links(dbx_path))
+    else:
+        links = m.list_shared_links()
 
-        dt_field: Field
+    if long:
+        link_table = rich_table("URL", "Item", "Access", "Expires")
 
-        if link.expires:
-            dt_field = DateField(link.expires)
-        else:
-            dt_field = TextField("-")
+        for link in links:
+            dt_field: ConsoleRenderable | str
 
-        if link.link_permissions.require_password:
-            access = "password"
-        else:
-            access = link.link_permissions.effective_audience.value
+            if link.expires:
+                dt_field = RichDateField(link.expires)
+            else:
+                dt_field = "-"
 
-        link_table.append(
-            [
-                link.url,
-                link.name,
-                access,
-                dt_field,
-            ]
-        )
+            if link.link_permissions.require_password:
+                access = "password"
+            else:
+                access = link.link_permissions.effective_audience.value
 
-    echo("")
-    link_table.echo()
-    echo("")
+            link_table.add_row(link.url, link.name, access, dt_field)
+
+        console = Console()
+        console.print(link_table)
+
+    else:
+        echo("\n".join(link.url for link in links))

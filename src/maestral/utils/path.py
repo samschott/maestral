@@ -9,20 +9,23 @@ import errno
 import shutil
 import itertools
 import unicodedata
+import fcntl
+import platform
 from stat import S_ISDIR
 from typing import List, Optional, Tuple, Callable, Iterator, Iterable, Union
 
 # local imports
 from .hashing import DropboxContentHasher
 
+F_GETPATH = 50
+
 
 def _path_components(path: str) -> List[str]:
     components = path.strip(osp.sep).split(osp.sep)
-    cleaned_components = [c for c in components if c]
-    return cleaned_components
+    return [c for c in components if c]
 
 
-Path = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
+_AnyPath = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
 
 # ==== path relationships ==============================================================
 
@@ -36,7 +39,6 @@ def is_child(path: str, parent: str) -> bool:
     :param parent: Parent path.
     :returns: Whether ``path`` semantically lies inside ``parent``.
     """
-
     parent = parent.rstrip(osp.sep) + osp.sep
     path = path.rstrip(osp.sep)
 
@@ -53,7 +55,6 @@ def is_equal_or_child(path: str, parent: str) -> bool:
     :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
         ``path == parent``.
     """
-
     return is_child(path, parent) or path == parent
 
 
@@ -114,7 +115,6 @@ def is_fs_case_sensitive(path: str) -> bool:
     :param path: Path to check.
     :returns: Whether ``path`` lies on a partition with a case-sensitive file system.
     """
-
     if path == osp.pathsep:
         raise ValueError(f"Cannot check '{osp.pathsep}'")
 
@@ -129,18 +129,15 @@ def is_fs_case_sensitive(path: str) -> bool:
         return not osp.samefile(path, check_path)
 
 
-def equivalent_path_candidates(
+def get_existing_equivalent_paths(
     path: str,
     root: str = osp.sep,
-    norm_func: Callable = normalize,
+    norm_func: Callable[[str], str] = normalize,
 ) -> List[str]:
     """
     Given a "normalized" path using an injective (one-directional) normalization
-    function, this method returns a list of matching un-normalized local paths.
-
-    If no such local path exists, the normalized path itself is returned. If a local
-    path can be followed up to a certain parent in the hierarchy, it will be taken and
-    the remaining normalized path will be appended.
+    function, this method returns a list of matching un-normalized local paths. If no
+    such local paths exist, list will be empty.
 
     :Example:
 
@@ -152,9 +149,8 @@ def equivalent_path_candidates(
     :param root: Parent directory to search in. There are significant performance
         improvements if a root directory with a small tree is given.
     :param norm_func: Normalization function to use. Defaults to :func:`normalize`.
-    :returns: Candidates for correctly cased local paths.
+    :returns: List of existing paths for which `normalized(local_path) == normalized(path)`.
     """
-
     path = path.lstrip(osp.sep)
 
     if path == "":
@@ -163,10 +159,9 @@ def equivalent_path_candidates(
     components = _path_components(path)
     n_components_root = len(_path_components(root))
 
-    candidates = {-1: [root]}
+    potential_candidates = {-1: [root]}
 
     for root, dirs, files in os.walk(root):
-
         n_components_current_root = len(_path_components(root))
         depth = n_components_current_root - n_components_root
 
@@ -176,72 +171,78 @@ def equivalent_path_candidates(
         dirs.clear()
         files.clear()
 
+        # If current path is too deep to be match, skip it.
         if depth >= len(components):
-            # Current path is too deep to be match, skip it.
             continue
 
-        dirname_normalized = norm_func(components[depth])
+        component_normalized = norm_func(components[depth])
 
         for dirname in all_dirs:
-            if norm_func(dirname) == dirname_normalized:
+            if norm_func(dirname) == component_normalized:
                 dirs.append(dirname)
 
+        # Only check files if we are at the end of the path.
         if depth + 1 == len(components):
-            # Any matching entries must be direct children of root: check files.
             for filename in all_files:
-                if norm_func(filename) == dirname_normalized:
+                if norm_func(filename) == component_normalized:
                     files.append(filename)
 
         new_candidates = [osp.join(root, name) for name in itertools.chain(dirs, files)]
 
         if new_candidates:
-            candidates[depth] = candidates.get(depth, []) + new_candidates
+            potential_candidates[depth] = (
+                potential_candidates.get(depth, []) + new_candidates
+            )
 
-    i_max = max(candidates.keys())
-    best_candidates = candidates[i_max]
-    local_paths = [osp.join(path, *components[i_max + 1 :]) for path in best_candidates]
+    i_max = max(potential_candidates.keys())
 
-    return local_paths
-
-
-def denormalize_path(path: str, root: str = osp.sep) -> str:
-    """
-    Returns a denormalized version of the given path as far as corresponding nodes with
-    the same normalization exist in the given root directory. If multiple matches are
-    found, only one is returned. If ``path`` does not exist in root ``root`` or ``root``
-    does not exist, the return value will be ``os.path.join(root, path)``.
-
-    :param path: Original path relative to ``root``.
-    :param root: Parent directory to search in. There are significant performance
-        improvements if a root directory with a small tree is given.
-    :returns: Absolute and cased version of given path.
-    """
-
-    candidates = equivalent_path_candidates(path, root)
-    return candidates[0]
+    if i_max + 1 == len(components):
+        return potential_candidates[i_max]
+    return []
 
 
-def to_existing_unnormalized_path(path: str, root: str = osp.sep) -> str:
+def _macos_get_canonically_cased_path(path: str) -> str:
+    # Use fcntl to get FS path, there can only be one.
+    fd = open(path, "a", opener=opener_no_symlink)
+    fs_path = fcntl.fcntl(fd.fileno(), F_GETPATH, b"\x00" * 1024)
+    return os.fsdecode(fs_path.strip(b"\x00"))
+
+
+def to_existing_unnormalized_path(
+    path: str, root: str = osp.sep, norm_func: Callable[[str], str] = normalize
+) -> str:
     """
     Returns a cased version of the given path if corresponding nodes (with arbitrary
     casing) exist in the given root directory. If multiple matches are found, only one
     is returned.
 
+    This is similar to :func:`get_existing_equivalent_paths` but returns only the first
+    candidate or raises a :class:`FileNotFoundError` if no candidates can be found.
+
+    On macOS, we use fcntl F_GETPATH for a more efficient implementation.
+
     :param path: Original path relative to ``root``.
     :param root: Parent directory to search in. There are significant performance
         improvements if a root directory with a small tree is given.
+    :param norm_func: Normalization function to use. Defaults to :func:`normalize`.
     :returns: Absolute and cased version of given path.
     :raises FileNotFoundError: if ``path`` does not exist in root ``root`` or ``root``
         itself does not exist.
     """
+    if platform.system() == "Darwin" and norm_func is normalize:
+        try:
+            return _macos_get_canonically_cased_path(path)
+        except FileNotFoundError:
+            raise
+        except OSError:
+            # Fall back to cross-platform method.
+            pass
 
-    candidates = equivalent_path_candidates(path, root)
+    candidates = get_existing_equivalent_paths(path, root)
 
-    for candidate in candidates:
-        if exists(candidate):
-            return candidate
-
-    raise FileNotFoundError(f'No matches with different casing found in "{root}"')
+    if len(candidates) == 0:
+        raise FileNotFoundError(f'No matches with different casing found in "{root}"')
+    return candidates[0]
 
 
 def normalized_path_exists(path: str, root: str = osp.sep) -> bool:
@@ -255,8 +256,7 @@ def normalized_path_exists(path: str, root: str = osp.sep) -> bool:
         performance improvements if a root directory with a small tree is given.
     :returns: Whether an arbitrarily cased version of ``path`` exists.
     """
-
-    candidates = equivalent_path_candidates(path, root)
+    candidates = get_existing_equivalent_paths(path, root)
 
     for c in candidates:
         if exists(c):
@@ -281,7 +281,6 @@ def generate_cc_name(path: str, suffix: str = "conflicting copy") -> str:
     :param suffix: Suffix to use. Defaults to "conflicting copy".
     :returns: New path.
     """
-
     dirname, basename = osp.split(path)
     filename, ext = osp.splitext(basename)
 
@@ -298,21 +297,34 @@ def generate_cc_name(path: str, suffix: str = "conflicting copy") -> str:
 # ==== higher level file operations ====================================================
 
 
-def delete(path: str, raise_error: bool = False) -> Optional[OSError]:
+def delete(
+    path: str, force_case_sensitive: bool = False, raise_error: bool = False
+) -> Optional[OSError]:
     """
     Deletes a file or folder at ``path``. Symlinks will not be followed.
 
     :param path: Path of item to delete.
+    :param force_case_sensitive: Whether to perform the deletion only if the item
+        appears with the same casing as provided in `path`. This can be used on
+        case-insensitive but preserving file systems to ensure that the intended item is
+        deleted.
     :param raise_error: Whether to raise errors or return them.
     :returns: Any caught exception during the deletion.
     """
-    err = None
+    err: Optional[OSError] = None
+
+    if force_case_sensitive and path != to_existing_unnormalized_path(path):
+        err = FileNotFoundError(f"No such file '{path}'")
+        if raise_error:
+            raise err
+        else:
+            return err
 
     try:
         shutil.rmtree(path)  # Will raise OSError when it finds a symlink.
     except OSError:
         try:
-            os.unlink(path)
+            os.unlink(path)  # Does not follow symlinks.
         except OSError as e:
             err = e
 
@@ -326,7 +338,7 @@ def move(
     src_path: str,
     dest_path: str,
     raise_error: bool = False,
-    preserve_dest_permissions=False,
+    preserve_dest_permissions: bool = False,
 ) -> Optional[OSError]:
     """
     Moves a file or folder from ``src_path`` to ``dest_path``. If either the source or
@@ -342,14 +354,13 @@ def move(
         path to the destination path. Permissions will not be set recursively.
     :returns: Any caught exception during the move.
     """
-
     err: Optional[OSError] = None
     orig_mode: Optional[int] = None
 
     if preserve_dest_permissions:
         # save dest permissions
         try:
-            orig_mode = os.stat(dest_path, follow_symlinks=False).st_mode & 0o777
+            orig_mode = os.lstat(dest_path).st_mode & 0o777
         except FileNotFoundError:
             pass
 
@@ -364,7 +375,7 @@ def move(
         if orig_mode:
             # reapply dest permissions
             try:
-                os.chmod(dest_path, orig_mode)
+                os.chmod(dest_path, orig_mode, follow_symlinks=False)
             except OSError:
                 pass
 
@@ -375,10 +386,8 @@ def move(
 
 
 def walk(
-    root: Union[str, os.PathLike],
-    listdir: Callable[
-        [Union[str, "os.PathLike[str]"]], Iterable[os.DirEntry]
-    ] = os.scandir,
+    root: str,
+    listdir: Callable[[str], Iterable["os.DirEntry[str]"]] = os.scandir,
 ) -> Iterator[Tuple[str, os.stat_result]]:
     """
     Iterates recursively over the content of a folder.
@@ -387,9 +396,7 @@ def walk(
     :param listdir: Function to call to get the folder content.
     :returns: Iterator over (path, stat) results.
     """
-
     for entry in listdir(root):
-
         try:
             path = entry.path
             stat = entry.stat(follow_symlinks=False)
@@ -397,7 +404,7 @@ def walk(
             yield path, stat
 
             if S_ISDIR(stat.st_mode):
-                yield from walk(entry.path, listdir=listdir)
+                yield from walk(entry.path, listdir)
 
         except OSError as exc:
             # Directory may have been deleted between finding it in the directory
@@ -425,11 +432,10 @@ def content_hash(
     :returns: Content hash to compare with Dropbox's content hash and mtime just before
         the hash was computed.
     """
-
     hasher = DropboxContentHasher()
 
     try:
-        mtime = os.stat(local_path, follow_symlinks=False).st_mtime
+        mtime = os.lstat(local_path).st_mtime
 
         try:
             with open(local_path, "rb", opener=opener_no_symlink) as f:
@@ -468,7 +474,6 @@ def fs_max_lengths_for_path(path: str = "/") -> Tuple[int, int]:
         existing parent directory in the tree be taken.
     :returns: Tuple giving the maximum file name and total path lengths.
     """
-
     path = osp.abspath(path)
     dirname = osp.dirname(path)
 
@@ -491,7 +496,7 @@ def fs_max_lengths_for_path(path: str = "/") -> Tuple[int, int]:
 # ==== symlink-proof os methods ========================================================
 
 
-def opener_no_symlink(path: Path, flags: int) -> int:
+def opener_no_symlink(path: _AnyPath, flags: int) -> int:
     """
     Opener that does not follow symlinks. Uses :meth:`os.open` under the hood.
 
@@ -503,19 +508,19 @@ def opener_no_symlink(path: Path, flags: int) -> int:
     return os.open(path, flags=flags)
 
 
-def _get_stats_no_symlink(path: Path) -> Optional[os.stat_result]:
+def _get_stats_no_symlink(path: _AnyPath) -> Optional[os.stat_result]:
     try:
-        return os.stat(path, follow_symlinks=False)
+        return os.lstat(path)
     except (FileNotFoundError, NotADirectoryError):
         return None
 
 
-def exists(path: Path) -> bool:
+def exists(path: _AnyPath) -> bool:
     """Returns whether an item exists at the path. Returns True for symlinks."""
     return _get_stats_no_symlink(path) is not None
 
 
-def isfile(path: Path) -> bool:
+def isfile(path: _AnyPath) -> bool:
     """Returns whether a file exists at the path. Returns True for symlinks."""
     stat = _get_stats_no_symlink(path)
 
@@ -525,7 +530,7 @@ def isfile(path: Path) -> bool:
         return not S_ISDIR(stat.st_mode)
 
 
-def isdir(path: Path) -> bool:
+def isdir(path: _AnyPath) -> bool:
     """Returns whether a folder exists at the path. Returns False for symlinks."""
     stat = _get_stats_no_symlink(path)
 
@@ -535,10 +540,9 @@ def isdir(path: Path) -> bool:
         return S_ISDIR(stat.st_mode)
 
 
-def getsize(path: Path) -> int:
+def getsize(path: _AnyPath) -> int:
     """Returns the size. Returns False for symlinks."""
-    stat = os.stat(path, follow_symlinks=False)
-    return stat.st_size
+    return os.lstat(path).st_size
 
 
 def get_symlink_target(local_path: str) -> Optional[str]:
@@ -549,7 +553,6 @@ def get_symlink_target(local_path: str) -> Optional[str]:
     :returns: Symlink target of local file. None if the local path does not refer to
         a symlink or does not exist.
     """
-
     try:
         return os.readlink(local_path)
     except (FileNotFoundError, NotADirectoryError):

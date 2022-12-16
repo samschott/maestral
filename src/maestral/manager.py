@@ -13,7 +13,8 @@ from functools import wraps
 from queue import Empty, Queue
 from threading import Event, RLock, Thread
 from tempfile import TemporaryDirectory
-from typing import Iterator, cast, TypeVar, Callable, Any, Generic
+from typing import Iterator, TypeVar, Callable, Any, Generic
+from typing_extensions import ParamSpec, Concatenate
 
 # local imports
 from . import __url__
@@ -53,17 +54,17 @@ __all__ = ["SyncManager"]
 DROPBOX_API_HOSTNAME = "https://" + API_HOST
 
 
-FT = TypeVar("FT", bound=Callable[..., Any])
+P = ParamSpec("P")
 T = TypeVar("T")
 
-malloc_trim: Callable
+malloc_trim: Callable[[int], None]
 
 try:
     libc = ctypes.CDLL("libc.so.6")
     malloc_trim = libc.malloc_trim
 except (OSError, AttributeError):
 
-    def malloc_trim(*args):
+    def malloc_trim(pad: int) -> None:
         pass
 
 
@@ -113,7 +114,7 @@ class PersistentQueue(Generic[T]):
 class SyncManager:
     """Class to manage sync threads
 
-    :param client: The Dropbox API client, a wrapper around the Dropbox Python SDK.
+    :param sync: The SyncEngine.
     """
 
     download_queue: PersistentQueue[str]
@@ -147,13 +148,15 @@ class SyncManager:
 
         self.local_observer_thread: Observer | None = None
 
-    def _with_lock(fn: FT) -> FT:  # type: ignore
+    def _with_lock(  # type:ignore[misc]
+        fn: Callable[Concatenate[SyncManager, P], T]
+    ) -> Callable[Concatenate[SyncManager, P], T]:
         @wraps(fn)
-        def wrapper(self, *args, **kwargs):
-            with self._lock:
-                return fn(self, *args, **kwargs)
+        def wrapper(__self: SyncManager, *args: P.args, **kwargs: P.kwargs) -> T:
+            with __self._lock:
+                return fn(__self, *args, **kwargs)
 
-        return cast(FT, wrapper)
+        return wrapper
 
     # ---- config and state ------------------------------------------------------------
 
@@ -199,7 +202,6 @@ class SyncManager:
     @_with_lock
     def start(self) -> None:
         """Creates observer threads and starts syncing."""
-
         if self.running.is_set():
             return
 
@@ -225,7 +227,6 @@ class SyncManager:
         )
 
         if self._conf.get("sync", "download"):
-
             self.download_thread = Thread(
                 target=self.download_worker,
                 daemon=True,
@@ -236,7 +237,6 @@ class SyncManager:
                 ),
                 name="maestral-download",
             )
-
             self.download_thread_added_folder = Thread(
                 target=self.download_worker_added_item,
                 daemon=True,
@@ -252,7 +252,6 @@ class SyncManager:
         enable_download = self._conf.get("sync", "download")
 
         if enable_upload:
-
             self.upload_thread = Thread(
                 target=self.upload_worker,
                 daemon=True,
@@ -286,11 +285,9 @@ class SyncManager:
             self.download_thread_added_folder.start()
 
         self.startup_thread.start()
-
         self._startup_time = time.time()
 
     def _create_observer(self) -> Observer:
-
         local_observer_thread = Observer(timeout=40)
         local_observer_thread.name = "maestral-fsobserver"
         local_observer_thread.schedule(
@@ -306,7 +303,6 @@ class SyncManager:
         except OSError as exc:
 
             if exc.errno in (errno.ENOSPC, errno.EMFILE):
-
                 try:
                     max_user_watches, max_user_instances, _ = get_inotify_limits()
                 except OSError:
@@ -359,7 +355,6 @@ class SyncManager:
     @_with_lock
     def stop(self) -> None:
         """Stops syncing and destroys worker threads."""
-
         if self.running.is_set():
             self._logger.info("Shutting down threads...")
 
@@ -378,12 +373,10 @@ class SyncManager:
 
     def reset_sync_state(self) -> None:
         """Resets all saved sync state. Settings are not affected."""
-
         if self.running.is_set():
             raise MaestralApiError(
                 "Cannot reset sync state while syncing", "Please try again when idle."
             )
-
         self.sync.reset_sync_state()
 
     def rebuild_index(self) -> None:
@@ -395,13 +388,11 @@ class SyncManager:
 
         Rebuilding will be performed asynchronously.
         """
-
         self._logger.info("Rebuilding index...")
 
         was_running = self.running.is_set()
 
         self.stop()
-
         self.reset_sync_state()
 
         if was_running:
@@ -417,13 +408,9 @@ class SyncManager:
 
         :returns: Whether the path root was updated.
         """
-
         if self._needs_path_root_update():
-
             was_running = self.running.is_set()
-
             self.stop()
-
             self._update_path_root()
 
             if was_running:
@@ -442,7 +429,6 @@ class SyncManager:
 
         :returns: Whether the configured root namespace needs to be updated.
         """
-
         self._logger.debug("Checking path root...")
 
         account_info = self.sync.client.get_account_info()
@@ -453,7 +439,6 @@ class SyncManager:
         Changes the layout of the local Dropbox folder if the user joins or leaves a
         team. New team folders will be downloaded, old team folders will be removed.
         """
-
         current_root_type = self._state.get("account", "path_root_type")
         current_user_home_path = self._state.get("account", "home_path")
         current_user_home_path_lower = normalize(current_user_home_path)
@@ -494,13 +479,9 @@ class SyncManager:
             raise NoDropboxDirError(title, msg)
 
         with self.sync.sync_lock:
-
             if new_root_type == "team" and current_root_type == "user":
-
                 # User joined a team.
-
                 self._logger.info("User joined %s. Resyncing user files.", team_name)
-
                 self.sync.desktop_notifier.notify(
                     f"Joined {team_name}",
                     "Migrating user files and downloading team folders",
@@ -510,7 +491,6 @@ class SyncManager:
                 # by creating a temporary folder and renaming it after moving all
                 # personal items to prevent name conflicts where a folder has the same
                 # name as `root_info.home_path`.
-
                 tmpdir = TemporaryDirectory(dir=self.sync.dropbox_path)
 
                 for entry in local_dropbox_dirlist:
@@ -532,11 +512,8 @@ class SyncManager:
                 self.sync.excluded_items = new_excluded
 
             elif new_root_type == "user" and current_root_type == "team":
-
                 # User left a team.
-
                 self._logger.info("User left team. Updating folder layout.")
-
                 self.sync.desktop_notifier.notify(
                     "Left Dropbox Team",
                     "Migrating user files and removing team folders",
@@ -584,11 +561,8 @@ class SyncManager:
                 self.sync.excluded_items = new_excluded
 
             elif new_root_type == "team" and current_root_type == "team":
-
                 # User switched between different teams.
-
                 self._logger.info("User switched teams. Updating team folders.")
-
                 self.sync.desktop_notifier.notify(
                     f"Switched teams to {team_name}", "Updating team folders"
                 )
@@ -624,9 +598,7 @@ class SyncManager:
         is lost and resumes syncing when reconnected and syncing has not been paused by
         the user.
         """
-
         while self._connection_helper_running:
-
             connected = check_connection(DROPBOX_API_HOSTNAME)
 
             if connected != self.connected:
@@ -654,15 +626,11 @@ class SyncManager:
         :param startup_completed: Set when startup sync is completed.
         :param autostart: Set when syncing should automatically resume on connection.
         """
-
         startup_completed.wait()
 
         while running.is_set():
-
             with self._handle_sync_thread_errors(running, autostart):
-
                 with self.sync.client.clone_with_new_session() as client:
-
                     has_changes = self.sync.wait_for_remote_changes(
                         self.sync.remote_cursor, client=client
                     )
@@ -699,13 +667,10 @@ class SyncManager:
         :param startup_completed: Set when startup sync is completed.
         :param autostart: Set when syncing should automatically resume on connection.
         """
-
         startup_completed.wait()
 
         while running.is_set():
-
             with self._handle_sync_thread_errors(running, autostart):
-
                 try:
                     dbx_path_lower = self.download_queue.get(timeout=40)
                 except Empty:
@@ -716,12 +681,10 @@ class SyncManager:
                         return
 
                     with self.sync.sync_lock:
-
                         with self.sync.client.clone_with_new_session() as client:
                             self.sync.get_remote_item(dbx_path_lower, client)
 
                         self.download_queue.task_done(dbx_path_lower)
-
                         self._logger.info(IDLE)
 
         _free_memory()
@@ -739,13 +702,10 @@ class SyncManager:
         :param startup_completed: Set when startup sync is completed.
         :param autostart: Set when syncing should automatically resume on connection.
         """
-
         startup_completed.wait()
 
         while running.is_set():
-
             with self._handle_sync_thread_errors(running, autostart):
-
                 has_changes = self.sync.wait_for_local_changes()
 
                 if not running.is_set():
@@ -773,7 +733,6 @@ class SyncManager:
         :param startup_completed: Set when startup sync is completed.
         :param autostart: Set when syncing should automatically resume on connection.
         """
-
         with self._handle_sync_thread_errors(running, autostart):
 
             # Fail early if Dropbox folder disappeared.
@@ -834,7 +793,6 @@ class SyncManager:
     def _handle_sync_thread_errors(
         self, running: Event, autostart: Event
     ) -> Iterator[None]:
-
         try:
             yield
         except CancelledError:
@@ -856,7 +814,7 @@ class SyncManager:
             self.sync.desktop_notifier.notify(title, message, level=notify.ERROR)
             self.stop()
 
-    def __del__(self):
+    def __del__(self) -> None:
         try:
             self.stop()
             self._connection_helper_running = False

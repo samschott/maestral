@@ -7,7 +7,7 @@ import hashlib
 
 from typing import BinaryIO, Union
 
-WritableBuffer = Union[bytes, bytearray]
+_WritableBuffer = Union[bytes, bytearray]
 
 
 class DropboxContentHasher:
@@ -41,18 +41,20 @@ class DropboxContentHasher:
     def __init__(self) -> None:
         self._overall_hasher = hashlib.sha256()
         self._block_hasher = hashlib.sha256()
+        self._digested = False
         self._block_pos = 0
 
         self.digest_size = self._overall_hasher.digest_size
 
-    def update(self, new_data: WritableBuffer) -> None:
-        if self._overall_hasher is None:
+    def _reuse_guard(self) -> None:
+        if self._digested:
             raise RuntimeError(
-                "can't use this object anymore; you already called digest()"
+                "Can't use this object anymore; "
+                "you already called digest() or hexdigest()"
             )
 
-        if not isinstance(new_data, (bytes, bytearray)):
-            raise ValueError(f"Expecting a byte string, got {new_data!r}")
+    def update(self, new_data: bytes | bytearray) -> None:
+        self._reuse_guard()
 
         new_data_pos = 0
         while new_data_pos < len(new_data):
@@ -68,19 +70,13 @@ class DropboxContentHasher:
             self._block_pos += len(part)
             new_data_pos += len(part)
 
-    def _finish(self):
-        if self._overall_hasher is None:
-            raise RuntimeError(
-                "Can't use this object anymore; "
-                "you already called digest() or hexdigest()"
-            )
+    def _finish(self) -> "hashlib._Hash":
+        self._reuse_guard()
+        self._digested = True
 
         if self._block_pos > 0:
             self._overall_hasher.update(self._block_hasher.digest())
-            self._block_hasher = None
-        h = self._overall_hasher
-        self._overall_hasher = None  # Make sure we can't use this object anymore.
-        return h
+        return self._overall_hasher
 
     def digest(self) -> bytes:
         return self._finish().digest()
@@ -89,6 +85,7 @@ class DropboxContentHasher:
         return self._finish().hexdigest()
 
     def copy(self) -> DropboxContentHasher:
+        self._reuse_guard()
         c = DropboxContentHasher.__new__(DropboxContentHasher)
         c._overall_hasher = self._overall_hasher.copy()
         c._block_hasher = self._block_hasher.copy()
@@ -115,7 +112,7 @@ class StreamHasher:
     :param hasher: Hasher to use. Must implement an ``update`` method.
     """
 
-    def __init__(self, f: BinaryIO, hasher) -> None:
+    def __init__(self, f: BinaryIO, hasher: DropboxContentHasher) -> None:
         self._f = f
         self._hasher = hasher
 
@@ -136,7 +133,7 @@ class StreamHasher:
         self._hasher.update(b)
         return b
 
-    def write(self, b: WritableBuffer) -> int:
+    def write(self, b: _WritableBuffer) -> int:
         self._hasher.update(b)
         return self._f.write(b)
 

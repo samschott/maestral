@@ -24,6 +24,7 @@ import plistlib
 import configparser
 from pathlib import Path
 from enum import Enum
+from typing import Any
 
 try:
     from importlib.metadata import files, PackageNotFoundError
@@ -144,8 +145,7 @@ class AutoStartLaunchd(AutoStartBase):
         booleans, lists or dictionaries.
     """
 
-    def __init__(self, bundle_id: str, start_cmd: str, **kwargs) -> None:
-
+    def __init__(self, bundle_id: str, start_cmd: str, **kwargs: Any) -> None:
         super().__init__()
         filename = bundle_id + ".plist"
 
@@ -219,9 +219,7 @@ class AutoStartXDGDesktop(AutoStartBase):
         self.destination = get_conf_path("autostart", filename)
 
     def enable(self) -> None:
-
         try:
-
             with open(self.destination, "w") as f:
                 self.config.write(f, space_around_delimiters=False)
 
@@ -247,7 +245,6 @@ class AutoStartXDGDesktop(AutoStartBase):
 
 def get_available_implementation() -> SupportedImplementations | None:
     """Returns the supported implementation depending on the platform."""
-
     system = platform.system()
 
     if system == "Darwin":
@@ -266,14 +263,13 @@ def get_maestral_command_path() -> str:
     Returns the path to the maestral executable. May be an empty string if the
     executable cannot be found.
     """
-
     try:
         dist_files = files("maestral")
     except PackageNotFoundError:
         # we may have had installation issues
         dist_files = []
 
-    path: os.PathLike | None
+    path: os.PathLike[str] | None
 
     if dist_files:
         try:
@@ -307,7 +303,6 @@ class AutoStart:
     _impl: AutoStartBase
 
     def __init__(self, config_name: str) -> None:
-
         self.maestral_path = get_maestral_command_path()
         self.implementation = get_available_implementation()
 
@@ -364,7 +359,6 @@ class AutoStart:
 
     def enable(self) -> None:
         """Enable autostart."""
-
         if self.enabled:
             return
 
@@ -375,7 +369,6 @@ class AutoStart:
 
     def disable(self) -> None:
         """Disable autostart."""
-
         if not self.enabled:
             return
 

@@ -51,7 +51,7 @@ def autostart(yes: bool, no: bool, config_name: str) -> None:
 
 
 @click.group(help="View and manage excluded folders.")
-def excluded():
+def excluded() -> None:
     pass
 
 
@@ -105,7 +105,7 @@ def excluded_remove(m: Maestral, dropbox_path: str) -> None:
 
 
 @click.group(help="Manage desktop notifications.")
-def notify():
+def notify() -> None:
     pass
 
 
