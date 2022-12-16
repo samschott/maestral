@@ -225,9 +225,13 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
             dt_field: ConsoleRenderable
 
             if isinstance(entry, FileMetadata):
-                size = decimal(entry.size)
                 dt_field = RichDateField(entry.client_modified)
-                item_type = "file"
+                if entry.symlink_target is None:
+                    size = decimal(entry.size)
+                    item_type = "file"
+                else:
+                    size = "-"
+                    item_type = "symlink"
             elif isinstance(entry, FolderMetadata):
                 size = "-"
                 dt_field = Text("-")
