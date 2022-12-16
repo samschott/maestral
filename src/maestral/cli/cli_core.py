@@ -439,12 +439,13 @@ def sharelink_create(
 
 
 @sharelink.command(name="revoke", help="Revoke a shared link.")
-@click.argument("url")
+@click.argument("url", nargs=-1, required=True)
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def sharelink_revoke(m: Maestral, url: str) -> None:
-    m.revoke_shared_link(url)
-    ok("Revoked shared link.")
+def sharelink_revoke(m: Maestral, url: list[str]) -> None:
+    for u in url:
+        m.revoke_shared_link(u)
+        ok(f"Revoked shared link {u}")
 
 
 @sharelink.command(
