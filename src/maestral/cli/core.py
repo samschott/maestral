@@ -49,13 +49,10 @@ class DropboxPath(click.ParamType):
         param: click.Parameter | None,
         ctx: click.Context | None,
     ) -> str | None:
-
         if value is None:
             return value
-
         if not value.startswith("/"):
             value = "/" + value
-
         return value
 
     def shell_complete(
