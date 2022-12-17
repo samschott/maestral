@@ -622,7 +622,9 @@ class Maestral:
         self._check_linked()
         return list(self.manager.activity.values())[:limit]
 
-    def get_history(self, dbx_path: str | None = None, limit: int | None = 100) -> list[SyncEvent]:
+    def get_history(
+        self, dbx_path: str | None = None, limit: int | None = 100
+    ) -> list[SyncEvent]:
         """
         Returns the historic upload / download activity. Up to 1,000 sync events are
         kept in the database. Any events which occurred before the interval specified by
@@ -636,10 +638,8 @@ class Maestral:
         :raises NotLinkedError: if no Dropbox account is linked.
         """
         self._check_linked()
-        if limit:
-            return self.sync.history[-limit:]
-        else:
-            return self.sync.history
+        events = self.sync.get_history(dbx_path=dbx_path)
+        return events[-limit:] if limit else events
 
     def get_account_info(self) -> FullAccount:
         """

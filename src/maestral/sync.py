@@ -123,7 +123,7 @@ from .utils.path import (
 )
 from .database.orm import Manager
 from .database.core import Database
-from .database.query import PathTreeQuery, MatchQuery, AllQuery, AndQuery
+from .database.query import PathTreeQuery, MatchQuery, AllQuery, AndQuery, OrderedQuery
 from .utils.appdirs import get_data_path
 
 
@@ -636,12 +636,13 @@ class SyncEngine:
         interval specified by the config value ``keep_history`` (defaults to two weeks)
         but at most 1,000 events will be kept."""
         with self._database_access():
-            sort = "ORDER BY IFNULL(change_time, sync_time)"
             if dbx_path is None:
-                sync_events = self._history_table.select_sql(sort)
+                query = AllQuery()
             else:
-                query = f"WHERE dbx_path = ? {sort}"
-                sync_events = self._history_table.select_sql(query, dbx_path)
+                query = MatchQuery(SyncEvent.dbx_path, dbx_path)
+
+            order_expr = "IFNULL(change_time, sync_time)"
+            sync_events = self._history_table.select(query.order_by(order_expr))
             return sync_events
 
     def reset_sync_state(self) -> None:
