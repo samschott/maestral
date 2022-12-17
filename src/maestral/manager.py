@@ -178,13 +178,6 @@ class SyncManager:
         return self.sync.syncing
 
     @property
-    def history(self) -> list[SyncEvent]:
-        """A list of the last SyncEvents in our history. History will be kept for the
-        interval specified by the config value ``keep_history`` (defaults to two weeks)
-        but at most 1,000 events will be kept."""
-        return self.sync.history
-
-    @property
     def idle_time(self) -> float:
         """
         Returns the idle time in seconds since the last file change or since startup if

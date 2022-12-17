@@ -622,12 +622,13 @@ class Maestral:
         self._check_linked()
         return list(self.manager.activity.values())[:limit]
 
-    def get_history(self, limit: int | None = 100) -> list[SyncEvent]:
+    def get_history(self, dbx_path: str | None = None, limit: int | None = 100) -> list[SyncEvent]:
         """
         Returns the historic upload / download activity. Up to 1,000 sync events are
         kept in the database. Any events which occurred before the interval specified by
         the ``keep_history`` config value are discarded.
 
+        :param dbx_path: If given, show sync history for the specified Dropbox path only.
         :param limit: Maximum number of items to return. If None, all entries will be
             returned.
         :returns: A lists of all sync events since ``keep_history`` sorted by time with
@@ -636,9 +637,9 @@ class Maestral:
         """
         self._check_linked()
         if limit:
-            return self.manager.history[-limit:]
+            return self.sync.history[-limit:]
         else:
-            return self.manager.history
+            return self.sync.history
 
     def get_account_info(self) -> FullAccount:
         """

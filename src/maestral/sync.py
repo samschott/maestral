@@ -631,15 +631,17 @@ class SyncEngine:
         full indexing should take place."""
         return self._state.get("sync", "last_reindex")
 
-    @property
-    def history(self) -> list[SyncEvent]:
+    def get_history(self, dbx_path: str | None = None) -> list[SyncEvent]:
         """A list of the last SyncEvents in our history. History will be kept for the
         interval specified by the config value ``keep_history`` (defaults to two weeks)
         but at most 1,000 events will be kept."""
         with self._database_access():
-            sync_events = self._history_table.select_sql(
-                "ORDER BY IFNULL(change_time, sync_time)"
-            )
+            sort = "ORDER BY IFNULL(change_time, sync_time)"
+            if dbx_path is None:
+                sync_events = self._history_table.select_sql(sort)
+            else:
+                query = f"WHERE dbx_path = ? {sort}"
+                sync_events = self._history_table.select_sql(query, dbx_path)
             return sync_events
 
     def reset_sync_state(self) -> None:
