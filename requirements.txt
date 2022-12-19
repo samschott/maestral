@@ -8,7 +8,7 @@ fasteners==0.18
 idna==3.4
 importlib-metadata==5.1.0
 jaraco.classes==3.2.3
-keyring==23.11.0
+keyring==23.13.1
 keyrings.alt==4.2.0
 more-itertools==9.0.0
 packaging==22.0
