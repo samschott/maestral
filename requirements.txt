@@ -6,7 +6,7 @@ desktop-notifier==3.4.2
 dropbox==11.36.0
 fasteners==0.18
 idna==3.4
-importlib-metadata==5.1.0
+importlib-metadata==5.2.0
 jaraco.classes==3.2.3
 keyring==23.11.0
 keyrings.alt==4.2.0
