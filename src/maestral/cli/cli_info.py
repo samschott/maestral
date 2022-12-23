@@ -149,11 +149,13 @@ def activity(m: Maestral) -> None:
         return echo("Maestral daemon is not running.")
 
 
-@click.command(help="Show recently changed or added files.")
+@click.command(help="Show sync history.")
+@click.argument("dropbox_path", type=DropboxPath(), default="/")
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def history(m: Maestral) -> None:
-    events = m.get_history()
+def history(m: Maestral, dropbox_path: str) -> None:
+    dbx_path = None if dropbox_path == "/" else dropbox_path
+    events = m.get_history(dbx_path)
     table = rich_table("Path", "Change", "Location", "Time")
 
     for event in events:
@@ -171,7 +173,7 @@ def history(m: Maestral) -> None:
 
 
 @click.command(help="List contents of a Dropbox directory.")
-@click.argument("dropbox_path", type=DropboxPath(), default="")
+@click.argument("dropbox_path", type=DropboxPath(), default="/")
 @click.option(
     "-l",
     "--long",

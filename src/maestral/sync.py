@@ -123,7 +123,7 @@ from .utils.path import (
 )
 from .database.orm import Manager
 from .database.core import Database
-from .database.query import PathTreeQuery, MatchQuery, AllQuery, AndQuery
+from .database.query import PathTreeQuery, MatchQuery, AllQuery, AndQuery, Query
 from .utils.appdirs import get_data_path
 
 
@@ -631,15 +631,19 @@ class SyncEngine:
         full indexing should take place."""
         return self._state.get("sync", "last_reindex")
 
-    @property
-    def history(self) -> list[SyncEvent]:
+    def get_history(self, dbx_path: str | None = None) -> list[SyncEvent]:
         """A list of the last SyncEvents in our history. History will be kept for the
         interval specified by the config value ``keep_history`` (defaults to two weeks)
         but at most 1,000 events will be kept."""
         with self._database_access():
-            sync_events = self._history_table.select_sql(
-                "ORDER BY IFNULL(change_time, sync_time)"
-            )
+            query: Query
+            if dbx_path is None:
+                query = AllQuery()
+            else:
+                query = MatchQuery(SyncEvent.dbx_path, dbx_path)
+
+            order_expr = "IFNULL(change_time, sync_time)"
+            sync_events = self._history_table.select(query.order_by(order_expr))
             return sync_events
 
     def reset_sync_state(self) -> None:

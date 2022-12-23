@@ -25,6 +25,21 @@ class Query:
         """
         raise NotImplementedError()
 
+    def order_by(self, expr: str) -> OrderedQuery:
+        return OrderedQuery(self, expr)
+
+
+class OrderedQuery(Query):
+    """Ordered query"""
+
+    def __init__(self, query: Query, order_expr: str) -> None:
+        self.base_query = query
+        self.order_expr = order_expr
+
+    def clause(self) -> tuple[str, Sequence[Any]]:
+        query, args = self.base_query.clause()
+        return f"{query} ORDER BY {self.order_expr}", args
+
 
 class PathTreeQuery(Query):
     """
@@ -135,7 +150,7 @@ class OrQuery(CollectionQuery):
 
 
 class NotQuery(Query):
-    """A query that matches the negation of its `subquery`, as a shorcut for
+    """A query that matches the negation of its `subquery`, as a shortcut for
     performing `not(subquery)` without using regular expressions.
 
     :param subquery: Query to negate.
