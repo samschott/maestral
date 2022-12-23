@@ -520,7 +520,6 @@ class SyncManager:
                 # Migrate user folders to local Dropbox root. We do this by renaming the
                 # user home to a temporary name and then moving its contents to the
                 # parent folder.
-
                 old_home_root = self.sync.dropbox_path + current_user_home_path
 
                 tmpdir = TemporaryDirectory(dir=self.sync.dropbox_path)

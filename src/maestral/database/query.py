@@ -150,7 +150,7 @@ class OrQuery(CollectionQuery):
 
 
 class NotQuery(Query):
-    """A query that matches the negation of its `subquery`, as a shorcut for
+    """A query that matches the negation of its `subquery`, as a shortcut for
     performing `not(subquery)` without using regular expressions.
 
     :param subquery: Query to negate.
