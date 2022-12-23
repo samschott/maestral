@@ -142,6 +142,8 @@ __all__ = [
     "SyncDirection",
     "FSEventHandler",
     "SyncEngine",
+    "ActivityNode",
+    "ActivityTree",
 ]
 
 umask = os.umask(0o22)
@@ -411,6 +413,113 @@ class FSEventHandler(FileSystemEventHandler):
             return self.local_file_event_queue.qsize() > 0
 
 
+class ActivityNode:
+    """A node in a sparse tree to represent syncing activity.
+
+    Each node represents an item in the local Dropbox folder. Apart from the root node,
+    items will only be present if they or any of their children have any sync activity.
+
+    :attr children: All children with sync activity. Leaf nodes must represent items
+        that are being uploaded, downloaded, or have a sync error.
+    :attr sync_events: All SyncEvents of this node and its children.
+    """
+
+    __slots__ = ["name", "parent", "children", "sync_events"]
+
+    def __init__(
+        self,
+        name: str,
+        sync_events: Iterable[SyncEvent] = (),
+        parent: ActivityNode | None = None,
+    ) -> None:
+        self.name = name
+        self.parent = parent
+        self.children: dict[str, ActivityNode] = {}
+        self.sync_events = set(sync_events)
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}(name={self.name}, children={self.children}, sync_events={self.sync_events})>"
+
+
+class ActivityTree(ActivityNode):
+    """The root node in a sync activity tree. Represents Dropbox root."""
+
+    def __init__(self) -> None:
+        super().__init__(name="/")
+        self._lock = RLock()
+
+    def add(self, event: SyncEvent) -> None:
+        with self._lock:
+            parts = event.dbx_path.lstrip("/").split("/")
+
+            # Remove any failures at this path.
+            node = self.get_node(event.dbx_path)
+            if node:
+                failed = [e for e in node.sync_events if e.status is SyncStatus.Failed]
+                for fail in failed:
+                    self.remove(fail)
+
+            # Traverse tree and create children as required.
+            # Insert SyncEvent for each parent as we move down.
+            current_node: ActivityNode = self
+            current_node.sync_events.add(event)
+
+            for part in parts:
+                try:
+                    child_node = current_node.children[part]
+                except KeyError:
+                    child_node = ActivityNode(part, parent=current_node)
+                    current_node.children[part] = child_node
+                child_node.sync_events.add(event)
+                current_node = child_node
+
+    def remove(self, event: SyncEvent) -> None:
+        with self._lock:
+            node = self.get_node(event.dbx_path)
+            if not node:
+                raise KeyError(f"No node at path {event.dbx_path}")
+            if event not in node.sync_events:
+                raise KeyError(f"SyncEvent not found at path {event.dbx_path}")
+
+            # Walk tree upwards. Remove nodes if no SyncEvents remain.
+            node.sync_events.remove(event)
+            parent = node.parent
+
+            while parent:
+                # Remove event from parent.
+                parent.sync_events.remove(event)
+                # Remove node from tree if it is empty.
+                if len(node.sync_events) == 0:
+                    parent.children.pop(node.name)
+                # Move up.
+                node = parent
+                parent = node.parent
+
+    def discard(self, event: SyncEvent) -> None:
+        try:
+            self.remove(event)
+        except KeyError:
+            pass
+
+    def has_path(self, dbx_path: str) -> bool:
+        return self.get_node(dbx_path) is not None
+
+    def get_node(self, dbx_path: str) -> ActivityNode | None:
+        if dbx_path == "/":
+            return self
+
+        with self._lock:
+            parts = dbx_path.lstrip("/").split("/")
+            node: ActivityNode = self
+            for part in parts:
+                try:
+                    node = node.children[part]
+                except KeyError:
+                    return None
+
+            return node
+
+
 class SyncEngine:
     """Class that handles syncing with Dropbox
 
@@ -451,7 +560,7 @@ class SyncEngine:
         self._cancel_requested = Event()
 
         # Data structures for user information.
-        self.syncing: dict[str, SyncEvent] = {}
+        self.activity = ActivityTree()
 
         # Initialize SQLite database.
         self._db_path = get_data_path("maestral", f"{self.config_name}.db")
@@ -1760,7 +1869,6 @@ class SyncEngine:
         other: defaultdict[int, list[SyncEvent]] = defaultdict(list)
 
         for event in sync_events:
-
             if self.is_excluded(event.local_path) or self.is_mignore(event):
                 continue
 
@@ -1773,7 +1881,7 @@ class SyncEngine:
                 other[level].append(event)
 
             # Housekeeping.
-            self.syncing[event.local_path] = event
+            self.activity.add(event)
 
         self._logger.debug("Filtered deleted events:\n%s", pf_repr(deleted))
         self._logger.debug("Filtered dir moved events:\n%s", pf_repr(dir_moved))
@@ -2172,8 +2280,7 @@ class SyncEngine:
             event.status = SyncStatus.Failed
         else:
             self.clear_sync_errors_from_event(event)
-        finally:
-            self.syncing.pop(event.local_path, None)
+            self.activity.discard(event)
 
         # Add events to history database.
         if event.status == SyncStatus.Done:
@@ -2723,7 +2830,7 @@ class SyncEngine:
             if event.is_directory:
                 success = self._get_remote_folder(dbx_path, client)
             else:
-                self.syncing[event.local_path] = event
+                self.activity.add(event)
                 e = self._create_local_entry(event)
                 success = e.status in (SyncStatus.Done, SyncStatus.Skipped)
 
@@ -2965,7 +3072,7 @@ class SyncEngine:
                     folders[level].append(event)
 
                 # Housekeeping.
-                self.syncing[event.local_path] = event
+                self.activity.add(event)
 
         self.excluded_items = new_excluded
 
@@ -3352,8 +3459,7 @@ class SyncEngine:
             event.status = SyncStatus.Failed
         else:
             self.clear_sync_errors_from_event(event)
-        finally:
-            self.syncing.pop(event.local_path, None)
+            self.activity.discard(event)
 
         # Add events to history database.
         if event.status == SyncStatus.Done:

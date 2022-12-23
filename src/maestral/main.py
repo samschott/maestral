@@ -46,7 +46,7 @@ from .core import (
 )
 from .sync import SyncDirection, SyncEngine
 from .manager import SyncManager
-from .models import SyncEvent, SyncErrorEntry
+from .models import SyncEvent, SyncErrorEntry, SyncStatus
 from .notify import MaestralDesktopNotifier
 from .exceptions import (
     MaestralApiError,
@@ -581,8 +581,14 @@ class Maestral:
     def get_file_status(self, local_path: str) -> str:
         """
         Returns the sync status of a file or folder. The returned status is recursive
-        for folders, e.g., the file status will be "uploading" for a a folder if any
-        file inside that folder is being uploaded.
+        for folders.
+
+        * "uploading" if any file inside the folder is being uploaded.
+        * "downloading" if any file inside the folder is being downloaded.
+        * "error" if any item inside the folder failed to sync and none are currently
+          being uploaded or downloaded.
+        * "up to date" if all items are successfully synced.
+        * "unwatched" if syncing is paused or for items outside the Dropbox directory.
 
         .. versionadded:: 1.4.4
            Recursive behavior. Previous versions would return "up to date" for a folder,
@@ -591,8 +597,7 @@ class Maestral:
         :param local_path: Path to file on the local drive. May be relative to the
             current working directory.
         :returns: String indicating the sync status. Can be 'uploading', 'downloading',
-            'up to date', 'error', or 'unwatched' (for files outside the Dropbox
-            directory). This will always be 'unwatched' if syncing is paused.
+            'up to date', 'error', or 'unwatched'.
         """
         if not self.running:
             return FileStatus.Unwatched.value
@@ -600,30 +605,34 @@ class Maestral:
         local_path = osp.realpath(local_path)
 
         try:
+            dbx_path = self.sync.to_dbx_path(local_path)
             dbx_path_lower = self.sync.to_dbx_path_lower(local_path)
         except ValueError:
             return FileStatus.Unwatched.value
 
-        sync_event = self.manager.activity.get(local_path)
-
-        if sync_event is None:
-            # Check if there is any sync event for a child path.
-            # TODO: Improve performance
-            path = next(
-                iter(p for p in self.manager.activity if p.startswith(local_path)), ""
-            )
-            sync_event = self.manager.activity.get(path)
-
-        if sync_event and sync_event.direction == SyncDirection.Up:
-            return FileStatus.Uploading.value
-        elif sync_event and sync_event.direction == SyncDirection.Down:
-            return FileStatus.Downloading.value
-        elif len(self.sync.sync_errors_for_path(dbx_path_lower)) > 0:
-            return FileStatus.Error.value
-        elif dbx_path_lower == "/" or self.sync.get_local_rev(dbx_path_lower):
-            return FileStatus.Synced.value
-        else:
+        node = self.sync.activity.get_node(dbx_path)
+        if not node:
+            # Check if the path is in our index. If yes, it is fully synced, otherwise
+            # it is unwatched.
+            if dbx_path_lower == "/" or self.sync.get_local_rev(dbx_path_lower):
+                return FileStatus.Synced.value
             return FileStatus.Unwatched.value
+
+        # Return effective status of item and its children. Syncing items take
+        # precedence over Failed which take precedence over Synced. Note that Up and
+        # Down are mutually exclusive because they are performed in alternating cycles.
+        file_status = FileStatus.Synced
+
+        for event in node.sync_events:
+            if event.status is SyncStatus.Syncing:
+                if event.direction is SyncDirection.Up:
+                    return FileStatus.Uploading.value
+                elif event.direction is SyncDirection.Down:
+                    return FileStatus.Downloading.value
+            elif event.status is SyncStatus.Failed:
+                file_status = FileStatus.Error
+
+        return file_status.value
 
     def get_activity(self, limit: int | None = 100) -> list[SyncEvent]:
         """
@@ -632,11 +641,11 @@ class Maestral:
         :param limit: Maximum number of items to return. If None, all entries will be
             returned.
         :returns: A lists of all sync events currently queued for or being uploaded or
-            downloaded with the events furthest up in the queue coming first.
+            downloaded with the events the furthest up in the queue coming first.
         :raises NotLinkedError: if no Dropbox account is linked.
         """
         self._check_linked()
-        return list(self.manager.activity.values())[:limit]
+        return list(self.sync.activity.sync_events)[:limit]
 
     def get_history(
         self, dbx_path: str | None = None, limit: int | None = 100

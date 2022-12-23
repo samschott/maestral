@@ -17,7 +17,7 @@ from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn, TaskI
 from .output import echo, RichDateField, rich_table
 from .common import convert_api_errors, check_for_fatal_errors, inject_proxy
 from .core import DropboxPath
-from ..models import SyncDirection, SyncEvent
+from ..models import SyncDirection, SyncEvent, SyncStatus
 from ..core import FileMetadata, FolderMetadata, DeletedMetadata
 
 if TYPE_CHECKING:
@@ -130,18 +130,24 @@ def activity(m: Maestral) -> None:
                             progressbar_for_path.pop(key)
 
                     for event in sync_events:
+                        if event.status is SyncStatus.Failed:
+                            info = "! Sync Error"
+                        else:
+                            info = f"{arrow[event.direction]} {event.change_type.name}"
                         try:
                             task_id = progressbar_for_path[_event_key(event)]
                         except KeyError:
                             task_id = progress.add_task(
-                                f"{arrow[event.direction]} {event.change_type.name}",
+                                info,
                                 total=event.size,
                                 completed=event.completed,
                                 filename=os.path.basename(event.dbx_path),
                             )
                             progressbar_for_path[_event_key(event)] = task_id
                         else:
-                            progress.update(task_id, completed=event.completed)
+                            progress.update(
+                                task_id, completed=event.completed, description=info
+                            )
 
                     time.sleep(0.2)
                     progress.refresh()
