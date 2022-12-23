@@ -123,7 +123,7 @@ from .utils.path import (
 )
 from .database.orm import Manager
 from .database.core import Database
-from .database.query import PathTreeQuery, MatchQuery, AllQuery, AndQuery
+from .database.query import PathTreeQuery, MatchQuery, AllQuery, AndQuery, Query
 from .utils.appdirs import get_data_path
 
 
@@ -636,6 +636,7 @@ class SyncEngine:
         interval specified by the config value ``keep_history`` (defaults to two weeks)
         but at most 1,000 events will be kept."""
         with self._database_access():
+            query: Query
             if dbx_path is None:
                 query = AllQuery()
             else:
