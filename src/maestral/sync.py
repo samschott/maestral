@@ -123,7 +123,7 @@ from .utils.path import (
 )
 from .database.orm import Manager
 from .database.core import Database
-from .database.query import PathTreeQuery, MatchQuery, AllQuery, AndQuery, OrderedQuery
+from .database.query import PathTreeQuery, MatchQuery, AllQuery, AndQuery
 from .utils.appdirs import get_data_path
 
 
