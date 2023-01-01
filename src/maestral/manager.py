@@ -21,7 +21,7 @@ from . import __url__
 from . import notify
 from .client import API_HOST
 from .core import TeamRootInfo, UserRootInfo
-from .fsevents import Observer
+from .fsevents import Observer, ObserverType
 from .config import MaestralConfig, MaestralState, PersistentMutableSet
 from .config.user import UserConfig
 from .constants import (
@@ -146,7 +146,7 @@ class SyncManager:
         )
         self.connection_helper.start()
 
-        self.local_observer_thread: Observer | None = None
+        self.local_observer_thread: ObserverType | None = None
 
     def _with_lock(  # type:ignore[misc]
         fn: Callable[Concatenate[SyncManager, P], T]
@@ -280,7 +280,7 @@ class SyncManager:
         self.startup_thread.start()
         self._startup_time = time.time()
 
-    def _create_observer(self) -> Observer:
+    def _create_observer(self) -> ObserverType:
         local_observer_thread = Observer(timeout=40)
         local_observer_thread.name = "maestral-fsobserver"
         local_observer_thread.schedule(
