@@ -418,12 +418,17 @@ class SyncEngine:
     conflict resolution and updates to our index.
 
     :param client: Dropbox API client instance.
+    :param desktop_notifier: Desktop notifier instance to use for user notifications.
     """
 
     _max_history = 1000
     _num_threads = min(64, CPU_COUNT * 4)
 
-    def __init__(self, client: DropboxClient):
+    def __init__(
+        self,
+        client: DropboxClient,
+        desktop_notifier: notify.MaestralDesktopNotifier | None = None,
+    ) -> None:
         self.client = client
         self.config_name = self.client.config_name
         self.fs_events = FSEventHandler()
@@ -440,7 +445,7 @@ class SyncEngine:
         self._state = MaestralState(self.config_name)
         self.reload_cached_config()
 
-        self.desktop_notifier = notify.MaestralDesktopNotifier(self.config_name)
+        self.desktop_notifier = desktop_notifier
 
         # Data structures for internal communication.
         self._cancel_requested = Event()
@@ -1105,7 +1110,10 @@ class SyncEngine:
                     raise exc
 
                 self._logger.error(exc.title, exc_info=exc_info_tuple(exc))
-                self.desktop_notifier.notify(exc.title, exc.message, level=notify.ERROR)
+                if self.desktop_notifier:
+                    self.desktop_notifier.notify(
+                        exc.title, exc.message, level=notify.ERROR
+                    )
 
     def _new_tmp_file(self) -> str:
         """Creates a new temporary file in our cache directory and returns its path."""
@@ -1423,13 +1431,14 @@ class SyncEngine:
                 url_path = urllib.parse.quote(err.dbx_path)
                 click.launch(f"https://www.dropbox.com/preview{url_path}")
 
-        self.desktop_notifier.notify(
-            "Sync error",
-            f"Could not {direction.value}load {printable_file_name}",
-            level=notify.SYNCISSUE,
-            actions={"Show": callback},
-            on_click=callback,
-        )
+        if self.desktop_notifier:
+            self.desktop_notifier.notify(
+                "Sync error",
+                f"Could not {direction.value}load {printable_file_name}",
+                level=notify.SYNCISSUE,
+                actions={"Show": callback},
+                on_click=callback,
+            )
 
         # Save sync errors to retry later.
 
@@ -1495,7 +1504,8 @@ class SyncEngine:
             if raise_error:
                 raise new_exc
             self._logger.error(title, exc_info=exc_info_tuple(new_exc))
-            self.desktop_notifier.notify(title, msg, level=notify.ERROR)
+            if self.desktop_notifier:
+                self.desktop_notifier.notify(title, msg, level=notify.ERROR)
 
     def _clear_caches(self) -> None:
         """
@@ -3082,9 +3092,10 @@ class SyncEngine:
         else:
             msg = f"{file_name} {change_type}"
 
-        self.desktop_notifier.notify(
-            "Items synced", msg, actions=buttons, on_click=callback
-        )
+        if self.desktop_notifier:
+            self.desktop_notifier.notify(
+                "Items synced", msg, actions=buttons, on_click=callback
+            )
 
     def _check_download_conflict(self, event: SyncEvent) -> Conflict:
         """

@@ -407,16 +407,19 @@ def start_maestral_daemon(
 
         # ==== System integration ======================================================
         # Integrate with CFRunLoop in macOS.
+        event_loop_policy: asyncio.AbstractEventLoopPolicy
         if IS_MACOS:
-
             dlogger.debug("Integrating with CFEventLoop")
 
             from rubicon.objc.eventloop import EventLoopPolicy
 
-            asyncio.set_event_loop_policy(EventLoopPolicy())
+            event_loop_policy = EventLoopPolicy()
+
+        else:
+            event_loop_policy = asyncio.get_event_loop_policy()
 
         # Get the default event loop.
-        loop = asyncio.get_event_loop()
+        loop = event_loop_policy.new_event_loop()
 
         # Notify systemd that we have started.
         if NOTIFY_SOCKET:
@@ -429,9 +432,7 @@ def start_maestral_daemon(
         if IS_WATCHDOG and WATCHDOG_USEC:
 
             async def periodic_watchdog() -> None:
-
                 if WATCHDOG_USEC:
-
                     sleep = int(WATCHDOG_USEC)
                     while True:
                         sd_notifier.notify("WATCHDOG=1")
@@ -454,10 +455,15 @@ def start_maestral_daemon(
             pass
 
         # Expose maestral as Pyro server.
-
         dlogger.debug("Creating Pyro daemon")
 
-        maestral_daemon = expose(Maestral)(config_name, log_to_stderr=log_to_stderr)
+        shutdown_future = loop.create_future()
+        maestral_daemon = expose(Maestral)(
+            config_name,
+            log_to_stderr=log_to_stderr,
+            event_loop=loop,
+            shutdown_future=shutdown_future,
+        )
 
         dlogger.debug("Starting event loop")
 
@@ -477,7 +483,7 @@ def start_maestral_daemon(
             for s in signals:
                 loop.add_signal_handler(s, maestral_daemon.shutdown_daemon)
 
-            loop.run_until_complete(maestral_daemon.shutdown_complete)
+            loop.run_until_complete(shutdown_future)
 
             for socket in daemon.sockets:
                 loop.remove_reader(socket.fileno())
