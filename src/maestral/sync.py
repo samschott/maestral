@@ -631,10 +631,12 @@ class SyncEngine:
         """The time stamp of the last file change or 0.0 if there are no file changes in
         our history."""
         with self._database_access():
-            res = self._db.execute("SELECT MAX(last_sync) FROM 'index'").fetchone()
-            if res:
-                return res["MAX(sync_time)"] or 0.0
-            else:
+            row = self._db.execute("SELECT MAX(last_sync) FROM 'index'").fetchone()
+            if not row:
+                return 0.0
+            try:
+                return row[0] or 0.0
+            except IndexError:
                 return 0.0
 
     @property

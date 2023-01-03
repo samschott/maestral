@@ -190,7 +190,6 @@ class SyncManager:
         Returns the idle time in seconds since the last file change or since startup if
         there haven't been any changes in our current session.
         """
-
         now = time.time()
         time_since_startup = now - self._startup_time
         time_since_last_sync = now - self.sync.last_change
