@@ -16,8 +16,8 @@ import tempfile
 import mimetypes
 import difflib
 import logging
-from concurrent.futures import ThreadPoolExecutor
-from typing import Iterator, Awaitable, Any, Sequence
+from asyncio import AbstractEventLoop, Future
+from typing import Iterator, Any, Sequence
 
 # external imports
 import requests
@@ -47,6 +47,7 @@ from .core import (
 from .sync import SyncDirection, SyncEngine
 from .manager import SyncManager
 from .models import SyncEvent, SyncErrorEntry
+from .notify import MaestralDesktopNotifier
 from .exceptions import (
     MaestralApiError,
     NotLinkedError,
@@ -75,7 +76,6 @@ from .utils.path import (
     delete,
 )
 from .utils.appdirs import get_cache_path, get_data_path
-from .utils.integration import get_ac_state, ACState
 from .database.core import Database
 from .constants import IDLE, PAUSED, CONNECTING, GITHUB_RELEASES_API, FileStatus
 
@@ -137,6 +137,12 @@ class Maestral:
     :param log_to_stderr: If ``True``, Maestral will print log messages to stderr.
         When started as a systemd services, this can result in duplicate log messages
         in the systemd journal. Defaults to ``False``.
+    :param event_loop: Event loop to use for any features that require an asyncio event
+        loop. If not given, those features will be disabled. This currently only affects
+        desktop notifications.
+    :param shutdown_future: Feature to set a result when shutdown is complete. Used to
+        inform the caller if an API client calls :method:`shutdown_daemon`. The event
+        loop associated with the Future must be the same as ``event_loop``.
     """
 
     _external_log_handlers: Sequence[logging.Handler]
@@ -144,8 +150,13 @@ class Maestral:
     _log_handler_error_cache: CachedHandler
 
     def __init__(
-        self, config_name: str = "maestral", log_to_stderr: bool = False
+        self,
+        config_name: str = "maestral",
+        log_to_stderr: bool = False,
+        event_loop: AbstractEventLoop | None = None,
+        shutdown_future: Future[bool] | None = None,
     ) -> None:
+        self._loop = event_loop
         self._config_name = validate_config_name(config_name)
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
@@ -163,25 +174,22 @@ class Maestral:
         # Run update scripts after init of loggers and config / state.
         self._check_and_run_post_update_scripts()
 
+        # Set up desktop notifier using event loop.
+        self._dn: MaestralDesktopNotifier | None = None
+        if self._loop:
+            self._dn = MaestralDesktopNotifier(self._config_name, self._loop)
+
         # Set up sync infrastructure.
         self.client = DropboxClient(self.config_name, self.cred_storage)
-        self.sync = SyncEngine(self.client)
-        self.manager = SyncManager(self.sync)
-
-        # Schedule background tasks.
-        self._loop = asyncio.get_event_loop_policy().get_event_loop()
-        self._tasks: set[asyncio.Task[Any]] = set()
-        self._pool = ThreadPoolExecutor(
-            thread_name_prefix="maestral-thread-pool",
-            max_workers=2,
-        )
-
-        self._schedule_task(self._periodic_refresh_profile())
-        self._schedule_task(self._periodic_reindexing())
+        self.sync = SyncEngine(self.client, self._dn)
+        self.manager = SyncManager(self.sync, self._dn)
 
         # Create a future which will return once `shutdown_daemon` is called.
         # This can be used by an event loop to wait until maestral has been stopped.
-        self.shutdown_complete = self._loop.create_future()
+        if shutdown_future and not shutdown_future.get_loop() is self._loop:
+            raise RuntimeError("'shutdown_future' must use the passed event loop.")
+
+        self.shutdown_future = shutdown_future
 
     def _setup_logging_external(self) -> None:
         """
@@ -426,22 +434,30 @@ class Maestral:
     def notification_snooze(self) -> float:
         """Snooze time for desktop notifications in minutes. Defaults to 0 if
         notifications are not snoozed."""
-        return self.sync.desktop_notifier.snoozed
+        if not self._dn:
+            raise RuntimeError("Desktop notifications require an event loop")
+        return self._dn.snoozed
 
     @notification_snooze.setter
     def notification_snooze(self, minutes: float) -> None:
         """Setter: notification_snooze."""
-        self.sync.desktop_notifier.snoozed = minutes
+        if not self._dn:
+            raise RuntimeError("Desktop notifications require an event loop")
+        self._dn.snoozed = minutes
 
     @property
     def notification_level(self) -> int:
         """Level for desktop notifications. See :mod:`notify` for level definitions."""
-        return self.sync.desktop_notifier.notify_level
+        if not self._dn:
+            raise RuntimeError("Desktop notifications require an event loop")
+        return self._dn.notify_level
 
     @notification_level.setter
     def notification_level(self, level: int) -> None:
         """Setter: notification_level."""
-        self.sync.desktop_notifier.notify_level = level
+        if not self._dn:
+            raise RuntimeError("Desktop notifications require an event loop")
+        self._dn.notify_level = level
 
     # ==== State information  ==========================================================
 
@@ -1411,19 +1427,12 @@ class Maestral:
 
     def shutdown_daemon(self) -> None:
         """
-        Stop syncing and clean up our asyncio tasks. Notifies the :mod:`daemon` module
-        to shut down the event loop and exit the running process if Maestral was started
-        as a daemon.
+        Stop syncing and notify anyone monitoring ``shutdown_future`` that we are done.
         """
         self.stop_sync()
 
-        for task in self._tasks:
-            task.cancel()
-
-        self._pool.shutdown()
-
-        if self._loop.is_running():
-            self._loop.call_soon_threadsafe(self.shutdown_complete.set_result, True)
+        if self.shutdown_future and self._loop and self._loop.is_running():
+            self._loop.call_soon_threadsafe(self.shutdown_future.set_result, True)
 
     # ==== Verifiers ===================================================================
 
@@ -1514,47 +1523,6 @@ class Maestral:
         db.close()
 
     # ==== Periodic async jobs =========================================================
-
-    def _schedule_task(self, coro: Awaitable[Any]) -> None:
-        """Schedules a task in our asyncio loop."""
-        task = asyncio.ensure_future(coro, loop=self._loop)
-        self._tasks.add(task)
-
-    async def _periodic_refresh_profile(self) -> None:
-        """Periodically refresh some infos."""
-        await asyncio.sleep(60 * 5)
-
-        while True:
-            if self.cred_storage.loaded:
-                # Only run if we have loaded the access token, we don't
-                # want to trigger any keyring access from here.
-                try:
-                    await self._loop.run_in_executor(self._pool, self.get_profile_pic)
-                    await self._loop.run_in_executor(self._pool, self.get_account_info)
-                except (ConnectionError, MaestralApiError, NotLinkedError):
-                    await sleep_rand(60 * 10)
-                else:
-                    await sleep_rand(60 * 45)
-
-    async def _periodic_reindexing(self) -> None:
-        """
-        Trigger periodic reindexing, determined by the 'reindex_interval' setting. Don't
-        reindex if we are running on battery power.
-        """
-        while True:
-
-            if self.manager.running.is_set():
-                elapsed = time.time() - self.sync.last_reindex
-                ac_state = get_ac_state()
-
-                reindexing_due = elapsed > self.manager.reindex_interval
-                is_idle = self.manager.idle_time > 20 * 60
-                has_ac_power = ac_state in (ACState.Connected, ACState.Undetermined)
-
-                if reindexing_due and is_idle and has_ac_power:
-                    self.manager.rebuild_index()
-
-            await sleep_rand(60 * 5)
 
     def __repr__(self) -> str:
         email = self._state.get("account", "email")

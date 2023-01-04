@@ -44,9 +44,11 @@ from .exceptions import (
 )
 from .sync import SyncEngine
 from .logging import scoped_logger
+from .notify import MaestralDesktopNotifier
 from .utils import removeprefix
 from .utils.integration import check_connection, get_inotify_limits
 from .utils.path import move, delete, is_equal_or_child, is_child, normalize
+from .utils.integration import get_ac_state, ACState
 
 
 __all__ = ["SyncManager"]
@@ -115,13 +117,18 @@ class SyncManager:
     """Class to manage sync threads
 
     :param sync: The SyncEngine.
+    :param desktop_notifier: Used to send desktop notifications for management-level
+        events such as joining or leaving a team or fatal errors.
     """
 
     download_queue: PersistentQueue[str]
     """Queue of remote paths which have been newly included in syncing."""
 
-    def __init__(self, sync: SyncEngine):
+    def __init__(
+        self, sync: SyncEngine, desktop_notifier: MaestralDesktopNotifier | None = None
+    ) -> None:
         self.sync = sync
+        self.desktop_notifier = desktop_notifier
         self._conf = MaestralConfig(self.sync.config_name)
         self._state = MaestralState(self.sync.config_name)
         self._logger = scoped_logger(__name__, self.sync.config_name)
@@ -183,7 +190,6 @@ class SyncManager:
         Returns the idle time in seconds since the last file change or since startup if
         there haven't been any changes in our current session.
         """
-
         now = time.time()
         time_since_startup = now - self._startup_time
         time_since_last_sync = now - self.sync.last_change
@@ -261,9 +267,10 @@ class SyncManager:
                     self.local_observer_thread = self._create_observer()
                 except MaestralApiError as exc:
                     self._logger.error(exc.title, exc_info=True)
-                    self.sync.desktop_notifier.notify(
-                        exc.title, exc.message, level=notify.ERROR
-                    )
+                    if self.desktop_notifier:
+                        self.desktop_notifier.notify(
+                            exc.title, exc.message, level=notify.ERROR
+                        )
                     return
 
         self.running.set()
@@ -391,6 +398,20 @@ class SyncManager:
         if was_running:
             self.start()
 
+    def _should_rebuild_index(self) -> bool:
+        """
+        Check if reindexing is due and can be performed now. This is determined by the
+        'reindex_interval' setting. Don't reindex if we are running on battery power.
+        """
+        elapsed = time.time() - self.sync.last_reindex
+        ac_state = get_ac_state()
+
+        reindexing_due = elapsed > self.reindex_interval
+        is_idle = self.idle_time > 20 * 60
+        has_ac_power = ac_state in (ACState.Connected, ACState.Undetermined)
+
+        return reindexing_due and is_idle and has_ac_power
+
     # ---- path root management --------------------------------------------------------
 
     def check_and_update_path_root(self) -> bool:
@@ -475,10 +496,11 @@ class SyncManager:
             if new_root_type == "team" and current_root_type == "user":
                 # User joined a team.
                 self._logger.info("User joined %s. Resyncing user files.", team_name)
-                self.sync.desktop_notifier.notify(
-                    f"Joined {team_name}",
-                    "Migrating user files and downloading team folders",
-                )
+                if self.desktop_notifier:
+                    self.desktop_notifier.notify(
+                        f"Joined {team_name}",
+                        "Migrating user files and downloading team folders",
+                    )
 
                 # Migrate user folder to "self.sync.dropbox_path/home_path". We do this
                 # by creating a temporary folder and renaming it after moving all
@@ -507,10 +529,11 @@ class SyncManager:
             elif new_root_type == "user" and current_root_type == "team":
                 # User left a team.
                 self._logger.info("User left team. Updating folder layout.")
-                self.sync.desktop_notifier.notify(
-                    "Left Dropbox Team",
-                    "Migrating user files and removing team folders",
-                )
+                if self.desktop_notifier:
+                    self.desktop_notifier.notify(
+                        "Left Dropbox Team",
+                        "Migrating user files and removing team folders",
+                    )
 
                 # Remove all team folders.
                 for entry in local_dropbox_dirlist:
@@ -555,9 +578,10 @@ class SyncManager:
             elif new_root_type == "team" and current_root_type == "team":
                 # User switched between different teams.
                 self._logger.info("User switched teams. Updating team folders.")
-                self.sync.desktop_notifier.notify(
-                    f"Switched teams to {team_name}", "Updating team folders"
-                )
+                if self.desktop_notifier:
+                    self.desktop_notifier.notify(
+                        f"Switched teams to {team_name}", "Updating team folders"
+                    )
 
                 # Remove all team folders, leave user folder alone.
                 for entry in local_dropbox_dirlist:
@@ -631,6 +655,10 @@ class SyncManager:
                     # changes in case of a changed root path.
                     if self.check_and_update_path_root():
                         return
+
+                    # Check for and perform reindexing.
+                    if self._should_rebuild_index():
+                        self.rebuild_index()
 
                     if not running.is_set():
                         return
@@ -803,7 +831,8 @@ class SyncManager:
             title = getattr(err, "title", "Unexpected error")
             message = getattr(err, "message", "Please restart to continue syncing")
             self._logger.error(title, exc_info=True)
-            self.sync.desktop_notifier.notify(title, message, level=notify.ERROR)
+            if self.desktop_notifier:
+                self.desktop_notifier.notify(title, message, level=notify.ERROR)
             self.stop()
 
     def __del__(self) -> None:
