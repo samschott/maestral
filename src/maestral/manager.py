@@ -32,7 +32,6 @@ from .constants import (
     PAUSED,
     CONNECTED,
 )
-from .models import SyncEvent
 from .exceptions import (
     CancelledError,
     DropboxConnectionError,
@@ -178,11 +177,6 @@ class SyncManager:
     def reindex_interval(self, interval: float) -> None:
         """Setter: reindex_interval"""
         self._conf.set("sync", "reindex_interval", interval)
-
-    @property
-    def activity(self) -> dict[str, SyncEvent]:
-        """Returns a list all items queued for or currently syncing."""
-        return self.sync.syncing
 
     @property
     def idle_time(self) -> float:
