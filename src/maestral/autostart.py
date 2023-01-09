@@ -314,6 +314,7 @@ class AutoStart:
                 launchd_id,
                 start_cmd,
                 EnvironmentVariables=ENV,
+                AssociatedBundleIdentifiers=BUNDLE_ID,
             )
 
         elif self.implementation == SupportedImplementations.systemd:
