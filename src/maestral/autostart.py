@@ -139,21 +139,21 @@ class AutoStartSystemd(AutoStartBase):
 class AutoStartLaunchd(AutoStartBase):
     """Autostart backend for launchd
 
-    :param bundle_id: Bundle ID for the app, e.g., "com.google.calendar".
+    :param launchd_id: Identifier for the launchd job, e.g., "com.google.calendar".
     :param start_cmd: Absolute path to executable and optional program arguments.
     :param kwargs: Additional key, value pairs to add to plist. Values may be strings,
         booleans, lists or dictionaries.
     """
 
-    def __init__(self, bundle_id: str, start_cmd: str, **kwargs: Any) -> None:
+    def __init__(self, launchd_id: str, start_cmd: str, **kwargs: Any) -> None:
         super().__init__()
-        filename = bundle_id + ".plist"
+        filename = launchd_id + ".plist"
 
         self.path = osp.join(get_home_dir(), "Library", "LaunchAgents")
         self.destination = osp.join(self.path, filename)
 
         self.plist_dict = {
-            "Label": str(bundle_id),
+            "Label": str(launchd_id),
             "ProcessType": "Interactive",
             "RunAtLoad": True,
             "ProgramArguments": shlex.split(start_cmd),
@@ -307,17 +307,16 @@ class AutoStart:
         self.implementation = get_available_implementation()
 
         start_cmd = f"{self.maestral_path} start -f -c {config_name}"
-        bundle_id = f"{BUNDLE_ID}-daemon.{config_name}"
+        launchd_id = f"{BUNDLE_ID}-daemon.{config_name}"
 
         if self.implementation == SupportedImplementations.launchd:
             self._impl = AutoStartLaunchd(
-                bundle_id,
+                launchd_id,
                 start_cmd,
                 EnvironmentVariables=ENV,
             )
 
         elif self.implementation == SupportedImplementations.systemd:
-
             notify_failure = (
                 "if [ ${SERVICE_RESULT} != success ]; "
                 "then notify-send Maestral 'Daemon failed: ${SERVICE_RESULT}'; "
