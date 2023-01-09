@@ -1,5 +1,10 @@
 ## v1.6.6.dev
 
+#### Changed:
+
+* Speed up querying the sync status of folders.
+* Added support for Python 3.12.
+
 #### Fixed:
 
 * Fixes the download sync of remote symlinks. The local item now is an actual symlink
