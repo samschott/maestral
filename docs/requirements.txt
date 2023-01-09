@@ -11,7 +11,7 @@ lazy-object-proxy==1.9.0
 m2r2==0.3.2
 MarkupSafe==2.1.1
 mistune==0.8.4
-packaging==22.0
+packaging==23.0
 Pygments==2.14.0
 pyparsing==3.0.9
 pytz==2022.7
