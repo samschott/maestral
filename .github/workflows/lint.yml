@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4.4.0
+    - uses: actions/setup-python@v4.5.0
     - run:  python -m pip install -U .[lint]
     - name: black
       run: |
