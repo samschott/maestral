@@ -478,38 +478,38 @@ class Maestral:
 
     @property
     def pending_link(self) -> bool:
-        """Indicates if Maestral is linked to a Dropbox account (read only). This will
-        block until the user's keyring is unlocked to load the saved auth token."""
+        """Whether Maestral is linked to a Dropbox account (read only). This will block
+        until the user's keyring is unlocked to load the saved auth token."""
         return not self.client.linked
 
     @property
     def pending_dropbox_folder(self) -> bool:
-        """Indicates if a local Dropbox directory has been configured (read only). This
-        will not check if the configured directory actually exists, starting the sync
-        may still raise a :exc:`maestral.exceptions.NoDropboxDirError`."""
+        """Whether a local Dropbox directory has been configured (read only). This will
+        not check if the configured directory actually exists, starting the sync may
+        still raise a :exc:`maestral.exceptions.NoDropboxDirError`."""
         return not self.sync.dropbox_path
 
     @property
     def pending_first_download(self) -> bool:
-        """Indicates if the initial download has already occurred (read only)."""
+        """Whether the initial download has already started (read only)."""
         return self.sync.local_cursor == 0 or self.sync.remote_cursor == ""
 
     @property
     def paused(self) -> bool:
-        """Indicates if syncing is paused by the user (read only). This is set by
-        calling :meth:`pause`."""
+        """Whether syncing is paused by the user (read only). Use :meth:`start_sync` and
+        :meth:`stop_sync` to start and stop syncing, respectively."""
         return not self.manager.autostart.is_set() and not self.sync.busy()
 
     @property
     def running(self) -> bool:
-        """Indicates if sync threads are running (read only). This will return ``False``
-        before :meth:`start_sync` is called, when shutting down, or because of an
-        unhandled exception in a sync thread."""
+        """Whether sync threads are running (read only). This is similar to
+        :attr:`paused` but also returns False if syncing is paused because we cannot
+        connect to Dropbox servers.."""
         return self.manager.running.is_set() or self.sync.busy()
 
     @property
     def connected(self) -> bool:
-        """Indicates if Dropbox servers can be reached (read only)."""
+        """Whether Dropbox servers can be reached (read only)."""
         if self.pending_link:
             return False
         else:
@@ -698,7 +698,7 @@ class Maestral:
         """
         Attempts to download the user's profile picture from Dropbox. The picture is
         saved in Maestral's cache directory for retrieval when there is no internet
-        connection.
+        connection. Check :attr:`account_profile_pic_path` for cached profile pics.
 
         :returns: Path to saved profile picture or ``None`` if no profile picture was
             downloaded.
