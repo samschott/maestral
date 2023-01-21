@@ -640,31 +640,28 @@ class SyncManager:
 
         while running.is_set():
             with self._handle_sync_thread_errors(running, autostart):
-                with self.sync.client.clone_with_new_session() as client:
-                    has_changes = self.sync.wait_for_remote_changes(
-                        self.sync.remote_cursor, client=client
-                    )
+                has_changes = self.sync.wait_for_remote_changes(self.sync.remote_cursor)
 
-                    # Check for root namespace updates. Don't apply any remote
-                    # changes in case of a changed root path.
-                    if self.check_and_update_path_root():
-                        return
+                # Check for root namespace updates. Don't apply any remote
+                # changes in case of a changed root path.
+                if self.check_and_update_path_root():
+                    return
 
-                    # Check for and perform reindexing.
-                    if self._should_rebuild_index():
-                        self.rebuild_index()
+                # Check for and perform reindexing.
+                if self._should_rebuild_index():
+                    self.rebuild_index()
 
-                    if not running.is_set():
-                        return
+                if not running.is_set():
+                    return
 
-                    self.sync.ensure_dropbox_folder_present()
+                self.sync.ensure_dropbox_folder_present()
 
-                    if has_changes:
-                        self._logger.info(SYNCING)
-                        self.sync.download_sync_cycle(client)
-                        self._logger.info(IDLE)
+                if has_changes:
+                    self._logger.info(SYNCING)
+                    self.sync.download_sync_cycle()
+                    self._logger.info(IDLE)
 
-                        client.get_space_usage()
+                    self.sync.client.get_space_usage()
 
         _free_memory()
 
@@ -695,9 +692,7 @@ class SyncManager:
                         return
 
                     with self.sync.sync_lock:
-                        with self.sync.client.clone_with_new_session() as client:
-                            self.sync.get_remote_item(dbx_path_lower, client)
-
+                        self.sync.get_remote_item(dbx_path_lower)
                         self.download_queue.task_done(dbx_path_lower)
                         self._logger.info(IDLE)
 
@@ -765,29 +760,27 @@ class SyncManager:
                 startup_completed.set()
                 return
 
-            with self.sync.client.clone_with_new_session() as client:
+            # Retry failed downloads.
+            if len(self.sync.download_errors) > 0:
+                self._logger.info("Retrying failed syncs...")
 
-                # Retry failed downloads.
-                if len(self.sync.download_errors) > 0:
-                    self._logger.info("Retrying failed syncs...")
+            for error in list(self.sync.download_errors):
+                self.sync.get_remote_item(error.dbx_path_lower)
 
-                for error in list(self.sync.download_errors):
-                    self.sync.get_remote_item(error.dbx_path_lower, client)
+            # Resume interrupted downloads.
+            if self.download_queue.qsize() > 0:
+                self._logger.info("Resuming interrupted syncs...")
 
-                # Resume interrupted downloads.
-                if self.download_queue.qsize() > 0:
-                    self._logger.info("Resuming interrupted syncs...")
+            while not self.download_queue.empty():
+                dbx_path = self.download_queue.get()
+                self.sync.get_remote_item(dbx_path)
+                self.download_queue.task_done(dbx_path)
 
-                while not self.download_queue.empty():
-                    dbx_path = self.download_queue.get()
-                    self.sync.get_remote_item(dbx_path, client)
-                    self.download_queue.task_done(dbx_path)
+            if not running.is_set():
+                startup_completed.set()
+                return
 
-                if not running.is_set():
-                    startup_completed.set()
-                    return
-
-                self.sync.download_sync_cycle(client)
+            self.sync.download_sync_cycle()
 
             if not running.is_set():
                 startup_completed.set()
