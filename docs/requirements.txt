@@ -14,7 +14,7 @@ mistune==0.8.4
 packaging==23.0
 Pygments==2.14.0
 pyparsing==3.0.9
-pytz==2022.7
+pytz==2022.7.1
 PyYAML==6.0
 requests==2.28.2
 snowballstemmer==2.2.0
