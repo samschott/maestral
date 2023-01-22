@@ -35,7 +35,7 @@ DEFAULTS_CONFIG: _DefaultsType = {
         "path": "",  # dropbox folder location
         "excluded_items": [],  # files and folders excluded from sync
         "reindex_interval": 60 * 60 * 24 * 14,  # default: every fortnight
-        "max_cpu_percent": 20.0,  # max usage target per cpu core, default: 20%
+        "max_cpu_percent": 20.0,  # max CPU usage target (100% = all cores busy)
         "keep_history": 60 * 60 * 24 * 7,  # default: one week
         "upload": True,  # if download sync is enabled
         "download": True,  # if upload sync is enabled
