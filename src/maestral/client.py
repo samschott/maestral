@@ -420,48 +420,6 @@ class DropboxClient:
     def __exit__(self, *args: Any) -> None:
         self.close()
 
-    def clone(
-        self,
-        config_name: str | None = None,
-        cred_storage: CredentialStorage | None = None,
-        timeout: float | None = None,
-        session: requests.Session | None = None,
-    ) -> DropboxClient:
-        """
-        Creates a new copy of the Dropbox client with the same defaults unless modified
-        by arguments to :meth:`clone`.
-
-        :param config_name: Name of config file and state file to use.
-        :param timeout: Timeout for individual requests.
-        :param session: Requests session to use.
-        :returns: A new instance of DropboxClient.
-        """
-        config_name = config_name or self.config_name
-        timeout = timeout or self._timeout
-        session = session or self._session
-        cred_storage = cred_storage or self._cred_storage
-
-        client = self.__class__(config_name, cred_storage, timeout, session)
-
-        if self._dbx:
-            client._dbx = self._dbx.clone(session=session)
-            client._dbx._logger = self._dropbox_sdk_logger
-
-        if self._dbx_base:
-            client._dbx_base = self._dbx_base.clone(session=session)
-            client._dbx_base._logger = self._dropbox_sdk_logger
-
-        return client
-
-    def clone_with_new_session(self) -> DropboxClient:
-        """
-        Creates a new copy of the Dropbox client with the same defaults but a new
-        requests session.
-
-        :returns: A new instance of DropboxClient.
-        """
-        return self.clone(session=create_session())
-
     def update_path_root(self, root_info: RootInfo) -> None:
         """
         Updates the root path for the Dropbox client. All files paths given as arguments

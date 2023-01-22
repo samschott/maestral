@@ -768,15 +768,13 @@ class Maestral:
         """
         self._check_linked()
 
-        with self.client.clone_with_new_session() as client:
-            res = client.list_folder(
-                dbx_path,
-                recursive=recursive,
-                include_deleted=include_deleted,
-                include_mounted_folders=include_mounted_folders,
-                include_non_downloadable_files=include_non_downloadable_files,
-            )
-
+        res = self.client.list_folder(
+            dbx_path,
+            recursive=recursive,
+            include_deleted=include_deleted,
+            include_mounted_folders=include_mounted_folders,
+            include_non_downloadable_files=include_non_downloadable_files,
+        )
         return res.entries
 
     def list_folder_iterator(
@@ -819,21 +817,19 @@ class Maestral:
         """
         self._check_linked()
 
-        with self.client.clone_with_new_session() as client:
+        res_iter = self.client.list_folder_iterator(
+            dbx_path,
+            recursive=recursive,
+            include_deleted=include_deleted,
+            include_mounted_folders=include_mounted_folders,
+            limit=limit,
+            include_non_downloadable_files=include_non_downloadable_files,
+        )
 
-            res_iter = client.list_folder_iterator(
-                dbx_path,
-                recursive=recursive,
-                include_deleted=include_deleted,
-                include_mounted_folders=include_mounted_folders,
-                limit=limit,
-                include_non_downloadable_files=include_non_downloadable_files,
-            )
-
-            for res in res_iter:
-                yield res.entries
-                del res
-                gc.collect()
+        for res in res_iter:
+            yield res.entries
+            del res
+            gc.collect()
 
     def list_revisions(self, dbx_path: str, limit: int = 10) -> list[FileMetadata]:
         """
@@ -851,9 +847,7 @@ class Maestral:
         :raises ConnectionError: if the connection to Dropbox fails.
         """
         self._check_linked()
-
-        with self.client.clone_with_new_session() as client:
-            return client.list_revisions(dbx_path, limit=limit)
+        return self.client.list_revisions(dbx_path, limit=limit)
 
     def get_file_diff(self, old_rev: str, new_rev: str | None = None) -> list[str]:
         """
