@@ -31,6 +31,12 @@ from dropbox import files, sharing, users, common
 from dropbox import Dropbox, create_session, exceptions
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 from dropbox.session import API_HOST
+from dropbox.dropbox_client import (
+    BadInputException,
+    RouteResult,
+    RouteErrorResult,
+    USER_AUTH,
+)
 
 # local imports
 from . import __version__
@@ -97,6 +103,75 @@ def get_hash(data: bytes) -> str:
     return hasher.hexdigest()
 
 
+class _DropboxSDK(Dropbox):
+    def request_json_string(
+        self,
+        host: str,
+        func_name: str,
+        route_style: str,
+        request_json_arg: bytes,
+        auth_type: str,
+        request_binary: bytes | Iterator[bytes] | None,
+        timeout: float | None = None,
+    ) -> RouteResult | RouteErrorResult:
+        # Custom handling to allow for streamed and chunked uploads. This is mostly
+        # reproduced from the parent function but without limiting the request body
+        # to bytes only.
+        if route_style == self._ROUTE_STYLE_UPLOAD:
+            fq_hostname = self._host_map[host]
+            url = self._get_route_url(fq_hostname, func_name)
+
+            auth_types = auth_type.replace(" ", "").split(",")
+
+            if USER_AUTH not in auth_types:
+                raise BadInputException("Unhandled auth type: {}".format(auth_type))
+
+            headers = {
+                "User-Agent": self._user_agent,
+                "Authorization": f"Bearer {self._oauth2_access_token}",
+            }
+
+            if self._headers:
+                headers.update(self._headers)
+
+            headers["Content-Type"] = "application/octet-stream"
+            headers["Dropbox-API-Arg"] = request_json_arg
+            body = request_binary
+
+            if timeout is None:
+                timeout = self._timeout
+
+            r = self._session.post(
+                url,
+                headers=headers,
+                data=body,
+                stream=False,
+                verify=True,
+                timeout=timeout,
+            )
+
+            self.raise_dropbox_error_for_resp(r)
+
+            if r.status_code in (403, 404, 409):
+                raw_resp = r.content.decode("utf-8")
+                request_id = r.headers.get("x-dropbox-request-id")
+                return RouteErrorResult(request_id, raw_resp)
+
+            raw_resp = r.content.decode("utf-8")
+            return RouteResult(raw_resp)
+
+        else:
+            return super().request_json_string(
+                host,
+                func_name,
+                route_style,
+                request_json_arg,
+                auth_type,
+                request_binary,
+                timeout,
+            )
+
+
 class DropboxClient:
     """Client for the Dropbox SDK
 
@@ -122,6 +197,10 @@ class DropboxClient:
     :param timeout: Timeout for individual requests. Defaults to 100 sec if not given.
     :param session: Optional requests session to use. If not given, a new session will
         be created with :func:`dropbox.dropbox_client.create_session`.
+    :param bandwidth_limit_up: Maximum bandwidth to use for uploads in bytes/sec. Will
+        be enforced over all concurrent uploads.
+    :param bandwidth_limit_down: Maximum bandwidth to use for downloads in bytes/sec.
+        Will be enforced over all concurrent downloads.
     """
 
     SDK_VERSION: str = "2.0"
@@ -129,7 +208,9 @@ class DropboxClient:
     MAX_TRANSFER_RETRIES = 3
     MAX_LIST_FOLDER_RETRIES = 3
 
-    _dbx: Dropbox | None
+    UPLOAD_REQUEST_CHUNK_SIZE = 4194304
+
+    _dbx: _DropboxSDK | None
 
     def __init__(
         self,
@@ -137,8 +218,8 @@ class DropboxClient:
         cred_storage: CredentialStorage,
         timeout: float = 100,
         session: requests.Session | None = None,
-        max_upload_speed: float = 2 * 10**6,
-        max_download_speed: float = 5 * 10**6,
+        bandwidth_limit_up: float = 0,
+        bandwidth_limit_down: float = 0,
     ) -> None:
         self.config_name = config_name
         self._auth_flow: DropboxOAuth2FlowNoRedirect | None = None
@@ -152,15 +233,15 @@ class DropboxClient:
         self._timeout = timeout
         self._session = session or create_session()
         self._backoff_until = 0
-        self._dbx: Dropbox | None = None
-        self._dbx_base: Dropbox | None = None
+        self._dbx: _DropboxSDK | None = None
+        self._dbx_base: _DropboxSDK | None = None
         self._cached_account_info: FullAccount | None = None
         self._namespace_id = self._state.get("account", "path_root_nsid")
         self._is_team_space = self._state.get("account", "path_root_type") == "team"
 
         # Throttling infra
-        self.max_upload_speed = max_upload_speed
-        self.max_download_speed = max_download_speed
+        self.bandwidth_limit_up = bandwidth_limit_up
+        self.bandwidth_limit_down = bandwidth_limit_down
 
         # The Dropbox SDK currently only support streamed downloads but not uploads.
         # This means that we have to supply binary data in chunks and pause in between.
@@ -170,7 +251,7 @@ class DropboxClient:
         # The alternative approach of limiting at the `socket.send` step is too
         # cumbersome given the abstraction layers of urllib3, requests, and Dropbox SDK.
         self.download_chunk_size = 2048  # 2 Kb
-        self.upload_chunk_size = 4194304  # 4 Mb
+        self.upload_chunk_size = 2048  # 4 Mb
 
         self._num_downloads = 0
         self._num_uploads = 0
@@ -193,32 +274,38 @@ class DropboxClient:
 
     def _throttled_download_iter(self, iterator: Iterator[T]) -> Iterator[T]:
         for i in iterator:
-            if self.max_download_speed == 0:
+            if self.bandwidth_limit_down == 0:
                 yield i
             else:
                 tick = time.monotonic()
                 yield i
                 tock = time.monotonic()
 
-                speed_per_download = self.max_download_speed / self._num_downloads
+                speed_per_download = self.bandwidth_limit_down / self._num_downloads
                 target_tock = tick + self.download_chunk_size / speed_per_download
 
                 wait_time = target_tock - tock
                 if wait_time > 0.00005:  # don't sleep for < 50 ns
                     time.sleep(wait_time)
 
-    def _throttle_upload(self, tick: float) -> None:
-        if self.max_upload_speed == 0:
-            return
+    def _throttled_upload_iter(self, data: bytes) -> Iterator[bytes] | bytes:
+        if self.bandwidth_limit_down == 0:
+            return data
+        else:
+            pos = 0
+            while pos < len(data):
+                tick = time.monotonic()
+                yield data[pos : pos + self.upload_chunk_size]
+                tock = time.monotonic()
 
-        tock = time.monotonic()
+                pos += self.upload_chunk_size
 
-        speed_per_upload = self.max_upload_speed / self._num_uploads
-        target_tock = tick + self.upload_chunk_size / speed_per_upload
+                speed_per_upload = self.bandwidth_limit_up / self._num_uploads
+                target_tock = tick + self.upload_chunk_size / speed_per_upload
 
-        wait_time = target_tock - tock
-        if wait_time > 0.00005:  # don't sleep for < 50 ns
-            time.sleep(wait_time)
+                wait_time = target_tock - tock
+                if wait_time > 0.00005:  # don't sleep for < 50 ns
+                    time.sleep(wait_time)
 
     def _retry_on_error(  # type: ignore
         error_cls: type[Exception],
@@ -281,18 +368,18 @@ class DropboxClient:
     # ---- Linking API -----------------------------------------------------------------
 
     @property
-    def dbx_base(self) -> Dropbox:
+    def dbx_base(self) -> _DropboxSDK:
         """The underlying Dropbox SDK instance without namespace headers."""
         if not self._dbx_base:
             self._init_sdk()
-        return self._dbx_base
+        return cast(_DropboxSDK, self._dbx_base)
 
     @property
-    def dbx(self) -> Dropbox:
+    def dbx(self) -> _DropboxSDK:
         """The underlying Dropbox SDK instance with namespace headers."""
         if not self._dbx:
             self._init_sdk()
-        return self._dbx
+        return cast(_DropboxSDK, self._dbx)
 
     @property
     def linked(self) -> bool:
@@ -412,7 +499,7 @@ class DropboxClient:
 
         if token_type is TokenType.Offline:
             # Initialise Dropbox SDK.
-            self._dbx_base = Dropbox(
+            self._dbx_base = _DropboxSDK(
                 oauth2_refresh_token=token,
                 app_key=DROPBOX_APP_KEY,
                 session=self._session,
@@ -421,7 +508,7 @@ class DropboxClient:
             )
         else:
             # Initialise Dropbox SDK.
-            self._dbx_base = Dropbox(
+            self._dbx_base = _DropboxSDK(
                 oauth2_access_token=token,
                 app_key=DROPBOX_APP_KEY,
                 session=self._session,
@@ -438,8 +525,8 @@ class DropboxClient:
             self._dbx = self._dbx_base
 
         # Set our own logger for the Dropbox SDK.
-        self._dbx._logger = self._dropbox_sdk_logger
-        self._dbx_base._logger = self._dropbox_sdk_logger
+        self.dbx._logger = self._dropbox_sdk_logger
+        self.dbx_base._logger = self._dropbox_sdk_logger
 
     @property
     def account_info(self) -> FullAccount:
@@ -506,7 +593,7 @@ class DropboxClient:
 
         path_root = common.PathRoot.root(root_nsid)
         self._dbx = self.dbx_base.with_path_root(path_root)
-        self._dbx._logger = self._dropbox_sdk_logger
+        self.dbx._logger = self._dropbox_sdk_logger
 
         if isinstance(root_info, UserRootInfo):
             actual_root_type = "user"
@@ -781,7 +868,7 @@ class DropboxClient:
             mtime_dt = datetime.utcfromtimestamp(stat.st_mtime)
 
             with self._register_upload():
-                if stat.st_size <= self.upload_chunk_size:
+                if stat.st_size <= self.UPLOAD_REQUEST_CHUNK_SIZE:
                     # Upload all at once.
                     res = self._upload_helper(
                         local_path,
@@ -801,7 +888,7 @@ class DropboxClient:
                             f, dbx_path, sync_event
                         )
 
-                        while stat.st_size - f.tell() > self.upload_chunk_size:
+                        while stat.st_size - f.tell() > self.UPLOAD_REQUEST_CHUNK_SIZE:
                             self._upload_session_append_helper(
                                 f, session_id, dbx_path, sync_event
                             )
@@ -830,14 +917,12 @@ class DropboxClient:
         autorename: bool,
         sync_event: SyncEvent | None,
     ) -> files.FileMetadata:
-        tick = time.monotonic()
-
         with open(local_path, "rb", opener=opener_no_symlink) as f:
             data = f.read()
 
             with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
                 md = self.dbx.files_upload(
-                    data,
+                    self._throttled_upload_iter(data),
                     dbx_path,
                     client_modified=client_modified,
                     content_hash=get_hash(data),
@@ -848,7 +933,6 @@ class DropboxClient:
             if sync_event:
                 sync_event.completed = f.tell()
 
-        self._throttle_upload(tick)
         return md
 
     @_retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
@@ -858,15 +942,13 @@ class DropboxClient:
         dbx_path: str,
         sync_event: SyncEvent | None,
     ) -> str:
-        tick = time.monotonic()
-
         initial_offset = f.tell()
-        data = f.read(self.upload_chunk_size)
+        data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
 
         try:
             with convert_api_errors(dbx_path=dbx_path):
                 session_start = self.dbx.files_upload_session_start(
-                    data, content_hash=get_hash(data)
+                    self._throttled_upload_iter(data), content_hash=get_hash(data)
                 )
         except Exception:
             # Return to previous position in file.
@@ -875,8 +957,6 @@ class DropboxClient:
 
         if sync_event:
             sync_event.completed = f.tell()
-
-        self._throttle_upload(tick)
 
         return session_start.session_id
 
@@ -888,10 +968,8 @@ class DropboxClient:
         dbx_path: str,
         sync_event: SyncEvent | None,
     ) -> None:
-        tick = time.monotonic()
-
         initial_offset = f.tell()
-        data = f.read(self.upload_chunk_size)
+        data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
 
         cursor = files.UploadSessionCursor(
             session_id=session_id,
@@ -901,7 +979,9 @@ class DropboxClient:
         try:
             with convert_api_errors(dbx_path=dbx_path):
                 self.dbx.files_upload_session_append_v2(
-                    data, cursor, content_hash=get_hash(data)
+                    self._throttled_upload_iter(data),
+                    cursor,
+                    content_hash=get_hash(data),
                 )
         except exceptions.DropboxException as exc:
             error = getattr(exc, "error", None)
@@ -921,8 +1001,6 @@ class DropboxClient:
         if sync_event:
             sync_event.completed = f.tell()
 
-        self._throttle_upload(tick)
-
     @_retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_session_finish_helper(
         self,
@@ -934,16 +1012,10 @@ class DropboxClient:
         autorename: bool,
         sync_event: SyncEvent | None,
     ) -> files.FileMetadata:
-        tick = time.monotonic()
-
         initial_offset = f.tell()
-        data = f.read(self.upload_chunk_size)
-
-        if len(data) > self.upload_chunk_size:
-            raise RuntimeError("Too much data left to finish the session")
+        data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
 
         # Finish upload session and return metadata.
-
         cursor = files.UploadSessionCursor(
             session_id=session_id,
             offset=initial_offset,
@@ -958,7 +1030,10 @@ class DropboxClient:
         try:
             with convert_api_errors(dbx_path=dbx_path):
                 md = self.dbx.files_upload_session_finish(
-                    data, cursor, commit, content_hash=get_hash(data)
+                    self._throttled_upload_iter(data),
+                    cursor,
+                    commit,
+                    content_hash=get_hash(data),
                 )
         except exceptions.DropboxException as exc:
             error = getattr(exc, "error", None)
@@ -979,8 +1054,6 @@ class DropboxClient:
 
         if sync_event:
             sync_event.completed = sync_event.size
-
-        self._throttle_upload(tick)
 
         return md
 
@@ -1105,7 +1178,6 @@ class DropboxClient:
             conflict.
         :returns: Metadata of created folder.
         """
-
         with convert_api_errors(dbx_path=dbx_path):
             res = self.dbx.files_create_folder_v2(dbx_path, autorename)
 
