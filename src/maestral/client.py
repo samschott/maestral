@@ -289,17 +289,15 @@ class DropboxClient:
                     time.sleep(wait_time)
 
     def _throttled_upload_iter(self, data: bytes) -> Iterator[bytes] | bytes:
-        if self.bandwidth_limit_down == 0:
-            return data
-        else:
-            pos = 0
-            while pos < len(data):
-                tick = time.monotonic()
-                yield data[pos : pos + self.upload_chunk_size]
-                tock = time.monotonic()
+        pos = 0
+        while pos < len(data):
+            tick = time.monotonic()
+            yield data[pos : pos + self.upload_chunk_size]
+            tock = time.monotonic()
 
-                pos += self.upload_chunk_size
+            pos += self.upload_chunk_size
 
+            if self.bandwidth_limit_up > 0:
                 speed_per_upload = self.bandwidth_limit_up / self._num_uploads
                 target_tock = tick + self.upload_chunk_size / speed_per_upload
 
