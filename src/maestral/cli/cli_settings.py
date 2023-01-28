@@ -165,8 +165,7 @@ def bandwidth_limit_up(m: Maestral, mb_per_second: float | None) -> None:
         ok(f"Upload bandwidth limit set to {speed_str}.")
     else:
         mb_per_second = m.bandwidth_limit_up / 10**6
-        speed_fmt = f"{mb_per_second} MB/sec" if mb_per_second > 0 else "unlimited"
-        echo(f"{mb_per_second} MB/sec" if speed_fmt > 0 else "unlimited")
+        echo(f"{mb_per_second} MB/sec" if mb_per_second > 0 else "unlimited")
 
 
 @bandwidth_limit.command(
