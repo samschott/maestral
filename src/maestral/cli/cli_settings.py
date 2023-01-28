@@ -144,12 +144,14 @@ def notify_snooze(m: Maestral, minutes: int) -> None:
         ok("Notifications enabled.")
 
 
-@click.group(help="View and manage bandwidth limits.")
+@click.group(help="View and manage bandwidth limits. Changes take effect immediately.")
 def bandwidth_limit() -> None:
     pass
 
 
-@bandwidth_limit.command(name="up", help="Bandwidth limit for uploads (0 = unlimited).")
+@bandwidth_limit.command(
+    name="up", help="Get / set bandwidth limit for uploads in MB/sec (0 = unlimited)."
+)
 @click.argument(
     "mb_per_second",
     required=False,
@@ -162,12 +164,15 @@ def bandwidth_limit_up(m: Maestral, mb_per_second: float | None) -> None:
         speed_str = f"{mb_per_second} MB/sec" if mb_per_second > 0 else "unlimited"
         ok(f"Upload bandwidth limit set to {speed_str}.")
     else:
-        mb_per_second = m.bandwidth_limit_up / 10 ** 6
+        mb_per_second = m.bandwidth_limit_up / 10**6
         speed_fmt = f"{mb_per_second} MB/sec" if mb_per_second > 0 else "unlimited"
         echo(f"{mb_per_second} MB/sec" if speed_fmt > 0 else "unlimited")
 
 
-@bandwidth_limit.command(name="down", help="Bandwidth limit for downloads (0 = unlimited).")
+@bandwidth_limit.command(
+    name="down",
+    help="Get / set bandwidth limit for downloads in MB/sec (0 = unlimited).",
+)
 @click.argument(
     "mb_per_second",
     required=False,
