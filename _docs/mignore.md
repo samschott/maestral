@@ -34,14 +34,12 @@ copied from the gitingore documentation:
   If one wants to restrict this only to the directory and not in its subdirectories,
   one can prepend the pattern with a slash, i.e. `/hello.*`; the pattern now matches
   `hello.txt`, `hello.c` but not `folder/hello.java`.
+- The pattern `foo` will match a file `foo` or a directory `foo` and paths underneath it.
 - The pattern `foo/` will match a directory foo and paths underneath it, but will not
   match a regular file or a symbolic link `foo`.
 - The patterns `doc/frotz` and `/doc/frotz` have the same effect in any `.mignore` file.
   In other words, a leading slash is not relevant if there is already a middle slash in
   the pattern.
-- The pattern `foo/*`, matches `foo/test.json` (a regular file), `foo/bar` (a directory),
-  but it does not match `foo/bar/hello.c` (a regular file), as the asterisk in the
-  pattern does not match `bar/hello.c` which has a slash in it.
 
 For a comprehensive overview of rules, please refer to the [gitignore documentation](https:
 //git-scm.com/docs/gitignore).
