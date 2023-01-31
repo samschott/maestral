@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import threading
 from datetime import datetime
 from os import path as osp
@@ -263,6 +264,8 @@ def stop(config_name: str) -> None:
 @config_option
 def gui(config_name: str) -> None:
 
+    import termios
+
     from packaging.version import Version
     from packaging.requirements import Requirement
     from importlib_metadata import entry_points, requires, version
@@ -277,8 +280,13 @@ def gui(config_name: str) -> None:
 
     entry_point_names = [e.name for e in gui_entry_points]
 
-    if len(entry_point_names) > 1:
-        index = select("Multiple GUIs found, please choose:", entry_point_names)
+    if len(entry_point_names) > 1 and sys.stdout.isatty():
+        try:
+            index = select("Multiple GUIs found, please choose:", entry_point_names)
+        except termios.error:
+            # Error can occur when not connected to a terminal. Fall back to the first
+            # detected GUI instead of failing with an error.
+            index = 0
     else:
         index = 0
 
