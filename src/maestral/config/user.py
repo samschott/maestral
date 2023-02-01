@@ -144,7 +144,6 @@ class UserConfig(DefaultsConfig):
             # Updating defaults only if major/minor version is different.
 
             if version != old_version:
-
                 if backup:
                     self._make_backup(old_version)
 

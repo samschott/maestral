@@ -295,7 +295,6 @@ class SyncManager:
         try:
             local_observer_thread.start()
         except OSError as exc:
-
             if exc.errno in (errno.ENOSPC, errno.EMFILE):
                 try:
                     max_user_watches, max_user_instances, _ = get_inotify_limits()
@@ -687,7 +686,6 @@ class SyncManager:
                 except Empty:
                     pass
                 else:
-
                     if not running.is_set():
                         return
 
@@ -743,7 +741,6 @@ class SyncManager:
         :param autostart: Set when syncing should automatically resume on connection.
         """
         with self._handle_sync_thread_errors(running, autostart):
-
             # Fail early if Dropbox folder disappeared.
             self.sync.ensure_dropbox_folder_present()
 

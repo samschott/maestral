@@ -189,7 +189,6 @@ class DropboxClient:
                     try:
                         return func(__self, *args, **kwargs)
                     except error_cls as exc:
-
                         if msg_regex is not None:
                             # Raise if there is no error message to match.
                             if len(exc.args[0]) == 0 or not isinstance(
@@ -352,7 +351,6 @@ class DropboxClient:
             token_type = token_type or self._cred_storage.token_type
 
             if token_type is TokenType.Offline:
-
                 # Initialise Dropbox SDK.
                 self._dbx_base = Dropbox(
                     oauth2_refresh_token=token,
@@ -720,14 +718,12 @@ class DropboxClient:
             raise RuntimeError("No write mode for uploading file.")
 
         with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
-
             stat = os.lstat(local_path)
 
             # Dropbox SDK takes naive datetime in UTC
             mtime_dt = datetime.utcfromtimestamp(stat.st_mtime)
 
             if stat.st_size <= chunk_size:
-
                 # Upload all at once.
 
                 res = self._upload_helper(
@@ -740,14 +736,12 @@ class DropboxClient:
                 )
 
             else:
-
                 # Upload in chunks.
                 # Note: We currently do not support resuming interrupted uploads.
                 # Dropbox keeps upload sessions open for 48h so this could be done in
                 # the future.
 
                 with open(local_path, "rb", opener=opener_no_symlink) as f:
-
                     session_id = self._upload_session_start_helper(
                         f, chunk_size, dbx_path, sync_event
                     )
@@ -961,7 +955,6 @@ class DropboxClient:
         # Up two ~ 1,000 entries allowed per batch:
         # https://www.dropbox.com/developers/reference/data-ingress-guide
         for chunk in chunks(list(entries), n=batch_size):
-
             arg = [files.DeleteArg(e[0], e[1]) for e in chunk]
 
             with convert_api_errors():
@@ -1280,7 +1273,6 @@ class DropboxClient:
         :returns: Iterator over content of given folder.
         """
         with convert_api_errors(dbx_path):
-
             dbx_path = "" if dbx_path == "/" else dbx_path
 
             res = self.dbx.files_list_folder(
@@ -1361,7 +1353,6 @@ class DropboxClient:
         :returns: Iterator over remote changes since given cursor.
         """
         with convert_api_errors():
-
             res = self.dbx.files_list_folder_continue(last_cursor)
 
             yield convert_list_folder_result(res)

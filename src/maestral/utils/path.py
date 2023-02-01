@@ -558,7 +558,6 @@ def get_symlink_target(local_path: str) -> Optional[str]:
     except (FileNotFoundError, NotADirectoryError):
         return None
     except OSError as err:
-
         if err.errno == errno.EINVAL:
             # File is not a symlink.
             return None

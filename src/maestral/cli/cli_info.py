@@ -283,7 +283,6 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
     help="Remove config files without a linked account.",
 )
 def config_files(clean: bool) -> None:
-
     from ..daemon import is_running
     from ..config import (
         MaestralConfig,

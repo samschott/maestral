@@ -24,7 +24,6 @@ configuration on user login.
 @click.option("--no", "-N", is_flag=True, default=False)
 @existing_config_option
 def autostart(yes: bool, no: bool, config_name: str) -> None:
-
     from ..autostart import AutoStart
 
     auto_start = AutoStart(config_name)
@@ -120,7 +119,6 @@ def notify() -> None:
 )
 @inject_proxy(fallback=True, existing_config=True)
 def notify_level(m: Maestral, level_name: str) -> None:
-
     from .. import notify as _notify
 
     if level_name:

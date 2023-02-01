@@ -494,7 +494,6 @@ def start_maestral_daemon(
     except Exception as exc:
         dlogger.error(exc.args[0], exc_info=True)
     finally:
-
         # Notify systemd that we are shutting down.
         sd_notifier.notify("STOPPING=1")
 
@@ -635,7 +634,6 @@ class MaestralProxy(ContextManager["MaestralProxy"]):
         self._is_fallback = False
 
         if is_running(config_name):
-
             sock_name = sockpath_for_config(config_name)
 
             # print remote tracebacks locally

@@ -141,7 +141,6 @@ def os_to_maestral_error(
         title = "Could not create local folder"
         text = "The given path refers to a file."
     elif exc.errno == errno.ENAMETOOLONG:
-
         err_cls = PathError  # subclass of SyncError
         title = "Could not create local file"
 
@@ -212,7 +211,6 @@ def dropbox_to_maestral_error(
 
     # ---- Dropbox API Errors ----------------------------------------------------------
     if isinstance(exc, exceptions.ApiError):
-
         error = exc.error
 
         if isinstance(error, files.RelocationError):

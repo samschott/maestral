@@ -53,7 +53,6 @@ def check_for_fatal_errors(m: MaestralProxy | Maestral) -> bool:
     maestral_err_list = m.fatal_errors
 
     if len(maestral_err_list) > 0:
-
         size = get_term_size()
 
         err = maestral_err_list[0]
@@ -94,7 +93,6 @@ def inject_proxy(
 ) -> Callable[[Callable[P, T]], Callable[P, Any]]:
     def decorator(f: Callable[P, T]) -> Callable[P, Any]:
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
-
             from ..daemon import MaestralProxy, CommunicationError
 
             ctx = click.get_current_context()

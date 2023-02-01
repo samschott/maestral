@@ -101,11 +101,9 @@ def _get_conf(
     defaults: _DefaultsType,
     registry: dict[str, UserConfig],
 ) -> UserConfig:
-
     try:
         conf = registry[config_name]
     except KeyError:
-
         try:
             conf = UserConfig(
                 config_path,

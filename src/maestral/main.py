@@ -1146,7 +1146,6 @@ class Maestral:
         excluded_parent: str | None = None
 
         for folder in excluded_items.copy():
-
             # Include all parents which are required to download dbx_path.
             if is_child(dbx_path_lower, folder):
                 # Remove parent folders from excluded list.

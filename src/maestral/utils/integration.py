@@ -62,7 +62,6 @@ def get_ac_state() -> ACState:
     :returns: ``True`` if the device has AC power, ``False`` otherwise.
     """
     if platform.system() == "Darwin":
-
         from ctypes import c_double
         from rubicon.objc.runtime import load_library
 

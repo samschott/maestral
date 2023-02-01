@@ -321,7 +321,6 @@ class FSEventHandler(FileSystemEventHandler):
         :returns: Whether the event should be ignored.
         """
         for ignore in self._ignored_events.copy():
-
             # Check for expired events.
             if ignore.ttl and ignore.ttl < time.time():
                 self._ignored_events.discard(ignore)
@@ -944,7 +943,6 @@ class SyncEngine:
         dbx_path_lower = event.dbx_path_lower
 
         with self._database_access():
-
             # Remove any entries for deleted or moved items.
 
             if event.change_type is ChangeType.Removed:
@@ -956,7 +954,6 @@ class SyncEngine:
             # Add or update entries for created or modified items.
 
             if event.change_type is not ChangeType.Removed:
-
                 # Create or update entry.
                 entry = IndexEntry(
                     dbx_path_cased=event.dbx_path,
@@ -1454,7 +1451,6 @@ class SyncEngine:
         cpu_usage = cpu_usage_percent()
 
         if cpu_usage > self._max_cpu_percent:
-
             thread_name = current_thread().name
             self._logger.debug(f"{thread_name}: {cpu_usage}% CPU usage - throttling")
 
@@ -1693,7 +1689,6 @@ class SyncEngine:
 
         # Get modified or added items.
         for path, stat in walk(self.dropbox_path, self._scandir_with_ignore):
-
             is_dir = S_ISDIR(stat.st_mode)
             dbx_path_lower = self.to_dbx_path_lower(path)
             index_entry = self.get_index_entry(dbx_path_lower)
@@ -1950,7 +1945,6 @@ class SyncEngine:
             events = events_for_path[path]
 
             if len(events) == 1:
-
                 # There is only a single event for this path. If it is a split moved
                 # event, mark it for possible recombination later.
                 event = events[0]
@@ -1958,7 +1952,6 @@ class SyncEngine:
                     moved_events[event.move_id].append(event)
 
             else:
-
                 # Count how often the file / folder was created vs deleted.
                 # Remember if it was first created or deleted.
 
@@ -1992,7 +1985,6 @@ class SyncEngine:
                         events_for_path[path] = [FileDeletedEvent(path)]
 
                 else:  # Same number of deleted and created events.
-
                     if n_created == 0 or first_deleted_index < first_created_index:
                         # Item was modified.
                         if events[0].is_directory and events[-1].is_directory:
@@ -2025,7 +2017,6 @@ class SyncEngine:
 
         for split_events in moved_events.values():
             if len(split_events) == 2:
-
                 src_path = split_events[0].src_path
                 dest_path = split_events[1].src_path
 
@@ -2150,7 +2141,6 @@ class SyncEngine:
         equivalent_paths = get_existing_equivalent_paths(basename, root=dirname)
 
         if len(equivalent_paths) > 1:
-
             # We have different file names that would map to the same normalized path!
 
             conflict_path = next(p for p in equivalent_paths if p != event.local_path)
@@ -2715,7 +2705,6 @@ class SyncEngine:
         md_old = self.client.get_metadata(event.dbx_path)
 
         if isinstance(md_old, FileMetadata):
-
             if (
                 event.content_hash == md_old.content_hash
                 and event.symlink_target == md_old.symlink_target
@@ -2753,7 +2742,6 @@ class SyncEngine:
         self._logger.info(f"Syncing ↓ {dbx_path}")
 
         with self.sync_lock:
-
             md = self.client.get_metadata(dbx_path, include_deleted=True)
 
             dbx_path_lower = normalize(dbx_path)
@@ -2798,7 +2786,6 @@ class SyncEngine:
                 list_iter = self.client.list_folder_iterator(dbx_path, recursive=True)
 
                 for res in list_iter:
-
                     idx += len(res.entries)
 
                     if idx > 0:
@@ -3640,7 +3627,6 @@ class SyncEngine:
             entry = self.get_index_entry(event.dbx_path_lower)
 
         if entry and entry.dbx_path_cased != event.dbx_path:
-
             local_path_old = self.to_local_path_from_cased(entry.dbx_path_cased)
 
             event_cls = DirMovedEvent if isdir(local_path_old) else FileMovedEvent
@@ -3720,7 +3706,6 @@ class SyncEngine:
     def _scandir_with_ignore(
         self, path: str | os.PathLike[str]
     ) -> Iterator[os.DirEntry[str]]:
-
         with os.scandir(path) as it:
             for entry in it:
                 dbx_path = self.to_dbx_path(entry.path)
