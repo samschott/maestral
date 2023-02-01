@@ -25,7 +25,6 @@ def m():
 
 @pytest.fixture
 def sync():
-
     local_dir = osp.join(get_home_dir(), "dummy_dir")
     os.mkdir(local_dir)
 
@@ -54,7 +53,6 @@ def client():
 
 @pytest.fixture
 def config_name(prefix: str = "test-config"):
-
     i = 0
     config_name = f"{prefix}-{i}"
 

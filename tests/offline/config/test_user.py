@@ -9,7 +9,6 @@ from .conftest import DEFAULTS_CONFIG, CONF_VERSION
 
 
 def test_config_creation(config):
-
     # Check that all config values have been set correctly.
 
     for section_name, section in DEFAULTS_CONFIG.items():
@@ -20,7 +19,6 @@ def test_config_creation(config):
 
 
 def test_get_failures(config):
-
     # Check getting non-existing config options.
     with pytest.raises(cp.NoOptionError):
         config.get("main", "invalid_option")
@@ -33,7 +31,6 @@ def test_get_failures(config):
 
 
 def test_set_option(config):
-
     # Test setting valid config values of different types.
     config.set("sync", "path", "/test/path")
     config.set("sync", "excluded_items", ["a", "b", "c"])
@@ -52,7 +49,6 @@ def test_set_option(config):
 
 
 def test_update(config):
-
     old_version = CONF_VERSION
 
     # Modify some values.
@@ -73,7 +69,6 @@ def test_update(config):
     new_version = f"{old_version.major + 1}.{old_version.minor}.{old_version.micro}"
 
     for i in range(2):
-
         conf = UserConfig(
             str(config.config_path),
             defaults=DEFAULTS_CONFIG,

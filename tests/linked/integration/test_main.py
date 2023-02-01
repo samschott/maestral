@@ -30,7 +30,6 @@ if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.en
 def _create_file_with_content(
     m: Maestral, dbx_path: str, content: str | bytes
 ) -> FileMetadata:
-
     if isinstance(content, str):
         content = content.encode()
 
@@ -38,7 +37,6 @@ def _create_file_with_content(
 
 
 def test_status_properties(m: Maestral) -> None:
-
     assert not m.pending_link
     assert not m.pending_dropbox_folder
 
@@ -54,7 +52,6 @@ def test_status_properties(m: Maestral) -> None:
 
 
 def test_file_status(m: Maestral) -> None:
-
     # test synced folder
     file_status = m.get_file_status(m.dropbox_path)
     assert file_status == FileStatus.Synced.value
@@ -104,7 +101,6 @@ def test_move_dropbox_folder(m: Maestral) -> None:
 
 
 def test_move_dropbox_folder_to_itself(m: Maestral) -> None:
-
     m.move_dropbox_directory(m.dropbox_path)
 
     # assert that sync is still running
@@ -112,13 +108,11 @@ def test_move_dropbox_folder_to_itself(m: Maestral) -> None:
 
 
 def test_move_dropbox_folder_to_existing(m: Maestral) -> None:
-
     new_dir_short = "~/New Dropbox"
     new_dir = osp.realpath(osp.expanduser(new_dir_short))
     os.mkdir(new_dir)
 
     try:
-
         with pytest.raises(FileExistsError):
             m.move_dropbox_directory(new_dir)
 
@@ -400,7 +394,6 @@ def test_restore_failed(m: Maestral) -> None:
 @pytest.mark.skipif(sys.platform != "linux", reason="inotify specific test")
 @pytest.mark.skipif(os.getenv("CI", False) is False, reason="Only running on CI")
 def test_inotify_error(m: Maestral) -> None:
-
     max_user_watches, max_user_instances, _ = get_inotify_limits()
 
     try:
@@ -409,7 +402,6 @@ def test_inotify_error(m: Maestral) -> None:
         return
 
     try:
-
         m.stop_sync()
         wait_for_idle(m)
 

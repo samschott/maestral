@@ -29,7 +29,6 @@ class DropboxTestLock:
         lock_path: str = "/test.lock",
         expires_after: float = 15 * 60,
     ) -> None:
-
         self.client = client
         self.lock_path = lock_path
         self.expires_after = expires_after

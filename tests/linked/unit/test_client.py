@@ -34,7 +34,6 @@ def failing_content_hasher(
     start_fail: int = 0, end_fail: int = 4
 ) -> type[DropboxContentHasher]:
     class FailingHasher(DropboxContentHasher):
-
         START_FAIL = start_fail
         END_FAIL = end_fail
         DONE = -1
@@ -259,7 +258,6 @@ def test_share_dir_existing(client: DropboxClient) -> None:
 
 
 def test_sharedlink_lifecycle(client: DropboxClient) -> None:
-
     # create a folder to share
     dbx_path = "/shared_folder"
     client.make_dir(dbx_path)
@@ -280,7 +278,6 @@ def test_sharedlink_lifecycle(client: DropboxClient) -> None:
 
 
 def test_sharedlink_errors(client: DropboxClient) -> None:
-
     dbx_path = "/shared_folder"
     client.make_dir(dbx_path)
 

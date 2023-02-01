@@ -141,7 +141,6 @@ def test_locking_multiprocess(tmp_path):
 
 
 def test_lifecycle(config_name: str) -> None:
-
     # start daemon process
     res_start = start_maestral_daemon_process(config_name, timeout=20)
 
@@ -164,7 +163,6 @@ def test_lifecycle(config_name: str) -> None:
 
 
 def test_connection(config_name: str) -> None:
-
     # start daemon process
     res_start = start_maestral_daemon_process(config_name, timeout=20)
     assert res_start is Start.Ok
@@ -181,7 +179,6 @@ def test_connection(config_name: str) -> None:
 
 
 def test_fallback(config_name: str) -> None:
-
     # create proxy w/o fallback
     with pytest.raises(CommunicationError):
         MaestralProxy(config_name)
@@ -194,7 +191,6 @@ def test_fallback(config_name: str) -> None:
 
 
 def test_remote_exceptions(config_name: str) -> None:
-
     # start daemon process
     start_maestral_daemon_process(config_name, timeout=20)
 

@@ -24,7 +24,6 @@ def verify_folder_structure(root: str, structure: dict) -> None:
 
 
 def create_folder_structure(root: str, structure: dict) -> None:
-
     for name, children in structure.items():
         path = os.path.join(root, name)
         os.makedirs(path)
@@ -49,7 +48,6 @@ account_info = FullAccount(
 
 
 def test_migrate_path_root_user_to_team(m: Maestral) -> None:
-
     new_namespace_id = "2"
     home_path = "/John Doe"
 
@@ -115,7 +113,6 @@ def test_migrate_path_root_user_to_team(m: Maestral) -> None:
 
 
 def test_migrate_path_root_team_to_user(m: Maestral) -> None:
-
     new_namespace_id = "1"
 
     # patch client and sync engine
@@ -183,7 +180,6 @@ def test_migrate_path_root_team_to_user(m: Maestral) -> None:
 
 
 def test_migrate_path_root_team_to_team(m: Maestral) -> None:
-
     new_namespace_id = "3"
 
     # patch client and sync engine
@@ -254,7 +250,6 @@ def test_migrate_path_root_team_to_team(m: Maestral) -> None:
 
 
 def test_migrate_path_root_error(m: Maestral) -> None:
-
     new_namespace_id = "2"
     home_path = "/John Doe"
 

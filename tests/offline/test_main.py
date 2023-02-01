@@ -7,7 +7,6 @@ from maestral.exceptions import NotLinkedError
 
 
 def test_check_for_updates(m: Maestral) -> None:
-
     # get current releases from GitHub
 
     resp = requests.get(GITHUB_RELEASES_API)
@@ -45,6 +44,5 @@ def test_check_for_updates(m: Maestral) -> None:
 
 
 def test_not_linked_error(m: Maestral) -> None:
-
     with pytest.raises(NotLinkedError):
         m.get_metadata("/test")

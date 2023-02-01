@@ -31,7 +31,6 @@ def ipath(i):
 
 
 def test_single_file_events(sync: SyncEngine) -> None:
-
     # only a single event for every path -> no consolidation
 
     file_events = [
@@ -53,7 +52,6 @@ def test_single_file_events(sync: SyncEngine) -> None:
 
 
 def test_single_path_cases(sync: SyncEngine) -> None:
-
     file_events = [
         # created + deleted -> None
         FileCreatedEvent(ipath(1)),
@@ -79,7 +77,6 @@ def test_single_path_cases(sync: SyncEngine) -> None:
 
 
 def test_move_events(sync: SyncEngine) -> None:
-
     file_events = [
         # created + moved -> created
         FileCreatedEvent(ipath(1)),
@@ -114,7 +111,6 @@ def test_move_events(sync: SyncEngine) -> None:
 
 
 def test_gedit_save(sync: SyncEngine) -> None:
-
     file_events = [
         FileCreatedEvent("/.gedit-save-UR4EC0"),  # save new version to tmp file
         FileModifiedEvent("/.gedit-save-UR4EC0"),  # modify tmp file
@@ -132,7 +128,6 @@ def test_gedit_save(sync: SyncEngine) -> None:
 
 
 def test_macos_safe_save(sync: SyncEngine) -> None:
-
     file_events = [
         FileMovedEvent(ipath(1), ipath(1) + ".sb-b78ef837-dLht38"),  # move to backup
         FileCreatedEvent(ipath(1)),  # create new version
@@ -148,7 +143,6 @@ def test_macos_safe_save(sync: SyncEngine) -> None:
 
 
 def test_msoffice_created(sync: SyncEngine) -> None:
-
     file_events = [
         FileCreatedEvent(ipath(1)),
         FileDeletedEvent(ipath(1)),
@@ -166,7 +160,6 @@ def test_msoffice_created(sync: SyncEngine) -> None:
 
 
 def test_type_changes(sync: SyncEngine) -> None:
-
     file_events = [
         # keep as is
         FileDeletedEvent(ipath(1)),
@@ -190,7 +183,6 @@ def test_type_changes(sync: SyncEngine) -> None:
 
 
 def test_type_changes_difficult(sync: SyncEngine) -> None:
-
     file_events = [
         # convert to FileDeleted -> DirCreated
         FileModifiedEvent(ipath(1)),
@@ -219,7 +211,6 @@ def test_type_changes_difficult(sync: SyncEngine) -> None:
 
 
 def test_nested_events(sync: SyncEngine) -> None:
-
     file_events = [
         # convert to a single DirDeleted
         DirDeletedEvent(ipath(1)),
@@ -250,7 +241,6 @@ def test_nested_events(sync: SyncEngine) -> None:
     max_time=5,
 )
 def test_performance(sync: SyncEngine, benchmark) -> None:
-
     # 10,000 nested deleted events (5,000 folders, 5,000 files)
     file_events = [DirDeletedEvent(n * ipath(1)) for n in range(1, 5001)]
     file_events += [FileDeletedEvent(n * ipath(1) + ".txt") for n in range(1, 5001)]

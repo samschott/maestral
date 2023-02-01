@@ -19,7 +19,6 @@ def ipath(i: int) -> str:
 
 
 def test_receiving_events(sync: SyncEngine) -> None:
-
     new_dir = Path(sync.dropbox_path) / "parent"
     new_dir.mkdir()
 
@@ -50,7 +49,6 @@ def test_always_ignored_events(sync: SyncEngine) -> None:
 
 
 def test_fs_ignore_tree_creation(sync: SyncEngine) -> None:
-
     new_dir = Path(sync.dropbox_path) / "parent"
 
     with sync.fs_events.ignore(DirCreatedEvent(str(new_dir))):
@@ -65,7 +63,6 @@ def test_fs_ignore_tree_creation(sync: SyncEngine) -> None:
 
 
 def test_fs_ignore_tree_move(sync: SyncEngine) -> None:
-
     new_dir = Path(sync.dropbox_path) / "parent"
 
     new_dir.mkdir()
@@ -87,7 +84,6 @@ def test_fs_ignore_tree_move(sync: SyncEngine) -> None:
 
 
 def test_catching_non_ignored_events(sync: SyncEngine) -> None:
-
     new_dir = Path(sync.dropbox_path) / "parent"
 
     with sync.fs_events.ignore(DirCreatedEvent(str(new_dir)), recursive=False):

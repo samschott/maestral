@@ -1152,7 +1152,6 @@ def test_unknown_path_encoding(m: Maestral, capsys) -> None:
 
 
 def test_symlink_error(m: Maestral) -> None:
-
     local_path = m.dropbox_path + "/link"
 
     os.symlink("to_nowhere", local_path)
@@ -1162,7 +1161,6 @@ def test_symlink_error(m: Maestral) -> None:
 
 
 def test_symlink_indexing_error(m: Maestral) -> None:
-
     m.stop_sync()
 
     local_path = m.dropbox_path + "/link"
@@ -1176,7 +1174,6 @@ def test_symlink_indexing_error(m: Maestral) -> None:
 
 
 def test_dropbox_dir_delete_during_sync(m: Maestral) -> None:
-
     delete(m.dropbox_path)
 
     wait_for_idle(m)
@@ -1187,7 +1184,6 @@ def test_dropbox_dir_delete_during_sync(m: Maestral) -> None:
 
 @pytest.mark.skipif(is_fs_case_sensitive(HOME), reason="file system is case sensitive")
 def test_dropbox_dir_rename_during_sync(m: Maestral) -> None:
-
     dirname, basename = osp.split(m.dropbox_path)
 
     # Move the directory to a new location with a different casing.
@@ -1200,7 +1196,6 @@ def test_dropbox_dir_rename_during_sync(m: Maestral) -> None:
 
 
 def test_dropbox_dir_delete_during_pause(m: Maestral) -> None:
-
     m.stop_sync()
 
     delete(m.dropbox_path)
@@ -1356,7 +1351,6 @@ def assert_synced(m: Maestral, tree: DirTreeType | None = None) -> None:
 
     # Assert that all items from server are present locally with the same content hash.
     for md0 in listing.entries:
-
         if m.sync.is_excluded_by_user(md0.path_lower):
             continue
 
@@ -1383,7 +1377,6 @@ def assert_synced(m: Maestral, tree: DirTreeType | None = None) -> None:
 
     # Check each item in our index is on the server.
     for entry in m.sync.get_index():
-
         # Check that there is a match on the server.
         md1 = remote_items_map.get(entry.dbx_path_lower)
         assert md1, f'indexed item "{entry.dbx_path_lower}" does not exist on dbx'
@@ -1422,11 +1415,9 @@ def assert_synced(m: Maestral, tree: DirTreeType | None = None) -> None:
 
 
 def assert_local_tree(m: Maestral, tree: DirTreeType) -> None:
-
     actual_tree = {}  # type: ignore
 
     for dirpath, dirnames, filenames in os.walk(m.dropbox_path):
-
         relative_path = dirpath.replace(m.dropbox_path + "/", "")
 
         # Find node in tree.

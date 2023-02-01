@@ -21,7 +21,6 @@ CONF_VERSION = Version("1.0.0")
 
 @pytest.fixture
 def config(tmp_path):
-
     config_path = tmp_path / "test-config.ini"
 
     # Create an initial config on disk.

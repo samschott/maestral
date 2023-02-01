@@ -10,7 +10,6 @@ from maestral.utils.appdirs import get_home_dir
 
 
 def test_normalized_path_exists(tmp_path):
-
     # Assert that an existing path is found, even when a different casing is used.
 
     path = str(tmp_path)
@@ -29,7 +28,6 @@ def test_normalized_path_exists(tmp_path):
 
 
 def test_get_existing_equivalent_paths(tmp_path):
-
     # Test that we can find a unique correctly cased path
     # starting from a candidate with scrambled casing.
 
@@ -49,7 +47,6 @@ def test_get_existing_equivalent_paths(tmp_path):
     reason="requires case-sensitive file system",
 )
 def test_multiple_existing_equivalent_paths(tmp_path):
-
     # test that we can get multiple cased path
     # candidates on case-sensitive file systems
 
