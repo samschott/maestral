@@ -2,6 +2,8 @@
 
 #### Changed:
 
+* Allow limiting the upload and download bandwidth used for syncing, either by setting
+  the config file values or by using the CLI `maestral bandwidth-limit up|down`.
 * Speed up querying the sync status of folders.
 * Added support for Python 3.12.
 

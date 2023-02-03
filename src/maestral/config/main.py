@@ -30,6 +30,8 @@ DEFAULTS_CONFIG: _DefaultsType = {
         "notification_level": 15,  # desktop notification level, default: FILECHANGE
         "log_level": 20,  # log level for journal and file, default: INFO
         "update_notification_interval": 60 * 60 * 24 * 7,  # default: weekly
+        "bandwidth_limit_up": 0.0,  # upload limit in bytes / sec (0 = unlimited)
+        "bandwidth_limit_down": 0.0,  # download limit in bytes / sec (0 = unlimited)
     },
     "sync": {
         "path": "",  # dropbox folder location

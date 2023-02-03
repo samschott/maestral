@@ -180,7 +180,12 @@ class Maestral:
             self._dn = MaestralDesktopNotifier(self._config_name, self._loop)
 
         # Set up sync infrastructure.
-        self.client = DropboxClient(self.config_name, self.cred_storage)
+        self.client = DropboxClient(
+            self.config_name,
+            self.cred_storage,
+            bandwidth_limit_up=self.bandwidth_limit_up,
+            bandwidth_limit_down=self.bandwidth_limit_down,
+        )
         self.sync = SyncEngine(self.client, self._dn)
         self.manager = SyncManager(self.sync, self._dn)
 
@@ -458,6 +463,28 @@ class Maestral:
         if not self._dn:
             raise RuntimeError("Desktop notifications require an event loop")
         self._dn.notify_level = level
+
+    @property
+    def bandwidth_limit_down(self) -> float:
+        """Maximum download bandwidth to use in bytes per second."""
+        return self._conf.get("app", "bandwidth_limit_down")
+
+    @bandwidth_limit_down.setter
+    def bandwidth_limit_down(self, value: float) -> None:
+        """Setter: log_level."""
+        self.client.bandwidth_limit_down = value
+        self._conf.set("app", "bandwidth_limit_down", value)
+
+    @property
+    def bandwidth_limit_up(self) -> float:
+        """Maximum download bandwidth to use in bytes per second."""
+        return self._conf.get("app", "bandwidth_limit_up")
+
+    @bandwidth_limit_up.setter
+    def bandwidth_limit_up(self, value: float) -> None:
+        """Setter: log_level."""
+        self.client.bandwidth_limit_down = value
+        self._conf.set("app", "bandwidth_limit_up", value)
 
     # ==== State information  ==========================================================
 
