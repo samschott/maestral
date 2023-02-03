@@ -395,7 +395,7 @@ class UserConfig(DefaultsConfig):
 
             if type(default_value) is not type(value):
                 raise ValueError(
-                    f"Inconsistent config type for [{section}][{option}]. "
+                    f"Inconsistent type for config value [{section}][{option}]. "
                     f"Expected {default_value.__class__.__name__} but "
                     f"got {value.__class__.__name__}."
                 )
