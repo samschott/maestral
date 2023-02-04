@@ -110,11 +110,6 @@ jobs:
         run: |
           pytest -v --cov=maestral --cov-report=xml tests/linked/unit
 
-      - name: Revoke access token
-        run: |
-          curl -X POST https://api.dropboxapi.com/2/auth/token/revoke \
-              --header "Authorization: Bearer $DROPBOX_ACCESS_TOKEN"
-
       - name: Upload Code Coverage
         uses: codecov/codecov-action@v3
         with:
