@@ -5,7 +5,6 @@ This module is responsible for authorization and token store in the system keyri
 from __future__ import annotations
 
 # system imports
-import enum
 from threading import RLock
 
 # external imports
@@ -20,14 +19,14 @@ from keyring.core import load_keyring
 from keyring.errors import KeyringLocked, PasswordDeleteError, InitError
 
 # local imports
-from .config import MaestralConfig, MaestralState
+from .config import MaestralConfig
 from .exceptions import KeyringAccessError
 from .cli import output
 from .utils import exc_info_tuple
 from .logging import scoped_logger
 
 
-__all__ = ["CredentialStorage", "TokenType"]
+__all__ = ["CredentialStorage"]
 
 
 supported_keyring_backends = (
@@ -45,16 +44,6 @@ CONNECTION_ERRORS = (
     requests.exceptions.ConnectionError,
     ConnectionError,
 )
-
-
-class TokenType(enum.Enum):
-    """Enumeration of token types"""
-
-    Offline = "offline"
-    """Long-lived refresh-token to generate short-lived access tokens"""
-
-    Legacy = "legacy"
-    """Long-lived access token"""
 
 
 class CredentialStorage:
@@ -85,7 +74,6 @@ class CredentialStorage:
         self._logger = scoped_logger(config_name, __name__)
 
         self._conf = MaestralConfig(config_name)
-        self._state = MaestralState(config_name)
 
         # defer keyring access until token requested by user
         self._token: str | None = None
@@ -165,21 +153,6 @@ class CredentialStorage:
         return self._loaded
 
     @property
-    def token_type(self) -> TokenType | None:
-        """The type of token (read only). If 'legacy', we have a long-lived access
-        token. If 'offline', we have a long-lived refresh token which can be used to
-        generate new short-lived access tokens."""
-        with self._lock:
-            token_access_type = self._state.get("auth", "token_access_type")
-
-            if token_access_type == "offline":
-                return TokenType.Offline
-            elif token_access_type == "legacy":
-                return TokenType.Legacy
-
-            return None
-
-    @property
     def token(self) -> str | None:
         """The saved token (read only). This call will block until the keyring is
         unlocked."""
@@ -231,14 +204,13 @@ class CredentialStorage:
             self._token = token
             self._loaded = True
 
-    def save_creds(self, account_id: str, token: str, token_type: TokenType) -> None:
+    def save_creds(self, account_id: str, token: str) -> None:
         """
         Saves the auth token to system keyring. Falls back to plain text storage if the
         user denies access to keyring.
 
         :param account_id: The account ID.
         :param token: The access token.
-        :param token_type: The type of access token.
         """
         with self._lock:
             if self._keyring:
@@ -258,7 +230,6 @@ class CredentialStorage:
             self.set_keyring_backend(keyring)
 
             self._conf.set("auth", "account_id", account_id)
-            self._state.set("auth", "token_access_type", token_type.value)
 
             self._token = token
             self._loaded = True
@@ -304,7 +275,7 @@ class CredentialStorage:
             self.set_keyring_backend(None)
 
             self._conf.set("auth", "account_id", "")
-            self._state.set("auth", "token_access_type", "")
+            self._conf.set("auth", "token_access_type", "")
             self._token = None
             self._loaded = False
 
