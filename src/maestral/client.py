@@ -40,7 +40,7 @@ from dropbox.dropbox_client import (
 
 # local imports
 from . import __version__
-from .keyring import CredentialStorage, TokenType
+from .keyring import CredentialStorage
 from .logging import scoped_logger
 from .core import (
     AccountType,
@@ -424,6 +424,9 @@ class DropboxClient:
             short-lived.
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
+        if not (code or access_token or refresh_token):
+            raise RuntimeError("No auth code, refresh token or access token provided.")
+
         if code:
             if not self._auth_flow:
                 raise RuntimeError("Please start auth flow with 'get_auth_url' first")
@@ -435,18 +438,9 @@ class DropboxClient:
             except CONNECTION_ERRORS:
                 return 2
 
-            token = res.refresh_token
-            token_type = TokenType.Offline
-        elif refresh_token:
-            token = refresh_token
-            token_type = TokenType.Offline
-        elif access_token:
-            token = access_token
-            token_type = TokenType.Legacy
-        else:
-            raise RuntimeError("No auth code, refresh token ior access token provided.")
+            refresh_token = res.refresh_token
 
-        self._init_sdk(token, token_type)
+        self._init_sdk(refresh_token=refresh_token, access_token=access_token)
 
         try:
             account_info = self.get_account_info()
@@ -454,7 +448,10 @@ class DropboxClient:
         except CONNECTION_ERRORS:
             return 2
 
-        self._cred_storage.save_creds(account_info.account_id, token, token_type)
+        # Only save long-lived refresh token in storage.
+        if refresh_token:
+            self._cred_storage.save_creds(account_info.account_id, refresh_token)
+
         self._auth_flow = None
 
         return 0
@@ -476,29 +473,29 @@ class DropboxClient:
             self._cred_storage.delete_creds()
 
     def _init_sdk(
-        self, token: str | None = None, token_type: TokenType | None = None
+        self,
+        refresh_token: str | None = None,
+        access_token: str | None = None,
     ) -> None:
         """
         Initialise the SDK. If no token is given, get the token from our credential
         storage.
 
-        :param token: Token for the SDK.
-        :param token_type: Token type
+        :param refresh_token: Long-lived refresh-token for the SDK.
+        :param access_token: Short-lived access-token for the SDK.
         :raises RuntimeError: if token is not available from storage and no token is
             passed as an argument.
         """
-        if not (token or self._cred_storage.token):
+        refresh_token = refresh_token or self._cred_storage.token
+        if not (refresh_token or access_token):
             raise NotLinkedError(
                 "No auth token set", "Please link a Dropbox account first."
             )
 
-        token = token or self._cred_storage.token
-        token_type = token_type or self._cred_storage.token_type
-
-        if token_type is TokenType.Offline:
+        if refresh_token:
             # Initialise Dropbox SDK.
             self._dbx_base = _DropboxSDK(
-                oauth2_refresh_token=token,
+                oauth2_refresh_token=refresh_token,
                 app_key=DROPBOX_APP_KEY,
                 session=self._session,
                 user_agent=USER_AGENT,
@@ -507,7 +504,7 @@ class DropboxClient:
         else:
             # Initialise Dropbox SDK.
             self._dbx_base = _DropboxSDK(
-                oauth2_access_token=token,
+                oauth2_access_token=access_token,
                 app_key=DROPBOX_APP_KEY,
                 session=self._session,
                 user_agent=USER_AGENT,

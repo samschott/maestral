@@ -23,8 +23,9 @@ CONFIG_DIR_NAME = "maestral"
 
 DEFAULTS_CONFIG: _DefaultsType = {
     "auth": {
-        "account_id": "",  # dropbox account id, must match the saved account key
+        "account_id": "",  # dropbox account id
         "keyring": "automatic",  # keychain backend to use for credential storage
+        "token_access_type": "offline",
     },
     "app": {
         "notification_level": 15,  # desktop notification level, default: FILECHANGE
@@ -56,9 +57,6 @@ DEFAULTS_STATE: _DefaultsType = {
         "path_root_nsid": "",  # the namespace id of the root path
         "home_path": "",  # the path of the user folder if not the root path
     },
-    "auth": {
-        "token_access_type": "",  # will be updated on completed OAuth
-    },
     "app": {  # app state
         "updated_scripts_completed": __version__,
         "update_notification_last": 0.0,
@@ -89,7 +87,7 @@ for section_name, section_values in DEFAULTS_CONFIG.items():
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0 to 4.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = Version("18.0")
+CONF_VERSION = Version("19.0")
 
 
 # =============================================================================

@@ -16,6 +16,12 @@
   with the developer name instead of the app name in macOS Ventura's System Settings.
 * Fixes an issue which would prevent periodic reindexing.
 
+#### Removed:
+
+* Removed support for access token authentication. Users who linked Maestral to their
+  Dropbox account before September 2020 will be asked to reauthenticate so that Maestral
+  can retrieve a refresh token instead.
+
 ## v1.6.5
 
 #### Fixed:

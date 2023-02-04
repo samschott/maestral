@@ -7,12 +7,11 @@ from maestral.core import FullAccount, TeamRootInfo, UserRootInfo, AccountType
 from maestral.exceptions import NoDropboxDirError
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import generate_cc_name, delete
-from maestral.keyring import TokenType
 
 
 def fake_linked(m: Maestral, account_info: FullAccount) -> None:
     m.client.get_account_info = mock.Mock(return_value=account_info)  # type: ignore
-    m.cred_storage.save_creds("account_id", "1234", TokenType.Offline)
+    m.cred_storage.save_creds("account_id", "1234")
 
 
 def verify_folder_structure(root: str, structure: dict) -> None:
