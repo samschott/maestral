@@ -93,10 +93,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -U .[test]
 
-      - name: Get short-lived Dropbox token
+      - name: Get short-lived Oauth2 access token
         # We generate a short-lived auth token which is passed to the test runner as
-        # an environment variable. At no point does the test code, potentially from a
-        # malicious PR, get access to a long-lived token.
+        # an environment variable. At no point does the test code, potentially from an
+        # untrusted 3rd party, get access to a long-lived token.
         run: |
           auth_result=$(curl https://api.dropbox.com/oauth2/token \
               -d grant_type=refresh_token \
@@ -109,6 +109,11 @@ jobs:
       - name: Test with pytest
         run: |
           pytest -v --cov=maestral --cov-report=xml tests/linked/unit
+
+      - name: Revoke access token
+        run: |
+          curl -X POST https://api.dropboxapi.com/2/auth/token/revoke \
+              --header "Authorization: Bearer $DROPBOX_ACCESS_TOKEN"
 
       - name: Upload Code Coverage
         uses: codecov/codecov-action@v3
