@@ -12,6 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4.5.0
+        with:
+          python-version: '3.x'
 
       - name: Install dependencies
         run: |
@@ -63,12 +65,12 @@ jobs:
             TAGS="${DOCKER_IMAGE}:${MAESTRAL_VERSION},${DOCKER_IMAGE}:${MINOR},${DOCKER_IMAGE}:${MAJOR},${DOCKER_IMAGE}:latest"
           fi
 
-          echo ::set-output name=version::${VERSION}
-          echo ::set-output name=maestral_version::${MAESTRAL_VERSION}
-          echo ::set-output name=docker_image::${DOCKER_IMAGE}
-          echo ::set-output name=git_branch::${GIT_BRANCH}
-          echo ::set-output name=tags::${TAGS}
-          echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "maestral_version=${MAESTRAL_VERSION}" >> $GITHUB_OUTPUT
+          echo "docker_image=${DOCKER_IMAGE}" >> $GITHUB_OUTPUT
+          echo "git_branch=${GIT_BRANCH}" >> $GITHUB_OUTPUT
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+          echo "created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
