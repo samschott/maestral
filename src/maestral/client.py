@@ -387,7 +387,7 @@ class DropboxClient:
 
         :raises KeyringAccessError: if keyring access fails.
         """
-        return self._cred_storage.token is not None
+        return self._cred_storage.token is not None or self._dbx is not None
 
     def get_auth_url(self) -> str:
         """
