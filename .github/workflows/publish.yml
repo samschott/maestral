@@ -73,6 +73,13 @@ jobs:
           echo "tags=${TAGS}" >> $GITHUB_OUTPUT
           echo "created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
+      - name: Wait for PyPI release
+        run: |
+          while [[ $(curl -s "https://pypi.org/pypi/maestral/$MAESTRAL_VERSION/json") == *"Not Found"* ]]
+          do
+            sleep 2
+          done
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
