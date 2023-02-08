@@ -199,8 +199,8 @@ class FSEventHandler(FileSystemEventHandler):
     ``dir_event_types``. This is for forward compatibility as additional event types
     may be added to watchdog in the future.
 
-    :param file_event_types: Types of file events to handle. This acts as a whitelist.
-    :param dir_event_types: Types of folder events to handle. This acts as a whitelist.
+    :param file_event_types: Types of file events to handle. Acts as an allow list.
+    :param dir_event_types: Types of folder events to handle. Acts as an allow list.
 
     :cvar float ignore_timeout: Timeout in seconds after which filters for ignored
         events will expire.
