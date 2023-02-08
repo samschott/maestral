@@ -594,7 +594,7 @@ class SyncEngine:
 
         self._excluded_items: list[str] = self._conf.get("sync", "excluded_items")
         self._max_cpu_percent: float = (
-                self._conf.get("sync", "max_cpu_percent") * CPU_CORE_COUNT
+            self._conf.get("sync", "max_cpu_percent") * CPU_CORE_COUNT
         )
         self._local_cursor: float = self._state.get("sync", "lastsync")
 
