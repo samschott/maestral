@@ -109,7 +109,7 @@ from .utils import removeprefix, sanitize_string, exc_info_tuple
 from .utils.caches import LRUCache
 from .utils.integration import (
     cpu_usage_percent,
-    CPU_COUNT,
+    CPU_CORE_COUNT,
 )
 from .utils.path import (
     exists,
@@ -149,7 +149,7 @@ __all__ = [
 umask = os.umask(0o22)
 os.umask(umask)
 
-NUM_THREADS = min(64, CPU_COUNT * 4)
+NUM_THREADS = min(6, CPU_CORE_COUNT * 4)
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -530,7 +530,7 @@ class SyncEngine:
     """
 
     _max_history = 1000
-    _num_threads = min(64, CPU_COUNT * 4)
+    _num_threads = min(16, CPU_CORE_COUNT * 4)
 
     def __init__(
         self,
@@ -594,7 +594,7 @@ class SyncEngine:
 
         self._excluded_items: list[str] = self._conf.get("sync", "excluded_items")
         self._max_cpu_percent: float = (
-            self._conf.get("sync", "max_cpu_percent") * CPU_COUNT
+                self._conf.get("sync", "max_cpu_percent") * CPU_CORE_COUNT
         )
         self._local_cursor: float = self._state.get("sync", "lastsync")
 
@@ -701,7 +701,7 @@ class SyncEngine:
     def max_cpu_percent(self, percent: float) -> None:
         """Setter: max_cpu_percent."""
         self._max_cpu_percent = percent
-        self._conf.set("sync", "max_cpu_percent", percent // CPU_COUNT)
+        self._conf.set("sync", "max_cpu_percent", percent // CPU_CORE_COUNT)
 
     # ==== Sync state ==================================================================
 
@@ -1445,7 +1445,7 @@ class SyncEngine:
         """
         Pauses if CPU usage is too high if called from one of our thread pools.
         """
-        if self._max_cpu_percent == 100 * CPU_COUNT:
+        if self._max_cpu_percent == 100 * CPU_CORE_COUNT:
             return
 
         cpu_usage = cpu_usage_percent()

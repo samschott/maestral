@@ -19,14 +19,14 @@ __all__ = [
     "get_ac_state",
     "ACState",
     "get_inotify_limits",
-    "CPU_COUNT",
+    "CPU_CORE_COUNT",
     "cpu_usage_percent",
     "check_connection",
     "SystemdNotifier",
 ]
 
 
-CPU_COUNT = os.cpu_count() or 1  # os.cpu_count can return None
+CPU_CORE_COUNT = os.cpu_count() or 1  # os.cpu_count can return None
 LINUX_POWER_SUPPLY_PATH = "/sys/class/power_supply"
 
 
@@ -164,7 +164,7 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
         raise ValueError(f"interval is not positive (got {interval!r})")
 
     def timer() -> float:
-        return time.monotonic() * CPU_COUNT
+        return time.monotonic() * CPU_CORE_COUNT
 
     st1 = timer()
     rt1 = resource.getrusage(resource.RUSAGE_SELF)
@@ -180,7 +180,7 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
     except ZeroDivisionError:
         return 0.0
     else:
-        single_cpu_percent = overall_cpus_percent * CPU_COUNT
+        single_cpu_percent = overall_cpus_percent * CPU_CORE_COUNT
         return round(single_cpu_percent, 1)
 
 
