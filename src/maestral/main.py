@@ -471,7 +471,7 @@ class Maestral:
 
     @bandwidth_limit_down.setter
     def bandwidth_limit_down(self, value: float) -> None:
-        """Setter: log_level."""
+        """Setter: bandwidth_limit_down."""
         self.client.bandwidth_limit_down = value
         self._conf.set("app", "bandwidth_limit_down", value)
 
@@ -482,8 +482,8 @@ class Maestral:
 
     @bandwidth_limit_up.setter
     def bandwidth_limit_up(self, value: float) -> None:
-        """Setter: log_level."""
-        self.client.bandwidth_limit_down = value
+        """Setter: bandwidth_limit_up."""
+        self.client.bandwidth_limit_up = value
         self._conf.set("app", "bandwidth_limit_up", value)
 
     # ==== State information  ==========================================================
