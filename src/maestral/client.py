@@ -209,6 +209,7 @@ class DropboxClient:
     MAX_LIST_FOLDER_RETRIES = 3
 
     UPLOAD_REQUEST_CHUNK_SIZE = 4194304
+    DATA_TRANSFER_MIN_SLEEP_TIME = 0.0001  # 100 nanoseconds
 
     _dbx: _DropboxSDK | None
 
@@ -243,15 +244,8 @@ class DropboxClient:
         self.bandwidth_limit_up = bandwidth_limit_up
         self.bandwidth_limit_down = bandwidth_limit_down
 
-        # The Dropbox SDK currently only support streamed downloads but not uploads.
-        # This means that we have to supply binary data in chunks and pause in between.
-        # However, for efficiency and API call limits, the chunk size should not be too
-        # small. Choose 4 Mb as a compromise. This means that uploads throttled to
-        # < 4 Mb/sec will appear choppy instead of smooth.
-        # The alternative approach of limiting at the `socket.send` step is too
-        # cumbersome given the abstraction layers of urllib3, requests, and Dropbox SDK.
-        self.download_chunk_size = 2048  # 2 Kb
-        self.upload_chunk_size = 2048  # 4 Mb
+        self.download_chunk_size = 4096  # 4 kB
+        self.upload_chunk_size = 4096  # 4 kB
 
         self._num_downloads = 0
         self._num_uploads = 0
@@ -285,7 +279,7 @@ class DropboxClient:
                 target_tock = tick + self.download_chunk_size / speed_per_download
 
                 wait_time = target_tock - tock
-                if wait_time > 0.00005:  # don't sleep for < 50 ns
+                if wait_time > self.DATA_TRANSFER_MIN_SLEEP_TIME:
                     time.sleep(wait_time)
 
     def _throttled_upload_iter(self, data: bytes) -> Iterator[bytes] | bytes:
@@ -302,7 +296,7 @@ class DropboxClient:
                 target_tock = tick + self.upload_chunk_size / speed_per_upload
 
                 wait_time = target_tock - tock
-                if wait_time > 0.00005:  # don't sleep for < 50 ns
+                if wait_time > self.DATA_TRANSFER_MIN_SLEEP_TIME:
                     time.sleep(wait_time)
 
     def _retry_on_error(  # type: ignore
