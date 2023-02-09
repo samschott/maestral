@@ -75,7 +75,8 @@ jobs:
 
       - name: Wait for PyPI release
         run: |
-          while [[ $(curl -s "https://pypi.org/pypi/maestral/$MAESTRAL_VERSION/json") == *"Not Found"* ]]
+          echo "Waiting for PyPI release ${{ steps.prep.outputs.maestral_version }}"
+          while [[ $(curl -s "https://pypi.org/pypi/maestral/${{ steps.prep.outputs.maestral_version }}/json") == *"Not Found"* ]]
           do
             sleep 2
           done
