@@ -8,7 +8,6 @@ import os.path as osp
 import shutil
 import sqlite3
 import time
-import warnings
 import asyncio
 import random
 import gc
@@ -1043,13 +1042,6 @@ class Maestral:
         """
         self._check_linked()
         self.manager.reset_sync_state()
-
-    def set_excluded_items(self, items: list[str]) -> None:
-        warnings.warn(
-            "'set_excluded_items' is deprecated, please set 'excluded_items' directly",
-            DeprecationWarning,
-        )
-        self.excluded_items = items
 
     def exclude_item(self, dbx_path: str) -> None:
         """
