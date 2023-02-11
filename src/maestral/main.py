@@ -60,6 +60,7 @@ from .exceptions import (
 from .errorhandling import convert_api_errors, CONNECTION_ERRORS
 from .config import MaestralConfig, MaestralState, validate_config_name
 from .logging import (
+    AwaitableHandler,
     CachedHandler,
     scoped_logger,
     setup_logging,
@@ -145,6 +146,7 @@ class Maestral:
     """
 
     _external_log_handlers: Sequence[logging.Handler]
+    _log_handler_status_longpoll: AwaitableHandler
     _log_handler_info_cache: CachedHandler
     _log_handler_error_cache: CachedHandler
 
@@ -219,6 +221,11 @@ class Maestral:
         self._log_handler_error_cache.setFormatter(LOG_FMT_SHORT)
         self._log_handler_error_cache.setLevel(logging.ERROR)
         self._root_logger.addHandler(self._log_handler_error_cache)
+
+        self._log_handler_status_longpoll = AwaitableHandler(max_unblock_per_second=1)
+        self._log_handler_status_longpoll.setFormatter(LOG_FMT_SHORT)
+        self._log_handler_status_longpoll.setLevel(logging.INFO)
+        self._root_logger.addHandler(self._log_handler_status_longpoll)
 
     @property
     def version(self) -> str:
@@ -489,10 +496,13 @@ class Maestral:
 
     def status_change_longpoll(self, timeout: float | None = 60) -> bool:
         """
-        Blocks until there is a change in status or until a timeout occurs. This method
-        can be used by frontends to wait for status changes without constant polling.
-        Status changes are for example transitions from syncing to idle or vice-versa,
-        new errors, or connection status changes.
+        Blocks until there is a change in status or until a timeout occurs.
+
+        This method can be used by frontends to wait for status changes without constant
+        polling. Status changes are for example transitions from syncing to idle or
+        vice-versa, new errors, or connection status changes.
+
+        Will unblock at most once per second.
 
         :param timeout: Maximum time to block before returning, even if there is no
             status change.
@@ -500,7 +510,7 @@ class Maestral:
 
         .. versionadded:: 1.3.0
         """
-        return self._log_handler_info_cache.wait_for_emit(timeout)
+        return self._log_handler_status_longpoll.wait_for_emit(timeout)
 
     @property
     def pending_link(self) -> bool:
@@ -550,7 +560,7 @@ class Maestral:
         elif not self.connected:
             return CONNECTING
         else:
-            return self._log_handler_info_cache.getLastMessage()
+            return self._log_handler_info_cache.get_last_message()
 
     @property
     def sync_errors(self) -> list[SyncErrorEntry]:
