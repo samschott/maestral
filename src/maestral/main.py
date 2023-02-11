@@ -1072,8 +1072,6 @@ class Maestral:
             )
 
         if self.sync.is_excluded_by_user(dbx_path_lower):
-            self._logger.info("%s was already excluded", dbx_path_lower)
-            self._logger.info(IDLE)
             return
 
         if self.sync.sync_lock.acquire(blocking=False):
@@ -1149,8 +1147,6 @@ class Maestral:
             )
 
         if not self.sync.is_excluded_by_user(dbx_path_lower):
-            self._logger.info("'%s' is already included, nothing to do", dbx_path_lower)
-            self._logger.info(IDLE)
             return
 
         # ---- update excluded items list ----------------------------------------------
