@@ -5,6 +5,7 @@
 * Allow limiting the upload and download bandwidth used for syncing, either by setting
   the config file values, by using the CLI `maestral bandwidth-limit up|down`, or
   through the Settings pane in the GUI.
+* Add config file items for the maximum number of parallel uploads and downloads.
 * Speed up querying the sync status of folders.
 * Added support for Python 3.12.
 
