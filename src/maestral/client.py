@@ -198,9 +198,9 @@ class DropboxClient:
     :param session: Optional requests session to use. If not given, a new session will
         be created with :func:`dropbox.dropbox_client.create_session`.
     :param bandwidth_limit_up: Maximum bandwidth to use for uploads in bytes/sec. Will
-        be enforced over all concurrent uploads.
+        be enforced over all concurrent uploads (0 = unlimited).
     :param bandwidth_limit_down: Maximum bandwidth to use for downloads in bytes/sec.
-        Will be enforced over all concurrent downloads.
+        Will be enforced over all concurrent downloads (0 = unlimited).
     """
 
     SDK_VERSION: str = "2.0"
