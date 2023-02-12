@@ -77,17 +77,18 @@ class AwaitableHandler(logging.Handler):
 
     _emit_future: Future[bool]
 
-    def __init__(self, level: int = logging.NOTSET, max_unblock_per_second: int | None = 1) -> None:
+    def __init__(
+        self, level: int = logging.NOTSET, max_unblock_per_second: int | None = 1
+    ) -> None:
         super().__init__(level=level)
 
         self._emit_future = Future()
         self._last_emit = 0.0
 
-        if not max_unblock_per_second > 0:
-            raise ValueError("max_unblock_per_second must be > 0")
-
         if max_unblock_per_second is None:
-            self._min_wait = 0
+            self._min_wait = 0.0
+        elif not max_unblock_per_second > 0:
+            raise ValueError("max_unblock_per_second must be > 0")
         else:
             self._min_wait = 1 / max_unblock_per_second
 
@@ -168,7 +169,6 @@ class CachedHandler(logging.Handler):
         Clears all cached records.
         """
         self.cached_records.clear()
-
 
 
 class SdNotificationHandler(logging.Handler):
