@@ -13,7 +13,7 @@ from functools import wraps
 from queue import Empty, Queue
 from threading import Event, RLock, Thread
 from tempfile import TemporaryDirectory
-from typing import Iterator, TypeVar, Callable, Generic
+from typing import Iterator, TypeVar, Callable, Generic, Any
 from typing_extensions import ParamSpec, Concatenate
 
 # local imports
@@ -108,6 +108,9 @@ class PersistentQueue(Generic[T]):
         with self._lock:
             self._persistent.discard(item)
             self._queue.task_done()
+
+    def __contains__(self, entry: Any) -> bool:
+        return entry in self._persistent
 
 
 class SyncManager:
