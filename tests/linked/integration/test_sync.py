@@ -1258,13 +1258,11 @@ def test_invalid_pending_download(m: Maestral) -> None:
     This can happen for instance when Dropbox servers have a hickup or when our state
     file gets corrupted.
     """
-
     # add a non-existent path to the pending downloads list
+    m.stop_sync()
     bogus_path = "/bogus path"
     m.manager.download_queue.put(bogus_path)
 
-    # trigger a resync
-    m.stop_sync()
     m.start_sync()
     wait_for_idle(m)
 
