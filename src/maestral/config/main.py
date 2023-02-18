@@ -33,6 +33,8 @@ DEFAULTS_CONFIG: _DefaultsType = {
         "update_notification_interval": 60 * 60 * 24 * 7,  # default: weekly
         "bandwidth_limit_up": 0.0,  # upload limit in bytes / sec (0 = unlimited)
         "bandwidth_limit_down": 0.0,  # download limit in bytes / sec (0 = unlimited)
+        "max_parallel_uploads": 6,  # max number of parallel downloads
+        "max_parallel_downloads": 6,  # max number of parallel downloads
     },
     "sync": {
         "path": "",  # dropbox folder location

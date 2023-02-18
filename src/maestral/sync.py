@@ -7,6 +7,7 @@ import errno
 import sys
 import os
 import os.path as osp
+import threading
 import time
 import random
 import uuid
@@ -530,7 +531,6 @@ class SyncEngine:
     """
 
     _max_history = 1000
-    _num_threads = min(16, CPU_CORE_COUNT * 4)
 
     def __init__(
         self,
@@ -542,18 +542,20 @@ class SyncEngine:
         self.fs_events = FSEventHandler()
         self._logger = scoped_logger(__name__, self.config_name)
 
-        # Synchronize upload and download sync.
-        self.sync_lock = RLock()
-        # Synchronizes DB access.
-        self._db_lock = RLock()
-        # Synchronize sync activity across multiple levels.
-        self._tree_traversal = RLock()
-
         self._conf = MaestralConfig(self.config_name)
         self._state = MaestralState(self.config_name)
         self.reload_cached_config()
 
         self.desktop_notifier = desktop_notifier
+
+        # Synchronization
+        self.sync_lock = RLock()  # Upload and download cycles.
+        self._db_lock = RLock()  # DB access.
+        self._tree_traversal = RLock()  # Sync activity across multiple levels.
+        max_parallel_downloads = self._conf.get("app", "max_parallel_uploads")
+        self._parallel_down_semaphore = threading.Semaphore(max_parallel_downloads)
+        max_parallel_uploads = self._conf.get("app", "max_parallel_uploads")
+        self._parallel_up_semaphore = threading.Semaphore(max_parallel_uploads)
 
         # Data structures for internal communication.
         self._cancel_requested = Event()
@@ -578,8 +580,6 @@ class SyncEngine:
 
         # Caches.
         self._case_conversion_cache = LRUCache(capacity=5000)
-
-        # Clean our file cache-
         self.clean_cache_dir(raise_error=False)
 
     def reload_cached_config(self) -> None:
@@ -2402,14 +2402,15 @@ class SyncEngine:
             )
 
         try:
-            md_new = self.client.upload(
-                event.local_path,
-                event.dbx_path,
-                autorename=True,
-                write_mode=mode,
-                update_rev=local_rev,
-                sync_event=event,
-            )
+            with self._parallel_up_semaphore:
+                md_new = self.client.upload(
+                    event.local_path,
+                    event.dbx_path,
+                    autorename=True,
+                    write_mode=mode,
+                    update_rev=local_rev,
+                    sync_event=event,
+                )
         except (NotFoundError, NotAFolderError, IsAFolderError):
             # Note: NotAFolderError can be raised when a parent in the local path
             # refers to a file instead of a folder.
@@ -2519,14 +2520,15 @@ class SyncEngine:
             local_rev = local_entry.rev
 
         try:
-            md_new = self.client.upload(
-                event.local_path,
-                event.dbx_path,
-                autorename=True,
-                write_mode=mode,
-                update_rev=local_rev,
-                sync_event=event,
-            )
+            with self._parallel_up_semaphore:
+                md_new = self.client.upload(
+                    event.local_path,
+                    event.dbx_path,
+                    autorename=True,
+                    write_mode=mode,
+                    update_rev=local_rev,
+                    sync_event=event,
+                )
         except (NotFoundError, NotAFolderError, IsAFolderError):
             # Note: NotAFolderError can be raised when a parent in the local path
             # refers to a file instead of a folder.
@@ -3437,9 +3439,10 @@ class SyncEngine:
             tmp_fname = self._new_tmp_file()
 
             try:
-                md = self.client.download(
-                    f"rev:{event.rev}", tmp_fname, sync_event=event
-                )
+                with self._parallel_down_semaphore:
+                    md = self.client.download(
+                        f"rev:{event.rev}", tmp_fname, sync_event=event
+                    )
                 event = SyncEvent.from_metadata(md, self)
             except SyncError as err:
                 # Replace rev number with path.
