@@ -33,6 +33,7 @@ except ImportError:  # Python 3.7 and lower
 
 # local imports
 from .utils.appdirs import get_home_dir, get_conf_path, get_data_path
+from .utils.integration import cat
 from .constants import BUNDLE_ID, ENV
 from .exceptions import MaestralApiError
 
@@ -246,16 +247,13 @@ class AutoStartXDGDesktop(AutoStartBase):
 def get_available_implementation() -> SupportedImplementations | None:
     """Returns the supported implementation depending on the platform."""
     system = platform.system()
-
     if system == "Darwin":
         return SupportedImplementations.launchd
-    else:
-        try:
-            res = subprocess.check_output(["ps", "-p", "1"]).decode()
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            return None
-        else:
-            return SupportedImplementations.systemd if "systemd" in res else None
+    if system == "Linux":
+        init_command = cat(Path("/proc/1/comm"))
+        if init_command is not None and b"systemd" in init_command:
+            return SupportedImplementations.systemd
+    return None
 
 
 def get_maestral_command_path() -> str:
