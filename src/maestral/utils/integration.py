@@ -1,7 +1,8 @@
 """
 This module provides functions for platform integration. Most of the functionality here
-could also be achieved with psutils but we want to avoid the large dependency.
+could also be achieved with psutils, but we want to avoid the large dependency.
 """
+from __future__ import annotations
 
 import os
 import platform
@@ -16,6 +17,7 @@ from typing import Union, Tuple, Optional
 from urllib.parse import urlparse
 
 __all__ = [
+    "cat",
     "get_ac_state",
     "ACState",
     "get_inotify_limits",
@@ -30,7 +32,7 @@ CPU_CORE_COUNT = os.cpu_count() or 1  # os.cpu_count can return None
 LINUX_POWER_SUPPLY_PATH = "/sys/class/power_supply"
 
 
-def multi_cat(*paths: Path) -> Union[int, bytes, None]:
+def cat(*paths: "os.PathLike[str]") -> Union[bytes, None]:
     """
     Attempts to read the content of multiple files which may not exist. Returns the
     content of the first file which can be read. If none of them can be read return
@@ -38,11 +40,10 @@ def multi_cat(*paths: Path) -> Union[int, bytes, None]:
     """
     for path in paths:
         try:
-            ret = path.read_bytes().strip()
+            with open(path, "rb") as f:
+                return f.read().strip()
         except OSError:
             pass
-        else:
-            return int(ret) if ret.isdigit() else ret
 
     return None
 
@@ -94,10 +95,10 @@ def get_ac_state() -> ACState:
             if entry.name.startswith("B") or "battery" in entry.name.lower()
         ]
 
-        online = multi_cat(*iter(path / "online" for path in ac_paths))
+        online = cat(*iter(path / "online" for path in ac_paths))
 
         if online is not None:
-            if online == 1:
+            if online == b"1":
                 return ACState.Connected
             else:
                 return ACState.Disconnected
