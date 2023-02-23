@@ -5,7 +5,7 @@
 * Allow limiting the upload and download bandwidth used for syncing, either by setting
   the config file values, by using the CLI `maestral bandwidth-limit up|down`, or
   through the Settings pane in the GUI.
-* Add config file items for the maximum number of parallel uploads and downloads.
+* Add config file items for the maximum number of parallel file transfers.
 * Speed up querying the sync status of folders.
 * Added support for Python 3.12.
 
@@ -18,6 +18,8 @@
 * Fixes an issue which would prevent periodic reindexing.
 * Fixes an issue with interrupted downloads of folders which are newly included by
   selective sync not automatically resuming when Maestral restarts.
+* Fixes an issue with detect the init system on some Linux distributions, a prerequisite
+  for the autostart functionality.
 
 #### Removed:
 
