@@ -17,7 +17,6 @@ import os.path as osp
 import re
 import shutil
 import stat
-import platform
 import subprocess
 import shlex
 import plistlib
@@ -34,7 +33,7 @@ except ImportError:  # Python 3.7 and lower
 # local imports
 from .utils.appdirs import get_home_dir, get_conf_path, get_data_path
 from .utils.integration import cat
-from .constants import BUNDLE_ID, ENV
+from .constants import BUNDLE_ID, ENV, IS_LINUX, IS_MACOS
 from .exceptions import MaestralApiError
 
 
@@ -246,10 +245,9 @@ class AutoStartXDGDesktop(AutoStartBase):
 
 def get_available_implementation() -> SupportedImplementations | None:
     """Returns the supported implementation depending on the platform."""
-    system = platform.system()
-    if system == "Darwin":
+    if IS_MACOS:
         return SupportedImplementations.launchd
-    if system == "Linux":
+    if IS_LINUX:
         init_command = cat(Path("/proc/1/comm"))
         if init_command is not None and b"systemd" in init_command:
             return SupportedImplementations.systemd
