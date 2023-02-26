@@ -1,17 +1,13 @@
-This release fixes several crashes of the GUI when running on Apple Silicon. It also refactors the handling of sync errors, resulting in more reliable clearing of sync errors after a file was successfully synced, features some performance improvements when indexing local changes and further decouples the sync logic from specifics of the Dropbox API.
-
 #### Changed:
 
-* Sync errors are now stored in a SQlite database table instead of a config file.
-* The CLI command `maestral filestatus` will now return `error` if there is a sync error for any child of the given path.
-* Re-enabled updating from versions older than 1.5.0.
-* Improved file integrity checks after upload or download.
-* Better parallelize CPU intensive work when indexing local changes. This improves performance on multicore CPUs.
-* Migrate the Linux GUI from PyQt5 to PyQt6.
+* Improved error message for file names with incompatible characters that are rejected by Dropbox servers, e.g., emoji or slashes at the end of a file name.
+* Capture Dropbox SDK logs in Maestral's log output. This will log which API endpoints are called and any retries on errors or rate limiting.
 
 #### Fixed:
 
-* Fixes an issue where upload sync errors could continue to be reported after the local file was deleted if the deletion occurred while sync was not running.
-* Fixes an issue with the Linux Qt GUI where aborting the setup dialog after linking but before choosing a local Dropbox folder would result in an inconsistent state.
-* Fixes an issue when storing 64-bit inode numbers in our database.
-* Fixes occasional crashes of the macOS GUI when running on Apple Silicon.
+* Fixes intermittent failures to show a file associated with a sync issue in the Linux GUI.
+* Fixes an issue where the macOS app bundle would use a system-wide installation of the Sparkle framework if available instead of the one bundled with Maestral. This could lead to unexpected issues if the system-wide installation would have an incompatible version.
+* Fixes an issue where the access level of shared links may be incorrectly reported.
+* Resume interrupted downloads after a shutdown when including new items with selective sync.
+* Fixes occasional conflicting copies of folders during initial sync due to a race condition when a child item is synced before its parent folder.
+* Fixes the display of timestamps in the CLI from `maestral ls` and `maestral history` commands. The former would show times in UTC instead of the device's timezone and the latter would show Unix timestamps instead of formatted output.
