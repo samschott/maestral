@@ -1,3 +1,9 @@
+## v1.7.1
+
+#### Fixed:
+
+* Fixes running the app bundle version on Intel Macs.
+
 ## v1.7.0
 
 #### Changed:
