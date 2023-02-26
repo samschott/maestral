@@ -6,136 +6,6 @@
     <description>Prereleases of Maestral</description>
     <language>en</language>
     <item>
-      <title>v1.7.0 available</title>
-      <pubDate>2023-02-24T22:35:32Z</pubDate>
-      <sparkle:version>80</sparkle:version>
-      <sparkle:shortVersionString>1.7.0</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
-      <description><![CDATA[
-        <!DOCTYPE html>
-        <html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
-        <head>
-          <meta charset="utf-8" />
-          <meta name="generator" content="pandoc" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-          <title>v1.7.0</title>
-          <style>
-            code{white-space: pre-wrap;}
-            span.smallcaps{font-variant: small-caps;}
-            div.columns{display: flex; gap: min(4vw, 1.5em);}
-            div.column{flex: auto; overflow-x: auto;}
-            div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-            ul.task-list{list-style: none;}
-            ul.task-list li input[type="checkbox"] {
-              width: 0.8em;
-              margin: 0 0.8em 0.2em -1.6em;
-              vertical-align: middle;
-            }
-            .display.math{display: block; text-align: center; margin: 0.5rem auto;}
-          </style>
-          <link rel="stylesheet" href="" />
-          <style>
-                :root {
-                    font-size: 11px;
-                }
-                body {
-                    padding: 0 0.5rem 0 0.5rem;
-                    font-family: -apple-system;
-                    line-height: 1.2rem;
-                }
-                h1 {
-                    font-size: 1.3rem;
-                }
-                h2,h3,h4 {
-                    font-size: 1.2rem;
-                    margin-block-end: 1rem;
-                }
-                ul {
-                    padding-left: 2rem;
-                    margin-top: 0rem;
-                    margin-bottom: 1.3rem;
-                }
-                li, p {
-                    margin-left: 0;
-                    margin-top: 0;
-                    margin-bottom: 0.5rem;
-                    font-size: 1.1rem;
-                }
-                .annotation {
-                    font-size: 1.1rem;
-                }
-                @media (prefers-color-scheme: light) {
-                    h1 {
-                        color: #272727;
-                    }
-                    a {
-                        color: #0948be;
-                    }
-                }
-                @media (prefers-color-scheme: dark) {
-                    body {
-                        background-color: #1e1e1e;
-                        color: #D9D9D9; /* For headers */
-                    }
-                    li, p {
-                        color:#FFFFFF;
-                    }
-                    a {
-                        color: #3586FF;
-                    }
-                }
-            </style>
-          <!--[if lt IE 9]>
-            <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
-          <![endif]-->
-        </head>
-        <body>
-        <header id="title-block-header">
-        <h1 class="title">v1.7.0</h1>
-        </header>
-        <h4 id="changed">Changed:</h4>
-        <ul>
-        <li>Allow limiting the upload and download bandwidth used for syncing,
-        either by setting the config file values, by using the CLI
-        <code>maestral bandwidth-limit up|down</code>, or through the Settings
-        pane in the GUI.</li>
-        <li>Add config file items for the maximum number of parallel file
-        transfers.</li>
-        <li>Speed up querying the sync status of folders.</li>
-        <li>Added support for Python 3.12.</li>
-        </ul>
-        <h4 id="fixed">Fixed:</h4>
-        <ul>
-        <li>Fixes the download sync of remote symlinks. The local item now is an
-        actual symlink instead of a 0 KB file.</li>
-        <li>Fixes an issue where the Login Items entry for Maestral would
-        incorrectly be listed with the developer name instead of the app name in
-        macOS Ventura’s System Settings.</li>
-        <li>Fixes an issue which would prevent periodic reindexing.</li>
-        <li>Fixes an issue with interrupted downloads of folders which are newly
-        included by selective sync not automatically resuming when Maestral
-        restarts.</li>
-        <li>Fixes an issue with detect the init system on some Linux
-        distributions, a prerequisite for the autostart functionality.</li>
-        </ul>
-        <h4 id="removed">Removed:</h4>
-        <ul>
-        <li>Removed support for access token authentication. Users who linked
-        Maestral to their Dropbox account before September 2020 will be asked to
-        reauthenticate so that Maestral can retrieve a refresh token
-        instead.</li>
-        </ul>
-        </body>
-        </html>
-
-      ]]>
-      </description>
-      <enclosure
-        url="https://github.com/samschott/maestral/releases/download/v1.7.0/Maestral-1.7.0.dmg"
-        sparkle:edSignature="9Ym+kNMjaIGg+K0p4I2GHM7hc1Hop+gpgB+iYzNBVAxIEYCwZyG/ImXhh2n3077cjRxrW6Q+ZReq543F1ShnAA==" length="21984702"
-        type="application/octet-stream"/>
-    </item>
-    <item>
       <title>v1.6.4 available</title>
       <pubDate>2022-12-04T13:33:38Z</pubDate>
       <sparkle:version>70</sparkle:version>
@@ -615,6 +485,136 @@
       <enclosure
         url="https://github.com/samschott/maestral/releases/download/v1.6.1/Maestral-1.6.1.dmg"
         sparkle:edSignature="FwHR2+vmPW4jYUiXr1ZlDl0CQlmTyAv+gyPMVawAlcdVBvBmalVKNYWWKXy9IwmZw8h6Sa8SX03QeE8/4JavAQ==" length="17376494"
+        type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>v1.6.0 available</title>
+      <pubDate>2022-03-20T21:11:43Z</pubDate>
+      <sparkle:version>56</sparkle:version>
+      <sparkle:shortVersionString>1.6.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <!DOCTYPE html>
+        <html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="generator" content="pandoc" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+          <title>v1.6.0</title>
+          <style>
+            code{white-space: pre-wrap;}
+            span.smallcaps{font-variant: small-caps;}
+            div.columns{display: flex; gap: min(4vw, 1.5em);}
+            div.column{flex: auto; overflow-x: auto;}
+            div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+            ul.task-list{list-style: none;}
+            ul.task-list li input[type="checkbox"] {
+              width: 0.8em;
+              margin: 0 0.8em 0.2em -1.6em;
+              vertical-align: middle;
+            }
+            .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+          </style>
+          <link rel="stylesheet" href="" />
+          <style>
+                :root {
+                    font-size: 11px;
+                }
+                body {
+                    padding: 0 0.5rem 0 0.5rem;
+                    font-family: -apple-system;
+                    line-height: 1.2rem;
+                }
+                h1 {
+                    font-size: 1.3rem;
+                }
+                h2,h3,h4 {
+                    font-size: 1.2rem;
+                    margin-block-end: 1rem;
+                }
+                ul {
+                    padding-left: 2rem;
+                    margin-top: 0rem;
+                    margin-bottom: 1.3rem;
+                }
+                li, p {
+                    margin-left: 0;
+                    margin-top: 0;
+                    margin-bottom: 0.5rem;
+                    font-size: 1.1rem;
+                }
+                .annotation {
+                    font-size: 1.1rem;
+                }
+                @media (prefers-color-scheme: light) {
+                    h1 {
+                        color: #272727;
+                    }
+                    a {
+                        color: #0948be;
+                    }
+                }
+                @media (prefers-color-scheme: dark) {
+                    body {
+                        background-color: #1e1e1e;
+                        color: #D9D9D9; /* For headers */
+                    }
+                    li, p {
+                        color:#FFFFFF;
+                    }
+                    a {
+                        color: #3586FF;
+                    }
+                }
+            </style>
+          <!--[if lt IE 9]>
+            <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+          <![endif]-->
+        </head>
+        <body>
+        <header id="title-block-header">
+        <h1 class="title">v1.6.0</h1>
+        </header>
+        <p>This release fixes several crashes of the GUI when running on Apple
+        Silicon. It also refactors the handling of sync errors, resulting in
+        more reliable clearing of sync errors after a file was successfully
+        synced, features some performance improvements when indexing local
+        changes and further decouples the sync logic from specifics of the
+        Dropbox API.</p>
+        <h4 id="changed">Changed:</h4>
+        <ul>
+        <li>Sync errors are now stored in a SQlite database table instead of a
+        config file.</li>
+        <li>The CLI command <code>maestral filestatus</code> will now return
+        <code>error</code> if there is a sync error for any child of the given
+        path.</li>
+        <li>Re-enabled updating from versions older than 1.5.0.</li>
+        <li>Improved file integrity checks after upload or download.</li>
+        <li>Better parallelize CPU intensive work when indexing local changes.
+        This improves performance on multicore CPUs.</li>
+        <li>Migrate the Linux GUI from PyQt5 to PyQt6.</li>
+        </ul>
+        <h4 id="fixed">Fixed:</h4>
+        <ul>
+        <li>Fixes an issue where upload sync errors could continue to be
+        reported after the local file was deleted if the deletion occurred while
+        sync was not running.</li>
+        <li>Fixes an issue with the Linux Qt GUI where aborting the setup dialog
+        after linking but before choosing a local Dropbox folder would result in
+        an inconsistent state.</li>
+        <li>Fixes an issue when storing 64-bit inode numbers in our
+        database.</li>
+        <li>Fixes occasional crashes of the macOS GUI when running on Apple
+        Silicon.</li>
+        </ul>
+        </body>
+        </html>
+
+      ]]>
+      </description>
+      <enclosure
+        url="https://github.com/samschott/maestral/releases/download/v1.6.0/Maestral-1.6.0.dmg"
+        sparkle:edSignature="nMHeOUEaGk1JpKUesviWiAVuAE3K1JInNDQcQsUrV4QbWx/TiGFhLf/5blNxnQsHWShspVrOi1cIiS7w5RcVDA==" length="17403432"
         type="application/octet-stream"/>
     </item>
   </channel>
