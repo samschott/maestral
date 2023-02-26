@@ -55,6 +55,18 @@ log_level = 20
 # Interval in sec to check for updates
 update_notification_interval = 604800
 
+# Upload limit in bytes / sec (0.0 = unlimited)
+bandwidth_limit_up = 0.0
+
+# Download limit in bytes / sec (0.0 = unlimited)
+bandwidth_limit_down = 0.0
+
+# Max number of parallel downloads
+max_parallel_uploads = 6
+
+# Max number of parallel downloads
+max_parallel_downloads = 6
+
 [sync]
 
 # The current Dropbox directory
