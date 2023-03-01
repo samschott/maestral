@@ -1,3 +1,10 @@
+## v1.7.2
+
+#### Changed:
+
+* Improved support for systems where some file system calls don't accept a
+ `follow_symlinks = False` option, notably `chmod` and `utime`.
+
 ## v1.7.1
 
 #### Fixed:
