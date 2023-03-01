@@ -77,7 +77,15 @@ from .utils.path import (
 )
 from .utils.appdirs import get_cache_path, get_data_path
 from .database.core import Database
-from .constants import IDLE, PAUSED, CONNECTING, GITHUB_RELEASES_API, FileStatus
+from .constants import (
+    IS_LINUX,
+    IS_MACOS,
+    IDLE,
+    PAUSED,
+    CONNECTING,
+    GITHUB_RELEASES_API,
+    FileStatus,
+)
 
 
 __all__ = ["Maestral"]
@@ -157,6 +165,9 @@ class Maestral:
         event_loop: AbstractEventLoop | None = None,
         shutdown_future: Future[bool] | None = None,
     ) -> None:
+        # Check system compatibility.
+        self._check_system_compatibility()
+
         self._loop = event_loop
         self._config_name = validate_config_name(config_name)
         self._conf = MaestralConfig(self.config_name)
@@ -196,6 +207,14 @@ class Maestral:
             raise RuntimeError("'shutdown_future' must use the passed event loop.")
 
         self.shutdown_future = shutdown_future
+
+    @staticmethod
+    def _check_system_compatibility() -> None:
+        if os.stat not in os.supports_follow_symlinks:
+            raise RuntimeError("Maestral requires lstat support")
+
+        if not (IS_MACOS or IS_LINUX):
+            raise RuntimeError("Only macOS and Linux are supported")
 
     def _setup_logging_external(self) -> None:
         """
