@@ -780,14 +780,20 @@ class DropboxClient:
                             "Data corrupted", "Please retry download."
                         )
 
-        # Dropbox SDK provides naive datetime in UTC.
-        client_mod = md.client_modified.replace(tzinfo=timezone.utc)
-        server_mod = md.server_modified.replace(tzinfo=timezone.utc)
+                    # Dropbox SDK provides naive datetime in UTC.
+                    client_mod = md.client_modified.replace(tzinfo=timezone.utc)
+                    server_mod = md.server_modified.replace(tzinfo=timezone.utc)
 
-        # Enforce client_modified < server_modified.
-        timestamp = min(client_mod.timestamp(), server_mod.timestamp(), time.time())
-        # Set mtime of downloaded file.
-        os.utime(local_path, (time.time(), timestamp), follow_symlinks=False)
+                    # Enforce client_modified < server_modified.
+                    now = time.time()
+                    mtime = min(client_mod.timestamp(), server_mod.timestamp(), now)
+                    # Set mtime of downloaded file.
+                    if os.utime in os.supports_fd:
+                        os.utime(f.fileno(), (now, mtime))
+                    elif os.utime in os.supports_follow_symlinks:
+                        os.utime(local_path, (now, mtime), follow_symlinks=False)
+                    else:
+                        os.utime(local_path, (now, mtime))
 
         return convert_metadata(md)
 
