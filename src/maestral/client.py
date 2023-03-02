@@ -857,28 +857,24 @@ class DropboxClient:
             raise RuntimeError("No write mode for uploading file.")
 
         with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
-            stat = os.lstat(local_path)
+            with open(local_path, "rb", opener=opener_no_symlink) as f:
+                stat = os.stat(f.fileno())
 
-            # Dropbox SDK takes naive datetime in UTC
-            mtime_dt = datetime.utcfromtimestamp(stat.st_mtime)
-
-            with self._register_upload():
-                if stat.st_size <= self.UPLOAD_REQUEST_CHUNK_SIZE:
-                    # Upload all at once.
-                    res = self._upload_helper(
-                        local_path,
-                        dbx_path,
-                        mtime_dt,
-                        dbx_write_mode,
-                        autorename,
-                        sync_event,
-                    )
-                else:
-                    # Upload in chunks.
-                    # Note: We currently do not support resuming interrupted uploads.
-                    # Dropbox keeps upload sessions open for 48h so this could be done
-                    # in the future.
-                    with open(local_path, "rb", opener=opener_no_symlink) as f:
+                with self._register_upload():
+                    if stat.st_size <= self.UPLOAD_REQUEST_CHUNK_SIZE:
+                        # Upload all at once.
+                        res = self._upload_helper(
+                            f,
+                            dbx_path,
+                            dbx_write_mode,
+                            autorename,
+                            sync_event,
+                        )
+                    else:
+                        # Upload in chunks.
+                        # Note: We currently do not support resuming interrupted uploads.
+                        # Dropbox keeps upload sessions open for 48h so this could be done
+                        # in the future.
                         session_id = self._upload_session_start_helper(
                             f, dbx_path, sync_event
                         )
@@ -893,7 +889,6 @@ class DropboxClient:
                             session_id,
                             # Commit info.
                             dbx_path,
-                            mtime_dt,
                             dbx_write_mode,
                             autorename,
                             # Commit info end.
@@ -905,28 +900,27 @@ class DropboxClient:
     @_retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_helper(
         self,
-        local_path: str,
+        f: BinaryIO,
         dbx_path: str,
-        client_modified: datetime,
         mode: files.WriteMode,
         autorename: bool,
         sync_event: SyncEvent | None,
     ) -> files.FileMetadata:
-        with open(local_path, "rb", opener=opener_no_symlink) as f:
-            data = f.read()
+        data = f.read()
+        stat = os.stat(f.fileno())
 
-            with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
-                md = self.dbx.files_upload(
-                    self._throttled_upload_iter(data),
-                    dbx_path,
-                    client_modified=client_modified,
-                    content_hash=get_hash(data),
-                    mode=mode,
-                    autorename=autorename,
-                )
+        with convert_api_errors(dbx_path=dbx_path):
+            md = self.dbx.files_upload(
+                self._throttled_upload_iter(data),
+                dbx_path,
+                client_modified=datetime.utcfromtimestamp(stat.st_mtime),
+                content_hash=get_hash(data),
+                mode=mode,
+                autorename=autorename,
+            )
 
-            if sync_event:
-                sync_event.completed = f.tell()
+        if sync_event:
+            sync_event.completed = f.tell()
 
         return md
 
@@ -1002,13 +996,13 @@ class DropboxClient:
         f: BinaryIO,
         session_id: str,
         dbx_path: str,
-        client_modified: datetime,
         mode: files.WriteMode,
         autorename: bool,
         sync_event: SyncEvent | None,
     ) -> files.FileMetadata:
         initial_offset = f.tell()
         data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
+        stat = os.stat(f.fileno())
 
         # Finish upload session and return metadata.
         cursor = files.UploadSessionCursor(
@@ -1017,7 +1011,7 @@ class DropboxClient:
         )
         commit = files.CommitInfo(
             path=dbx_path,
-            client_modified=client_modified,
+            client_modified=datetime.utcfromtimestamp(stat.st_mtime),
             autorename=autorename,
             mode=mode,
         )
