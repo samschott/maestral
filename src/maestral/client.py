@@ -71,6 +71,7 @@ from .exceptions import (
     NotFoundError,
     NotLinkedError,
     DataCorruptionError,
+    DataChangedError,
 )
 from .errorhandling import (
     convert_api_errors,
@@ -807,31 +808,33 @@ class DropboxClient:
         sync_event: SyncEvent | None = None,
     ) -> FileMetadata:
         """
-        Uploads local file to Dropbox.
+        Uploads local file to Dropbox. If the file size is smaller than 4 MB, the file
+        will be uploaded all at once. Otherwise, the file will be loaded into memory and
+        uploaded in chunks of 4 MB. If the file is modified during this chunked upload,
+        this will raise a :exc:`DataChangedError`.
 
         :param local_path: Path of local file to upload.
         :param dbx_path: Path to save file on Dropbox.
         :param write_mode: Your intent when writing a file to some path. This is used to
             determine what constitutes a conflict and what the autorename strategy is.
-            This is used to determine what
-            constitutes a conflict and what the autorename strategy is. In some
-            situations, the conflict behavior is identical: (a) If the target path
-            doesn't refer to anything, the file is always written; no conflict. (b) If
-            the target path refers to a folder, it's always a conflict. (c) If the
-            target path refers to a file with identical contents, nothing gets written;
-            no conflict. The conflict checking differs in the case where there's a file
-            at the target path with contents different from the contents you're trying
-            to write.
+            This is used to determine what constitutes a conflict and what the
+            autorename strategy is. In some situations, the conflict behavior is
+            identical: (a) If the target path doesn't refer to anything, the file is
+            always written; no conflict. (b) If the target path refers to a folder, it's
+            always a conflict. (c) If the target path refers to a file with identical
+            contents, nothing gets written; no conflict. The conflict checking differs
+            in the case where there's a file at the target path with contents different
+            from the contents you're trying to write.
             :class:`core.WriteMode.Add` Do not overwrite an existing file if there is a
                 conflict. The autorename strategy is to append a number to the file
                 name. For example, "document.txt" might become "document (2).txt".
             :class:`core.WriteMode.Overwrite` Always overwrite the existing file. The
                 autorename strategy is the same as it is for ``add``.
-            :class:`core.WriteMode.Update` Overwrite if the given "update_rev" matches the
-                existing file's "rev". The supplied value should be the latest known
-                "rev" of the file, for example, from :class:`core.FileMetadata`, from when the
-                file was last downloaded by the app. This will cause the file on the
-                Dropbox servers to be overwritten if the given "rev" matches the
+            :class:`core.WriteMode.Update` Overwrite if the given "update_rev" matches
+                the existing file's "rev". The supplied value should be the latest known
+                "rev" of the file, for example, from :class:`core.FileMetadata`, from
+                when the file was last downloaded by the app. This will cause the file
+                on the Dropbox servers to be overwritten if the given "rev" matches the
                 existing file's current "rev" on the Dropbox servers. The autorename
                 strategy is to append the string "conflicted copy" to the file name. For
                 example, "document.txt" might become "document (conflicted copy).txt" or
@@ -844,6 +847,7 @@ class DropboxClient:
             this field is False.
         :returns: Metadata of uploaded file.
         :raises DataCorruptionError: if data is corrupted during upload.
+        :raises DataChangedError: if the file is modified during a chunked upload.
         """
         if write_mode is WriteMode.Add:
             dbx_write_mode = files.WriteMode.add
@@ -876,12 +880,12 @@ class DropboxClient:
                         # Dropbox keeps upload sessions open for 48h so this could be done
                         # in the future.
                         session_id = self._upload_session_start_helper(
-                            f, dbx_path, sync_event
+                            f, dbx_path, sync_event, stat
                         )
 
                         while stat.st_size - f.tell() > self.UPLOAD_REQUEST_CHUNK_SIZE:
                             self._upload_session_append_helper(
-                                f, session_id, dbx_path, sync_event
+                                f, session_id, dbx_path, sync_event, stat
                             )
 
                         res = self._upload_session_finish_helper(
@@ -893,6 +897,7 @@ class DropboxClient:
                             autorename,
                             # Commit info end.
                             sync_event,
+                            stat,
                         )
 
         return convert_metadata(res)
@@ -930,9 +935,11 @@ class DropboxClient:
         f: BinaryIO,
         dbx_path: str,
         sync_event: SyncEvent | None,
+        old_stat: os.stat_result,
     ) -> str:
         initial_offset = f.tell()
         data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
+        check_for_changes(os.stat(f.fileno()), old_stat)
 
         try:
             with convert_api_errors(dbx_path=dbx_path):
@@ -956,9 +963,11 @@ class DropboxClient:
         session_id: str,
         dbx_path: str,
         sync_event: SyncEvent | None,
+        old_stat: os.stat_result,
     ) -> None:
         initial_offset = f.tell()
         data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
+        check_for_changes(os.stat(f.fileno()), old_stat)
 
         cursor = files.UploadSessionCursor(
             session_id=session_id,
@@ -995,10 +1004,12 @@ class DropboxClient:
         mode: files.WriteMode,
         autorename: bool,
         sync_event: SyncEvent | None,
+        old_stat: os.stat_result,
     ) -> files.FileMetadata:
         initial_offset = f.tell()
         data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
         stat = os.stat(f.fileno())
+        check_for_changes(stat, old_stat)
 
         # Finish upload session and return metadata.
         cursor = files.UploadSessionCursor(
@@ -1759,3 +1770,12 @@ def get_correct_offset(exc: exceptions.ApiError, initial_offset: int) -> int:
     ):
         return exc.error.get_incorrect_offset().correct_offset
     return initial_offset
+
+
+def check_for_changes(news_stat: os.stat_result, old_stat: os.stat_result) -> None:
+    """Checks for changes to a file by comparing stat results.
+
+    :raises DataChangedError: if there were changes to the file.
+    """
+    if news_stat.st_ctime_ns != old_stat.st_ctime_ns:
+        raise DataChangedError("File was modified during upload")
