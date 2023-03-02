@@ -965,27 +965,23 @@ class DropboxClient:
             offset=initial_offset,
         )
 
-        try:
-            with convert_api_errors(dbx_path=dbx_path):
+        with convert_api_errors(dbx_path=dbx_path):
+            try:
                 self.dbx.files_upload_session_append_v2(
                     self._throttled_upload_iter(data),
                     cursor,
                     content_hash=get_hash(data),
                 )
-        except exceptions.DropboxException as exc:
-            error = getattr(exc, "error", None)
-            if (
-                isinstance(error, files.UploadSessionAppendError)
-                and error.is_incorrect_offset()
-            ):
-                offset_error = error.get_incorrect_offset()
-                last_successful_offset = offset_error.correct_offset
-                f.seek(last_successful_offset)
-            raise exc
-
-        except Exception:
-            f.seek(initial_offset)
-            raise
+            except exceptions.ApiError as exc:
+                # Return to position in file requested by Dropbox API if requested.
+                # DataCorruptionError will then be handled by retry logic.
+                correct_offset = get_correct_offset(exc, initial_offset)
+                f.seek(correct_offset)
+                raise
+            except Exception:
+                # Return to previous position in file.
+                f.seek(initial_offset)
+                raise
 
         if sync_event:
             sync_event.completed = f.tell()
@@ -1016,30 +1012,24 @@ class DropboxClient:
             mode=mode,
         )
 
-        try:
-            with convert_api_errors(dbx_path=dbx_path):
+        with convert_api_errors(dbx_path=dbx_path):
+            try:
                 md = self.dbx.files_upload_session_finish(
                     self._throttled_upload_iter(data),
                     cursor,
                     commit,
                     content_hash=get_hash(data),
                 )
-        except exceptions.DropboxException as exc:
-            error = getattr(exc, "error", None)
-            if (
-                isinstance(error, files.UploadSessionFinishError)
-                and error.is_lookup_failed()
-                and error.get_lookup_failed().is_incorrect_offset()
-            ):
-                offset_error = error.get_lookup_failed().get_incorrect_offset()
-                last_successful_offset = offset_error.correct_offset
-                f.seek(last_successful_offset)
-            raise exc
-
-        except Exception:
-            # Return to previous position in file.
-            f.seek(initial_offset)
-            raise
+            except exceptions.ApiError as exc:
+                # Return to position in file requested by Dropbox API if requested.
+                # DataCorruptionError will then be handled by retry logic.
+                correct_offset = get_correct_offset(exc, initial_offset)
+                f.seek(correct_offset)
+                raise
+            except Exception:
+                # Return to previous position in file.
+                f.seek(initial_offset)
+                raise
 
         if sync_event:
             sync_event.completed = sync_event.size
@@ -1751,3 +1741,21 @@ def convert_list_shared_link_result(
 ) -> ListSharedLinkResult:
     entries = [convert_shared_link_metadata(e) for e in res.links]
     return ListSharedLinkResult(entries, res.has_more, res.cursor)
+
+
+# ==== helper methods ==================================================================
+
+
+def get_correct_offset(exc: exceptions.ApiError, initial_offset: int) -> int:
+    if (
+        isinstance(exc.error, files.UploadSessionFinishError)
+        and exc.error.is_lookup_failed()
+        and exc.error.get_lookup_failed().is_incorrect_offset()
+    ):
+        return exc.error.get_lookup_failed().get_incorrect_offset().correct_offset
+    if (
+        isinstance(exc.error, files.UploadSessionAppendError)
+        and exc.error.is_incorrect_offset()
+    ):
+        return exc.error.get_incorrect_offset().correct_offset
+    return initial_offset
