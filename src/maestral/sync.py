@@ -150,7 +150,7 @@ __all__ = [
 umask = os.umask(0o22)
 os.umask(umask)
 
-NUM_THREADS = min(6, CPU_CORE_COUNT * 4)
+NUM_THREADS = min(24, CPU_CORE_COUNT)
 
 P = ParamSpec("P")
 T = TypeVar("T")
