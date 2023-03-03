@@ -10,6 +10,7 @@ import click
 from .core import ConfigName
 from .output import warn
 from .utils import get_term_size
+from ..constants import DEFAULT_CONFIG_NAME
 
 if TYPE_CHECKING:
     from ..daemon import MaestralProxy
@@ -71,7 +72,7 @@ def check_for_fatal_errors(m: MaestralProxy | Maestral) -> bool:
 config_option = click.option(
     "-c",
     "--config-name",
-    default="maestral",
+    default=DEFAULT_CONFIG_NAME,
     type=ConfigName(existing=False),
     is_eager=True,
     expose_value=True,
@@ -80,7 +81,7 @@ config_option = click.option(
 existing_config_option = click.option(
     "-c",
     "--config-name",
-    default="maestral",
+    default=DEFAULT_CONFIG_NAME,
     type=ConfigName(),
     is_eager=True,
     expose_value=True,

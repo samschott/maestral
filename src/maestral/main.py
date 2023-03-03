@@ -83,6 +83,7 @@ from .constants import (
     IDLE,
     PAUSED,
     CONNECTING,
+    DEFAULT_CONFIG_NAME,
     GITHUB_RELEASES_API,
     FileStatus,
 )
@@ -160,7 +161,7 @@ class Maestral:
 
     def __init__(
         self,
-        config_name: str = "maestral",
+        config_name: str = DEFAULT_CONFIG_NAME,
         log_to_stderr: bool = False,
         event_loop: AbstractEventLoop | None = None,
         shutdown_future: Future[bool] | None = None,

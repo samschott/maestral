@@ -24,6 +24,7 @@ APP_NAME = "Maestral"
 BUNDLE_ID = "com.samschott.maestral"
 APP_ICON_PATH = resource_path("maestral.resources", "maestral.png").__enter__()
 ENV = {"PYTHONOPTIMIZE": "2", "LC_CTYPE": "UTF-8"}
+DEFAULT_CONFIG_NAME = "maestral"
 
 # sync
 OLD_REV_FILE = ".maestral"
