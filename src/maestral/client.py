@@ -873,6 +873,7 @@ class DropboxClient:
                             dbx_write_mode,
                             autorename,
                             sync_event,
+                            stat,
                         )
                     else:
                         # Upload in chunks.
@@ -910,9 +911,12 @@ class DropboxClient:
         mode: files.WriteMode,
         autorename: bool,
         sync_event: SyncEvent | None,
+        old_stat: os.stat_result,
     ) -> files.FileMetadata:
         data = f.read()
         stat = os.stat(f.fileno())
+        if check_for_changes(os.stat(f.fileno()), old_stat):
+            raise DataChangedError("File was modified during read")
 
         with convert_api_errors(dbx_path=dbx_path):
             md = self.dbx.files_upload(
