@@ -1,9 +1,12 @@
-## v1.7.2
+## v1.7.2.dev
 
 #### Changed:
 
 * Improved support for systems where some file system calls don't accept a
  `follow_symlinks = False` option, notably `chmod` and `utime`.
+* Abort uploads if the file is modified between the upload of individual chunks. This
+  saves some bandwidth and prevents us from ever committing an inconsistent file to
+  Dropbox's version history.
 
 ## v1.7.1
 
