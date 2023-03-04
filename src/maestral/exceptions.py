@@ -63,6 +63,10 @@ class DataCorruptionError(SyncError):
     """Raised when data is corrupted in transit during upload or download."""
 
 
+class DataChangedError(SyncError):
+    """Raised when file changes during upload."""
+
+
 class InsufficientPermissionsError(SyncError):
     """Raised when accessing a file or folder fails due to insufficient permissions,
     both locally and on Dropbox servers."""

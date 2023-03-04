@@ -88,6 +88,7 @@ from .exceptions import (
     FolderConflictError,
     IsAFolderError,
     NotAFolderError,
+    DataChangedError,
     InvalidDbidError,
     DatabaseError,
 )
@@ -2418,6 +2419,12 @@ class SyncEngine:
                 'Could not upload "%s": the file does not exist', event.local_path
             )
             return None
+        except DataChangedError:
+            self._logger.debug(
+                'Could not upload "%s": the file was modified during upload',
+                event.local_path,
+            )
+            return None
 
         if not self._handle_upload_conflict(md_new, event):
             self._logger.debug('Created "%s" on Dropbox', event.dbx_path)
@@ -2534,6 +2541,12 @@ class SyncEngine:
             # refers to a file instead of a folder.
             self._logger.debug(
                 'Could not upload "%s": the item does not exist', event.dbx_path
+            )
+            return None
+        except DataChangedError:
+            self._logger.debug(
+                'Could not upload "%s": the file was modified during upload',
+                event.local_path,
             )
             return None
 

@@ -71,6 +71,7 @@ from .exceptions import (
     NotFoundError,
     NotLinkedError,
     DataCorruptionError,
+    DataChangedError,
 )
 from .errorhandling import (
     convert_api_errors,
@@ -807,31 +808,33 @@ class DropboxClient:
         sync_event: SyncEvent | None = None,
     ) -> FileMetadata:
         """
-        Uploads local file to Dropbox.
+        Uploads local file to Dropbox. If the file size is smaller than 4 MB, the file
+        will be uploaded all at once. Otherwise, the file will be loaded into memory and
+        uploaded in chunks of 4 MB. If the file is modified during this chunked upload,
+        this will raise a :exc:`DataChangedError`.
 
         :param local_path: Path of local file to upload.
         :param dbx_path: Path to save file on Dropbox.
         :param write_mode: Your intent when writing a file to some path. This is used to
             determine what constitutes a conflict and what the autorename strategy is.
-            This is used to determine what
-            constitutes a conflict and what the autorename strategy is. In some
-            situations, the conflict behavior is identical: (a) If the target path
-            doesn't refer to anything, the file is always written; no conflict. (b) If
-            the target path refers to a folder, it's always a conflict. (c) If the
-            target path refers to a file with identical contents, nothing gets written;
-            no conflict. The conflict checking differs in the case where there's a file
-            at the target path with contents different from the contents you're trying
-            to write.
+            This is used to determine what constitutes a conflict and what the
+            autorename strategy is. In some situations, the conflict behavior is
+            identical: (a) If the target path doesn't refer to anything, the file is
+            always written; no conflict. (b) If the target path refers to a folder, it's
+            always a conflict. (c) If the target path refers to a file with identical
+            contents, nothing gets written; no conflict. The conflict checking differs
+            in the case where there's a file at the target path with contents different
+            from the contents you're trying to write.
             :class:`core.WriteMode.Add` Do not overwrite an existing file if there is a
                 conflict. The autorename strategy is to append a number to the file
                 name. For example, "document.txt" might become "document (2).txt".
             :class:`core.WriteMode.Overwrite` Always overwrite the existing file. The
                 autorename strategy is the same as it is for ``add``.
-            :class:`core.WriteMode.Update` Overwrite if the given "update_rev" matches the
-                existing file's "rev". The supplied value should be the latest known
-                "rev" of the file, for example, from :class:`core.FileMetadata`, from when the
-                file was last downloaded by the app. This will cause the file on the
-                Dropbox servers to be overwritten if the given "rev" matches the
+            :class:`core.WriteMode.Update` Overwrite if the given "update_rev" matches
+                the existing file's "rev". The supplied value should be the latest known
+                "rev" of the file, for example, from :class:`core.FileMetadata`, from
+                when the file was last downloaded by the app. This will cause the file
+                on the Dropbox servers to be overwritten if the given "rev" matches the
                 existing file's current "rev" on the Dropbox servers. The autorename
                 strategy is to append the string "conflicted copy" to the file name. For
                 example, "document.txt" might become "document (conflicted copy).txt" or
@@ -844,6 +847,7 @@ class DropboxClient:
             this field is False.
         :returns: Metadata of uploaded file.
         :raises DataCorruptionError: if data is corrupted during upload.
+        :raises DataChangedError: if the file is modified during a chunked upload.
         """
         if write_mode is WriteMode.Add:
             dbx_write_mode = files.WriteMode.add
@@ -857,35 +861,32 @@ class DropboxClient:
             raise RuntimeError("No write mode for uploading file.")
 
         with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
-            stat = os.lstat(local_path)
+            with open(local_path, "rb", opener=opener_no_symlink) as f:
+                stat = os.stat(f.fileno())
 
-            # Dropbox SDK takes naive datetime in UTC
-            mtime_dt = datetime.utcfromtimestamp(stat.st_mtime)
-
-            with self._register_upload():
-                if stat.st_size <= self.UPLOAD_REQUEST_CHUNK_SIZE:
-                    # Upload all at once.
-                    res = self._upload_helper(
-                        local_path,
-                        dbx_path,
-                        mtime_dt,
-                        dbx_write_mode,
-                        autorename,
-                        sync_event,
-                    )
-                else:
-                    # Upload in chunks.
-                    # Note: We currently do not support resuming interrupted uploads.
-                    # Dropbox keeps upload sessions open for 48h so this could be done
-                    # in the future.
-                    with open(local_path, "rb", opener=opener_no_symlink) as f:
+                with self._register_upload():
+                    if stat.st_size <= self.UPLOAD_REQUEST_CHUNK_SIZE:
+                        # Upload all at once.
+                        res = self._upload_helper(
+                            f,
+                            dbx_path,
+                            dbx_write_mode,
+                            autorename,
+                            sync_event,
+                            stat,
+                        )
+                    else:
+                        # Upload in chunks.
+                        # Note: We currently do not support resuming interrupted uploads.
+                        # Dropbox keeps upload sessions open for 48h so this could be done
+                        # in the future.
                         session_id = self._upload_session_start_helper(
-                            f, dbx_path, sync_event
+                            f, dbx_path, sync_event, stat
                         )
 
                         while stat.st_size - f.tell() > self.UPLOAD_REQUEST_CHUNK_SIZE:
                             self._upload_session_append_helper(
-                                f, session_id, dbx_path, sync_event
+                                f, session_id, dbx_path, sync_event, stat
                             )
 
                         res = self._upload_session_finish_helper(
@@ -893,11 +894,11 @@ class DropboxClient:
                             session_id,
                             # Commit info.
                             dbx_path,
-                            mtime_dt,
                             dbx_write_mode,
                             autorename,
                             # Commit info end.
                             sync_event,
+                            stat,
                         )
 
         return convert_metadata(res)
@@ -905,28 +906,30 @@ class DropboxClient:
     @_retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_helper(
         self,
-        local_path: str,
+        f: BinaryIO,
         dbx_path: str,
-        client_modified: datetime,
         mode: files.WriteMode,
         autorename: bool,
         sync_event: SyncEvent | None,
+        old_stat: os.stat_result,
     ) -> files.FileMetadata:
-        with open(local_path, "rb", opener=opener_no_symlink) as f:
-            data = f.read()
+        data = f.read()
+        stat = os.stat(f.fileno())
+        if file_was_modified(os.stat(f.fileno()), old_stat):
+            raise DataChangedError("File was modified during read")
 
-            with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
-                md = self.dbx.files_upload(
-                    self._throttled_upload_iter(data),
-                    dbx_path,
-                    client_modified=client_modified,
-                    content_hash=get_hash(data),
-                    mode=mode,
-                    autorename=autorename,
-                )
+        with convert_api_errors(dbx_path=dbx_path):
+            md = self.dbx.files_upload(
+                self._throttled_upload_iter(data),
+                dbx_path,
+                client_modified=datetime.utcfromtimestamp(stat.st_mtime),
+                content_hash=get_hash(data),
+                mode=mode,
+                autorename=autorename,
+            )
 
-            if sync_event:
-                sync_event.completed = f.tell()
+        if sync_event:
+            sync_event.completed = f.tell()
 
         return md
 
@@ -936,9 +939,12 @@ class DropboxClient:
         f: BinaryIO,
         dbx_path: str,
         sync_event: SyncEvent | None,
+        old_stat: os.stat_result,
     ) -> str:
         initial_offset = f.tell()
         data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
+        if file_was_modified(os.stat(f.fileno()), old_stat):
+            raise DataChangedError("File was modified during read")
 
         try:
             with convert_api_errors(dbx_path=dbx_path):
@@ -962,6 +968,7 @@ class DropboxClient:
         session_id: str,
         dbx_path: str,
         sync_event: SyncEvent | None,
+        old_stat: os.stat_result,
     ) -> None:
         initial_offset = f.tell()
         data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
@@ -971,27 +978,29 @@ class DropboxClient:
             offset=initial_offset,
         )
 
-        try:
+        if file_was_modified(os.stat(f.fileno()), old_stat):
+            # Close upload session and throw error.
             with convert_api_errors(dbx_path=dbx_path):
+                self.dbx.files_upload_session_append_v2(b"", cursor, close=True)
+            raise DataChangedError("File was modified during read")
+
+        with convert_api_errors(dbx_path=dbx_path):
+            try:
                 self.dbx.files_upload_session_append_v2(
                     self._throttled_upload_iter(data),
                     cursor,
                     content_hash=get_hash(data),
                 )
-        except exceptions.DropboxException as exc:
-            error = getattr(exc, "error", None)
-            if (
-                isinstance(error, files.UploadSessionAppendError)
-                and error.is_incorrect_offset()
-            ):
-                offset_error = error.get_incorrect_offset()
-                last_successful_offset = offset_error.correct_offset
-                f.seek(last_successful_offset)
-            raise exc
-
-        except Exception:
-            f.seek(initial_offset)
-            raise
+            except exceptions.ApiError as exc:
+                # Return to position in file requested by Dropbox API if requested.
+                # DataCorruptionError will then be handled by retry logic.
+                correct_offset = get_correct_offset(exc, initial_offset)
+                f.seek(correct_offset)
+                raise
+            except Exception:
+                # Return to previous position in file.
+                f.seek(initial_offset)
+                raise
 
         if sync_event:
             sync_event.completed = f.tell()
@@ -1002,50 +1011,52 @@ class DropboxClient:
         f: BinaryIO,
         session_id: str,
         dbx_path: str,
-        client_modified: datetime,
         mode: files.WriteMode,
         autorename: bool,
         sync_event: SyncEvent | None,
+        old_stat: os.stat_result,
     ) -> files.FileMetadata:
         initial_offset = f.tell()
         data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
+        stat = os.stat(f.fileno())
 
-        # Finish upload session and return metadata.
         cursor = files.UploadSessionCursor(
             session_id=session_id,
             offset=initial_offset,
         )
+
+        if file_was_modified(os.stat(f.fileno()), old_stat):
+            # Close upload session and throw error.
+            with convert_api_errors(dbx_path=dbx_path):
+                self.dbx.files_upload_session_append_v2(b"", cursor, close=True)
+            raise DataChangedError("File was modified during read")
+
+        # Finish upload session and return metadata.
         commit = files.CommitInfo(
             path=dbx_path,
-            client_modified=client_modified,
+            client_modified=datetime.utcfromtimestamp(stat.st_mtime),
             autorename=autorename,
             mode=mode,
         )
 
-        try:
-            with convert_api_errors(dbx_path=dbx_path):
+        with convert_api_errors(dbx_path=dbx_path):
+            try:
                 md = self.dbx.files_upload_session_finish(
                     self._throttled_upload_iter(data),
                     cursor,
                     commit,
                     content_hash=get_hash(data),
                 )
-        except exceptions.DropboxException as exc:
-            error = getattr(exc, "error", None)
-            if (
-                isinstance(error, files.UploadSessionFinishError)
-                and error.is_lookup_failed()
-                and error.get_lookup_failed().is_incorrect_offset()
-            ):
-                offset_error = error.get_lookup_failed().get_incorrect_offset()
-                last_successful_offset = offset_error.correct_offset
-                f.seek(last_successful_offset)
-            raise exc
-
-        except Exception:
-            # Return to previous position in file.
-            f.seek(initial_offset)
-            raise
+            except exceptions.ApiError as exc:
+                # Return to position in file requested by Dropbox API if requested.
+                # DataCorruptionError will then be handled by retry logic.
+                correct_offset = get_correct_offset(exc, initial_offset)
+                f.seek(correct_offset)
+                raise
+            except Exception:
+                # Return to previous position in file.
+                f.seek(initial_offset)
+                raise
 
         if sync_event:
             sync_event.completed = sync_event.size
@@ -1757,3 +1768,29 @@ def convert_list_shared_link_result(
 ) -> ListSharedLinkResult:
     entries = [convert_shared_link_metadata(e) for e in res.links]
     return ListSharedLinkResult(entries, res.has_more, res.cursor)
+
+
+# ==== helper methods ==================================================================
+
+
+def get_correct_offset(exc: exceptions.ApiError, initial_offset: int) -> int:
+    if (
+        isinstance(exc.error, files.UploadSessionFinishError)
+        and exc.error.is_lookup_failed()
+        and exc.error.get_lookup_failed().is_incorrect_offset()
+    ):
+        return exc.error.get_lookup_failed().get_incorrect_offset().correct_offset
+    if (
+        isinstance(exc.error, files.UploadSessionAppendError)
+        and exc.error.is_incorrect_offset()
+    ):
+        return exc.error.get_incorrect_offset().correct_offset
+    return initial_offset
+
+
+def file_was_modified(news_stat: os.stat_result, old_stat: os.stat_result) -> bool:
+    """Checks for changes to a file by comparing stat results.
+
+    :raises DataChangedError: if there were changes to the file.
+    """
+    return news_stat.st_ctime_ns != old_stat.st_ctime_ns
