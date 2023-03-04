@@ -915,7 +915,7 @@ class DropboxClient:
     ) -> files.FileMetadata:
         data = f.read()
         stat = os.stat(f.fileno())
-        if check_for_changes(os.stat(f.fileno()), old_stat):
+        if file_was_modified(os.stat(f.fileno()), old_stat):
             raise DataChangedError("File was modified during read")
 
         with convert_api_errors(dbx_path=dbx_path):
@@ -943,7 +943,8 @@ class DropboxClient:
     ) -> str:
         initial_offset = f.tell()
         data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
-        check_for_changes(os.stat(f.fileno()), old_stat)
+        if file_was_modified(os.stat(f.fileno()), old_stat):
+            raise DataChangedError("File was modified during read")
 
         try:
             with convert_api_errors(dbx_path=dbx_path):
@@ -971,12 +972,17 @@ class DropboxClient:
     ) -> None:
         initial_offset = f.tell()
         data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
-        check_for_changes(os.stat(f.fileno()), old_stat)
 
         cursor = files.UploadSessionCursor(
             session_id=session_id,
             offset=initial_offset,
         )
+
+        if file_was_modified(os.stat(f.fileno()), old_stat):
+            # Close upload session and throw error.
+            with convert_api_errors(dbx_path=dbx_path):
+                self.dbx.files_upload_session_append_v2(b"", cursor, close=True)
+            raise DataChangedError("File was modified during read")
 
         with convert_api_errors(dbx_path=dbx_path):
             try:
@@ -1013,13 +1019,19 @@ class DropboxClient:
         initial_offset = f.tell()
         data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
         stat = os.stat(f.fileno())
-        check_for_changes(stat, old_stat)
 
-        # Finish upload session and return metadata.
         cursor = files.UploadSessionCursor(
             session_id=session_id,
             offset=initial_offset,
         )
+
+        if file_was_modified(os.stat(f.fileno()), old_stat):
+            # Close upload session and throw error.
+            with convert_api_errors(dbx_path=dbx_path):
+                self.dbx.files_upload_session_append_v2(b"", cursor, close=True)
+            raise DataChangedError("File was modified during read")
+
+        # Finish upload session and return metadata.
         commit = files.CommitInfo(
             path=dbx_path,
             client_modified=datetime.utcfromtimestamp(stat.st_mtime),
@@ -1776,10 +1788,9 @@ def get_correct_offset(exc: exceptions.ApiError, initial_offset: int) -> int:
     return initial_offset
 
 
-def check_for_changes(news_stat: os.stat_result, old_stat: os.stat_result) -> None:
+def file_was_modified(news_stat: os.stat_result, old_stat: os.stat_result) -> bool:
     """Checks for changes to a file by comparing stat results.
 
     :raises DataChangedError: if there were changes to the file.
     """
-    if news_stat.st_ctime_ns != old_stat.st_ctime_ns:
-        raise DataChangedError("File was modified during upload")
+    return news_stat.st_ctime_ns != old_stat.st_ctime_ns
