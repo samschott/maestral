@@ -2387,6 +2387,7 @@ class SyncEngine:
         if not local_entry:
             # File is new to us, let Dropbox rename it if something is in the way.
             mode = WriteMode.Add
+            event.change_type = ChangeType.Added
         elif local_entry.is_directory:
             # Try to overwrite the destination, this will fail...
             mode = WriteMode.Overwrite
@@ -2394,6 +2395,7 @@ class SyncEngine:
             # File has been modified, update remote if matching rev,
             # create conflict otherwise.
             mode = WriteMode.Update
+            event.change_type = ChangeType.Modified
             local_rev = local_entry.rev
 
         try:
