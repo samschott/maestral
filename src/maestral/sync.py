@@ -2230,14 +2230,12 @@ class SyncEngine:
         event.status = SyncStatus.Syncing
 
         try:
-            if event.is_added and event.is_file:
-                res = self._on_local_file_created(event)
-            elif event.is_added and event.is_directory:
+            if event.is_file and (event.is_added or event.is_changed):
+                res = self._on_local_file_modified(event)
+            elif event.is_directory and event.is_added:
                 res = self._on_local_folder_created(event)
             elif event.is_moved:
                 res = self._on_local_moved(event)
-            elif event.is_changed and event.is_file:
-                res = self._on_local_file_modified(event)
             elif event.is_deleted:
                 res = self._on_local_deleted(event)
             else:
@@ -2294,11 +2292,11 @@ class SyncEngine:
         :returns: Metadata for created remote item at destination.
         :raises MaestralApiError: For any issues when syncing the item.
         """
+        check_change_type(event, {ChangeType.Moved})
+        check_encoding(event.local_path)
+
         if event.local_path_from == self.dropbox_path:
             self.ensure_dropbox_folder_present()
-
-        # Fail fast on badly decoded paths.
-        validate_encoding(event.local_path)
 
         if self._handle_selective_sync_conflict(event):
             return None
@@ -2360,16 +2358,17 @@ class SyncEngine:
             for md in result.entries:
                 self.update_index_from_dbx_metadata(md)
 
-    def _on_local_file_created(self, event: SyncEvent) -> Metadata | None:
+    def _on_local_file_modified(self, event: SyncEvent) -> Metadata | None:
         """
-        Call when a local file is created.
+        Call when a local file is created or modified.
 
         :param event: SyncEvent corresponding to local created event.
         :returns: Metadata for created item or None if no remote item is created.
         :raises MaestralApiError: For any issues when syncing the item.
+        :raises ValueError: If the ChangeType is not Added or Modified.
         """
-        # Fail fast on badly decoded paths.
-        validate_encoding(event.local_path)
+        check_change_type(event, {ChangeType.Added, ChangeType.Modified})
+        check_encoding(event.local_path)
 
         if self._handle_selective_sync_conflict(event):
             return None
@@ -2388,6 +2387,7 @@ class SyncEngine:
         if not local_entry:
             # File is new to us, let Dropbox rename it if something is in the way.
             mode = WriteMode.Add
+            event.change_type = ChangeType.Added
         elif local_entry.is_directory:
             # Try to overwrite the destination, this will fail...
             mode = WriteMode.Overwrite
@@ -2395,12 +2395,8 @@ class SyncEngine:
             # File has been modified, update remote if matching rev,
             # create conflict otherwise.
             mode = WriteMode.Update
+            event.change_type = ChangeType.Modified
             local_rev = local_entry.rev
-
-            self._logger.debug(
-                '"%s" appears to have been created but we are already tracking it',
-                event.dbx_path,
-            )
 
         try:
             with self._parallel_up_semaphore:
@@ -2427,7 +2423,10 @@ class SyncEngine:
             return None
 
         if not self._handle_upload_conflict(md_new, event):
-            self._logger.debug('Created "%s" on Dropbox', event.dbx_path)
+            if event.change_type is ChangeType.Added:
+                self._logger.debug('Created "%s" on Dropbox', event.dbx_path)
+            else:
+                self._logger.debug('Uploaded modified "%s" to Dropbox', event.dbx_path)
 
         self.update_index_from_dbx_metadata(md_new)
 
@@ -2441,8 +2440,8 @@ class SyncEngine:
         :returns: Metadata for created item or None if no remote item is created.
         :raises MaestralApiError: For any issues when syncing the item.
         """
-        # Fail fast on badly decoded paths.
-        validate_encoding(event.local_path)
+        check_change_type(event, {ChangeType.Added})
+        check_encoding(event.local_path)
 
         if self._handle_selective_sync_conflict(event):
             return None
@@ -2496,67 +2495,6 @@ class SyncEngine:
 
         return md_new
 
-    def _on_local_file_modified(self, event: SyncEvent) -> Metadata | None:
-        """
-        Call when a local file is modified.
-
-        :param event: SyncEvent for local modified event.
-        :returns: Metadata corresponding to modified remote item or None if no remote
-            item is modified.
-        :raises MaestralApiError: For any issues when syncing the item.
-        """
-        self._wait_for_creation(event.local_path)
-
-        # Check if item already exists with identical content.
-        if not self._check_requires_upload(event):
-            return None
-
-        local_entry = self.get_index_entry(event.dbx_path_lower)
-        local_rev: str | None = None
-
-        if not local_entry:
-            self._logger.debug(
-                '"%s" appears to have been modified but cannot find old revision',
-                event.dbx_path,
-            )
-            mode = WriteMode.Add
-        elif local_entry.is_directory:
-            mode = WriteMode.Overwrite
-        else:
-            mode = WriteMode.Update
-            local_rev = local_entry.rev
-
-        try:
-            with self._parallel_up_semaphore:
-                md_new = self.client.upload(
-                    event.local_path,
-                    event.dbx_path,
-                    autorename=True,
-                    write_mode=mode,
-                    update_rev=local_rev,
-                    sync_event=event,
-                )
-        except (NotFoundError, NotAFolderError, IsAFolderError):
-            # Note: NotAFolderError can be raised when a parent in the local path
-            # refers to a file instead of a folder.
-            self._logger.debug(
-                'Could not upload "%s": the item does not exist', event.dbx_path
-            )
-            return None
-        except DataChangedError:
-            self._logger.debug(
-                'Could not upload "%s": the file was modified during upload',
-                event.local_path,
-            )
-            return None
-
-        if not self._handle_upload_conflict(md_new, event):
-            self._logger.debug('Uploaded modified "%s" to Dropbox', event.dbx_path)
-
-        self.update_index_from_dbx_metadata(md_new)
-
-        return md_new
-
     def _on_local_deleted(self, event: SyncEvent) -> Metadata | None:
         """
         Call when a local item is deleted. We try not to delete remote items which have
@@ -2566,12 +2504,11 @@ class SyncEngine:
         :returns: Metadata for deleted item or None if no remote item is deleted.
         :raises MaestralApiError: For any issues when syncing the item.
         """
-        # Return early on invalid encoding. We don't raise an error here because the
-        # file cannot exist on the server.
-
+        check_change_type(event, {ChangeType.Removed})
         try:
-            validate_encoding(event.local_path)
+            check_encoding(event.local_path)
         except PathError:
+            # Don't raise an error here because the file cannot exist on the server.
             self._logger.debug(
                 'Could not delete "%s": the item does not exist on Dropbox',
                 event.dbx_path,
@@ -3847,7 +3784,7 @@ class pf_repr:
         return pformat(self.obj)
 
 
-def validate_encoding(local_path: str) -> None:
+def check_encoding(local_path: str) -> None:
     """
     Validate that the path contains only characters in the reported file system
     encoding. On Unix, paths are fundamentally bytes and some platforms do not enforce
@@ -3872,3 +3809,18 @@ def validate_encoding(local_path: str) -> None:
         )
         error.local_path = local_path
         raise error
+
+
+def check_change_type(event: SyncEvent, allowed_change_types: set[ChangeType]) -> None:
+    """
+    Check if the sync event has one of passed allowed_change_types.
+
+    :param event: SyncEvent to check.
+    :param allowed_change_types: Set of allowed change types.
+    :raises ValueError: If the change type is not in the allow list.
+    """
+    if event.change_type not in allowed_change_types:
+        raise ValueError(
+            f"Require change_type in {allowed_change_types} but "
+            f"found {event.change_type}"
+        )
