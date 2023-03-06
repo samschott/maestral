@@ -1,5 +1,5 @@
 alabaster==0.7.13
-astroid==2.14.2
+astroid==2.15.0
 Babel==2.12.1
 certifi==2022.12.7
 charset-normalizer==2.1.1
