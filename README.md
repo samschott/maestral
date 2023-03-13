@@ -37,7 +37,7 @@ or downloading a file if it already exists with the same content locally or in t
 
 ## Installation
 
-An app bundle is provided for macOS High Sierra and higher and can be downloaded from the
+An app bundle is provided for macOS Catalina and higher and can be downloaded from the
 Releases tab. This app Bundle is also package as a Homebrew cask.
 
 On other platforms, you can download and install Maestral as a Python package from PyPI or
@@ -155,7 +155,7 @@ month to offset the cost of an Apple Developer account to sign and notarize the 
 
 ## System requirements
 
-- macOS 10.13 High Sierra or higher or Linux
+- macOS 10.15 Catalina or higher or Linux
 - Python 3.7 or higher
 - For the system tray icon on Linux:
   - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
