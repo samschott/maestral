@@ -20,13 +20,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install build twine
 
+      - name: Import GPG
+        uses: crazy-max/ghaction-import-gpg@v5
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
       - name: Build and publish
         env:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
         run: |
           python -m build
-          twine upload --skip-existing dist/*
+          twine upload --skip-existing --sign dist/*
 
   docker-hub:
     runs-on: ubuntu-latest
