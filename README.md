@@ -46,7 +46,6 @@ as a Docker image from Docker Hub.
 For more detailed information on the installation, setup and system requirements, please
 check the [documentation](https://maestral.app/docs/installation).
 
-
 ### Homebrew
 
 The official Maestral releases are also available as Homebrew casks. If you have
@@ -140,8 +139,7 @@ A full documentation of the CLI is available on the
 
 There are multiple topics that could use your help. Some of them are easy, such as adding
 new CLI commands, others require more experience, such as packaging for non-macOS
-platforms. Look out for issues marked with "good first issue" or "help wanted". Pull
-requests should be made against the develop branch.
+platforms. Look out for issues marked with "good first issue" or "help wanted".
 
 Relevant resources are:
 
