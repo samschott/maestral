@@ -95,7 +95,6 @@ def test_unlink_error():
 
 
 def test_convert_account():
-
     dbx_account_info = users.Account(
         account_id="1234" * 10,
         name=users.Name(
@@ -122,7 +121,6 @@ def test_convert_account():
 
 
 def test_convert_full_account():
-
     dbx_account_info = users.FullAccount(
         account_id="1234" * 10,
         name=users.Name(
@@ -257,7 +255,6 @@ def test_convert_space_usage_other():
 
 
 def test_convert_metadata_file():
-
     dbx_md = files.FileMetadata(
         name="Hello",
         path_lower="/folder/hello",
@@ -299,7 +296,6 @@ def test_convert_metadata_file():
 
 
 def test_convert_metadata_folder():
-
     dbx_md = files.FolderMetadata(
         name="Hello",
         path_lower="/folder/hello",
@@ -322,7 +318,6 @@ def test_convert_metadata_folder():
 
 
 def test_convert_metadata_deleted():
-
     dbx_md = files.DeletedMetadata(
         name="Hello",
         path_lower="/folder/hello",
@@ -338,7 +333,6 @@ def test_convert_metadata_deleted():
 
 
 def test_convert_metadata_unsupported():
-
     dbx_md = files.Metadata(
         name="Hello",
         path_lower="/folder/hello",
@@ -350,7 +344,6 @@ def test_convert_metadata_unsupported():
 
 
 def test_convert_sharedlink_metdata():
-
     # Test conversion with effective_audience.
 
     dbx_md = sharing.SharedLinkMetadata(

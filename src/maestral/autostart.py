@@ -17,7 +17,6 @@ import os.path as osp
 import re
 import shutil
 import stat
-import platform
 import subprocess
 import shlex
 import plistlib
@@ -33,7 +32,8 @@ except ImportError:  # Python 3.7 and lower
 
 # local imports
 from .utils.appdirs import get_home_dir, get_conf_path, get_data_path
-from .constants import BUNDLE_ID, ENV
+from .utils.integration import cat
+from .constants import BUNDLE_ID, ENV, IS_LINUX, IS_MACOS
 from .exceptions import MaestralApiError
 
 
@@ -139,21 +139,21 @@ class AutoStartSystemd(AutoStartBase):
 class AutoStartLaunchd(AutoStartBase):
     """Autostart backend for launchd
 
-    :param bundle_id: Bundle ID for the app, e.g., "com.google.calendar".
+    :param launchd_id: Identifier for the launchd job, e.g., "com.google.calendar".
     :param start_cmd: Absolute path to executable and optional program arguments.
     :param kwargs: Additional key, value pairs to add to plist. Values may be strings,
         booleans, lists or dictionaries.
     """
 
-    def __init__(self, bundle_id: str, start_cmd: str, **kwargs: Any) -> None:
+    def __init__(self, launchd_id: str, start_cmd: str, **kwargs: Any) -> None:
         super().__init__()
-        filename = bundle_id + ".plist"
+        filename = launchd_id + ".plist"
 
         self.path = osp.join(get_home_dir(), "Library", "LaunchAgents")
         self.destination = osp.join(self.path, filename)
 
         self.plist_dict = {
-            "Label": str(bundle_id),
+            "Label": str(launchd_id),
             "ProcessType": "Interactive",
             "RunAtLoad": True,
             "ProgramArguments": shlex.split(start_cmd),
@@ -245,17 +245,13 @@ class AutoStartXDGDesktop(AutoStartBase):
 
 def get_available_implementation() -> SupportedImplementations | None:
     """Returns the supported implementation depending on the platform."""
-    system = platform.system()
-
-    if system == "Darwin":
+    if IS_MACOS:
         return SupportedImplementations.launchd
-    else:
-        try:
-            res = subprocess.check_output(["ps", "-p", "1"]).decode()
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            return None
-        else:
-            return SupportedImplementations.systemd if "systemd" in res else None
+    if IS_LINUX:
+        init_command = cat(Path("/proc/1/comm"))
+        if init_command is not None and b"systemd" in init_command:
+            return SupportedImplementations.systemd
+    return None
 
 
 def get_maestral_command_path() -> str:
@@ -307,17 +303,17 @@ class AutoStart:
         self.implementation = get_available_implementation()
 
         start_cmd = f"{self.maestral_path} start -f -c {config_name}"
-        bundle_id = f"{BUNDLE_ID}-daemon.{config_name}"
+        launchd_id = f"{BUNDLE_ID}-daemon.{config_name}"
 
         if self.implementation == SupportedImplementations.launchd:
             self._impl = AutoStartLaunchd(
-                bundle_id,
+                launchd_id,
                 start_cmd,
                 EnvironmentVariables=ENV,
+                AssociatedBundleIdentifiers=BUNDLE_ID,
             )
 
         elif self.implementation == SupportedImplementations.systemd:
-
             notify_failure = (
                 "if [ ${SERVICE_RESULT} != success ]; "
                 "then notify-send Maestral 'Daemon failed: ${SERVICE_RESULT}'; "

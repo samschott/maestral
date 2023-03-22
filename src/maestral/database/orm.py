@@ -457,7 +457,6 @@ class ModelBase(type):
     def __new__(
         mcs, cls_name: str, bases: tuple[type], namespace: dict[str, Any], **kwargs: Any
     ) -> ModelBase:
-
         columns: list[Column[Any, Any]] = []
         slots: list[str] = []
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import concurrent.futures
 import logging
+import time
 from logging.handlers import RotatingFileHandler
 from collections import deque
 from concurrent.futures import Future
@@ -27,6 +28,7 @@ except ImportError:
 
 
 __all__ = [
+    "AwaitableHandler",
     "CachedHandler",
     "SdNotificationHandler",
     "EncodingSafeLogRecord",
@@ -63,6 +65,63 @@ class EncodingSafeLogRecord(logging.LogRecord):
 logging.setLogRecordFactory(EncodingSafeLogRecord)
 
 
+class AwaitableHandler(logging.Handler):
+    """Handler with a blocking API to wait for emits
+
+    The method :meth:`wait_for_emit` can be used from another thread to block until a
+    new record is emitted, for instance to react to state changes.
+
+    :param level: Initial log level. Defaults to NOTSET.
+    :param max_unblock_per_second: Maximum number of times per second to unblock.
+    """
+
+    _emit_future: Future[bool]
+
+    def __init__(
+        self, level: int = logging.NOTSET, max_unblock_per_second: int | None = 1
+    ) -> None:
+        super().__init__(level=level)
+
+        self._emit_future = Future()
+        self._last_emit = 0.0
+
+        if max_unblock_per_second is None:
+            self._min_wait = 0.0
+        elif not max_unblock_per_second > 0:
+            raise ValueError("max_unblock_per_second must be > 0")
+        else:
+            self._min_wait = 1 / max_unblock_per_second
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            self._emit_future.set_result(True)
+        except InvalidStateError:
+            pass
+
+    def wait_for_emit(self, timeout: float | None) -> bool:
+        """
+        Blocks until a new record is emitted. This is effectively a longpoll API. Will
+        unblock at max_unblock_per_second.
+
+        :param timeout: Maximum time to block before returning.
+        :returns: ``True`` if there was a status change, ``False`` in case of a timeout.
+        """
+        try:
+            self._emit_future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            return False
+
+        t0 = time.monotonic()
+        delay = max(self._min_wait - (t0 - self._last_emit), 0)
+
+        if delay > 0:
+            time.sleep(delay)
+
+        self._emit_future = Future()  # reset future
+        self._last_emit = time.monotonic()
+        return True
+
+
 class CachedHandler(logging.Handler):
     """Handler which stores past records
 
@@ -76,12 +135,10 @@ class CachedHandler(logging.Handler):
     """
 
     cached_records: deque[logging.LogRecord]
-    _emit_future: Future[bool]
 
     def __init__(self, level: int = logging.NOTSET, maxlen: int | None = None) -> None:
         super().__init__(level=level)
         self.cached_records = deque([], maxlen)
-        self._emit_future = Future()
 
     def emit(self, record: logging.LogRecord) -> None:
         """
@@ -91,28 +148,7 @@ class CachedHandler(logging.Handler):
         """
         self.cached_records.append(record)
 
-        # notify any waiting coroutines that we have a status change
-        try:
-            self._emit_future.set_result(True)
-        except InvalidStateError:
-            pass
-
-    def wait_for_emit(self, timeout: float | None) -> bool:
-        """
-        Blocks until a new record is emitted. This is effectively a longpoll API.
-
-        :param timeout: Maximum time to block before returning.
-        :returns: ``True`` if there was a status change, ``False`` in case of a timeout.
-        """
-        try:
-            self._emit_future.result(timeout=timeout)
-        except concurrent.futures.TimeoutError:
-            return False
-
-        self._emit_future = Future()  # reset future
-        return True
-
-    def getLastMessage(self) -> str:
+    def get_last_message(self) -> str:
         """
         :returns: The log message of the last record or an empty string.
         """
@@ -122,7 +158,7 @@ class CachedHandler(logging.Handler):
         except IndexError:
             return ""
 
-    def getAllMessages(self) -> list[str]:
+    def get_all_messages(self) -> list[str]:
         """
         :returns: A list of all record messages.
         """

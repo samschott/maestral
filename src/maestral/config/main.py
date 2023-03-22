@@ -23,19 +23,24 @@ CONFIG_DIR_NAME = "maestral"
 
 DEFAULTS_CONFIG: _DefaultsType = {
     "auth": {
-        "account_id": "",  # dropbox account id, must match the saved account key
+        "account_id": "",  # dropbox account id
         "keyring": "automatic",  # keychain backend to use for credential storage
+        "token_access_type": "offline",
     },
     "app": {
         "notification_level": 15,  # desktop notification level, default: FILECHANGE
         "log_level": 20,  # log level for journal and file, default: INFO
         "update_notification_interval": 60 * 60 * 24 * 7,  # default: weekly
+        "bandwidth_limit_up": 0.0,  # upload limit in bytes / sec (0 = unlimited)
+        "bandwidth_limit_down": 0.0,  # download limit in bytes / sec (0 = unlimited)
+        "max_parallel_uploads": 6,  # max number of parallel downloads
+        "max_parallel_downloads": 6,  # max number of parallel downloads
     },
     "sync": {
         "path": "",  # dropbox folder location
         "excluded_items": [],  # files and folders excluded from sync
         "reindex_interval": 60 * 60 * 24 * 14,  # default: every fortnight
-        "max_cpu_percent": 20.0,  # max usage target per cpu core, default: 20%
+        "max_cpu_percent": 20.0,  # max CPU usage target (100% = all cores busy)
         "keep_history": 60 * 60 * 24 * 7,  # default: one week
         "upload": True,  # if download sync is enabled
         "download": True,  # if upload sync is enabled
@@ -53,9 +58,6 @@ DEFAULTS_STATE: _DefaultsType = {
         "path_root_type": "user",  # the root folder type: team or user
         "path_root_nsid": "",  # the namespace id of the root path
         "home_path": "",  # the path of the user folder if not the root path
-    },
-    "auth": {
-        "token_access_type": "",  # will be updated on completed OAuth
     },
     "app": {  # app state
         "updated_scripts_completed": __version__,
@@ -87,7 +89,7 @@ for section_name, section_values in DEFAULTS_CONFIG.items():
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0 to 4.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = Version("18.0")
+CONF_VERSION = Version("19.0")
 
 
 # =============================================================================
@@ -101,11 +103,9 @@ def _get_conf(
     defaults: _DefaultsType,
     registry: dict[str, UserConfig],
 ) -> UserConfig:
-
     try:
         conf = registry[config_name]
     except KeyError:
-
         try:
             conf = UserConfig(
                 config_path,

@@ -63,7 +63,6 @@ def rebuild_index(m: Maestral, yes: bool) -> None:
     echo(msg + "\n")
 
     if yes or confirm("Do you want to continue?", default=False):
-
         m.rebuild_index()
 
         if m.running:
@@ -278,7 +277,6 @@ def log() -> None:
 )
 @existing_config_option
 def log_show(external: bool, config_name: str) -> None:
-
     from ..utils.appdirs import get_log_path
 
     log_file = get_log_path("maestral", config_name + ".log")
@@ -302,7 +300,6 @@ def log_show(external: bool, config_name: str) -> None:
 @log.command(name="clear", help="Clear the log files.")
 @existing_config_option
 def log_clear(config_name: str) -> None:
-
     from ..utils.appdirs import get_log_path
 
     log_dir = get_log_path("maestral")
@@ -380,7 +377,6 @@ def config() -> None:
 @click.argument("key", type=ConfigKey())
 @inject_proxy(fallback=True, existing_config=True)
 def config_get(m: Maestral, key: str) -> None:
-
     from ..config.main import KEY_SECTION_MAP
 
     # Check if the config key exists in any section.
@@ -408,7 +404,6 @@ instance, setting a boolean config value to 1 will actually set it to True.
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def config_set(m: Maestral, key: str, value: str) -> None:
-
     from ..config.main import KEY_SECTION_MAP, DEFAULTS_CONFIG
 
     section = KEY_SECTION_MAP.get(key, "")
@@ -502,7 +497,6 @@ For the current user only:
 )
 @click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
 def completion(shell: str) -> None:
-
     from .cli_main import main
 
     comp_cls = get_completion_class(shell)

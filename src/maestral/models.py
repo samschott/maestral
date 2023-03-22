@@ -289,13 +289,8 @@ class SyncEvent(Model):
             dbx_id = None
             change_dbid = None
 
-            local_rev = sync_engine.get_local_rev(md.path_lower)
-            if local_rev == "folder":
-                item_type = ItemType.Folder
-            elif local_rev is not None:
-                item_type = ItemType.File
-            else:
-                item_type = ItemType.Unknown
+            entry = sync_engine.get_index_entry(md.path_lower)
+            item_type = ItemType.Unknown if entry is None else entry.item_type
 
         elif isinstance(md, FolderMetadata):
             # there is currently no API call to determine who added a folder
@@ -420,6 +415,21 @@ class SyncEvent(Model):
 
         dbx_path_from = sync_engine.to_dbx_path(from_path) if from_path else None
         dbx_path_from_lower = normalize(dbx_path_from) if dbx_path_from else None
+
+        # For file changes, update the change type based on our index. Local file system
+        # events of created vs modified can be misleading for some safe save mechanisms.
+        # See https://github.com/samschott/maestral/issues/850.
+        if item_type is ItemType.File and change_type in {
+            ChangeType.Added,
+            ChangeType.Modified,
+        }:
+            entry = sync_engine.get_index_entry(dbx_path_lower)
+            if entry is None:
+                # Item is new to us.
+                change_type = ChangeType.Added
+            elif entry.item_type is ItemType.File:
+                # Item already existed.
+                change_type = ChangeType.Modified
 
         return cls(
             direction=SyncDirection.Up,

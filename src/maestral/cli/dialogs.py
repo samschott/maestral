@@ -22,7 +22,6 @@ def prompt(
     default: str | None = None,
     validate: Callable[[str], bool] | None = None,
 ) -> str:
-
     import survey
 
     styled_message = _style_message(message)
@@ -37,7 +36,6 @@ def prompt(
 
 
 def confirm(message: str, default: bool | None = True) -> bool:
-
     import survey
 
     styled_message = _style_message(message)
@@ -46,7 +44,6 @@ def confirm(message: str, default: bool | None = True) -> bool:
 
 
 def select(message: str, options: Sequence[str], hint: str = "") -> int:
-
     import survey
 
     try:
@@ -62,7 +59,6 @@ def select(message: str, options: Sequence[str], hint: str = "") -> int:
 
 
 def select_multiple(message: str, options: Sequence[str], hint: str = "") -> list[int]:
-
     import survey
 
     try:
@@ -98,7 +94,6 @@ def select_path(
     files_allowed: bool = True,
     dirs_allowed: bool = True,
 ) -> str:
-
     import os
     import survey
     import wrapio
@@ -110,7 +105,6 @@ def select_path(
     failed = False
 
     def check(value: str) -> bool:
-
         nonlocal failed
 
         if value == "" and default:

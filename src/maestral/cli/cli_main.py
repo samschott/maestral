@@ -7,7 +7,7 @@ import click
 from .core import OrderedGroup
 from .cli_core import start, stop, gui, pause, resume, auth, sharelink
 from .cli_info import status, filestatus, activity, history, ls, config_files
-from .cli_settings import autostart, excluded, notify
+from .cli_settings import autostart, excluded, notify, bandwidth_limit
 from .cli_maintenance import (
     move_dir,
     rebuild_index,
@@ -48,6 +48,7 @@ main.add_command(config_files, section="Information")
 main.add_command(autostart, section="Settings")
 main.add_command(excluded, section="Settings")
 main.add_command(notify, section="Settings")
+main.add_command(bandwidth_limit, section="Settings")
 
 main.add_command(move_dir, section="Maintenance")
 main.add_command(rebuild_index, section="Maintenance")

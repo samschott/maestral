@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import threading
 from datetime import datetime
 from os import path as osp
@@ -163,7 +164,6 @@ def link_dialog(m: MaestralProxy | Maestral) -> None:
 @config_option
 @convert_api_errors
 def start(foreground: bool, verbose: bool, config_name: str) -> None:
-
     from ..daemon import (
         MaestralProxy,
         start_maestral_daemon,
@@ -180,7 +180,6 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
 
     @convert_api_errors
     def startup_dialog() -> None:
-
         try:
             wait_for_startup(config_name)
         except CommunicationError:
@@ -231,7 +230,6 @@ def start(foreground: bool, verbose: bool, config_name: str) -> None:
         m.start_sync()
 
     if foreground:
-
         setup_thread = threading.Thread(target=startup_dialog, daemon=True)
         setup_thread.start()
 
@@ -262,6 +260,7 @@ def stop(config_name: str) -> None:
 @click.command(help="Run the GUI if installed.")
 @config_option
 def gui(config_name: str) -> None:
+    import termios
 
     from packaging.version import Version
     from packaging.requirements import Requirement
@@ -277,8 +276,13 @@ def gui(config_name: str) -> None:
 
     entry_point_names = [e.name for e in gui_entry_points]
 
-    if len(entry_point_names) > 1:
-        index = select("Multiple GUIs found, please choose:", entry_point_names)
+    if len(entry_point_names) > 1 and sys.stdout.isatty():
+        try:
+            index = select("Multiple GUIs found, please choose:", entry_point_names)
+        except termios.error:
+            # Error can occur when not connected to a terminal. Fall back to the first
+            # detected GUI instead of failing with an error.
+            index = 0
     else:
         index = 0
 
@@ -388,7 +392,6 @@ def auth_unlink(yes: bool, config_name: str) -> None:
 @auth.command(name="status", help="View authentication status.")
 @existing_config_option
 def auth_status(config_name: str) -> None:
-
     from ..config import MaestralConfig, MaestralState
 
     conf = MaestralConfig(config_name)
@@ -439,12 +442,13 @@ def sharelink_create(
 
 
 @sharelink.command(name="revoke", help="Revoke a shared link.")
-@click.argument("url")
+@click.argument("url", nargs=-1, required=True)
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def sharelink_revoke(m: Maestral, url: str) -> None:
-    m.revoke_shared_link(url)
-    ok("Revoked shared link.")
+def sharelink_revoke(m: Maestral, url: list[str]) -> None:
+    for u in url:
+        m.revoke_shared_link(u)
+        ok(f"Revoked shared link {u}")
 
 
 @sharelink.command(

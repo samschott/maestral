@@ -17,7 +17,7 @@ from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn, TaskI
 from .output import echo, RichDateField, rich_table
 from .common import convert_api_errors, check_for_fatal_errors, inject_proxy
 from .core import DropboxPath
-from ..models import SyncDirection, SyncEvent
+from ..models import SyncDirection, SyncEvent, SyncStatus
 from ..core import FileMetadata, FolderMetadata, DeletedMetadata
 
 if TYPE_CHECKING:
@@ -130,18 +130,24 @@ def activity(m: Maestral) -> None:
                             progressbar_for_path.pop(key)
 
                     for event in sync_events:
+                        if event.status is SyncStatus.Failed:
+                            info = "! Sync Error"
+                        else:
+                            info = f"{arrow[event.direction]} {event.change_type.name}"
                         try:
                             task_id = progressbar_for_path[_event_key(event)]
                         except KeyError:
                             task_id = progress.add_task(
-                                f"{arrow[event.direction]} {event.change_type.name}",
+                                info,
                                 total=event.size,
                                 completed=event.completed,
                                 filename=os.path.basename(event.dbx_path),
                             )
                             progressbar_for_path[_event_key(event)] = task_id
                         else:
-                            progress.update(task_id, completed=event.completed)
+                            progress.update(
+                                task_id, completed=event.completed, description=info
+                            )
 
                     time.sleep(0.2)
                     progress.refresh()
@@ -149,11 +155,13 @@ def activity(m: Maestral) -> None:
         return echo("Maestral daemon is not running.")
 
 
-@click.command(help="Show recently changed or added files.")
+@click.command(help="Show sync history.")
+@click.argument("dropbox_path", type=DropboxPath(), default="/")
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def history(m: Maestral) -> None:
-    events = m.get_history()
+def history(m: Maestral, dropbox_path: str) -> None:
+    dbx_path = None if dropbox_path == "/" else dropbox_path
+    events = m.get_history(dbx_path)
     table = rich_table("Path", "Change", "Location", "Time")
 
     for event in events:
@@ -171,7 +179,7 @@ def history(m: Maestral) -> None:
 
 
 @click.command(help="List contents of a Dropbox directory.")
-@click.argument("dropbox_path", type=DropboxPath(), default="")
+@click.argument("dropbox_path", type=DropboxPath(), default="/")
 @click.option(
     "-l",
     "--long",
@@ -225,9 +233,13 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
             dt_field: ConsoleRenderable
 
             if isinstance(entry, FileMetadata):
-                size = decimal(entry.size)
                 dt_field = RichDateField(entry.client_modified)
-                item_type = "file"
+                if entry.symlink_target is None:
+                    size = decimal(entry.size)
+                    item_type = "file"
+                else:
+                    size = "-"
+                    item_type = "symlink"
             elif isinstance(entry, FolderMetadata):
                 size = "-"
                 dt_field = Text("-")
@@ -271,7 +283,6 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
     help="Remove config files without a linked account.",
 )
 def config_files(clean: bool) -> None:
-
     from ..daemon import is_running
     from ..config import (
         MaestralConfig,

@@ -24,7 +24,6 @@ configuration on user login.
 @click.option("--no", "-N", is_flag=True, default=False)
 @existing_config_option
 def autostart(yes: bool, no: bool, config_name: str) -> None:
-
     from ..autostart import AutoStart
 
     auto_start = AutoStart(config_name)
@@ -120,7 +119,6 @@ def notify() -> None:
 )
 @inject_proxy(fallback=True, existing_config=True)
 def notify_level(m: Maestral, level_name: str) -> None:
-
     from .. import notify as _notify
 
     if level_name:
@@ -144,3 +142,47 @@ def notify_snooze(m: Maestral, minutes: int) -> None:
         ok(f"Notifications snoozed for {minutes} min. Set snooze to 0 to reset.")
     else:
         ok("Notifications enabled.")
+
+
+@click.group(help="View and manage bandwidth limits. Changes take effect immediately.")
+def bandwidth_limit() -> None:
+    pass
+
+
+@bandwidth_limit.command(
+    name="up", help="Get / set bandwidth limit for uploads in MB/sec (0 = unlimited)."
+)
+@click.argument(
+    "mb_per_second",
+    required=False,
+    type=click.FLOAT,
+)
+@inject_proxy(fallback=True, existing_config=True)
+def bandwidth_limit_up(m: Maestral, mb_per_second: float | None) -> None:
+    if mb_per_second is not None:
+        m.bandwidth_limit_up = mb_per_second * 10**6
+        speed_str = f"{mb_per_second} MB/sec" if mb_per_second > 0 else "unlimited"
+        ok(f"Upload bandwidth limit set to {speed_str}.")
+    else:
+        mb_per_second = m.bandwidth_limit_up / 10**6
+        echo(f"{mb_per_second} MB/sec" if mb_per_second > 0 else "unlimited")
+
+
+@bandwidth_limit.command(
+    name="down",
+    help="Get / set bandwidth limit for downloads in MB/sec (0 = unlimited).",
+)
+@click.argument(
+    "mb_per_second",
+    required=False,
+    type=click.FLOAT,
+)
+@inject_proxy(fallback=True, existing_config=True)
+def bandwidth_limit_down(m: Maestral, mb_per_second: float | None) -> None:
+    if mb_per_second is not None:
+        m.bandwidth_limit_down = mb_per_second * 10**6
+        speed_fmt = f"{mb_per_second} MB/sec" if mb_per_second > 0 else "unlimited"
+        ok(f"Download bandwidth limit set to {speed_fmt}.")
+    else:
+        mb_per_second = m.bandwidth_limit_down / 10**6
+        echo(f"{mb_per_second} MB/sec" if mb_per_second > 0 else "unlimited")

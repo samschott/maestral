@@ -31,10 +31,9 @@ if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.en
 
 
 def failing_content_hasher(
-    start_fail: int = 0, end_fail: int = 4
+    start_fail: int, end_fail: int
 ) -> type[DropboxContentHasher]:
     class FailingHasher(DropboxContentHasher):
-
         START_FAIL = start_fail
         END_FAIL = end_fail
         DONE = -1
@@ -57,9 +56,9 @@ def test_upload(client: DropboxClient) -> None:
 
     file = resources + "/file.txt"
     file_size = os.path.getsize(file)
-    chunk_size = file_size * 2
+    client.UPLOAD_REQUEST_CHUNK_SIZE = file_size * 2
 
-    md = client.upload(file, "/file.txt", chunk_size=chunk_size)
+    md = client.upload(file, "/file.txt")
     assert md.content_hash == content_hash(file)[0]
 
 
@@ -68,19 +67,19 @@ def test_upload_session(client: DropboxClient) -> None:
 
     large_file = resources + "/large-file.pdf"
     file_size = os.path.getsize(large_file)
-    chunk_size = file_size // 10
+    client.UPLOAD_REQUEST_CHUNK_SIZE = file_size // 10
 
-    md = client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+    md = client.upload(large_file, "/large-file.pdf")
 
     assert md.content_hash == content_hash(large_file)[0]
 
 
 def test_upload_hash_mismatch(client: DropboxClient, monkeypatch) -> None:
-    """Test that DataCorruptionError is raised after four failed attempts."""
+    """Test that DataCorruptionError is raised after 10 failed attempts."""
 
     file = resources + "/file.txt"
 
-    hasher = failing_content_hasher()
+    hasher = failing_content_hasher(0, 11)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     with pytest.raises(DataCorruptionError):
@@ -90,33 +89,33 @@ def test_upload_hash_mismatch(client: DropboxClient, monkeypatch) -> None:
 
 
 def test_upload_session_start_hash_mismatch(client: DropboxClient, monkeypatch) -> None:
-    """Test that DataCorruptionError is raised after four failed attempts when starting
+    """Test that DataCorruptionError is raised after 10 failed attempts when starting
     to upload session."""
 
     large_file = resources + "/large-file.pdf"
     file_size = os.path.getsize(large_file)
-    chunk_size = file_size // 10
+    client.UPLOAD_REQUEST_CHUNK_SIZE = file_size // 10
 
-    hasher = failing_content_hasher(0, 4)
+    hasher = failing_content_hasher(0, 11)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     with pytest.raises(DataCorruptionError):
-        client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+        client.upload(large_file, "/large-file.pdf")
 
     assert not client.get_metadata("/large-file.pdf")
 
 
 def test_upload_session_start_retry(client: DropboxClient, monkeypatch) -> None:
-    """Test that upload succeeds after three failed attempts when starting session."""
+    """Test that upload succeeds after 3 failed attempts when starting session."""
 
     large_file = resources + "/large-file.pdf"
     file_size = os.path.getsize(large_file)
-    chunk_size = file_size // 10
+    client.UPLOAD_REQUEST_CHUNK_SIZE = file_size // 10
 
     hasher = failing_content_hasher(0, 3)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
-    md = client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+    md = client.upload(large_file, "/large-file.pdf")
 
     assert md.content_hash == content_hash(large_file)[0]
 
@@ -124,18 +123,18 @@ def test_upload_session_start_retry(client: DropboxClient, monkeypatch) -> None:
 def test_upload_session_append_hash_mismatch(
     client: DropboxClient, monkeypatch
 ) -> None:
-    """Test that DataCorruptionError is raised after four failed attempts when appending
+    """Test that DataCorruptionError is raised after 10 failed attempts when appending
     to upload session."""
 
     large_file = resources + "/large-file.pdf"
     file_size = os.path.getsize(large_file)
-    chunk_size = file_size // 10
+    client.UPLOAD_REQUEST_CHUNK_SIZE = file_size // 10
 
-    hasher = failing_content_hasher(1, 5)
+    hasher = failing_content_hasher(1, 12)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     with pytest.raises(DataCorruptionError):
-        client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+        client.upload(large_file, "/large-file.pdf")
 
     assert not client.get_metadata("/large-file.pdf")
 
@@ -143,35 +142,35 @@ def test_upload_session_append_hash_mismatch(
 def test_upload_session_append_hash_mismatch_retry(
     client: DropboxClient, monkeypatch
 ) -> None:
-    """Test that upload succeeds after three failed attempts when appending to
+    """Test that upload succeeds after 3 failed attempts when appending to
     session."""
 
     large_file = resources + "/large-file.pdf"
     file_size = os.path.getsize(large_file)
-    chunk_size = file_size // 10
+    client.UPLOAD_REQUEST_CHUNK_SIZE = file_size // 10
 
     hasher = failing_content_hasher(1, 4)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
-    md = client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+    md = client.upload(large_file, "/large-file.pdf")
     assert md.content_hash == content_hash(large_file)[0]
 
 
 def test_upload_session_finish_hash_mismatch(
     client: DropboxClient, monkeypatch
 ) -> None:
-    """Test that DataCorruptionError is raised after four failed attempts when finishing
+    """Test that DataCorruptionError is raised after 10 failed attempts when finishing
     upload session."""
 
     large_file = resources + "/large-file.pdf"
     file_size = os.path.getsize(large_file)
-    chunk_size = file_size // 10
+    client.UPLOAD_REQUEST_CHUNK_SIZE = file_size // 10
 
-    hasher = failing_content_hasher(9, 13)
+    hasher = failing_content_hasher(9, 20)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     with pytest.raises(DataCorruptionError):
-        client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+        client.upload(large_file, "/large-file.pdf")
 
     assert not client.get_metadata("/large-file.pdf")
 
@@ -179,27 +178,28 @@ def test_upload_session_finish_hash_mismatch(
 def test_upload_session_finish_hash_mismatch_retry(
     client: DropboxClient, monkeypatch
 ) -> None:
-    """Test that upload succeeds after three failed attempts when finishing session."""
+    """Test that download fails after 3 retried DataCorruptionErrors when finishing
+    download session."""
 
     large_file = resources + "/large-file.pdf"
     file_size = os.path.getsize(large_file)
-    chunk_size = file_size // 10
+    client.UPLOAD_REQUEST_CHUNK_SIZE = file_size // 10
 
     hasher = failing_content_hasher(9, 12)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
-    md = client.upload(large_file, "/large-file.pdf", chunk_size=chunk_size)
+    md = client.upload(large_file, "/large-file.pdf")
 
     assert md.content_hash == content_hash(large_file)[0]
 
 
 def test_download_hash_mismatch(client: DropboxClient, monkeypatch, tmp_path) -> None:
-    # not tested during integration tests
+    """Test that download fails after 10 retried DataCorruptionErrors."""
 
     file = resources + "/file.txt"
     client.upload(file, "/file.txt")
 
-    hasher = failing_content_hasher(0, 4)
+    hasher = failing_content_hasher(0, 11)
     monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
 
     with pytest.raises(DataCorruptionError):
@@ -259,7 +259,6 @@ def test_share_dir_existing(client: DropboxClient) -> None:
 
 
 def test_sharedlink_lifecycle(client: DropboxClient) -> None:
-
     # create a folder to share
     dbx_path = "/shared_folder"
     client.make_dir(dbx_path)
@@ -280,7 +279,6 @@ def test_sharedlink_lifecycle(client: DropboxClient) -> None:
 
 
 def test_sharedlink_errors(client: DropboxClient) -> None:
-
     dbx_path = "/shared_folder"
     client.make_dir(dbx_path)
 

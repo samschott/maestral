@@ -1,7 +1,8 @@
 """
 This module provides functions for platform integration. Most of the functionality here
-could also be achieved with psutils but we want to avoid the large dependency.
+could also be achieved with psutils, but we want to avoid the large dependency.
 """
+from __future__ import annotations
 
 import os
 import platform
@@ -16,21 +17,22 @@ from typing import Union, Tuple, Optional
 from urllib.parse import urlparse
 
 __all__ = [
+    "cat",
     "get_ac_state",
     "ACState",
     "get_inotify_limits",
-    "CPU_COUNT",
+    "CPU_CORE_COUNT",
     "cpu_usage_percent",
     "check_connection",
     "SystemdNotifier",
 ]
 
 
-CPU_COUNT = os.cpu_count() or 1  # os.cpu_count can return None
+CPU_CORE_COUNT = os.cpu_count() or 1  # os.cpu_count can return None
 LINUX_POWER_SUPPLY_PATH = "/sys/class/power_supply"
 
 
-def multi_cat(*paths: Path) -> Union[int, bytes, None]:
+def cat(*paths: "os.PathLike[str]") -> Union[bytes, None]:
     """
     Attempts to read the content of multiple files which may not exist. Returns the
     content of the first file which can be read. If none of them can be read return
@@ -38,11 +40,10 @@ def multi_cat(*paths: Path) -> Union[int, bytes, None]:
     """
     for path in paths:
         try:
-            ret = path.read_bytes().strip()
+            with open(path, "rb") as f:
+                return f.read().strip()
         except OSError:
             pass
-        else:
-            return int(ret) if ret.isdigit() else ret
 
     return None
 
@@ -62,7 +63,6 @@ def get_ac_state() -> ACState:
     :returns: ``True`` if the device has AC power, ``False`` otherwise.
     """
     if platform.system() == "Darwin":
-
         from ctypes import c_double
         from rubicon.objc.runtime import load_library
 
@@ -95,10 +95,10 @@ def get_ac_state() -> ACState:
             if entry.name.startswith("B") or "battery" in entry.name.lower()
         ]
 
-        online = multi_cat(*iter(path / "online" for path in ac_paths))
+        online = cat(*iter(path / "online" for path in ac_paths))
 
         if online is not None:
-            if online == 1:
+            if online == b"1":
                 return ACState.Connected
             else:
                 return ACState.Disconnected
@@ -165,7 +165,7 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
         raise ValueError(f"interval is not positive (got {interval!r})")
 
     def timer() -> float:
-        return time.monotonic() * CPU_COUNT
+        return time.monotonic() * CPU_CORE_COUNT
 
     st1 = timer()
     rt1 = resource.getrusage(resource.RUSAGE_SELF)
@@ -181,7 +181,7 @@ def cpu_usage_percent(interval: float = 0.1) -> float:
     except ZeroDivisionError:
         return 0.0
     else:
-        single_cpu_percent = overall_cpus_percent * CPU_COUNT
+        single_cpu_percent = overall_cpus_percent * CPU_CORE_COUNT
         return round(single_cpu_percent, 1)
 
 

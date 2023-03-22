@@ -13,7 +13,7 @@ from functools import wraps
 from queue import Empty, Queue
 from threading import Event, RLock, Thread
 from tempfile import TemporaryDirectory
-from typing import Iterator, TypeVar, Callable, Any, Generic
+from typing import Iterator, TypeVar, Callable, Generic, Any
 from typing_extensions import ParamSpec, Concatenate
 
 # local imports
@@ -21,7 +21,7 @@ from . import __url__
 from . import notify
 from .client import API_HOST
 from .core import TeamRootInfo, UserRootInfo
-from .fsevents import Observer
+from .fsevents import Observer, ObserverType
 from .config import MaestralConfig, MaestralState, PersistentMutableSet
 from .config.user import UserConfig
 from .constants import (
@@ -32,7 +32,6 @@ from .constants import (
     PAUSED,
     CONNECTED,
 )
-from .models import SyncEvent
 from .exceptions import (
     CancelledError,
     DropboxConnectionError,
@@ -44,9 +43,11 @@ from .exceptions import (
 )
 from .sync import SyncEngine
 from .logging import scoped_logger
+from .notify import MaestralDesktopNotifier
 from .utils import removeprefix
 from .utils.integration import check_connection, get_inotify_limits
 from .utils.path import move, delete, is_equal_or_child, is_child, normalize
+from .utils.integration import get_ac_state, ACState
 
 
 __all__ = ["SyncManager"]
@@ -88,13 +89,13 @@ class PersistentQueue(Generic[T]):
     def qsize(self) -> int:
         return self._queue.qsize()
 
-    def empty(self) -> bool:
-        return self._queue.empty()
+    def has_pending(self) -> bool:
+        return not self._queue.empty()
 
     def put(self, item: T) -> None:
         with self._lock:
-            if item not in self._persistent:
-                self._queue.put(item)
+            self._persistent.add(item)
+            self._queue.put(item)
 
     def get(self, block: bool = True, timeout: int | None = None) -> T:
         return self._queue.get(block, timeout)
@@ -115,13 +116,18 @@ class SyncManager:
     """Class to manage sync threads
 
     :param sync: The SyncEngine.
+    :param desktop_notifier: Used to send desktop notifications for management-level
+        events such as joining or leaving a team or fatal errors.
     """
 
     download_queue: PersistentQueue[str]
     """Queue of remote paths which have been newly included in syncing."""
 
-    def __init__(self, sync: SyncEngine):
+    def __init__(
+        self, sync: SyncEngine, desktop_notifier: MaestralDesktopNotifier | None = None
+    ) -> None:
         self.sync = sync
+        self.desktop_notifier = desktop_notifier
         self._conf = MaestralConfig(self.sync.config_name)
         self._state = MaestralState(self.sync.config_name)
         self._logger = scoped_logger(__name__, self.sync.config_name)
@@ -146,7 +152,7 @@ class SyncManager:
         )
         self.connection_helper.start()
 
-        self.local_observer_thread: Observer | None = None
+        self.local_observer_thread: ObserverType | None = None
 
     def _with_lock(  # type:ignore[misc]
         fn: Callable[Concatenate[SyncManager, P], T]
@@ -173,24 +179,11 @@ class SyncManager:
         self._conf.set("sync", "reindex_interval", interval)
 
     @property
-    def activity(self) -> dict[str, SyncEvent]:
-        """Returns a list all items queued for or currently syncing."""
-        return self.sync.syncing
-
-    @property
-    def history(self) -> list[SyncEvent]:
-        """A list of the last SyncEvents in our history. History will be kept for the
-        interval specified by the config value ``keep_history`` (defaults to two weeks)
-        but at most 1,000 events will be kept."""
-        return self.sync.history
-
-    @property
     def idle_time(self) -> float:
         """
         Returns the idle time in seconds since the last file change or since startup if
         there haven't been any changes in our current session.
         """
-
         now = time.time()
         time_since_startup = now - self._startup_time
         time_since_last_sync = now - self.sync.last_change
@@ -268,9 +261,10 @@ class SyncManager:
                     self.local_observer_thread = self._create_observer()
                 except MaestralApiError as exc:
                     self._logger.error(exc.title, exc_info=True)
-                    self.sync.desktop_notifier.notify(
-                        exc.title, exc.message, level=notify.ERROR
-                    )
+                    if self.desktop_notifier:
+                        self.desktop_notifier.notify(
+                            exc.title, exc.message, level=notify.ERROR
+                        )
                     return
 
         self.running.set()
@@ -287,7 +281,7 @@ class SyncManager:
         self.startup_thread.start()
         self._startup_time = time.time()
 
-    def _create_observer(self) -> Observer:
+    def _create_observer(self) -> ObserverType:
         local_observer_thread = Observer(timeout=40)
         local_observer_thread.name = "maestral-fsobserver"
         local_observer_thread.schedule(
@@ -301,7 +295,6 @@ class SyncManager:
         try:
             local_observer_thread.start()
         except OSError as exc:
-
             if exc.errno in (errno.ENOSPC, errno.EMFILE):
                 try:
                     max_user_watches, max_user_instances, _ = get_inotify_limits()
@@ -398,6 +391,20 @@ class SyncManager:
         if was_running:
             self.start()
 
+    def _should_rebuild_index(self) -> bool:
+        """
+        Check if reindexing is due and can be performed now. This is determined by the
+        'reindex_interval' setting. Don't reindex if we are running on battery power.
+        """
+        elapsed = time.time() - self.sync.last_reindex
+        ac_state = get_ac_state()
+
+        reindexing_due = elapsed > self.reindex_interval
+        is_idle = self.idle_time > 20 * 60
+        has_ac_power = ac_state in (ACState.Connected, ACState.Undetermined)
+
+        return reindexing_due and is_idle and has_ac_power
+
     # ---- path root management --------------------------------------------------------
 
     def check_and_update_path_root(self) -> bool:
@@ -482,10 +489,11 @@ class SyncManager:
             if new_root_type == "team" and current_root_type == "user":
                 # User joined a team.
                 self._logger.info("User joined %s. Resyncing user files.", team_name)
-                self.sync.desktop_notifier.notify(
-                    f"Joined {team_name}",
-                    "Migrating user files and downloading team folders",
-                )
+                if self.desktop_notifier:
+                    self.desktop_notifier.notify(
+                        f"Joined {team_name}",
+                        "Migrating user files and downloading team folders",
+                    )
 
                 # Migrate user folder to "self.sync.dropbox_path/home_path". We do this
                 # by creating a temporary folder and renaming it after moving all
@@ -514,10 +522,11 @@ class SyncManager:
             elif new_root_type == "user" and current_root_type == "team":
                 # User left a team.
                 self._logger.info("User left team. Updating folder layout.")
-                self.sync.desktop_notifier.notify(
-                    "Left Dropbox Team",
-                    "Migrating user files and removing team folders",
-                )
+                if self.desktop_notifier:
+                    self.desktop_notifier.notify(
+                        "Left Dropbox Team",
+                        "Migrating user files and removing team folders",
+                    )
 
                 # Remove all team folders.
                 for entry in local_dropbox_dirlist:
@@ -527,7 +536,6 @@ class SyncManager:
                 # Migrate user folders to local Dropbox root. We do this by renaming the
                 # user home to a temporary name and then moving its contents to the
                 # parent folder.
-
                 old_home_root = self.sync.dropbox_path + current_user_home_path
 
                 tmpdir = TemporaryDirectory(dir=self.sync.dropbox_path)
@@ -563,9 +571,10 @@ class SyncManager:
             elif new_root_type == "team" and current_root_type == "team":
                 # User switched between different teams.
                 self._logger.info("User switched teams. Updating team folders.")
-                self.sync.desktop_notifier.notify(
-                    f"Switched teams to {team_name}", "Updating team folders"
-                )
+                if self.desktop_notifier:
+                    self.desktop_notifier.notify(
+                        f"Switched teams to {team_name}", "Updating team folders"
+                    )
 
                 # Remove all team folders, leave user folder alone.
                 for entry in local_dropbox_dirlist:
@@ -630,27 +639,28 @@ class SyncManager:
 
         while running.is_set():
             with self._handle_sync_thread_errors(running, autostart):
-                with self.sync.client.clone_with_new_session() as client:
-                    has_changes = self.sync.wait_for_remote_changes(
-                        self.sync.remote_cursor, client=client
-                    )
+                has_changes = self.sync.wait_for_remote_changes(self.sync.remote_cursor)
 
-                    # Check for root namespace updates. Don't apply any remote
-                    # changes in case of a changed root path.
-                    if self.check_and_update_path_root():
-                        return
+                # Check for root namespace updates. Don't apply any remote
+                # changes in case of a changed root path.
+                if self.check_and_update_path_root():
+                    return
 
-                    if not running.is_set():
-                        return
+                # Check for and perform reindexing.
+                if self._should_rebuild_index():
+                    self.rebuild_index()
 
-                    self.sync.ensure_dropbox_folder_present()
+                if not running.is_set():
+                    return
 
-                    if has_changes:
-                        self._logger.info(SYNCING)
-                        self.sync.download_sync_cycle(client)
-                        self._logger.info(IDLE)
+                self.sync.ensure_dropbox_folder_present()
 
-                        client.get_space_usage()
+                if has_changes:
+                    self._logger.info(SYNCING)
+                    self.sync.download_sync_cycle()
+                    self._logger.info(IDLE)
+
+                    self.sync.client.get_space_usage()
 
         _free_memory()
 
@@ -674,18 +684,16 @@ class SyncManager:
                 try:
                     dbx_path_lower = self.download_queue.get(timeout=40)
                 except Empty:
-                    pass
-                else:
+                    continue
 
-                    if not running.is_set():
-                        return
+                if not running.is_set():
+                    self.download_queue.put(dbx_path_lower)
+                    return
 
-                    with self.sync.sync_lock:
-                        with self.sync.client.clone_with_new_session() as client:
-                            self.sync.get_remote_item(dbx_path_lower, client)
-
-                        self.download_queue.task_done(dbx_path_lower)
-                        self._logger.info(IDLE)
+                with self.sync.sync_lock:
+                    self.sync.get_remote_item(dbx_path_lower)
+                    self.download_queue.task_done(dbx_path_lower)
+                    self._logger.info(IDLE)
 
         _free_memory()
 
@@ -734,7 +742,6 @@ class SyncManager:
         :param autostart: Set when syncing should automatically resume on connection.
         """
         with self._handle_sync_thread_errors(running, autostart):
-
             # Fail early if Dropbox folder disappeared.
             self.sync.ensure_dropbox_folder_present()
 
@@ -751,29 +758,27 @@ class SyncManager:
                 startup_completed.set()
                 return
 
-            with self.sync.client.clone_with_new_session() as client:
+            # Retry failed downloads.
+            if len(self.sync.download_errors) > 0:
+                self._logger.info("Retrying failed syncs...")
 
-                # Retry failed downloads.
-                if len(self.sync.download_errors) > 0:
-                    self._logger.info("Retrying failed syncs...")
+            for error in list(self.sync.download_errors):
+                self.sync.get_remote_item(error.dbx_path_lower)
 
-                for error in list(self.sync.download_errors):
-                    self.sync.get_remote_item(error.dbx_path_lower, client)
+            # Resume interrupted downloads.
+            if self.download_queue.qsize() > 0:
+                self._logger.info("Resuming interrupted syncs...")
 
-                # Resume interrupted downloads.
-                if self.download_queue.qsize() > 0:
-                    self._logger.info("Resuming interrupted syncs...")
+            while self.download_queue.has_pending():
+                dbx_path = self.download_queue.get()
+                self.sync.get_remote_item(dbx_path)
+                self.download_queue.task_done(dbx_path)
 
-                while not self.download_queue.empty():
-                    dbx_path = self.download_queue.get()
-                    self.sync.get_remote_item(dbx_path, client)
-                    self.download_queue.task_done(dbx_path)
+            if not running.is_set():
+                startup_completed.set()
+                return
 
-                if not running.is_set():
-                    startup_completed.set()
-                    return
-
-                self.sync.download_sync_cycle(client)
+            self.sync.download_sync_cycle()
 
             if not running.is_set():
                 startup_completed.set()
@@ -811,7 +816,8 @@ class SyncManager:
             title = getattr(err, "title", "Unexpected error")
             message = getattr(err, "message", "Please restart to continue syncing")
             self._logger.error(title, exc_info=True)
-            self.sync.desktop_notifier.notify(title, message, level=notify.ERROR)
+            if self.desktop_notifier:
+                self.desktop_notifier.notify(title, message, level=notify.ERROR)
             self.stop()
 
     def __del__(self) -> None:

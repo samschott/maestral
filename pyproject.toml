@@ -1,7 +1,104 @@
+[build-system]
+requires = ["setuptools>=61.2", "build"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maestral"
+version = "1.7.2.dev0"
+authors = [{name = "Sam Schott", email = "sam.schott@outlook.com"}]
+license = {text = "MIT"}
+description = "Open-source Dropbox client for macOS and Linux."
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Unix",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+]
+urls = {Homepage = "https://maestral.app"}
+requires-python = ">=3.7"
+dependencies = [
+    "click>=8.0.2",
+    "desktop-notifier>=3.3.0",
+    "dropbox>=11.28.0,<12.0",
+    "fasteners>=0.15",
+    "importlib_metadata>=3.6",
+    "keyring>=22",
+    "keyrings.alt>=3.1.0",
+    "packaging",
+    "pathspec>=0.5.8",
+    "Pyro5>=5.10",
+    "requests>=2.16.2",
+    "rich",
+    "rubicon-objc>=0.4.1;sys_platform=='darwin'",
+    "setuptools",
+    "survey>=3.4.3,<4.0",
+    "typing_extensions",
+    "watchdog>=2.0.1",
+]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.optional-dependencies]
+gui = [
+    "maestral-qt>=1.7.1;sys_platform=='linux'",
+    "maestral-cocoa>=1.7.1;sys_platform=='darwin'",
+]
+syslog = ["systemd-python"]
+lint = [
+    "black",
+    "flake8",
+    "flake8-pyproject",
+    "mypy",
+    "pyupgrade",
+    "types-pkg_resources",
+    "types-requests",
+]
+test = [
+    "pytest",
+    "pytest-benchmark",
+    "pytest-cov",
+    "pytest-rerunfailures",
+]
+docs = [
+    "sphinx",
+    "sphinxext-opengraph",
+    "m2r2",
+    "sphinx-autoapi",
+    "sphinx_rtd_theme",
+]
+dev = [
+    "bump2version",
+    "maestral[lint,test]",
+]
+
+[project.scripts]
+maestral = "maestral.cli:main"
+
+[tool.setuptools.data-files]
+"share/icons/hicolor/512x512/apps" = ["src/maestral/resources/maestral.png"]
+
+[tool.flake8]
+ignore = "E203,E501,W503,H306"
+statistics = "True"
+
+[tool.mypy]
+python_version = "3.7"
+strict = true
+# Disable some strict flags because of untyped dependencies:
+disallow_subclassing_any = false
+disallow_untyped_calls = false
+warn_return_any = false
+ignore_missing_imports = true
+
 [tool.black]
 line-length = 88
 target-version = ["py37", "py38", "py39", "py310", "py311"]
-
-[build-system]
-requires = ["setuptools>=41.0", "wheel"]
-build-backend = "setuptools.build_meta"

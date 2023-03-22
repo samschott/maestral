@@ -10,6 +10,7 @@ import click
 from .core import ConfigName
 from .output import warn
 from .utils import get_term_size
+from ..constants import DEFAULT_CONFIG_NAME
 
 if TYPE_CHECKING:
     from ..daemon import MaestralProxy
@@ -53,7 +54,6 @@ def check_for_fatal_errors(m: MaestralProxy | Maestral) -> bool:
     maestral_err_list = m.fatal_errors
 
     if len(maestral_err_list) > 0:
-
         size = get_term_size()
 
         err = maestral_err_list[0]
@@ -72,7 +72,7 @@ def check_for_fatal_errors(m: MaestralProxy | Maestral) -> bool:
 config_option = click.option(
     "-c",
     "--config-name",
-    default="maestral",
+    default=DEFAULT_CONFIG_NAME,
     type=ConfigName(existing=False),
     is_eager=True,
     expose_value=True,
@@ -81,7 +81,7 @@ config_option = click.option(
 existing_config_option = click.option(
     "-c",
     "--config-name",
-    default="maestral",
+    default=DEFAULT_CONFIG_NAME,
     type=ConfigName(),
     is_eager=True,
     expose_value=True,
@@ -94,7 +94,6 @@ def inject_proxy(
 ) -> Callable[[Callable[P, T]], Callable[P, Any]]:
     def decorator(f: Callable[P, T]) -> Callable[P, Any]:
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
-
             from ..daemon import MaestralProxy, CommunicationError
 
             ctx = click.get_current_context()

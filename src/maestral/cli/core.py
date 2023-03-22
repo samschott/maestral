@@ -49,13 +49,10 @@ class DropboxPath(click.ParamType):
         param: click.Parameter | None,
         ctx: click.Context | None,
     ) -> str | None:
-
         if value is None:
             return value
-
         if not value.startswith("/"):
             value = "/" + value
-
         return value
 
     def shell_complete(
@@ -64,7 +61,6 @@ class DropboxPath(click.ParamType):
         param: click.Parameter | None,
         incomplete: str,
     ) -> list[CompletionItem]:
-
         from click.shell_completion import CompletionItem
         from ..utils import removeprefix
         from ..config import MaestralConfig
@@ -128,7 +124,6 @@ class ConfigKey(click.ParamType):
         param: click.Parameter | None,
         incomplete: str,
     ) -> list[CompletionItem]:
-
         from click.shell_completion import CompletionItem
         from ..config.main import KEY_SECTION_MAP as KEYS
 
@@ -183,7 +178,6 @@ class ConfigName(click.ParamType):
         param: click.Parameter | None,
         incomplete: str,
     ) -> list[CompletionItem]:
-
         from click.shell_completion import CompletionItem
         from ..config import list_configs
 
@@ -232,7 +226,6 @@ class OrderedGroup(click.Group):
 
             # format sections individually
             for section, cmd_list in self.sections.items():
-
                 rows = []
 
                 for name, cmd in cmd_list:

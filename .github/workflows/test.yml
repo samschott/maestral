@@ -31,7 +31,7 @@ jobs:
         if: github.event_name != 'pull_request_target'
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4.3.1
+        uses: actions/setup-python@v4.5.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -84,7 +84,7 @@ jobs:
         if: github.event_name != 'pull_request_target'
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v4.3.1
+        uses: actions/setup-python@v4.5.0
         with:
           python-version: '3.11'
 
@@ -93,10 +93,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -U .[test]
 
-      - name: Get short-lived Dropbox token
+      - name: Get short-lived Oauth2 access token
         # We generate a short-lived auth token which is passed to the test runner as
-        # an environment variable. At no point does the test code, potentially from a
-        # malicious PR, get access to a long-lived token.
+        # an environment variable. At no point does the test code, potentially from an
+        # untrusted 3rd party, get access to a long-lived token.
         run: |
           auth_result=$(curl https://api.dropbox.com/oauth2/token \
               -d grant_type=refresh_token \
@@ -157,7 +157,7 @@ jobs:
         if: github.event_name != 'pull_request_target'
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v4.3.1
+        uses: actions/setup-python@v4.5.0
         with:
           python-version: '3.11'
 

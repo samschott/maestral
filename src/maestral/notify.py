@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import time
 import asyncio
+from asyncio import AbstractEventLoop
 from typing import Callable, Any, cast
 
 # external imports
@@ -98,12 +99,13 @@ class MaestralDesktopNotifier:
 
     :param config_name: Config name. This is used to access notification settings for
         the daemon.
+    :param event_loop: Event loop to use to send notifications and receive callbacks.
     """
 
-    def __init__(self, config_name: str) -> None:
+    def __init__(self, config_name: str, event_loop: AbstractEventLoop) -> None:
         self._conf = MaestralConfig(config_name)
         self._snooze = 0.0
-        self._loop = asyncio.get_event_loop_policy().get_event_loop()
+        self._loop = event_loop
 
     @property
     def notify_level(self) -> int:
@@ -146,22 +148,25 @@ class MaestralDesktopNotifier:
         :param actions: A dictionary with button names and callbacks for the
             notification.
         """
-        snoozed = self.snoozed and level <= FILECHANGE
+        if level < self.notify_level:
+            return
 
-        if level >= self.notify_level and not snoozed:
-            urgency = Urgency.Critical if level >= ERROR else Urgency.Normal
+        if self.snoozed and level <= FILECHANGE:
+            return
 
-            if actions:
-                buttons = [Button(name, handler) for name, handler in actions.items()]
-            else:
-                buttons = []
+        urgency = Urgency.Critical if level >= ERROR else Urgency.Normal
 
-            coro = _desktop_notifier.send(
-                title=title,
-                message=message,
-                urgency=urgency,
-                on_clicked=on_click,
-                buttons=buttons,
-            )
+        if actions:
+            buttons = [Button(name, handler) for name, handler in actions.items()]
+        else:
+            buttons = []
 
-            asyncio.run_coroutine_threadsafe(coro, self._loop)
+        coro = _desktop_notifier.send(
+            title=title,
+            message=message,
+            urgency=urgency,
+            on_clicked=on_click,
+            buttons=buttons,
+        )
+
+        asyncio.run_coroutine_threadsafe(coro, self._loop)

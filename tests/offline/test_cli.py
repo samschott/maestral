@@ -64,7 +64,6 @@ def test_invalid_config() -> None:
         ("config", "set", "path"),
         ("config", "show"),
     ]:
-
         runner = CliRunner()
         result = runner.invoke(main, [*command, "-c", "non-existent-config"])
 
@@ -76,7 +75,6 @@ def test_invalid_config() -> None:
 
 
 def test_start_already_running(config_name: str) -> None:
-
     res = start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
 
     assert res is Start.Ok
@@ -89,7 +87,6 @@ def test_start_already_running(config_name: str) -> None:
 
 
 def test_stop(config_name: str) -> None:
-
     res = start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
     assert res is Start.Ok
 
@@ -158,7 +155,6 @@ def test_excluded_list(m: Maestral) -> None:
 
 
 def test_notify_level(config_name: str) -> None:
-
     start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
     m = MaestralProxy(config_name)
 
@@ -185,7 +181,6 @@ def test_notify_level(config_name: str) -> None:
 
 
 def test_notify_snooze(config_name: str) -> None:
-
     start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
     m = MaestralProxy(config_name)
 

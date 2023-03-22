@@ -375,7 +375,10 @@ def move(
         if orig_mode:
             # reapply dest permissions
             try:
-                os.chmod(dest_path, orig_mode, follow_symlinks=False)
+                if os.chmod in os.supports_follow_symlinks:
+                    os.chmod(dest_path, orig_mode, follow_symlinks=False)
+                else:
+                    os.chmod(dest_path, orig_mode)
             except OSError:
                 pass
 
@@ -558,7 +561,6 @@ def get_symlink_target(local_path: str) -> Optional[str]:
     except (FileNotFoundError, NotADirectoryError):
         return None
     except OSError as err:
-
         if err.errno == errno.EINVAL:
             # File is not a symlink.
             return None

@@ -10,8 +10,7 @@ import os
 import re
 import time
 import functools
-import contextlib
-import threading
+from contextlib import contextmanager, closing
 from datetime import datetime, timezone
 from typing import (
     Callable,
@@ -32,10 +31,16 @@ from dropbox import files, sharing, users, common
 from dropbox import Dropbox, create_session, exceptions
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 from dropbox.session import API_HOST
+from dropbox.dropbox_client import (
+    BadInputException,
+    RouteResult,
+    RouteErrorResult,
+    USER_AUTH,
+)
 
 # local imports
 from . import __version__
-from .keyring import CredentialStorage, TokenType
+from .keyring import CredentialStorage
 from .logging import scoped_logger
 from .core import (
     AccountType,
@@ -66,6 +71,7 @@ from .exceptions import (
     NotFoundError,
     NotLinkedError,
     DataCorruptionError,
+    DataChangedError,
 )
 from .errorhandling import (
     convert_api_errors,
@@ -89,14 +95,82 @@ PRT = TypeVar("PRT", ListFolderResult, ListSharedLinkResult)
 P = ParamSpec("P")
 T = TypeVar("T")
 
-major_minor_version = ".".join(__version__.split(".")[:2])
-USER_AGENT = f"Maestral/v{major_minor_version}"
+USER_AGENT = f"Maestral/v{__version__}"
 
 
 def get_hash(data: bytes) -> str:
     hasher = DropboxContentHasher()
     hasher.update(data)
     return hasher.hexdigest()
+
+
+class _DropboxSDK(Dropbox):
+    def request_json_string(
+        self,
+        host: str,
+        func_name: str,
+        route_style: str,
+        request_json_arg: bytes,
+        auth_type: str,
+        request_binary: bytes | Iterator[bytes] | None,
+        timeout: float | None = None,
+    ) -> RouteResult | RouteErrorResult:
+        # Custom handling to allow for streamed and chunked uploads. This is mostly
+        # reproduced from the parent function but without limiting the request body
+        # to bytes only.
+        if route_style == self._ROUTE_STYLE_UPLOAD:
+            fq_hostname = self._host_map[host]
+            url = self._get_route_url(fq_hostname, func_name)
+
+            auth_types = auth_type.replace(" ", "").split(",")
+
+            if USER_AUTH not in auth_types:
+                raise BadInputException("Unhandled auth type: {}".format(auth_type))
+
+            headers = {
+                "User-Agent": self._user_agent,
+                "Authorization": f"Bearer {self._oauth2_access_token}",
+            }
+
+            if self._headers:
+                headers.update(self._headers)
+
+            headers["Content-Type"] = "application/octet-stream"
+            headers["Dropbox-API-Arg"] = request_json_arg
+            body = request_binary
+
+            if timeout is None:
+                timeout = self._timeout
+
+            r = self._session.post(
+                url,
+                headers=headers,
+                data=body,
+                stream=False,
+                verify=True,
+                timeout=timeout,
+            )
+
+            self.raise_dropbox_error_for_resp(r)
+
+            if r.status_code in (403, 404, 409):
+                raw_resp = r.content.decode("utf-8")
+                request_id = r.headers.get("x-dropbox-request-id")
+                return RouteErrorResult(request_id, raw_resp)
+
+            raw_resp = r.content.decode("utf-8")
+            return RouteResult(raw_resp)
+
+        else:
+            return super().request_json_string(
+                host,
+                func_name,
+                route_style,
+                request_json_arg,
+                auth_type,
+                request_binary,
+                timeout,
+            )
 
 
 class DropboxClient:
@@ -124,14 +198,21 @@ class DropboxClient:
     :param timeout: Timeout for individual requests. Defaults to 100 sec if not given.
     :param session: Optional requests session to use. If not given, a new session will
         be created with :func:`dropbox.dropbox_client.create_session`.
+    :param bandwidth_limit_up: Maximum bandwidth to use for uploads in bytes/sec. Will
+        be enforced over all concurrent uploads (0 = unlimited).
+    :param bandwidth_limit_down: Maximum bandwidth to use for downloads in bytes/sec.
+        Will be enforced over all concurrent downloads (0 = unlimited).
     """
 
     SDK_VERSION: str = "2.0"
 
-    MAX_TRANSFER_RETRIES = 3
+    MAX_TRANSFER_RETRIES = 10
     MAX_LIST_FOLDER_RETRIES = 3
 
-    _dbx: Dropbox | None
+    UPLOAD_REQUEST_CHUNK_SIZE = 4194304
+    DATA_TRANSFER_MIN_SLEEP_TIME = 0.0001  # 100 nanoseconds
+
+    _dbx: _DropboxSDK | None
 
     def __init__(
         self,
@@ -139,6 +220,8 @@ class DropboxClient:
         cred_storage: CredentialStorage,
         timeout: float = 100,
         session: requests.Session | None = None,
+        bandwidth_limit_up: float = 0,
+        bandwidth_limit_down: float = 0,
     ) -> None:
         self.config_name = config_name
         self._auth_flow: DropboxOAuth2FlowNoRedirect | None = None
@@ -152,12 +235,70 @@ class DropboxClient:
         self._timeout = timeout
         self._session = session or create_session()
         self._backoff_until = 0
-        self._dbx: Dropbox | None = None
-        self._dbx_base: Dropbox | None = None
+        self._dbx: _DropboxSDK | None = None
+        self._dbx_base: _DropboxSDK | None = None
         self._cached_account_info: FullAccount | None = None
         self._namespace_id = self._state.get("account", "path_root_nsid")
         self._is_team_space = self._state.get("account", "path_root_type") == "team"
-        self._lock = threading.Lock()
+
+        # Throttling infra
+        self.bandwidth_limit_up = bandwidth_limit_up
+        self.bandwidth_limit_down = bandwidth_limit_down
+
+        self.download_chunk_size = 4096  # 4 kB
+        self.upload_chunk_size = 4096  # 4 kB
+
+        self._num_downloads = 0
+        self._num_uploads = 0
+
+    @contextmanager
+    def _register_download(self) -> Iterator[None]:
+        self._num_downloads += 1
+        try:
+            yield
+        finally:
+            self._num_downloads -= 1
+
+    @contextmanager
+    def _register_upload(self) -> Iterator[None]:
+        self._num_uploads += 1
+        try:
+            yield
+        finally:
+            self._num_uploads -= 1
+
+    def _throttled_download_iter(self, iterator: Iterator[T]) -> Iterator[T]:
+        for i in iterator:
+            if self.bandwidth_limit_down == 0:
+                yield i
+            else:
+                tick = time.monotonic()
+                yield i
+                tock = time.monotonic()
+
+                speed_per_download = self.bandwidth_limit_down / self._num_downloads
+                target_tock = tick + self.download_chunk_size / speed_per_download
+
+                wait_time = target_tock - tock
+                if wait_time > self.DATA_TRANSFER_MIN_SLEEP_TIME:
+                    time.sleep(wait_time)
+
+    def _throttled_upload_iter(self, data: bytes) -> Iterator[bytes] | bytes:
+        pos = 0
+        while pos < len(data):
+            tick = time.monotonic()
+            yield data[pos : pos + self.upload_chunk_size]
+            tock = time.monotonic()
+
+            pos += self.upload_chunk_size
+
+            if self.bandwidth_limit_up > 0:
+                speed_per_upload = self.bandwidth_limit_up / self._num_uploads
+                target_tock = tick + self.upload_chunk_size / speed_per_upload
+
+                wait_time = target_tock - tock
+                if wait_time > self.DATA_TRANSFER_MIN_SLEEP_TIME:
+                    time.sleep(wait_time)
 
     def _retry_on_error(  # type: ignore
         error_cls: type[Exception],
@@ -189,7 +330,6 @@ class DropboxClient:
                     try:
                         return func(__self, *args, **kwargs)
                     except error_cls as exc:
-
                         if msg_regex is not None:
                             # Raise if there is no error message to match.
                             if len(exc.args[0]) == 0 or not isinstance(
@@ -221,18 +361,18 @@ class DropboxClient:
     # ---- Linking API -----------------------------------------------------------------
 
     @property
-    def dbx_base(self) -> Dropbox:
+    def dbx_base(self) -> _DropboxSDK:
         """The underlying Dropbox SDK instance without namespace headers."""
         if not self._dbx_base:
             self._init_sdk()
-        return self._dbx_base
+        return cast(_DropboxSDK, self._dbx_base)
 
     @property
-    def dbx(self) -> Dropbox:
+    def dbx(self) -> _DropboxSDK:
         """The underlying Dropbox SDK instance with namespace headers."""
         if not self._dbx:
             self._init_sdk()
-        return self._dbx
+        return cast(_DropboxSDK, self._dbx)
 
     @property
     def linked(self) -> bool:
@@ -242,7 +382,7 @@ class DropboxClient:
 
         :raises KeyringAccessError: if keyring access fails.
         """
-        return self._cred_storage.token is not None
+        return self._cred_storage.token is not None or self._dbx is not None
 
     def get_auth_url(self) -> str:
         """
@@ -279,6 +419,9 @@ class DropboxClient:
             short-lived.
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
+        if not (code or access_token or refresh_token):
+            raise RuntimeError("No auth code, refresh token or access token provided.")
+
         if code:
             if not self._auth_flow:
                 raise RuntimeError("Please start auth flow with 'get_auth_url' first")
@@ -290,18 +433,9 @@ class DropboxClient:
             except CONNECTION_ERRORS:
                 return 2
 
-            token = res.refresh_token
-            token_type = TokenType.Offline
-        elif refresh_token:
-            token = refresh_token
-            token_type = TokenType.Offline
-        elif access_token:
-            token = access_token
-            token_type = TokenType.Legacy
-        else:
-            raise RuntimeError("No auth code, refresh token ior access token provided.")
+            refresh_token = res.refresh_token
 
-        self._init_sdk(token, token_type)
+        self._init_sdk(refresh_token=refresh_token, access_token=access_token)
 
         try:
             account_info = self.get_account_info()
@@ -309,7 +443,10 @@ class DropboxClient:
         except CONNECTION_ERRORS:
             return 2
 
-        self._cred_storage.save_creds(account_info.account_id, token, token_type)
+        # Only save long-lived refresh token in storage.
+        if refresh_token:
+            self._cred_storage.save_creds(account_info.account_id, refresh_token)
+
         self._auth_flow = None
 
         return 0
@@ -331,57 +468,55 @@ class DropboxClient:
             self._cred_storage.delete_creds()
 
     def _init_sdk(
-        self, token: str | None = None, token_type: TokenType | None = None
+        self,
+        refresh_token: str | None = None,
+        access_token: str | None = None,
     ) -> None:
         """
         Initialise the SDK. If no token is given, get the token from our credential
         storage.
 
-        :param token: Token for the SDK.
-        :param token_type: Token type
+        :param refresh_token: Long-lived refresh-token for the SDK.
+        :param access_token: Short-lived access-token for the SDK.
         :raises RuntimeError: if token is not available from storage and no token is
             passed as an argument.
         """
-        with self._lock:
-            if not (token or self._cred_storage.token):
-                raise NotLinkedError(
-                    "No auth token set", "Please link a Dropbox account first."
-                )
+        refresh_token = refresh_token or self._cred_storage.token
+        if not (refresh_token or access_token):
+            raise NotLinkedError(
+                "No auth token set", "Please link a Dropbox account first."
+            )
 
-            token = token or self._cred_storage.token
-            token_type = token_type or self._cred_storage.token_type
+        if refresh_token:
+            # Initialise Dropbox SDK.
+            self._dbx_base = _DropboxSDK(
+                oauth2_refresh_token=refresh_token,
+                app_key=DROPBOX_APP_KEY,
+                session=self._session,
+                user_agent=USER_AGENT,
+                timeout=self._timeout,
+            )
+        else:
+            # Initialise Dropbox SDK.
+            self._dbx_base = _DropboxSDK(
+                oauth2_access_token=access_token,
+                app_key=DROPBOX_APP_KEY,
+                session=self._session,
+                user_agent=USER_AGENT,
+                timeout=self._timeout,
+            )
 
-            if token_type is TokenType.Offline:
+        # If namespace_id was given, use the corresponding namespace, otherwise
+        # default to the home namespace.
+        if self._namespace_id:
+            root_path = common.PathRoot.root(self._namespace_id)
+            self._dbx = self._dbx_base.with_path_root(root_path)
+        else:
+            self._dbx = self._dbx_base
 
-                # Initialise Dropbox SDK.
-                self._dbx_base = Dropbox(
-                    oauth2_refresh_token=token,
-                    app_key=DROPBOX_APP_KEY,
-                    session=self._session,
-                    user_agent=USER_AGENT,
-                    timeout=self._timeout,
-                )
-            else:
-                # Initialise Dropbox SDK.
-                self._dbx_base = Dropbox(
-                    oauth2_access_token=token,
-                    app_key=DROPBOX_APP_KEY,
-                    session=self._session,
-                    user_agent=USER_AGENT,
-                    timeout=self._timeout,
-                )
-
-            # If namespace_id was given, use the corresponding namespace, otherwise
-            # default to the home namespace.
-            if self._namespace_id:
-                root_path = common.PathRoot.root(self._namespace_id)
-                self._dbx = self._dbx_base.with_path_root(root_path)
-            else:
-                self._dbx = self._dbx_base
-
-            # Set our own logger for the Dropbox SDK.
-            self._dbx._logger = self._dropbox_sdk_logger
-            self._dbx_base._logger = self._dropbox_sdk_logger
+        # Set our own logger for the Dropbox SDK.
+        self.dbx._logger = self._dropbox_sdk_logger
+        self.dbx_base._logger = self._dropbox_sdk_logger
 
     @property
     def account_info(self) -> FullAccount:
@@ -420,48 +555,6 @@ class DropboxClient:
     def __exit__(self, *args: Any) -> None:
         self.close()
 
-    def clone(
-        self,
-        config_name: str | None = None,
-        cred_storage: CredentialStorage | None = None,
-        timeout: float | None = None,
-        session: requests.Session | None = None,
-    ) -> DropboxClient:
-        """
-        Creates a new copy of the Dropbox client with the same defaults unless modified
-        by arguments to :meth:`clone`.
-
-        :param config_name: Name of config file and state file to use.
-        :param timeout: Timeout for individual requests.
-        :param session: Requests session to use.
-        :returns: A new instance of DropboxClient.
-        """
-        config_name = config_name or self.config_name
-        timeout = timeout or self._timeout
-        session = session or self._session
-        cred_storage = cred_storage or self._cred_storage
-
-        client = self.__class__(config_name, cred_storage, timeout, session)
-
-        if self._dbx:
-            client._dbx = self._dbx.clone(session=session)
-            client._dbx._logger = self._dropbox_sdk_logger
-
-        if self._dbx_base:
-            client._dbx_base = self._dbx_base.clone(session=session)
-            client._dbx_base._logger = self._dropbox_sdk_logger
-
-        return client
-
-    def clone_with_new_session(self) -> DropboxClient:
-        """
-        Creates a new copy of the Dropbox client with the same defaults but a new
-        requests session.
-
-        :returns: A new instance of DropboxClient.
-        """
-        return self.clone(session=create_session())
-
     def update_path_root(self, root_info: RootInfo) -> None:
         """
         Updates the root path for the Dropbox client. All files paths given as arguments
@@ -490,7 +583,7 @@ class DropboxClient:
 
         path_root = common.PathRoot.root(root_nsid)
         self._dbx = self.dbx_base.with_path_root(path_root)
-        self._dbx._logger = self._dropbox_sdk_logger
+        self.dbx._logger = self._dropbox_sdk_logger
 
         if isinstance(root_info, UserRootInfo):
             actual_root_type = "user"
@@ -664,19 +757,21 @@ class DropboxClient:
         :returns: Metadata of downloaded item.
         :raises DataCorruptionError: if data is corrupted during download.
         """
-        chunk_size = 2**13
 
         with convert_api_errors(dbx_path=dbx_path):
             md, http_resp = self.dbx.files_download(dbx_path)
 
-            with contextlib.closing(http_resp):
+            with closing(http_resp):
                 with open(local_path, "wb", opener=opener_no_symlink) as f:
                     hasher = DropboxContentHasher()
                     wrapped_f = StreamHasher(f, hasher)
-                    for c in http_resp.iter_content(chunk_size):
-                        wrapped_f.write(c)
-                        if sync_event:
-                            sync_event.completed = wrapped_f.tell()
+                    with self._register_download():
+                        for c in self._throttled_download_iter(
+                            http_resp.iter_content(self.download_chunk_size)
+                        ):
+                            wrapped_f.write(c)
+                            if sync_event:
+                                sync_event.completed = wrapped_f.tell()
 
                     local_hash = hasher.hexdigest()
 
@@ -686,14 +781,20 @@ class DropboxClient:
                             "Data corrupted", "Please retry download."
                         )
 
-        # Dropbox SDK provides naive datetime in UTC.
-        client_mod = md.client_modified.replace(tzinfo=timezone.utc)
-        server_mod = md.server_modified.replace(tzinfo=timezone.utc)
+                    # Dropbox SDK provides naive datetime in UTC.
+                    client_mod = md.client_modified.replace(tzinfo=timezone.utc)
+                    server_mod = md.server_modified.replace(tzinfo=timezone.utc)
 
-        # Enforce client_modified < server_modified.
-        timestamp = min(client_mod.timestamp(), server_mod.timestamp(), time.time())
-        # Set mtime of downloaded file.
-        os.utime(local_path, (time.time(), timestamp), follow_symlinks=False)
+                    # Enforce client_modified < server_modified.
+                    now = time.time()
+                    mtime = min(client_mod.timestamp(), server_mod.timestamp(), now)
+                    # Set mtime of downloaded file.
+                    if os.utime in os.supports_fd:
+                        os.utime(f.fileno(), (now, mtime))
+                    elif os.utime in os.supports_follow_symlinks:
+                        os.utime(local_path, (now, mtime), follow_symlinks=False)
+                    else:
+                        os.utime(local_path, (now, mtime))
 
         return convert_metadata(md)
 
@@ -701,40 +802,39 @@ class DropboxClient:
         self,
         local_path: str,
         dbx_path: str,
-        chunk_size: int = 5 * 10**6,
         write_mode: WriteMode = WriteMode.Add,
         update_rev: str | None = None,
         autorename: bool = False,
         sync_event: SyncEvent | None = None,
     ) -> FileMetadata:
         """
-        Uploads local file to Dropbox.
+        Uploads local file to Dropbox. If the file size is smaller than 4 MB, the file
+        will be uploaded all at once. Otherwise, the file will be loaded into memory and
+        uploaded in chunks of 4 MB. If the file is modified during this chunked upload,
+        this will raise a :exc:`DataChangedError`.
 
         :param local_path: Path of local file to upload.
         :param dbx_path: Path to save file on Dropbox.
-        :param chunk_size: Maximum size for individual uploads. If larger than 150 MB,
-            it will be set to 150 MB.
         :param write_mode: Your intent when writing a file to some path. This is used to
             determine what constitutes a conflict and what the autorename strategy is.
-            This is used to determine what
-            constitutes a conflict and what the autorename strategy is. In some
-            situations, the conflict behavior is identical: (a) If the target path
-            doesn't refer to anything, the file is always written; no conflict. (b) If
-            the target path refers to a folder, it's always a conflict. (c) If the
-            target path refers to a file with identical contents, nothing gets written;
-            no conflict. The conflict checking differs in the case where there's a file
-            at the target path with contents different from the contents you're trying
-            to write.
+            This is used to determine what constitutes a conflict and what the
+            autorename strategy is. In some situations, the conflict behavior is
+            identical: (a) If the target path doesn't refer to anything, the file is
+            always written; no conflict. (b) If the target path refers to a folder, it's
+            always a conflict. (c) If the target path refers to a file with identical
+            contents, nothing gets written; no conflict. The conflict checking differs
+            in the case where there's a file at the target path with contents different
+            from the contents you're trying to write.
             :class:`core.WriteMode.Add` Do not overwrite an existing file if there is a
                 conflict. The autorename strategy is to append a number to the file
                 name. For example, "document.txt" might become "document (2).txt".
             :class:`core.WriteMode.Overwrite` Always overwrite the existing file. The
                 autorename strategy is the same as it is for ``add``.
-            :class:`core.WriteMode.Update` Overwrite if the given "update_rev" matches the
-                existing file's "rev". The supplied value should be the latest known
-                "rev" of the file, for example, from :class:`core.FileMetadata`, from when the
-                file was last downloaded by the app. This will cause the file on the
-                Dropbox servers to be overwritten if the given "rev" matches the
+            :class:`core.WriteMode.Update` Overwrite if the given "update_rev" matches
+                the existing file's "rev". The supplied value should be the latest known
+                "rev" of the file, for example, from :class:`core.FileMetadata`, from
+                when the file was last downloaded by the app. This will cause the file
+                on the Dropbox servers to be overwritten if the given "rev" matches the
                 existing file's current "rev" on the Dropbox servers. The autorename
                 strategy is to append the string "conflicted copy" to the file name. For
                 example, "document.txt" might become "document (conflicted copy).txt" or
@@ -747,9 +847,8 @@ class DropboxClient:
             this field is False.
         :returns: Metadata of uploaded file.
         :raises DataCorruptionError: if data is corrupted during upload.
+        :raises DataChangedError: if the file is modified during a chunked upload.
         """
-        chunk_size = clamp(chunk_size, 10**5, 150 * 10**6)
-
         if write_mode is WriteMode.Add:
             dbx_write_mode = files.WriteMode.add
         elif write_mode is WriteMode.Overwrite:
@@ -762,83 +861,75 @@ class DropboxClient:
             raise RuntimeError("No write mode for uploading file.")
 
         with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
+            with open(local_path, "rb", opener=opener_no_symlink) as f:
+                stat = os.stat(f.fileno())
 
-            stat = os.lstat(local_path)
-
-            # Dropbox SDK takes naive datetime in UTC
-            mtime_dt = datetime.utcfromtimestamp(stat.st_mtime)
-
-            if stat.st_size <= chunk_size:
-
-                # Upload all at once.
-
-                res = self._upload_helper(
-                    local_path,
-                    dbx_path,
-                    mtime_dt,
-                    dbx_write_mode,
-                    autorename,
-                    sync_event,
-                )
-
-            else:
-
-                # Upload in chunks.
-                # Note: We currently do not support resuming interrupted uploads.
-                # Dropbox keeps upload sessions open for 48h so this could be done in
-                # the future.
-
-                with open(local_path, "rb", opener=opener_no_symlink) as f:
-
-                    session_id = self._upload_session_start_helper(
-                        f, chunk_size, dbx_path, sync_event
-                    )
-
-                    while stat.st_size - f.tell() > chunk_size:
-                        self._upload_session_append_helper(
-                            f, session_id, chunk_size, dbx_path, sync_event
+                with self._register_upload():
+                    if stat.st_size <= self.UPLOAD_REQUEST_CHUNK_SIZE:
+                        # Upload all at once.
+                        res = self._upload_helper(
+                            f,
+                            dbx_path,
+                            dbx_write_mode,
+                            autorename,
+                            sync_event,
+                            stat,
+                        )
+                    else:
+                        # Upload in chunks.
+                        # Note: We currently do not support resuming interrupted uploads.
+                        # Dropbox keeps upload sessions open for 48h so this could be done
+                        # in the future.
+                        session_id = self._upload_session_start_helper(
+                            f, dbx_path, sync_event, stat
                         )
 
-                    res = self._upload_session_finish_helper(
-                        f,
-                        session_id,
-                        chunk_size,
-                        # Commit info.
-                        dbx_path,
-                        mtime_dt,
-                        dbx_write_mode,
-                        autorename,
-                        # Commit info end.
-                        sync_event,
-                    )
+                        while stat.st_size - f.tell() > self.UPLOAD_REQUEST_CHUNK_SIZE:
+                            self._upload_session_append_helper(
+                                f, session_id, dbx_path, sync_event, stat
+                            )
+
+                        res = self._upload_session_finish_helper(
+                            f,
+                            session_id,
+                            # Commit info.
+                            dbx_path,
+                            dbx_write_mode,
+                            autorename,
+                            # Commit info end.
+                            sync_event,
+                            stat,
+                        )
 
         return convert_metadata(res)
 
     @_retry_on_error(DataCorruptionError, MAX_TRANSFER_RETRIES)
     def _upload_helper(
         self,
-        local_path: str,
+        f: BinaryIO,
         dbx_path: str,
-        client_modified: datetime,
         mode: files.WriteMode,
         autorename: bool,
         sync_event: SyncEvent | None,
+        old_stat: os.stat_result,
     ) -> files.FileMetadata:
-        with open(local_path, "rb", opener=opener_no_symlink) as f:
-            data = f.read()
+        data = f.read()
+        stat = os.stat(f.fileno())
+        if file_was_modified(os.stat(f.fileno()), old_stat):
+            raise DataChangedError("File was modified during read")
 
-            with convert_api_errors(dbx_path=dbx_path, local_path=local_path):
-                md = self.dbx.files_upload(
-                    data,
-                    dbx_path,
-                    client_modified=client_modified,
-                    content_hash=get_hash(data),
-                    mode=mode,
-                    autorename=autorename,
-                )
+        with convert_api_errors(dbx_path=dbx_path):
+            md = self.dbx.files_upload(
+                self._throttled_upload_iter(data),
+                dbx_path,
+                client_modified=datetime.utcfromtimestamp(stat.st_mtime),
+                content_hash=get_hash(data),
+                mode=mode,
+                autorename=autorename,
+            )
 
-            if sync_event:
-                sync_event.completed = f.tell()
+        if sync_event:
+            sync_event.completed = f.tell()
 
         return md
 
@@ -846,17 +937,19 @@ class DropboxClient:
     def _upload_session_start_helper(
         self,
         f: BinaryIO,
-        chunk_size: int,
         dbx_path: str,
         sync_event: SyncEvent | None,
+        old_stat: os.stat_result,
     ) -> str:
         initial_offset = f.tell()
-        data = f.read(chunk_size)
+        data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
+        if file_was_modified(os.stat(f.fileno()), old_stat):
+            raise DataChangedError("File was modified during read")
 
         try:
             with convert_api_errors(dbx_path=dbx_path):
                 session_start = self.dbx.files_upload_session_start(
-                    data, content_hash=get_hash(data)
+                    self._throttled_upload_iter(data), content_hash=get_hash(data)
                 )
         except Exception:
             # Return to previous position in file.
@@ -873,37 +966,41 @@ class DropboxClient:
         self,
         f: BinaryIO,
         session_id: str,
-        chunk_size: int,
         dbx_path: str,
         sync_event: SyncEvent | None,
+        old_stat: os.stat_result,
     ) -> None:
         initial_offset = f.tell()
-        data = f.read(chunk_size)
+        data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
 
         cursor = files.UploadSessionCursor(
             session_id=session_id,
             offset=initial_offset,
         )
 
-        try:
+        if file_was_modified(os.stat(f.fileno()), old_stat):
+            # Close upload session and throw error.
             with convert_api_errors(dbx_path=dbx_path):
-                self.dbx.files_upload_session_append_v2(
-                    data, cursor, content_hash=get_hash(data)
-                )
-        except exceptions.DropboxException as exc:
-            error = getattr(exc, "error", None)
-            if (
-                isinstance(error, files.UploadSessionAppendError)
-                and error.is_incorrect_offset()
-            ):
-                offset_error = error.get_incorrect_offset()
-                last_successful_offset = offset_error.correct_offset
-                f.seek(last_successful_offset)
-            raise exc
+                self.dbx.files_upload_session_append_v2(b"", cursor, close=True)
+            raise DataChangedError("File was modified during read")
 
-        except Exception:
-            f.seek(initial_offset)
-            raise
+        with convert_api_errors(dbx_path=dbx_path):
+            try:
+                self.dbx.files_upload_session_append_v2(
+                    self._throttled_upload_iter(data),
+                    cursor,
+                    content_hash=get_hash(data),
+                )
+            except exceptions.ApiError as exc:
+                # Return to position in file requested by Dropbox API if requested.
+                # DataCorruptionError will then be handled by retry logic.
+                correct_offset = get_correct_offset(exc, initial_offset)
+                f.seek(correct_offset)
+                raise
+            except Exception:
+                # Return to previous position in file.
+                f.seek(initial_offset)
+                raise
 
         if sync_event:
             sync_event.completed = f.tell()
@@ -913,53 +1010,53 @@ class DropboxClient:
         self,
         f: BinaryIO,
         session_id: str,
-        chunk_size: int,
         dbx_path: str,
-        client_modified: datetime,
         mode: files.WriteMode,
         autorename: bool,
         sync_event: SyncEvent | None,
+        old_stat: os.stat_result,
     ) -> files.FileMetadata:
         initial_offset = f.tell()
-        data = f.read(chunk_size)
-
-        if len(data) > chunk_size:
-            raise RuntimeError("Too much data left to finish the session")
-
-        # Finish upload session and return metadata.
+        data = f.read(self.UPLOAD_REQUEST_CHUNK_SIZE)
+        stat = os.stat(f.fileno())
 
         cursor = files.UploadSessionCursor(
             session_id=session_id,
             offset=initial_offset,
         )
+
+        if file_was_modified(os.stat(f.fileno()), old_stat):
+            # Close upload session and throw error.
+            with convert_api_errors(dbx_path=dbx_path):
+                self.dbx.files_upload_session_append_v2(b"", cursor, close=True)
+            raise DataChangedError("File was modified during read")
+
+        # Finish upload session and return metadata.
         commit = files.CommitInfo(
             path=dbx_path,
-            client_modified=client_modified,
+            client_modified=datetime.utcfromtimestamp(stat.st_mtime),
             autorename=autorename,
             mode=mode,
         )
 
-        try:
-            with convert_api_errors(dbx_path=dbx_path):
+        with convert_api_errors(dbx_path=dbx_path):
+            try:
                 md = self.dbx.files_upload_session_finish(
-                    data, cursor, commit, content_hash=get_hash(data)
+                    self._throttled_upload_iter(data),
+                    cursor,
+                    commit,
+                    content_hash=get_hash(data),
                 )
-        except exceptions.DropboxException as exc:
-            error = getattr(exc, "error", None)
-            if (
-                isinstance(error, files.UploadSessionFinishError)
-                and error.is_lookup_failed()
-                and error.get_lookup_failed().is_incorrect_offset()
-            ):
-                offset_error = error.get_lookup_failed().get_incorrect_offset()
-                last_successful_offset = offset_error.correct_offset
-                f.seek(last_successful_offset)
-            raise exc
-
-        except Exception:
-            # Return to previous position in file.
-            f.seek(initial_offset)
-            raise
+            except exceptions.ApiError as exc:
+                # Return to position in file requested by Dropbox API if requested.
+                # DataCorruptionError will then be handled by retry logic.
+                correct_offset = get_correct_offset(exc, initial_offset)
+                f.seek(correct_offset)
+                raise
+            except Exception:
+                # Return to previous position in file.
+                f.seek(initial_offset)
+                raise
 
         if sync_event:
             sync_event.completed = sync_event.size
@@ -1003,7 +1100,6 @@ class DropboxClient:
         # Up two ~ 1,000 entries allowed per batch:
         # https://www.dropbox.com/developers/reference/data-ingress-guide
         for chunk in chunks(list(entries), n=batch_size):
-
             arg = [files.DeleteArg(e[0], e[1]) for e in chunk]
 
             with convert_api_errors():
@@ -1088,7 +1184,6 @@ class DropboxClient:
             conflict.
         :returns: Metadata of created folder.
         """
-
         with convert_api_errors(dbx_path=dbx_path):
             res = self.dbx.files_create_folder_v2(dbx_path, autorename)
 
@@ -1322,7 +1417,6 @@ class DropboxClient:
         :returns: Iterator over content of given folder.
         """
         with convert_api_errors(dbx_path):
-
             dbx_path = "" if dbx_path == "/" else dbx_path
 
             res = self.dbx.files_list_folder(
@@ -1403,7 +1497,6 @@ class DropboxClient:
         :returns: Iterator over remote changes since given cursor.
         """
         with convert_api_errors():
-
             res = self.dbx.files_list_folder_continue(last_cursor)
 
             yield convert_list_folder_result(res)
@@ -1675,3 +1768,29 @@ def convert_list_shared_link_result(
 ) -> ListSharedLinkResult:
     entries = [convert_shared_link_metadata(e) for e in res.links]
     return ListSharedLinkResult(entries, res.has_more, res.cursor)
+
+
+# ==== helper methods ==================================================================
+
+
+def get_correct_offset(exc: exceptions.ApiError, initial_offset: int) -> int:
+    if (
+        isinstance(exc.error, files.UploadSessionFinishError)
+        and exc.error.is_lookup_failed()
+        and exc.error.get_lookup_failed().is_incorrect_offset()
+    ):
+        return exc.error.get_lookup_failed().get_incorrect_offset().correct_offset
+    if (
+        isinstance(exc.error, files.UploadSessionAppendError)
+        and exc.error.is_incorrect_offset()
+    ):
+        return exc.error.get_incorrect_offset().correct_offset
+    return initial_offset
+
+
+def file_was_modified(news_stat: os.stat_result, old_stat: os.stat_result) -> bool:
+    """Checks for changes to a file by comparing stat results.
+
+    :raises DataChangedError: if there were changes to the file.
+    """
+    return news_stat.st_ctime_ns != old_stat.st_ctime_ns
