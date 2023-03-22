@@ -37,7 +37,7 @@ or downloading a file if it already exists with the same content locally or in t
 
 ## Installation
 
-An app bundle is provided for macOS High Sierra and higher and can be downloaded from the
+An app bundle is provided for macOS Catalina and higher and can be downloaded from the
 Releases tab. This app Bundle is also package as a Homebrew cask.
 
 On other platforms, you can download and install Maestral as a Python package from PyPI or
@@ -45,7 +45,6 @@ as a Docker image from Docker Hub.
 
 For more detailed information on the installation, setup and system requirements, please
 check the [documentation](https://maestral.app/docs/installation).
-
 
 ### Homebrew
 
@@ -140,8 +139,7 @@ A full documentation of the CLI is available on the
 
 There are multiple topics that could use your help. Some of them are easy, such as adding
 new CLI commands, others require more experience, such as packaging for non-macOS
-platforms. Look out for issues marked with "good first issue" or "help wanted". Pull
-requests should be made against the develop branch.
+platforms. Look out for issues marked with "good first issue" or "help wanted".
 
 Relevant resources are:
 
@@ -157,7 +155,7 @@ month to offset the cost of an Apple Developer account to sign and notarize the 
 
 ## System requirements
 
-- macOS 10.13 High Sierra or higher or Linux
+- macOS 10.15 Catalina or higher or Linux
 - Python 3.7 or higher
 - For the system tray icon on Linux:
   - [gnome-shell-extension-appindicator](https://github.com/ubuntu/gnome-shell-extension-appindicator)
