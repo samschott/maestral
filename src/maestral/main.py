@@ -80,6 +80,7 @@ from .database.core import Database
 from .constants import (
     IS_LINUX,
     IS_MACOS,
+    IS_BSD,
     IDLE,
     PAUSED,
     CONNECTING,
@@ -214,7 +215,7 @@ class Maestral:
         if os.stat not in os.supports_follow_symlinks:
             raise RuntimeError("Maestral requires lstat support")
 
-        if not (IS_MACOS or IS_LINUX):
+        if not (IS_MACOS or IS_LINUX or IS_BSD):
             raise RuntimeError("Only macOS and Linux are supported")
 
     def _setup_logging_external(self) -> None:
