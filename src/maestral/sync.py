@@ -1056,7 +1056,7 @@ class SyncEngine:
             if cache_entry and cache_entry.mtime == mtime:
                 return cache_entry.hash_str
 
-        with convert_api_errors():
+        with convert_api_errors(local_path=local_path):
             hash_str, mtime = content_hash(local_path)
 
         self._save_local_hash(stat.st_ino, local_path, hash_str, mtime)
@@ -3159,7 +3159,7 @@ class SyncEngine:
         dbx_path_lower = self.to_dbx_path_lower(local_path)
         index_entry = self.get_index_entry(dbx_path_lower)
 
-        with convert_api_errors():  # Catch OSErrors.
+        with convert_api_errors(local_path=local_path):  # Catch OSErrors.
             try:
                 stat = os.lstat(local_path)
             except (FileNotFoundError, NotADirectoryError):
