@@ -28,6 +28,7 @@ from typing import (
     Iterator,
     Iterable,
     Collection,
+    Sequence,
     Callable,
     Type,
     TypeVar,
@@ -671,7 +672,7 @@ class SyncEngine:
             self._conf.set("sync", "excluded_items", clean_list)
 
     @staticmethod
-    def clean_excluded_items_list(folder_list: list[str]) -> list[str]:
+    def clean_excluded_items_list(folder_list: Collection[str]) -> list[str]:
         """
         Removes all duplicates and children of excluded items from the excluded items
         list. Normalises all paths to lower case.
@@ -1610,7 +1611,7 @@ class SyncEngine:
         return SyncEvent.from_file_system_event(fs_event, self)
 
     def _sync_events_from_fs_events(
-        self, fs_events: list[FileSystemEvent]
+        self, fs_events: Collection[FileSystemEvent]
     ) -> list[SyncEvent]:
         """Convert local file system events to sync events. This is done in a thread
         pool to parallelize content hashing."""
@@ -1827,7 +1828,9 @@ class SyncEngine:
 
         return sync_events, local_cursor
 
-    def apply_local_changes(self, sync_events: list[SyncEvent]) -> list[SyncEvent]:
+    def apply_local_changes(
+        self, sync_events: Collection[SyncEvent]
+    ) -> list[SyncEvent]:
         """
         Applies locally detected changes to the remote Dropbox. Changes which should be
         ignored (mignore or always ignored files) are skipped.
@@ -1903,7 +1906,7 @@ class SyncEngine:
         return results
 
     def _clean_local_events(
-        self, events: list[FileSystemEvent]
+        self, events: Collection[FileSystemEvent]
     ) -> list[FileSystemEvent]:
         """
         Takes local file events and cleans them up as follows:
@@ -2882,7 +2885,9 @@ class SyncEngine:
 
             yield sync_events, changes.cursor
 
-    def apply_remote_changes(self, sync_events: list[SyncEvent]) -> list[SyncEvent]:
+    def apply_remote_changes(
+        self, sync_events: Collection[SyncEvent]
+    ) -> list[SyncEvent]:
         """
         Applies remote changes to local folder. Call this on the result of
         :meth:`list_remote_changes`. The saved cursor is updated after a set of changes
@@ -2978,7 +2983,7 @@ class SyncEngine:
 
         return results
 
-    def notify_user(self, sync_events: list[SyncEvent]) -> None:
+    def notify_user(self, sync_events: Sequence[SyncEvent]) -> None:
         """
         Shows a desktop notification for the given file changes.
 
