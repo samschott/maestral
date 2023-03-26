@@ -2234,20 +2234,17 @@ class SyncEngine:
 
         try:
             if event.is_file and (event.is_added or event.is_changed):
-                res = self._on_local_file_modified(event)
+                status = self._on_local_file_modified(event)
             elif event.is_directory and event.is_added:
-                res = self._on_local_folder_created(event)
+                status = self._on_local_folder_created(event)
             elif event.is_moved:
-                res = self._on_local_moved(event)
+                status = self._on_local_moved(event)
             elif event.is_deleted:
-                res = self._on_local_deleted(event)
+                status = self._on_local_deleted(event)
             else:
-                res = None
+                status = SyncStatus.Skipped
 
-            if res is not None:
-                event.status = SyncStatus.Done
-            else:
-                event.status = SyncStatus.Skipped
+            event.status = status
 
         except SyncError as err:
             self._handle_sync_error(err, direction=SyncDirection.Up)
@@ -2280,7 +2277,7 @@ class SyncEngine:
         except OSError:
             return
 
-    def _on_local_moved(self, event: SyncEvent) -> Metadata | None:
+    def _on_local_moved(self, event: SyncEvent) -> SyncStatus:
         """
         Call when a local item is moved.
 
@@ -2302,9 +2299,9 @@ class SyncEngine:
             self.ensure_dropbox_folder_present()
 
         if self._handle_selective_sync_conflict(event):
-            return None
+            return SyncStatus.Skipped
         if self._handle_normalization_conflict(event):
-            return None
+            return SyncStatus.Skipped
 
         dbx_path_from = cast(str, event.dbx_path_from)
 
@@ -2340,18 +2337,21 @@ class SyncEngine:
             )
 
             self.rescan(event.local_path)
-            return None
+            return SyncStatus.Skipped
 
         assert event.dbx_path_from_lower is not None
         self.remove_node_from_index(event.dbx_path_from_lower)
 
-        if not self._handle_upload_conflict(md_to_new, event):
+        if self._handle_upload_conflict(md_to_new, event):
+            status = SyncStatus.Conflict
+        else:
+            status = SyncStatus.Done
             self._logger.debug(
                 'Moved "%s" to "%s" on Dropbox', dbx_path_from, event.dbx_path
             )
         self._update_index_recursive(md_to_new)
 
-        return md_to_new
+        return status
 
     def _update_index_recursive(self, md: Metadata) -> None:
         self.update_index_from_dbx_metadata(md)
@@ -2361,7 +2361,7 @@ class SyncEngine:
             for md in result.entries:
                 self.update_index_from_dbx_metadata(md)
 
-    def _on_local_file_modified(self, event: SyncEvent) -> Metadata | None:
+    def _on_local_file_modified(self, event: SyncEvent) -> SyncStatus:
         """
         Call when a local file is created or modified.
 
@@ -2374,15 +2374,15 @@ class SyncEngine:
         check_encoding(event.local_path)
 
         if self._handle_selective_sync_conflict(event):
-            return None
+            return SyncStatus.Conflict
         if self._handle_normalization_conflict(event):
-            return None
+            return SyncStatus.Conflict
 
         self._wait_for_creation(event.local_path)
 
         # Check if item already exists with identical content.
         if not self._check_requires_upload(event):
-            return None
+            return SyncStatus.Skipped
 
         local_entry = self.get_index_entry(event.dbx_path_lower)
         local_rev: str | None = None
@@ -2417,15 +2417,18 @@ class SyncEngine:
             self._logger.debug(
                 'Could not upload "%s": the file does not exist', event.local_path
             )
-            return None
+            return SyncStatus.Skipped
         except DataChangedError:
             self._logger.debug(
                 'Could not upload "%s": the file was modified during upload',
                 event.local_path,
             )
-            return None
+            return SyncStatus.Skipped
 
-        if not self._handle_upload_conflict(md_new, event):
+        if self._handle_upload_conflict(md_new, event):
+            status = SyncStatus.Conflict
+        else:
+            status = SyncStatus.Done
             if event.change_type is ChangeType.Added:
                 self._logger.debug('Created "%s" on Dropbox', event.dbx_path)
             else:
@@ -2433,9 +2436,9 @@ class SyncEngine:
 
         self.update_index_from_dbx_metadata(md_new)
 
-        return md_new
+        return status
 
-    def _on_local_folder_created(self, event: SyncEvent) -> Metadata | None:
+    def _on_local_folder_created(self, event: SyncEvent) -> SyncStatus:
         """
         Call when a local folder is created.
 
@@ -2447,9 +2450,9 @@ class SyncEngine:
         check_encoding(event.local_path)
 
         if self._handle_selective_sync_conflict(event):
-            return None
+            return SyncStatus.Conflict
         if self._handle_normalization_conflict(event):
-            return None
+            return SyncStatus.Conflict
 
         self._wait_for_creation(event.local_path)
 
@@ -2473,7 +2476,7 @@ class SyncEngine:
                     if err:
                         raise os_to_maestral_error(err)
 
-                    return None
+                    return SyncStatus.Skipped
             else:
                 md_new = self.client.make_dir(event.dbx_path, autorename=False)
         except FolderConflictError:
@@ -2487,18 +2490,21 @@ class SyncEngine:
             except NotFoundError:
                 pass
 
-            return None
+            return SyncStatus.Skipped
         except FileConflictError:
             md_new = self.client.make_dir(event.dbx_path, autorename=True)
 
-        if not self._handle_upload_conflict(md_new, event):
+        if self._handle_upload_conflict(md_new, event):
+            status = SyncStatus.Conflict
+        else:
+            status = SyncStatus.Done
             self._logger.debug('Created "%s" on Dropbox', event.dbx_path)
 
         self.update_index_from_dbx_metadata(md_new)
 
-        return md_new
+        return status
 
-    def _on_local_deleted(self, event: SyncEvent) -> Metadata | None:
+    def _on_local_deleted(self, event: SyncEvent) -> SyncStatus:
         """
         Call when a local item is deleted. We try not to delete remote items which have
         been modified since the last sync.
@@ -2516,7 +2522,7 @@ class SyncEngine:
                 'Could not delete "%s": the item does not exist on Dropbox',
                 event.dbx_path,
             )
-            return None
+            return SyncStatus.Skipped
 
         # We intercept any attempts to delete the home folder here instead of waiting
         # for an error from the Dropbox API. This allows us to provide a better error
@@ -2539,7 +2545,7 @@ class SyncEngine:
             self._logger.debug(
                 'Not deleting "%s": is excluded by selective sync', event.dbx_path
             )
-            return None
+            return SyncStatus.Skipped
 
         local_rev = self.get_local_rev(event.dbx_path_lower)
 
@@ -2550,7 +2556,7 @@ class SyncEngine:
                 'Could not delete "%s": the item does not exist on Dropbox',
                 event.dbx_path,
             )
-            return None
+            return SyncStatus.Skipped
 
         if event.is_directory and isinstance(md, FileMetadata):
             self._logger.debug(
@@ -2569,7 +2575,8 @@ class SyncEngine:
                 )
                 # Mark local folder as untracked.
                 self.remove_node_from_index(event.dbx_path_lower)
-                return None
+
+                return SyncStatus.Skipped
 
         if event.is_file and isinstance(md, FolderMetadata):
             # Don't delete a remote folder if we were expecting a file.
@@ -2583,30 +2590,32 @@ class SyncEngine:
             )
             # Mark local file as untracked.
             self.remove_node_from_index(event.dbx_path_lower)
-            return None
+
+            return SyncStatus.Skipped
 
         try:
             # Will only perform delete if Dropbox remote rev matches `local_rev`.
-            md_deleted = self.client.remove(
+            self.client.remove(
                 event.dbx_path, parent_rev=local_rev if event.is_file else None
             )
+            status = SyncStatus.Done
         except NotFoundError:
             self._logger.debug(
                 'Could not delete "%s": the item no longer exists on Dropbox',
                 event.dbx_path,
             )
-            md_deleted = None
+            status = SyncStatus.Skipped
         except PathError:
             self._logger.debug(
-                'Could not delete "%s": the item has been changed ' "since last sync",
+                'Could not delete "%s": the item has been changed since last sync',
                 event.dbx_path,
             )
-            md_deleted = None
+            status = SyncStatus.Skipped
 
         # Remove revision metadata.
         self.remove_node_from_index(event.dbx_path_lower)
 
-        return md_deleted
+        return status
 
     def _handle_upload_conflict(self, md_new: Metadata, event: SyncEvent) -> bool:
         """
@@ -3302,18 +3311,15 @@ class SyncEngine:
 
         try:
             if event.is_deleted:
-                res = self._on_remote_deleted(event)
+                status = self._on_remote_deleted(event)
             elif event.is_file:
-                res = self._on_remote_file(event)
+                status = self._on_remote_file(event)
             elif event.is_directory:
-                res = self._on_remote_folder(event)
+                status = self._on_remote_folder(event)
             else:
-                res = None
+                status = SyncStatus.Skipped
 
-            if res is not None:
-                event.status = SyncStatus.Done
-            else:
-                event.status = SyncStatus.Skipped
+            event.status = status
 
         except SyncError as e:
             self._handle_sync_error(e, direction=SyncDirection.Down)
@@ -3356,7 +3362,7 @@ class SyncEngine:
                     parent_event = SyncEvent.from_metadata(parent_md, self)
                     self._on_remote_folder(parent_event)
 
-    def _on_remote_file(self, event: SyncEvent) -> SyncEvent | None:
+    def _on_remote_file(self, event: SyncEvent) -> SyncStatus:
         """
         Applies a remote file change or creation locally.
 
@@ -3374,9 +3380,9 @@ class SyncEngine:
 
         if conflict_check is Conflict.Identical:
             self.update_index_from_sync_event(event)
-            return None
+            return SyncStatus.Skipped
         elif conflict_check is Conflict.LocalNewerOrIdentical:
-            return None
+            return SyncStatus.Skipped
 
         # Ensure that parent folders are synced.
         self._ensure_parent(event)
@@ -3389,6 +3395,7 @@ class SyncEngine:
                 with convert_api_errors(dbx_path=event.dbx_path):
                     os.symlink(event.symlink_target, event.local_path)
                     stat = os.lstat(event.local_path)
+            status = SyncStatus.Done
         else:
             # We download to a temporary file first (this may take some time).
             tmp_fname = self._new_tmp_file()
@@ -3419,6 +3426,9 @@ class SyncEngine:
                     new_local_path,
                 )
                 self.rescan(new_local_path)
+                status = SyncStatus.Conflict
+            else:
+                status = SyncStatus.Done
 
             if isdir(event.local_path):
                 with self.fs_events.ignore(DirDeletedEvent(event.local_path)):
@@ -3467,9 +3477,9 @@ class SyncEngine:
 
         self._logger.debug('Created local file "%s"', event.dbx_path)
 
-        return event
+        return status
 
-    def _on_remote_folder(self, event: SyncEvent) -> SyncEvent | None:
+    def _on_remote_folder(self, event: SyncEvent) -> SyncStatus:
         """
         Applies a remote folder creation locally.
 
@@ -3487,9 +3497,9 @@ class SyncEngine:
 
         if conflict_check is Conflict.Identical:
             self.update_index_from_sync_event(event)
-            return None
+            return SyncStatus.Skipped
         elif conflict_check is Conflict.LocalNewerOrIdentical:
-            return None
+            return SyncStatus.Skipped
 
         if conflict_check == Conflict.Conflict:
             new_local_path = generate_cc_name(event.local_path)
@@ -3504,6 +3514,9 @@ class SyncEngine:
                 new_local_path,
             )
             self.rescan(new_local_path)
+            status = SyncStatus.Conflict
+        else:
+            status = SyncStatus.Done
 
         # Ensure that parent folders are synced.
         self._ensure_parent(event)
@@ -3523,7 +3536,7 @@ class SyncEngine:
             ):
                 os.mkdir(event.local_path)
         except FileExistsError:
-            pass
+            status = SyncStatus.Skipped
         except OSError as err:
             self.ensure_dropbox_folder_present()
             raise os_to_maestral_error(err, dbx_path=event.dbx_path)
@@ -3532,9 +3545,9 @@ class SyncEngine:
 
         self._logger.debug('Created local folder "%s"', event.dbx_path)
 
-        return event
+        return status
 
-    def _on_remote_deleted(self, event: SyncEvent) -> SyncEvent | None:
+    def _on_remote_deleted(self, event: SyncEvent) -> SyncStatus:
         """
         Applies a remote deletion locally.
 
@@ -3551,9 +3564,9 @@ class SyncEngine:
 
         if conflict_check is Conflict.Identical:
             self.update_index_from_sync_event(event)
-            return None
+            return SyncStatus.Skipped
         elif conflict_check is Conflict.LocalNewerOrIdentical:
-            return None
+            return SyncStatus.Skipped
 
         event_cls = DirDeletedEvent if isdir(event.local_path) else FileDeletedEvent
         with self.fs_events.ignore(event_cls(event.local_path)):
@@ -3564,11 +3577,11 @@ class SyncEngine:
         if not exc:
             self.update_index_from_sync_event(event)
             self._logger.debug('Deleted local item "%s"', event.local_path)
-            return event
+            return SyncStatus.Done
         elif isinstance(exc, (FileNotFoundError, NotADirectoryError)):
             self.update_index_from_sync_event(event)
             self._logger.debug('Deletion failed: "%s" not found', event.dbx_path)
-            return None
+            return SyncStatus.Skipped
         else:
             raise os_to_maestral_error(exc, dbx_path=event.dbx_path)
 
