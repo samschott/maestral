@@ -2998,9 +2998,17 @@ class SyncEngine:
 
         :param sync_events: List of SyncEvents from download sync.
         """
-        buttons: dict[str, Callable[[], None]]
+        if not self.desktop_notifier:
+            return
 
-        changes = [e for e in sync_events if e.status != SyncStatus.Skipped]
+        changes: list[SyncEvent] = []
+        events_conflict: list[SyncEvent] = []
+
+        for event in sync_events:
+            if event.status is not SyncStatus.Skipped:
+                changes.append(event)
+            if event.status is SyncStatus.Conflict:
+                events_conflict.append(event)
 
         # Get number of remote changes.
         n_changed = len(changes)
@@ -3026,6 +3034,8 @@ class SyncEngine:
         else:
             # Don't display multiple usernames in notification.
             user_name = None
+
+        buttons: dict[str, Callable[[], None]]
 
         if n_changed == 1:
             # Display the username, file name, and type of change in notification.
@@ -3072,9 +3082,22 @@ class SyncEngine:
         else:
             msg = f"{file_name} {change_type}"
 
-        if self.desktop_notifier:
+        # Notify in bulk for all batched changes.
+        self.desktop_notifier.notify(
+            "Items synced", msg, actions=buttons, on_click=callback
+        )
+
+        # Notify separately for each sync conflict.
+        for event in events_conflict:
+
+            def callback() -> None:
+                click.launch(event.local_path, locate=True)
+
             self.desktop_notifier.notify(
-                "Items synced", msg, actions=buttons, on_click=callback
+                "Sync conflict",
+                f"Conflicting copy for {file_name}",
+                actions={"Show": callback},
+                on_click=callback,
             )
 
     def _check_download_conflict(self, event: SyncEvent) -> Conflict:
