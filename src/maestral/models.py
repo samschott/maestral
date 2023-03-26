@@ -61,6 +61,7 @@ class SyncStatus(enum.Enum):
     Failed = "failed"
     Skipped = "skipped"
     Aborted = "aborted"
+    Conflict = "conflict"
 
 
 class ItemType(enum.Enum):
