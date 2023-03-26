@@ -1788,6 +1788,9 @@ class SyncEngine:
             changes, cursor = self.list_local_changes()
             self.apply_local_changes(changes)
 
+            conflicts = [e for e in changes if e.status is SyncStatus.Conflict]
+            self.notify_user(conflicts)
+
             self.local_cursor = cursor
 
             # Free memory early to prevent fragmentation.
