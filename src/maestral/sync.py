@@ -23,6 +23,7 @@ from queue import Queue, Empty
 from collections import defaultdict
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
+from datetime import datetime
 from typing import (
     Any,
     Iterator,
@@ -3021,19 +3022,14 @@ class SyncEngine:
 
         # Find out who changed the item(s).
         user_name: str | None
-        dbid_list = {e.change_dbid for e in changes if e.change_dbid is not None}
-        if len(dbid_list) == 1:
+        dbid_set = {e.change_dbid for e in changes}
+        if len(dbid_set) == 1:
             # All files have been modified by the same user
-            dbid = dbid_list.pop()
+            dbid = dbid_set.pop()
             if dbid == self.client.account_info.account_id:
                 user_name = "You"
             else:
-                try:
-                    account_info = self.client.get_account_info(dbid)
-                except InvalidDbidError:
-                    user_name = None
-                else:
-                    user_name = account_info.display_name
+                user_name = self._display_name_for_account(dbid)
         else:
             # Don't display multiple usernames in notification.
             user_name = None
@@ -3102,6 +3098,23 @@ class SyncEngine:
                 actions={"Show": callback},
                 on_click=callback,
             )
+
+    def _display_name_for_account(self, dbid: str | None) -> str | None:
+        """
+        Returns the display name corresponding to a Dropbox ID.
+        """
+        if dbid is None:
+            return None
+        if dbid == self.client.account_info.account_id:
+            # Return cached display name
+            return self.client.account_info.display_name
+
+        try:
+            account_info = self.client.get_account_info(dbid)
+        except InvalidDbidError:
+            return None
+        else:
+            return account_info.display_name
 
     def _check_download_conflict(self, event: SyncEvent) -> Conflict:
         """
@@ -3388,6 +3401,15 @@ class SyncEngine:
                     parent_event = SyncEvent.from_metadata(parent_md, self)
                     self._on_remote_folder(parent_event)
 
+    def _local_cc_filename(self, local_path: str, dbid: str | None) -> str:
+        change_owner = self._display_name_for_account(dbid)
+        date = datetime.now().strftime("%Y-%m-%d")
+        if change_owner:
+            suffix = f"{change_owner}'s conflicted copy {date}"
+        else:
+            suffix = f"conflicted copy {date}"
+        return generate_cc_name(local_path, suffix)
+
     def _on_remote_file(self, event: SyncEvent) -> SyncStatus:
         """
         Applies a remote file change or creation locally.
@@ -3440,18 +3462,20 @@ class SyncEngine:
             # Re-check for conflict and move the conflict
             # out of the way if anything has changed.
             if self._check_download_conflict(event) == Conflict.Conflict:
-                new_local_path = generate_cc_name(event.local_path)
+                cc_local_path = self._local_cc_filename(
+                    event.local_path, event.change_dbid
+                )
                 event_cls = DirMovedEvent if isdir(event.local_path) else FileMovedEvent
-                with self.fs_events.ignore(event_cls(event.local_path, new_local_path)):
+                with self.fs_events.ignore(event_cls(event.local_path, cc_local_path)):
                     with convert_api_errors():
-                        move(event.local_path, new_local_path, raise_error=True)
+                        move(event.local_path, cc_local_path, raise_error=True)
 
                 self._logger.debug(
                     'Download conflict: renamed "%s" to "%s"',
                     event.local_path,
-                    new_local_path,
+                    cc_local_path,
                 )
-                self.rescan(new_local_path)
+                self.rescan(cc_local_path)
                 status = SyncStatus.Conflict
             else:
                 status = SyncStatus.Done
@@ -3528,18 +3552,18 @@ class SyncEngine:
             return SyncStatus.Skipped
 
         if conflict_check == Conflict.Conflict:
-            new_local_path = generate_cc_name(event.local_path)
+            cc_local_path = self._local_cc_filename(event.local_path, event.change_dbid)
             event_cls = DirMovedEvent if isdir(event.local_path) else FileMovedEvent
-            with self.fs_events.ignore(event_cls(event.local_path, new_local_path)):
+            with self.fs_events.ignore(event_cls(event.local_path, cc_local_path)):
                 with convert_api_errors():
-                    move(event.local_path, new_local_path, raise_error=True)
+                    move(event.local_path, cc_local_path, raise_error=True)
 
             self._logger.debug(
                 'Download conflict: renamed "%s" to "%s"',
                 event.local_path,
-                new_local_path,
+                cc_local_path,
             )
-            self.rescan(new_local_path)
+            self.rescan(cc_local_path)
             status = SyncStatus.Conflict
         else:
             status = SyncStatus.Done

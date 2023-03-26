@@ -265,10 +265,11 @@ def normalized_path_exists(path: str, root: str = osp.sep) -> bool:
     return False
 
 
-def generate_cc_name(path: str, suffix: str = "conflicting copy") -> str:
+def generate_cc_name(path: str, suffix: str) -> str:
     """
     Generates a path for a conflicting copy of ``path``. The file name is created by
-    inserting the given ``suffix`` between the filename and the extension. For instance:
+    inserting the given ``suffix`` between the filename and the extension. For example,
+    for ``suffix = "conflicting copy"``:
 
         "my_file.txt" -> "my_file (conflicting copy).txt"
 
@@ -278,7 +279,7 @@ def generate_cc_name(path: str, suffix: str = "conflicting copy") -> str:
         "my_file.txt" -> "my_file (conflicting copy 1).txt"
 
     :param path: Original path name.
-    :param suffix: Suffix to use. Defaults to "conflicting copy".
+    :param suffix: Suffix to use.
     :returns: New path.
     """
     dirname, basename = osp.split(path)
