@@ -7,6 +7,11 @@
 * Abort uploads if the file is modified between the upload of individual chunks. This
   saves some bandwidth and prevents us from ever committing an inconsistent file to
   Dropbox's version history.
+* Show desktop notifications when a conflicting copy is created both during upload and
+  download sync. Unlike regular notifications, those notifications are shown for each
+  conflicting copy instead of giving a summary count.
+* Append the username and date to the file name of a conflicting copy, for example
+  `myfile (Sam's conflicting copy 2022-08-30).pdf`.
 
 ## v1.7.1
 

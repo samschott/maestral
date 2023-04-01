@@ -458,8 +458,10 @@ def test_file_conflict_modified(m: Maestral) -> None:
 
     wait_for_idle(m)
 
+    cc_name = m.sync._local_cc_filename("file.txt", m.client.account_info.account_id)
+
     new_tree: DirTreeType = {
-        "file (conflicting copy).txt": "content modified conflict",
+        cc_name: "content modified conflict",
         "file.txt": "content 2",
     }
 
@@ -480,8 +482,10 @@ def test_file_conflict_created(m: Maestral) -> None:
     m.start_sync()
     wait_for_idle(m)
 
+    cc_name = m.sync._local_cc_filename("file.txt", m.client.account_info.account_id)
+
     new_tree: DirTreeType = {
-        "file (conflicting copy).txt": "content",
+        cc_name: "content",
         "file.txt": "content 2",
     }
 
@@ -530,6 +534,7 @@ def test_remote_file_replaced_by_folder_and_unsynced_local_changes(m: Maestral) 
     display_name = m.get_account_info().display_name
 
     new_tree: DirTreeType = {
+        # Conflicted copy is created remotely by Dropbox, use their naming scheme.
         f"file ({display_name}'s conflicted copy).txt": "content modified",
         "file.txt": {},
     }
@@ -595,9 +600,11 @@ def test_remote_folder_replaced_by_file_and_unsynced_local_changes(m: Maestral) 
 
     # Check for expected result:
 
+    cc_name = m.sync._local_cc_filename("folder", m.client.account_info.account_id)
+
     new_tree: DirTreeType = {
         "folder": "content",
-        "folder (conflicting copy)": {
+        cc_name: {
             "subfolder": {},
         },
     }
@@ -918,9 +925,11 @@ def test_local_and_remote_creation_with_different_content(m: Maestral) -> None:
     m.start_sync()
     wait_for_idle(m)
 
+    cc_name = m.sync._local_cc_filename("file.txt", m.client.account_info.account_id)
+
     new_tree: DirTreeType = {
         "file.txt": "content 2",
-        "file (conflicting copy).txt": "content",
+        cc_name: "content",
     }
 
     assert_no_errors(m)
