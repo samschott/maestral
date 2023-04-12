@@ -12,7 +12,7 @@ m2r2==0.3.2
 MarkupSafe==2.1.2
 mistune==0.8.4
 packaging==23.1
-Pygments==2.14.0
+Pygments==2.15.0
 pyparsing==3.0.9
 pytz==2023.3
 PyYAML==6.0
