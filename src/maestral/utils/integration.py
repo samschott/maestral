@@ -81,7 +81,10 @@ def get_ac_state() -> ACState:
     elif platform.system() == "Linux":
         # taken from https://github.com/giampaolo/psutil
 
-        supply_entry = list(os.scandir(LINUX_POWER_SUPPLY_PATH))
+        try:
+            supply_entry = list(os.scandir(LINUX_POWER_SUPPLY_PATH))
+        except FileNotFoundError:
+            return ACState.Undetermined
 
         ac_paths = [
             Path(entry.path)
