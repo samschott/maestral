@@ -13,6 +13,11 @@
 * Append the username and date to the file name of a conflicting copy, for example
   `myfile (Sam's conflicting copy 2022-08-30).pdf`.
 
+#### Fixed:
+
+* Fixes an issue for systems that do not provide /sys/class/power_supply.
+  Such as Synology devices.
+
 ## v1.7.1
 
 #### Fixed:
