@@ -803,35 +803,39 @@ def test_unicode_decomposed(m: Maestral) -> None:
     """
     file_name = b"fo\xcc\x81lder".decode()  # decomposed ó (NFD)
     local_path = f"{m.dropbox_path}/{file_name}"
+    local_path_normalized = normalize_unicode(local_path)
 
-    os.mkdir(local_path)
+    with open(local_path, "a") as f:
+        f.write("content")
+
     wait_for_idle(m)
 
     if platform.system() == "Darwin":
         # Local file stays as is, macOS treats unicode normalisations transparently.
         assert osp.exists(local_path)
-        assert osp.samefile(local_path, normalize_unicode(local_path))
+        assert osp.samefile(local_path, local_path_normalized)
     else:
         # Rename to NFC version on Dropbox servers is mirrored locally.
         assert not osp.exists(local_path)
-        assert osp.exists(normalize_unicode(local_path))
+        assert osp.exists(local_path_normalized)
 
     assert_no_errors(m)
     assert_synced(m)
 
     # Test rename.
     target_path = local_path + "_target"
-    os.rename(normalize_unicode(local_path), target_path)
+    target_path_normalized = normalize_unicode(target_path)
+    os.rename(local_path_normalized, target_path)
     wait_for_idle(m)
 
     if platform.system() == "Darwin":
         # Local file stays as is, macOS treats unicode normalisations transparently.
         assert osp.exists(target_path)
-        assert osp.samefile(target_path, normalize_unicode(target_path))
+        assert osp.samefile(target_path, target_path_normalized)
     else:
         # Rename to NFC version on Dropbox servers is mirrored locally.
         assert not osp.exists(target_path)
-        assert osp.exists(normalize_unicode(target_path))
+        assert osp.exists(target_path_normalized)
 
     assert_no_errors(m)
     assert_synced(m)
