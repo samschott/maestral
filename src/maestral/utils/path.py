@@ -346,6 +346,8 @@ def move(
     the destination path no longer exist, this function does nothing. Any other
     exceptions are either raised or returned if ``raise_error`` is False.
 
+    Uses ``os.rename`` internally.
+
     :param src_path: Path of item to move.
     :param dest_path: Destination path. Any existing file at this path will be replaced
         by the move. Any existing **empty** folder will be replaced if the source is
@@ -366,7 +368,7 @@ def move(
             pass
 
     try:
-        shutil.move(src_path, dest_path)
+        os.rename(src_path, dest_path)
     except FileNotFoundError:
         # do nothing if source or dest path no longer exist
         pass
