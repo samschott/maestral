@@ -2634,9 +2634,18 @@ class SyncEngine:
         if event.is_deleted:
             raise ValueError("Cannot process deleted event.")
 
-        if md_new.name == osp.basename(event.local_path):
-            # No conflicting copy was created.
-            return False
+        if self.is_fs_case_sensitive:
+            # Compare un-normalized file names. This ensures that we mirror locally any
+            # unicode or case normalization performed by Dropbox servers.
+            if md_new.name == osp.basename(event.local_path):
+                # No conflicting copy was created.
+                return False
+        else:
+            # Compare normalized paths. Mirroring any normalization changes locally is
+            # not required on normalising file systems.
+            if md_new.path_lower == event.dbx_path_lower:
+                # No conflicting copy was created.
+                return False
 
         # Get new local path corresponding to created entry.
         local_path_cc = self.to_local_path(md_new.path_display)
