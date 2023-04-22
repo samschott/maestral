@@ -10,7 +10,6 @@ import os.path as osp
 import threading
 import time
 import random
-import uuid
 import urllib.parse
 import enum
 import sqlite3
@@ -1935,12 +1934,15 @@ class SyncEngine:
         # mapping of path -> event history
         events_for_path: defaultdict[str, list[FileSystemEvent]] = defaultdict(list)
 
-        # mapping of "event id" -> [source event, destination event]
-        moved_events: defaultdict[str, list[FileSystemEvent]] = defaultdict(list)
+        # mapping of source deletion event -> destination creation event
+        moved_from_to: dict[FileSystemEvent, FileSystemEvent] = {}
+        moved_events_to_recombine: list[FileSystemEvent] = []
 
         for event in events:
             if is_moved(event):
                 deleted, created = split_moved_event(event)
+                moved_from_to[deleted] = created
+
                 events_for_path[deleted.src_path].append(deleted)
                 events_for_path[created.src_path].append(created)
             else:
@@ -1948,16 +1950,17 @@ class SyncEngine:
 
         # For every path, keep only a single event which represents all changes,
         # unless we deal with a type change.
-
         for path in list(events_for_path):
             events = events_for_path[path]
 
             if len(events) == 1:
-                # There is only a single event for this path. If it is a split moved
-                # event, mark it for possible recombination later.
                 event = events[0]
-                if hasattr(event, "move_id"):
-                    moved_events[event.move_id].append(event)
+                # Mark moved events if there is a single event only at the src
+                # and dest paths, to be recombined later.
+                if event in moved_from_to:
+                    dest_path = moved_from_to[event].src_path
+                    if len(events_for_path[dest_path]) == 1:
+                        moved_events_to_recombine.append(event)
 
             else:
                 # Count how often the file / folder was created vs deleted.
@@ -2022,25 +2025,23 @@ class SyncEngine:
 
         # Recombine moved events if we have retained both sides of event during the
         # above consolidation.
+        for src_event in moved_events_to_recombine:
+            src_path = src_event.src_path
+            dest_path = moved_from_to[src_event].src_path
 
-        for split_events in moved_events.values():
-            if len(split_events) == 2:
-                src_path = split_events[0].src_path
-                dest_path = split_events[1].src_path
+            new_event: DirMovedEvent | FileMovedEvent
 
-                new_event: DirMovedEvent | FileMovedEvent
+            if src_event.is_directory:
+                new_event = DirMovedEvent(src_path, dest_path)
+            else:
+                new_event = FileMovedEvent(src_path, dest_path)
 
-                if split_events[0].is_directory:
-                    new_event = DirMovedEvent(src_path, dest_path)
-                else:
-                    new_event = FileMovedEvent(src_path, dest_path)
-
-                # Only recombine events if neither has an excluded path: We want to
-                # treat renaming from / to an excluded path as a creation / deletion,
-                # respectively.
-                if not self._should_split_excluded(new_event):
-                    del events_for_path[src_path]
-                    events_for_path[dest_path] = [new_event]
+            # Only recombine events if neither has an excluded path: We want to
+            # treat renaming from / to an excluded path as a creation / deletion,
+            # respectively.
+            if not self._should_split_excluded(new_event):
+                del events_for_path[src_path]
+                events_for_path[dest_path] = [new_event]
 
         # At this point, `events_for_path` will contain a single event per path or
         # exactly two events (deleted and created) in case of a type change.
@@ -2107,7 +2108,8 @@ class SyncEngine:
 
         # Free memory early to prevent fragmentation.
         del events_for_path
-        del moved_events
+        del moved_from_to
+        del moved_events_to_recombine
         del dir_moved_paths
         del dir_deleted_paths
         gc.collect()
@@ -3836,11 +3838,6 @@ def split_moved_event(
 
     deleted_event = deleted_event_cls(event.src_path)
     created_event = created_event_cls(event.dest_path)
-
-    move_id = uuid.uuid4()
-
-    deleted_event.move_id = move_id  # type:ignore
-    created_event.move_id = move_id  # type:ignore
 
     return deleted_event, created_event
 
