@@ -57,10 +57,12 @@ $ brew install maestral
 
 ### Python package using PyPI
 
-Please download and install the Python package from PyPI:
+Is is recommended to install Maestral inside a virtual environment as follows:
 
 ```console
-$ python3 -m pip install --upgrade maestral
+$ python3 -m venv maestral-venv
+$ source maestral-venv/bin/activate
+(maestral-venv)$ python3 -m pip install --upgrade maestral
 ```
 
 If you intend to use the graphical user interface, you also need to specify the GUI option
@@ -68,7 +70,7 @@ during installation or upgrade. This will install the `maestral-qt` frontend and
 on Linux and `maestral-cocoa` on macOS:
 
 ```console
-$ python3 -m pip install --upgrade 'maestral[gui]'
+(maestral-venv)$ python3 -m pip install --upgrade 'maestral[gui]'
 ```
 
 ### Docker image
