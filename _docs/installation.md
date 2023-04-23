@@ -4,10 +4,13 @@ permalink: /docs/installation
 ---
 
 An app bundle is currently provided only for macOS. On other platforms, you can either
-install the Docker image or the Python package from PyPI:
+install the Docker image or the Python package from PyPI. When installing using pip,
+it is recommended in most cases to install inside a new virtual environment:
 
 ```console
-$ python3 -m pip install --upgrade maestral
+$ python3 -m venv maestral-venv
+$ source maestral-venv/bin/activate
+(maestral-venv)$ python3 -m pip install --upgrade maestral
 ```
 
 If you intend to use the graphical user interface, you also need to specify the GUI option
@@ -15,7 +18,7 @@ during installation or upgrade. This will install the `maestral-qt` frontend and
 on Linux and `maestral-cocoa` on macOS:
 
 ```console
-$ python3 -m pip install --upgrade 'maestral[gui]'
+(maestral-venv)$  python3 -m pip install --upgrade 'maestral[gui]'
 ```
 
 Please refer to the [download]({{ site.baseurl }}/download) page for links and a
