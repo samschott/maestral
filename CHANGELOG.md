@@ -20,6 +20,7 @@
   reindexing when on battery power.
 * Fixes potentially inconsistent error messages if Maestral does not have permissions to
   perform file moves within the local Dropbox folder.
+* Fixes a regression with some icon buttons in the macOS GUI not being displayed.
 
 ## v1.7.1
 
