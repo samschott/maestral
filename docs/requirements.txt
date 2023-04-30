@@ -12,10 +12,9 @@ imagesize==1.4.1
 Jinja2==3.1.2
 kiwisolver==1.4.4
 lazy-object-proxy==1.9.0
-m2r2==0.3.3.post2
 MarkupSafe==2.1.2
 matplotlib==3.7.1
-mistune==0.8.4
+mistune==2.0.4
 numpy==1.24.3
 packaging==23.1
 Pillow==9.5.0
@@ -28,6 +27,7 @@ six==1.16.0
 snowballstemmer==2.2.0
 Sphinx==6.2.1
 sphinx-autoapi==2.1.0
+sphinx-mdinclude==0.5.3
 sphinx-rtd-theme==0.5.1
 sphinxcontrib-applehelp==1.0.4
 sphinxcontrib-devhelp==1.0.2

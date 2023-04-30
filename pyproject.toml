@@ -71,8 +71,8 @@ test = [
 docs = [
     "sphinx",
     "sphinxext-opengraph",
-    "m2r2",
     "sphinx-autoapi",
+    "sphinx-mdinclude",
     "sphinx_rtd_theme",
 ]
 dev = [
