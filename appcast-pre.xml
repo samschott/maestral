@@ -6,6 +6,132 @@
     <description>Prereleases of Maestral</description>
     <language>en</language>
     <item>
+      <title>v1.7.2 available</title>
+      <pubDate>2023-04-30T21:39:06Z</pubDate>
+      <sparkle:version>86</sparkle:version>
+      <sparkle:shortVersionString>1.7.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <!DOCTYPE html>
+        <html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="generator" content="pandoc" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+          <title>v1.7.2</title>
+          <style>
+            code{white-space: pre-wrap;}
+            span.smallcaps{font-variant: small-caps;}
+            div.columns{display: flex; gap: min(4vw, 1.5em);}
+            div.column{flex: auto; overflow-x: auto;}
+            div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+            ul.task-list{list-style: none;}
+            ul.task-list li input[type="checkbox"] {
+              width: 0.8em;
+              margin: 0 0.8em 0.2em -1.6em;
+              vertical-align: middle;
+            }
+            .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+          </style>
+          <link rel="stylesheet" href="" />
+          <style>
+                :root {
+                    font-size: 11px;
+                }
+                body {
+                    padding: 0 0.5rem 0 0.5rem;
+                    font-family: -apple-system;
+                    line-height: 1.2rem;
+                }
+                h1 {
+                    font-size: 1.3rem;
+                }
+                h2,h3,h4 {
+                    font-size: 1.2rem;
+                    margin-block-end: 1rem;
+                }
+                ul {
+                    padding-left: 2rem;
+                    margin-top: 0rem;
+                    margin-bottom: 1.3rem;
+                }
+                li, p {
+                    margin-left: 0;
+                    margin-top: 0;
+                    margin-bottom: 0.5rem;
+                    font-size: 1.1rem;
+                }
+                .annotation {
+                    font-size: 1.1rem;
+                }
+                @media (prefers-color-scheme: light) {
+                    h1 {
+                        color: #272727;
+                    }
+                    a {
+                        color: #0948be;
+                    }
+                }
+                @media (prefers-color-scheme: dark) {
+                    body {
+                        background-color: #1e1e1e;
+                        color: #D9D9D9; /* For headers */
+                    }
+                    li, p {
+                        color:#FFFFFF;
+                    }
+                    a {
+                        color: #3586FF;
+                    }
+                }
+            </style>
+          <!--[if lt IE 9]>
+            <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+          <![endif]-->
+        </head>
+        <body>
+        <header id="title-block-header">
+        <h1 class="title">v1.7.2</h1>
+        </header>
+        <h4 id="changed">Changed:</h4>
+        <ul>
+        <li>Improved support for systems where some file system calls don’t
+        accept a <code>follow_symlinks = False</code> option, notably
+        <code>chmod</code> and <code>utime</code>.</li>
+        <li>Abort uploads if the file is modified between the upload of
+        individual chunks. This saves some bandwidth and prevents us from ever
+        committing an inconsistent file to Dropbox’s version history.</li>
+        <li>Show desktop notifications when a conflicting copy is created both
+        during upload and download sync. Unlike regular notifications, those
+        notifications are shown for each conflicting copy instead of giving a
+        summary count.</li>
+        <li>Append the username and date to the file name of a conflicting copy,
+        for example
+        <code>myfile (Sam's conflicting copy 2022-08-30).pdf</code>.</li>
+        </ul>
+        <h4 id="fixed">Fixed:</h4>
+        <ul>
+        <li>Fixes an issue for systems that do not provide
+        /sys/class/power_supply such as Synology devices. Power supply state is
+        periodically queried to prevent automatic reindexing when on battery
+        power.</li>
+        <li>Fixes potentially inconsistent error messages if Maestral does not
+        have permissions to perform file moves within the local Dropbox
+        folder.</li>
+        <li>Fixes a regression with some icon buttons in the macOS GUI not being
+        displayed.</li>
+        </ul>
+        </body>
+        </html>
+
+      ]]>
+      </description>
+      <enclosure
+        url="https://github.com/samschott/maestral/releases/download/v1.7.2/Maestral-1.7.2.dmg"
+        sparkle:edSignature="aWNYu5dn2MDv+zZ7O0lBKFffcd7x4GUNv5kTQAoWcei4RBCo3Vj2LXwGs2VVzhsh2Z0jaYeSTkPGhsPL4oPNDA==" length="21685448"
+        type="application/octet-stream"/>
+    </item>
+    <item>
       <title>v1.7.1 available</title>
       <pubDate>2023-02-26T16:16:56Z</pubDate>
       <sparkle:version>82</sparkle:version>
@@ -485,133 +611,6 @@
       <enclosure
         url="https://github.com/samschott/maestral/releases/download/v1.6.3/Maestral-1.6.3-macOS_10_12_build.dmg"
         sparkle:edSignature="r7xQwXd8SgPwA1UgTZSdbFqutelb+IV9WKImAFs/8HtJWkVu6BgRvHoJOJzCdXQykFnkxyVqfP8hCxupIvQqDg==" length="18118285"
-        type="application/octet-stream"/>
-    </item>
-    <item>
-      <title>v1.6.2 available</title>
-      <pubDate>2022-04-20T15:52:36Z</pubDate>
-      <sparkle:version>59</sparkle:version>
-      <sparkle:shortVersionString>1.6.2</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
-      <description><![CDATA[
-        <!DOCTYPE html>
-        <html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
-        <head>
-          <meta charset="utf-8" />
-          <meta name="generator" content="pandoc" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-          <title>v1.6.2</title>
-          <style>
-            code{white-space: pre-wrap;}
-            span.smallcaps{font-variant: small-caps;}
-            div.columns{display: flex; gap: min(4vw, 1.5em);}
-            div.column{flex: auto; overflow-x: auto;}
-            div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-            ul.task-list{list-style: none;}
-            ul.task-list li input[type="checkbox"] {
-              width: 0.8em;
-              margin: 0 0.8em 0.2em -1.6em;
-              vertical-align: middle;
-            }
-            .display.math{display: block; text-align: center; margin: 0.5rem auto;}
-          </style>
-          <link rel="stylesheet" href="" />
-          <style>
-                :root {
-                    font-size: 11px;
-                }
-                body {
-                    padding: 0 0.5rem 0 0.5rem;
-                    font-family: -apple-system;
-                    line-height: 1.2rem;
-                }
-                h1 {
-                    font-size: 1.3rem;
-                }
-                h2,h3,h4 {
-                    font-size: 1.2rem;
-                    margin-block-end: 1rem;
-                }
-                ul {
-                    padding-left: 2rem;
-                    margin-top: 0rem;
-                    margin-bottom: 1.3rem;
-                }
-                li, p {
-                    margin-left: 0;
-                    margin-top: 0;
-                    margin-bottom: 0.5rem;
-                    font-size: 1.1rem;
-                }
-                .annotation {
-                    font-size: 1.1rem;
-                }
-                @media (prefers-color-scheme: light) {
-                    h1 {
-                        color: #272727;
-                    }
-                    a {
-                        color: #0948be;
-                    }
-                }
-                @media (prefers-color-scheme: dark) {
-                    body {
-                        background-color: #1e1e1e;
-                        color: #D9D9D9; /* For headers */
-                    }
-                    li, p {
-                        color:#FFFFFF;
-                    }
-                    a {
-                        color: #3586FF;
-                    }
-                }
-            </style>
-          <!--[if lt IE 9]>
-            <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
-          <![endif]-->
-        </head>
-        <body>
-        <header id="title-block-header">
-        <h1 class="title">v1.6.2</h1>
-        </header>
-        <h4 id="changed">Changed:</h4>
-        <ul>
-        <li>Improved error message for file names with incompatible characters
-        that are rejected by Dropbox servers, e.g., emoji or slashes at the end
-        of a file name.</li>
-        <li>Capture Dropbox SDK logs in Maestral’s log output. This will log
-        which API endpoints are called and any retries on errors or rate
-        limiting.</li>
-        </ul>
-        <h4 id="fixed">Fixed:</h4>
-        <ul>
-        <li>Fixes intermittent failures to show a file associated with a sync
-        issue in the Linux GUI.</li>
-        <li>Fixes an issue where the macOS app bundle would use a system-wide
-        installation of the Sparkle framework if available instead of the one
-        bundled with Maestral. This could lead to unexpected issues if the
-        system-wide installation would have an incompatible version.</li>
-        <li>Fixes an issue where the access level of shared links may be
-        incorrectly reported.</li>
-        <li>Resume interrupted downloads after a shutdown when including new
-        items with selective sync.</li>
-        <li>Fixes occasional conflicting copies of folders during initial sync
-        due to a race condition when a child item is synced before its parent
-        folder.</li>
-        <li>Fixes the display of timestamps in the CLI from
-        <code>maestral ls</code> and <code>maestral history</code> commands. The
-        former would show times in UTC instead of the device’s timezone and the
-        latter would show Unix timestamps instead of formatted output.</li>
-        </ul>
-        </body>
-        </html>
-
-      ]]>
-      </description>
-      <enclosure
-        url="https://github.com/samschott/maestral/releases/download/v1.6.2/Maestral-1.6.2.dmg"
-        sparkle:edSignature="eZiaHOtwH04kR3TCbVqC+aImidYxi4ZFl1QEJowZxbc0l9kgaOSF3I6YOe0ew66g69vk3suLeUx7v8nSzKaBAQ==" length="17575868"
         type="application/octet-stream"/>
     </item>
   </channel>

@@ -1,13 +1,10 @@
 #### Changed:
 
-* Improved error message for file names with incompatible characters that are rejected by Dropbox servers, e.g., emoji or slashes at the end of a file name.
-* Capture Dropbox SDK logs in Maestral's log output. This will log which API endpoints are called and any retries on errors or rate limiting.
+* The macOS app bundle now uses Python 3.10 instead of 3.9. This comes with some performance improvements.
 
 #### Fixed:
 
-* Fixes intermittent failures to show a file associated with a sync issue in the Linux GUI.
-* Fixes an issue where the macOS app bundle would use a system-wide installation of the Sparkle framework if available instead of the one bundled with Maestral. This could lead to unexpected issues if the system-wide installation would have an incompatible version.
-* Fixes an issue where the access level of shared links may be incorrectly reported.
-* Resume interrupted downloads after a shutdown when including new items with selective sync.
-* Fixes occasional conflicting copies of folders during initial sync due to a race condition when a child item is synced before its parent folder.
-* Fixes the display of timestamps in the CLI from `maestral ls` and `maestral history` commands. The former would show times in UTC instead of the device's timezone and the latter would show Unix timestamps instead of formatted output.
+* Work around transitory server-side errors when refreshing access tokens by retrying the refresh up to five times.
+* Fixed a segfault on startup for a small number of macOS users.
+* Fixed an issue where files which contain decomposed unicode characters could be deleted after renaming them locally on some versions of macOS.
+* Fixes an issue where the `maestral gui` command would fail for macOS app bundles.
