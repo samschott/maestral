@@ -25,7 +25,7 @@ extensions = [
     "sphinx.ext.todo",
     "sphinx.ext.intersphinx",
     "autoapi.extension",
-    "m2r2",
+    "sphinx_mdinclude",
 ]
 source_suffix = [".rst", ".md"]
 master_doc = "index"
