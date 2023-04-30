@@ -15,8 +15,11 @@
 
 #### Fixed:
 
-* Fixes an issue for systems that do not provide /sys/class/power_supply.
-  Such as Synology devices.
+* Fixes an issue for systems that do not provide /sys/class/power_supply such as 
+  Synology devices. Power supply state is periodically queried to prevent automatic
+  reindexing when on battery power.
+* Fixes potentially inconsistent error messages if Maestral does not have permissions to
+  perform file moves within the local Dropbox folder.
 
 ## v1.7.1
 
