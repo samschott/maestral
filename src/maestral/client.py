@@ -419,10 +419,10 @@ class DropboxClient:
             short-lived.
         :returns: 0 on success, 1 for an invalid token and 2 for connection errors.
         """
-        if not (code or access_token or refresh_token):
+        if code is None and access_token is None and refresh_token is None:
             raise RuntimeError("No auth code, refresh token or access token provided.")
 
-        if code:
+        if code is not None:
             if not self._auth_flow:
                 raise RuntimeError("Please start auth flow with 'get_auth_url' first")
 
@@ -482,12 +482,12 @@ class DropboxClient:
             passed as an argument.
         """
         refresh_token = refresh_token or self._cred_storage.token
-        if not (refresh_token or access_token):
+        if refresh_token is None and access_token is None:
             raise NotLinkedError(
                 "No auth token set", "Please link a Dropbox account first."
             )
 
-        if refresh_token:
+        if refresh_token is not None:
             # Initialise Dropbox SDK.
             self._dbx_base = _DropboxSDK(
                 oauth2_refresh_token=refresh_token,
