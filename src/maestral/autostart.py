@@ -21,6 +21,7 @@ import subprocess
 import shlex
 import plistlib
 import configparser
+import sys
 from pathlib import Path
 from enum import Enum
 from typing import Any
@@ -33,7 +34,7 @@ except ImportError:  # Python 3.7 and lower
 # local imports
 from .utils.appdirs import get_home_dir, get_conf_path, get_data_path
 from .utils.integration import cat
-from .constants import BUNDLE_ID, ENV, IS_LINUX, IS_MACOS
+from .constants import BUNDLE_ID, ENV, IS_LINUX, IS_MACOS, FROZEN
 from .exceptions import MaestralApiError
 
 
@@ -254,13 +255,16 @@ def get_available_implementation() -> SupportedImplementations | None:
     return None
 
 
-def get_maestral_command_path() -> str:
+def get_command_path(dist: str, command: str) -> str:
     """
-    Returns the path to the maestral executable. May be an empty string if the
-    executable cannot be found.
+    Returns the path to a command line script. Tries to check dist_files first, falls
+    back to :meth:`shutil.which` otherwise.
+
+    :param dist: The distribution which installed the command line script.
+    :param command: The command.
     """
     try:
-        dist_files = files("maestral")
+        dist_files = files(dist)
     except PackageNotFoundError:
         # we may have had installation issues
         dist_files = []
@@ -269,7 +273,7 @@ def get_maestral_command_path() -> str:
 
     if dist_files:
         try:
-            rel_path = next(p for p in dist_files if p.match("**/bin/maestral"))
+            rel_path = next(p for p in dist_files if p.match(f"**/bin/{command}"))
             path = rel_path.locate()
         except StopIteration:
             path = None
@@ -283,7 +287,7 @@ def get_maestral_command_path() -> str:
     if path and osp.isfile(path):
         return str(path)
     else:
-        return shutil.which("maestral") or ""
+        return shutil.which(command) or ""
 
 
 class AutoStart:
@@ -299,16 +303,37 @@ class AutoStart:
     _impl: AutoStartBase
 
     def __init__(self, config_name: str) -> None:
-        self.maestral_path = get_maestral_command_path()
         self.implementation = get_available_implementation()
 
-        start_cmd = f"{self.maestral_path} start -f -c {config_name}"
-        launchd_id = f"{BUNDLE_ID}-daemon.{config_name}"
+        # When using systemd, infer the config name from service name.
+        if self.implementation == SupportedImplementations.systemd:
+            config_name = "%i"
+
+        if FROZEN:
+            start_cmd = [
+                sys.executable,
+                "--cli",
+                "start",
+                "--foreground",
+                "--config-name",
+                config_name,
+            ]
+            stop_cmd = [sys.executable, "--cli", "stop", "--config-name", config_name]
+        else:
+            command_location = get_command_path("maestral", "maestral")
+            start_cmd = [
+                command_location,
+                "start",
+                "--foreground",
+                "--config-name",
+                config_name,
+            ]
+            stop_cmd = [command_location, "stop", "--config-name", config_name]
 
         if self.implementation == SupportedImplementations.launchd:
             self._impl = AutoStartLaunchd(
-                launchd_id,
-                start_cmd,
+                f"{BUNDLE_ID}-daemon.{config_name}",
+                " ".join(start_cmd),
                 EnvironmentVariables=ENV,
                 AssociatedBundleIdentifiers=BUNDLE_ID,
             )
@@ -322,12 +347,12 @@ class AutoStart:
 
             self._impl = AutoStartSystemd(
                 service_name=f"maestral-daemon@{config_name}.service",
-                start_cmd=f"{self.maestral_path} start -f -c %i",
+                start_cmd=" ".join(start_cmd),
                 unit_dict={"Description": "Maestral daemon for the config %i"},
                 service_dict={
                     "Type": "notify",
                     "WatchdogSec": "30",
-                    "ExecStop": f"{self.maestral_path} stop -c %i",
+                    "ExecStop": " ".join(stop_cmd),
                     "ExecStopPost": f'/usr/bin/env bash -c "{notify_failure}"',
                     "Environment": " ".join(f"{k}={v}" for k, v in ENV.items()),
                 },
@@ -357,15 +382,10 @@ class AutoStart:
         """Enable autostart."""
         if self.enabled:
             return
-
-        if self.maestral_path:
-            self._impl.enable()
-        else:
-            raise OSError("Could not find path of maestral executable")
+        self._impl.enable()
 
     def disable(self) -> None:
         """Disable autostart."""
         if not self.enabled:
             return
-
         self._impl.disable()

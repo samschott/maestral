@@ -4,9 +4,12 @@ be kept free of memory heavy imports.
 """
 
 # system imports
+import sys
+import sys
 import platform
 import pathlib
 from enum import Enum
+from importlib_metadata import metadata
 from typing import ContextManager
 
 try:
@@ -20,6 +23,7 @@ except ImportError:
 
 
 # app
+FROZEN = "Briefcase-Version" in metadata(__package__) or getattr(sys, "frozen", False)
 APP_NAME = "Maestral"
 BUNDLE_ID = "com.samschott.maestral"
 APP_ICON_PATH = resource_path("maestral.resources", "maestral.png").__enter__()
