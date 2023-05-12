@@ -9,7 +9,7 @@ import sys
 import platform
 import pathlib
 from enum import Enum
-from importlib_metadata import metadata
+from importlib_metadata import metadata, PackageNotFoundError
 from typing import ContextManager
 
 try:
@@ -22,8 +22,21 @@ except ImportError:
     from importlib.resources import path as resource_path
 
 
+FROZEN = getattr(sys, "frozen", False)
+
+for package in (
+    __package__,
+    "maestral",
+    "maestral-cocoa",
+    "maestral-qt",
+    "maestral-gui",
+):
+    try:
+        FROZEN = "Briefcase-Version" in metadata(package) or FROZEN
+    except PackageNotFoundError:
+        pass
+
 # app
-FROZEN = "Briefcase-Version" in metadata(__package__) or getattr(sys, "frozen", False)
 APP_NAME = "Maestral"
 BUNDLE_ID = "com.samschott.maestral"
 APP_ICON_PATH = resource_path("maestral.resources", "maestral.png").__enter__()
