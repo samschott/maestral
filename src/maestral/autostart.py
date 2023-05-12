@@ -18,7 +18,6 @@ import re
 import shutil
 import stat
 import subprocess
-import shlex
 import plistlib
 import configparser
 import sys
@@ -146,7 +145,7 @@ class AutoStartLaunchd(AutoStartBase):
         booleans, lists or dictionaries.
     """
 
-    def __init__(self, launchd_id: str, start_cmd: str, **kwargs: Any) -> None:
+    def __init__(self, launchd_id: str, start_cmd: list[str], **kwargs: Any) -> None:
         super().__init__()
         filename = launchd_id + ".plist"
 
@@ -154,10 +153,10 @@ class AutoStartLaunchd(AutoStartBase):
         self.destination = osp.join(self.path, filename)
 
         self.plist_dict = {
-            "Label": str(launchd_id),
+            "Label": launchd_id,
             "ProcessType": "Interactive",
             "RunAtLoad": True,
-            "ProgramArguments": shlex.split(start_cmd),
+            "ProgramArguments": start_cmd,
         }
 
         self.plist_dict.update(kwargs)
@@ -333,7 +332,7 @@ class AutoStart:
         if self.implementation == SupportedImplementations.launchd:
             self._impl = AutoStartLaunchd(
                 f"{BUNDLE_ID}-daemon.{config_name}",
-                " ".join(start_cmd),
+                start_cmd,
                 EnvironmentVariables=ENV,
                 AssociatedBundleIdentifiers=BUNDLE_ID,
             )
