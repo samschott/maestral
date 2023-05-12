@@ -1,4 +1,14 @@
-## v1.7.2.dev
+## v1.7.3.dev
+
+#### Fixed:
+
+* Fixes autostart entries for the GUI being malformed when Maestral is installed in a
+  Python virtual environment.
+* Fixes autostart entries for the daemon being malformed for the macOS app bundle. This
+  applies to autostart entries created with `maestral autostart -Y` and not using the
+  "Start on login" checkbox in the GUI.
+
+## v1.7.2
 
 #### Changed:
 
