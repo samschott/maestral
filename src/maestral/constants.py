@@ -5,7 +5,6 @@ be kept free of memory heavy imports.
 
 # system imports
 import sys
-import sys
 import platform
 import pathlib
 from enum import Enum
