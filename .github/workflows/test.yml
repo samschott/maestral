@@ -1,6 +1,8 @@
 name: Run tests
 
 on:
+  schedule:
+    - cron: '30 3 * * SUN'
   pull_request_target:
     paths:
       # run tests only when the python code has changed
