@@ -1,6 +1,6 @@
 
-Welcome to Maestral's developer documentation
-=============================================
+Maestral Developer Documentation
+================================
 
 This documentation provides an API reference for the maestral daemon.
 It is built from the current dev branch and is intended for developers.
