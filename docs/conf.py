@@ -34,7 +34,7 @@ language = "en"
 
 # -- Options for HTML output -----------------------------------------------------------
 
-html_theme = "sphinx_rtd_theme"
+html_theme = "furo"
 html_logo = "maestral-symbolic.svg"
 
 # -- Options for LaTeX output ----------------------------------------------------------
