@@ -52,9 +52,23 @@ def test_status_properties(m: Maestral) -> None:
 
 
 def test_file_status(m: Maestral) -> None:
-    # test synced folder
+    # test synced Dropbox folder
     file_status = m.get_file_status(m.dropbox_path)
     assert file_status == FileStatus.Synced.value
+
+    # test synced file
+    local_path = m.to_local_path("/test.txt")
+    with open(local_path, "w") as f:
+        f.write("new")
+
+    wait_for_idle(m)
+
+    file_status = m.get_file_status(local_path)
+    assert file_status == FileStatus.Synced.value
+
+    # test case sensitivity
+    file_status = m.get_file_status(m.to_local_path("/test.txt".upper()))
+    assert file_status == FileStatus.Unwatched.value
 
     # test unwatched outside of dropbox
     file_status = m.get_file_status("/url/local")
