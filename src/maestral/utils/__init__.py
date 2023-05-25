@@ -8,6 +8,8 @@ from typing import Iterator, TypeVar, Optional, Iterable, Tuple, Type
 
 from packaging.version import Version
 
+from .path import normalize
+
 
 _N = TypeVar("_N", float, int)
 _T = TypeVar("_T")
@@ -21,7 +23,7 @@ def natural_size(num: float, unit: str = "B", sep: bool = True) -> str:
     :param float num: Value in given unit.
     :param unit: Unit suffix.
     :param sep: Whether to separate unit and value with a space.
-    :returns: Human readable string with decimal prefixes.
+    :returns: Human-readable string with decimal prefixes.
     """
     sep_char = " " if sep else ""
 
@@ -86,7 +88,7 @@ def get_newer_version(version: str, releases: Iterable[str]) -> Optional[str]:
     return latest_release if Version(version) < Version(latest_release) else None
 
 
-def removeprefix(string: str, prefix: str) -> str:
+def removeprefix(string: str, prefix: str, case_sensitive: bool = True) -> str:
     """
     Removes the given prefix from a string. Only the first instance of the prefix is
     removed. The original string is returned if it does not start with the given prefix.
@@ -95,12 +97,20 @@ def removeprefix(string: str, prefix: str) -> str:
 
     :param string: Original string.
     :param prefix: Prefix to remove.
+    :param case_sensitive: Whether to do case-sensitive prefix removal.
     :returns: String without prefix.
     """
-    if string.startswith(prefix):
+    if case_sensitive:
+        string_lower = string
+        prefix_lower = prefix
+    else:
+        string_lower = normalize(string)
+        prefix_lower = normalize(prefix)
+
+    if string_lower.startswith(prefix_lower):
         return string[len(prefix) :]
     else:
-        return string[:]
+        raise ValueError(f'"{string}" does not start with "{prefix}"')
 
 
 def sanitize_string(string: str) -> str:
