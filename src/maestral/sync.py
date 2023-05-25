@@ -883,6 +883,27 @@ class SyncEngine:
         with self._database_access():
             return self._index_table.get(dbx_path_lower)
 
+    def get_index_entry_for_local_path(self, local_path: str) -> IndexEntry | None:
+        """
+        Gets the index entry for the given local path. Ensures that the index entry has
+        the correct casing.
+
+        :param local_path: Local path as returned by file system APIs.
+        :returns: Index entry or ``None`` if no entry exists for the given path.
+        """
+        dbx_path_cased = self.to_dbx_path(local_path)
+        dbx_path_lower = self.to_dbx_path_lower(local_path)
+
+        index_entry = self.get_index_entry(dbx_path_lower)
+
+        if not index_entry:
+            return None
+
+        if index_entry.dbx_path_cased == dbx_path_cased:
+            return index_entry
+
+        return None
+
     def iter_index(self) -> Iterator[IndexEntry]:
         """
         Returns an iterator over the local index of synced files and folders.
