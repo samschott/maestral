@@ -575,14 +575,31 @@ class SyncEngine:
 
         self._connection = sqlite3.connect(self._db_path, check_same_thread=False)
         self._db = Database(self._connection)
-        self._index_table = Manager(self._db, IndexEntry)
-        self._history_table = Manager(self._db, SyncEvent)
-        self._hash_table = Manager(self._db, HashCacheEntry)
-        self._sync_errors_table = Manager(self._db, SyncErrorEntry)
+
+        try:
+            self._create_or_load_db()
+        except DatabaseError:
+            # Reading tables may fail if the DB was corrupted. This should happen very
+            # rarely, see https://sqlite.org/howtocorrupt.html. Attempt to recover by
+            # deleting DB and resetting sync state to trigger reindexing.
+
+            self._logger.warning("Database error, resetting sync state")
+
+            self.reset_sync_state()
+            delete(self._db_path)
+
+            self._create_or_load_db()
 
         # Caches.
         self._case_conversion_cache = LRUCache(capacity=5000)
         self.clean_cache_dir(raise_error=False)
+
+    def _create_or_load_db(self) -> None:
+        with self._database_access():
+            self._index_table = Manager(self._db, IndexEntry)
+            self._history_table = Manager(self._db, SyncEvent)
+            self._hash_table = Manager(self._db, HashCacheEntry)
+            self._sync_errors_table = Manager(self._db, SyncErrorEntry)
 
     def reload_cached_config(self) -> None:
         """
