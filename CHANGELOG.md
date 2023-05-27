@@ -8,6 +8,8 @@
   applies to autostart entries created with `maestral autostart -Y` and not using the
   "Start on login" checkbox in the GUI.
 * The `filestatus` now is case-sensitive when checking on a case-sensitive file system.
+* Fixes an issue where renaming a file by changing the casing only would not be picked
+  up if Maestral was not running during the rename.
 
 ## v1.7.2
 
