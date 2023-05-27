@@ -7,6 +7,7 @@
 * Fixes autostart entries for the daemon being malformed for the macOS app bundle. This
   applies to autostart entries created with `maestral autostart -Y` and not using the
   "Start on login" checkbox in the GUI.
+* The `filestatus` now is case-sensitive when checking on a case-sensitive file system.
 
 ## v1.7.2
 

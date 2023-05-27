@@ -661,17 +661,23 @@ class Maestral:
         local_path = osp.realpath(local_path)
 
         try:
-            dbx_path = self.sync.to_dbx_path(local_path)
-            dbx_path_lower = self.sync.to_dbx_path_lower(local_path)
+            dbx_path_cased = self.sync.to_dbx_path(local_path)
         except ValueError:
             return FileStatus.Unwatched.value
 
-        node = self.sync.activity.get_node(dbx_path)
+        # Find any sync activity for the local path.
+        node = self.sync.activity.get_node(dbx_path_cased)
+
         if not node:
+            # Always return synced for the root folder in the absense of sync activity.
+            if dbx_path_cased == "/":
+                return FileStatus.Synced.value
+
             # Check if the path is in our index. If yes, it is fully synced, otherwise
             # it is unwatched.
-            if dbx_path_lower == "/" or self.sync.get_local_rev(dbx_path_lower):
+            if self.sync.get_index_entry_for_local_path(local_path):
                 return FileStatus.Synced.value
+
             return FileStatus.Unwatched.value
 
         # Return effective status of item and its children. Syncing items take
