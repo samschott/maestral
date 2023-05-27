@@ -8,23 +8,13 @@ import logging
 import time
 from logging.handlers import RotatingFileHandler
 from collections import deque
-from concurrent.futures import Future
-from typing import Type, Sequence
+from concurrent.futures import Future, InvalidStateError
+from typing import Sequence
 
 from .config import MaestralConfig
 from .utils import sanitize_string
 from .utils.appdirs import get_log_path
 from .utils.integration import SystemdNotifier
-
-InvalidStateError: Type[Exception]
-
-try:
-    from concurrent.futures import (  # type:ignore[attr-defined, no-redef]
-        InvalidStateError,
-    )
-except ImportError:
-    # Python 3.7 and lower
-    InvalidStateError = RuntimeError
 
 
 __all__ = [

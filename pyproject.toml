@@ -22,13 +22,12 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
 ]
 urls = {Homepage = "https://maestral.app"}
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 dependencies = [
     "click>=8.0.2",
     "desktop-notifier>=3.3.0",
     "dropbox>=11.28.0,<12.0",
     "fasteners>=0.15",
-    "importlib_metadata>=3.6",
     "keyring>=22",
     "keyrings.alt>=3.1.0",
     "packaging",
@@ -91,7 +90,7 @@ ignore = "E203,E501,W503,H306"
 statistics = "True"
 
 [tool.mypy]
-python_version = "3.7"
+python_version = "3.8"
 strict = true
 # Disable some strict flags because of untyped dependencies:
 disallow_subclassing_any = false
@@ -101,4 +100,4 @@ ignore_missing_imports = true
 
 [tool.black]
 line-length = 88
-target-version = ["py37", "py38", "py39", "py310", "py311"]
+target-version = ["py38", "py39", "py310", "py311"]
