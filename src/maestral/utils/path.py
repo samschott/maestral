@@ -229,6 +229,10 @@ def to_existing_unnormalized_path(
     This is similar to :func:`get_existing_equivalent_paths` but returns only the first
     candidate or raises a :class:`FileNotFoundError` if no candidates can be found.
 
+    If the file system is not case-sensitive but case-preserving, this function
+    effectively returns the "displayed" version of a path, as used for example in file
+    managers.
+
     On macOS, we use fcntl F_GETPATH for a more efficient implementation.
 
     :param path: Original path relative to ``root``.
