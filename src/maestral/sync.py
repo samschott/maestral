@@ -1347,9 +1347,13 @@ class SyncEngine:
         :returns: Relative path with respect to Dropbox folder.
         :raises ValueError: When the path lies outside the local Dropbox folder.
         """
-        if not is_equal_or_child(local_path, self.dropbox_path):
+        if not is_equal_or_child(
+            local_path, self.dropbox_path, self.is_fs_case_sensitive
+        ):
             raise ValueError(f'"{local_path}" is not in "{self.dropbox_path}"')
-        return "/" + removeprefix(local_path, self.dropbox_path).lstrip("/")
+        return "/" + removeprefix(
+            local_path, self.dropbox_path, self.is_fs_case_sensitive
+        ).lstrip("/")
 
     def to_dbx_path_lower(self, local_path: str) -> str:
         """
@@ -1711,10 +1715,9 @@ class SyncEngine:
         snapshot_time = time.time()
 
         # Get modified or added items.
-        for path, stat in walk(self.dropbox_path, self._scandir_with_ignore):
+        for local_path, stat in walk(self.dropbox_path, self._scandir_with_ignore):
             is_dir = S_ISDIR(stat.st_mode)
-            dbx_path_lower = self.to_dbx_path_lower(path)
-            index_entry = self.get_index_entry(dbx_path_lower)
+            index_entry = self.get_index_entry_for_local_path(local_path)
 
             if index_entry:
                 is_new = False
@@ -1727,7 +1730,6 @@ class SyncEngine:
 
             # Check if item was created or modified since the last sync,
             # but before we started the FileEventHandler (~snapshot_time).
-
             mtime_check = snapshot_time > stat.st_mtime > last_sync
 
             # Always upload untracked items, check mtime of tracked items.
@@ -1739,9 +1741,9 @@ class SyncEngine:
 
             if is_new:
                 if is_dir:
-                    event = DirCreatedEvent(path)
+                    event = DirCreatedEvent(local_path)
                 else:
-                    event = FileCreatedEvent(path)
+                    event = FileCreatedEvent(local_path)
                 changes.append(event)
 
             elif is_modified:
@@ -1749,27 +1751,27 @@ class SyncEngine:
                     # We don't emit `DirModifiedEvent`s.
                     pass
                 elif not is_dir and not index_entry.is_directory:  # type: ignore
-                    event = FileModifiedEvent(path)
+                    event = FileModifiedEvent(local_path)
                     changes.append(event)
                 elif is_dir:
-                    event0 = FileDeletedEvent(path)
-                    event1 = DirCreatedEvent(path)
+                    event0 = FileDeletedEvent(local_path)
+                    event1 = DirCreatedEvent(local_path)
                     changes += [event0, event1]
                 elif not is_dir:
-                    event0 = DirDeletedEvent(path)
-                    event1 = FileCreatedEvent(path)
+                    event0 = DirDeletedEvent(local_path)
+                    event1 = FileCreatedEvent(local_path)
                     changes += [event0, event1]
 
         # Get deleted items.
         for entry in self.iter_index():
-            local_path = self.to_local_path_from_cased(entry.dbx_path_cased)
+            local_path_indexed = self.to_local_path_from_cased(entry.dbx_path_cased)
             is_mignore = self._is_mignore_path(entry.dbx_path_cased, entry.is_directory)
 
-            if is_mignore or not exists(local_path):
+            if is_mignore or not self._exists_with_given_casing(local_path_indexed):
                 if entry.is_directory:
-                    event = DirDeletedEvent(local_path)
+                    event = DirDeletedEvent(local_path_indexed)
                 else:
-                    event = FileDeletedEvent(local_path)
+                    event = FileDeletedEvent(local_path_indexed)
                 changes.append(event)
 
         # Ensure that the local Dropbox folder still exists before returning changes.
@@ -1782,6 +1784,25 @@ class SyncEngine:
         self._logger.debug("Retrieved local changes:\n%s", pf_repr(changes))
 
         return changes, snapshot_time
+
+    def _exists_with_given_casing(self, local_path: str) -> bool:
+        """
+        On case-insensitive but case preserving file systems, a `os.path.exists`
+        call will return true even if the local casing differs from the
+        indexed casing. This method returns False if the display casing differs from the
+        given input, even if paths refer to the same file.
+        """
+        if self.is_fs_case_sensitive:
+            return exists(local_path)
+
+        if not exists(local_path):
+            return False
+
+        try:
+            local_path_displayed = to_existing_unnormalized_path(local_path)
+            return local_path_displayed == local_path
+        except (FileNotFoundError, NotADirectoryError):
+            return False
 
     def wait_for_local_changes(self, timeout: float = 40) -> bool:
         """

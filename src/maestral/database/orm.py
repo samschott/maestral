@@ -262,8 +262,9 @@ class Manager(Generic[M]):
 
         for column in self.model.__columns__:
             if column.index:
-                idx_name = f"idx_{self.table_name}_{column.name}"
-                sql = f"CREATE INDEX {idx_name} ON {self.table_name} ({column.name});"
+                table_name_stripped = self.table_name.strip("'\"")
+                idx_name = f"idx_{table_name_stripped}_{column.name}"
+                sql = f"CREATE INDEX IF NOT EXISTS {idx_name} ON {self.table_name} ({column.name});"
                 self.db.executescript(sql)
 
     def clear_cache(self) -> None:

@@ -465,7 +465,7 @@ class IndexEntry(Model):
     Corresponds to the path_lower field of Dropbox metadata.
     """
 
-    dbx_path_cased = NonNullColumn(SqlPath())
+    dbx_path_cased = NonNullColumn(SqlPath(), index=True)
     """
     Dropbox path of the item, correctly cased. Corresponds to the path_display field of
     Dropbox metadata.

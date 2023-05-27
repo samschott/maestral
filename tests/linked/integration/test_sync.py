@@ -10,7 +10,12 @@ import timeit
 from typing import Union, Mapping, TypeVar, cast
 
 import pytest
-from watchdog.events import FileCreatedEvent, FileDeletedEvent, DirDeletedEvent
+from watchdog.events import (
+    FileCreatedEvent,
+    FileDeletedEvent,
+    DirDeletedEvent,
+    DirCreatedEvent,
+)
 from dropbox import files
 
 from maestral.main import Maestral
@@ -248,6 +253,41 @@ def test_case_change_local(m: Maestral) -> None:
 
     # Check that case change was propagated to the server.
 
+    md = m.client.get_metadata("/folder")
+
+    assert isinstance(md, FolderMetadata)
+    assert md.name == "FOLDER", "casing was not propagated to Dropbox"
+
+    assert_synced(m)
+    assert_no_errors(m)
+
+
+def test_case_change_local_while_stopped(m: Maestral) -> None:
+    """
+    Tests the upload sync of local rename which only changes the casing of the name.
+    """
+
+    # Start with nested folders.
+    tree: DirTreeType = {
+        "folder": {},
+    }
+    create_local_tree(m.dropbox_path, tree)
+    wait_for_idle(m)
+    m.stop_sync()
+
+    # Rename local parent folder to upper case.
+    shutil.move(m.dropbox_path + "/folder", m.dropbox_path + "/FOLDER")
+
+    changes, _ = m.sync._get_local_changes_while_inactive()
+
+    assert len(changes) == 2
+    assert DirCreatedEvent(src_path=m.dropbox_path + "/FOLDER") in changes
+    assert DirDeletedEvent(src_path=m.dropbox_path + "/folder") in changes
+
+    m.start_sync()
+    wait_for_idle(m)
+
+    # Check that case change was propagated to the server.
     md = m.client.get_metadata("/folder")
 
     assert isinstance(md, FolderMetadata)

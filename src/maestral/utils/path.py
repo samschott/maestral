@@ -30,31 +30,41 @@ _AnyPath = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
 # ==== path relationships ==============================================================
 
 
-def is_child(path: str, parent: str) -> bool:
+def is_child(path: str, parent: str, case_sensitive: bool = True) -> bool:
     """
     Checks if ``path`` semantically is inside ``parent``. Neither path needs to
     refer to an actual item on the drive. This function is case-sensitive.
 
     :param path: Item path.
     :param parent: Parent path.
+    :param case_sensitive: Whether to do case-sensitive checks.
     :returns: Whether ``path`` semantically lies inside ``parent``.
     """
+    if not case_sensitive:
+        path = normalize(path)
+        parent = normalize(parent)
+
     parent = parent.rstrip(osp.sep) + osp.sep
     path = path.rstrip(osp.sep)
 
     return path.startswith(parent)
 
 
-def is_equal_or_child(path: str, parent: str) -> bool:
+def is_equal_or_child(path: str, parent: str, case_sensitive: bool = True) -> bool:
     """
     Checks if ``path`` semantically is inside ``parent`` or equals ``parent``. Neither
     path needs to refer to an actual item on the drive. This function is case-sensitive.
 
     :param path: Item path.
     :param parent: Parent path.
+    :param case_sensitive: Whether to do case-sensitive checks.
     :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
         ``path == parent``.
     """
+    if not case_sensitive:
+        path = normalize(path)
+        parent = normalize(parent)
+
     return is_child(path, parent) or path == parent
 
 
@@ -218,6 +228,10 @@ def to_existing_unnormalized_path(
 
     This is similar to :func:`get_existing_equivalent_paths` but returns only the first
     candidate or raises a :class:`FileNotFoundError` if no candidates can be found.
+
+    If the file system is not case-sensitive but case-preserving, this function
+    effectively returns the "displayed" version of a path, as used for example in file
+    managers.
 
     On macOS, we use fcntl F_GETPATH for a more efficient implementation.
 
