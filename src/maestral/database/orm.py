@@ -248,15 +248,13 @@ class Manager(Generic[M]):
             self.pk_column.name,
         )
 
-        # Create table if required.
-        if not self._has_table():
-            self.create_table()
+        self.create_table_if_not_exists()
 
-    def create_table(self) -> None:
+    def create_table_if_not_exists(self) -> None:
         """Creates the table as defined by the model."""
         column_defs = [col.render_column() for col in self.model.__columns__]
         column_defs_str = ", ".join(column_defs)
-        sql = f"CREATE TABLE {self.table_name} ({column_defs_str});"
+        sql = f"CREATE TABLE IF NOT EXISTS {self.table_name} ({column_defs_str});"
 
         self.db.executescript(sql)
 
@@ -266,6 +264,8 @@ class Manager(Generic[M]):
                 idx_name = f"idx_{table_name_stripped}_{column.name}"
                 sql = f"CREATE INDEX IF NOT EXISTS {idx_name} ON {self.table_name} ({column.name});"
                 self.db.executescript(sql)
+
+        self._did_create_table = True
 
     def clear_cache(self) -> None:
         """Clears our cache."""
@@ -416,13 +416,7 @@ class Manager(Generic[M]):
         """Delete all rows from table."""
         self.db.execute(f"DROP TABLE {self.table_name}")
         self.clear_cache()
-        self.create_table()
-
-    def _has_table(self) -> bool:
-        """Checks if entity model already has a database table."""
-        sql = "SELECT name len FROM sqlite_master WHERE type = 'table' AND name = ?"
-        result = self.db.execute(sql, self.table_name.strip("'\""))
-        return bool(result.fetchall())
+        self.create_table_if_not_exists()
 
     def _get_primary_key(self, obj: M) -> SQLSafeType:
         """
