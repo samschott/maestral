@@ -1620,12 +1620,12 @@ class SyncEngine:
             msg = (
                 f'The index file at "{self._db_path}" cannot be read. '
                 "Please check that you have sufficient permissions and "
-                "rebuild the index if necessary."
+                "restart Maestral to continue syncing."
             )
             new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
         except sqlite3.IntegrityError as exc:
             title = "Database integrity error"
-            msg = "Please rebuild the index to continue syncing."
+            msg = "Please restart Maestral to continue syncing."
             new_exc = DatabaseError(title, msg).with_traceback(exc.__traceback__)
         except sqlite3.DatabaseError as exc:
             title = "Database transaction error"
