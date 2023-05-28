@@ -324,7 +324,7 @@ class FSEventHandler(FileSystemEventHandler):
         :returns: Whether the event should be ignored.
         """
         for ignore in self._ignored_events.copy():
-            # Check for expired events.
+            # Remove expired ignores.
             if ignore.ttl and ignore.ttl < time.time():
                 self._ignored_events.discard(ignore)
                 continue
@@ -332,20 +332,28 @@ class FSEventHandler(FileSystemEventHandler):
             ignore_event = ignore.event
             recursive = ignore.recursive
 
+            # Check if event is directly marked as to ignore.
             if event == ignore_event:
                 if not recursive:
                     self._ignored_events.discard(ignore)
                 return True
 
+            # Check if event is marked as to ignore by a recursive parent. For moved
+            # events, source and destination path most both be children of the
+            # respective paths of the event to ignore.
             elif recursive:
-                type_match = event.event_type == ignore_event.event_type
-                src_match = is_equal_or_child(event.src_path, ignore_event.src_path)
-                dest_match = is_equal_or_child(
-                    get_dest_path(event), get_dest_path(ignore_event)
-                )
+                if not event.event_type == ignore_event.event_type:
+                    continue
 
-                if type_match and src_match and dest_match:
-                    return True
+                if not is_equal_or_child(event.src_path, ignore_event.src_path):
+                    continue
+
+                if event.event_type == EVENT_TYPE_MOVED and not is_equal_or_child(
+                    event.dest_path, ignore_event.dest_path  # type:ignore[attr-defined]
+                ):
+                    continue
+
+                return True
 
         return False
 
@@ -3849,19 +3857,6 @@ def is_deleted(event: FileSystemEvent) -> TypeGuard[FileDeletedEvent | DirDelete
 
 def is_created(event: FileSystemEvent) -> TypeGuard[FileCreatedEvent | DirCreatedEvent]:
     return event.event_type == EVENT_TYPE_CREATED
-
-
-def get_dest_path(event: FileSystemEvent) -> str:
-    """
-    Returns the dest_path of a file system event if present (moved events only)
-    otherwise returns the src_path (which is also the "destination").
-
-    :param event: Watchdog file system event.
-    :returns: Destination path for moved event, source path otherwise.
-    """
-    if isinstance(event, (FileMovedEvent, DirMovedEvent)):
-        return event.dest_path
-    return event.src_path
 
 
 @overload
