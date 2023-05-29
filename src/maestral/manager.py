@@ -47,7 +47,6 @@ from .notify import MaestralDesktopNotifier
 from .utils import removeprefix
 from .utils.integration import check_connection, get_inotify_limits
 from .utils.path import move, delete, is_equal_or_child, is_child, normalize
-from .utils.integration import get_ac_state, ACState
 
 
 __all__ = ["SyncManager"]
@@ -165,18 +164,6 @@ class SyncManager:
         return wrapper
 
     # ---- config and state ------------------------------------------------------------
-
-    @property
-    def reindex_interval(self) -> float:
-        """
-        Interval in sec for period reindexing. Changes will be saved to state file.
-        """
-        return self._conf.get("sync", "reindex_interval")
-
-    @reindex_interval.setter
-    def reindex_interval(self, interval: float) -> None:
-        """Setter: reindex_interval"""
-        self._conf.set("sync", "reindex_interval", interval)
 
     @property
     def idle_time(self) -> float:
@@ -390,20 +377,6 @@ class SyncManager:
 
         if was_running:
             self.start()
-
-    def _should_rebuild_index(self) -> bool:
-        """
-        Check if reindexing is due and can be performed now. This is determined by the
-        'reindex_interval' setting. Don't reindex if we are running on battery power.
-        """
-        elapsed = time.time() - self.sync.last_reindex
-        ac_state = get_ac_state()
-
-        reindexing_due = elapsed > self.reindex_interval
-        is_idle = self.idle_time > 20 * 60
-        has_ac_power = ac_state in (ACState.Connected, ACState.Undetermined)
-
-        return reindexing_due and is_idle and has_ac_power
 
     # ---- path root management --------------------------------------------------------
 
@@ -645,10 +618,6 @@ class SyncManager:
                 # changes in case of a changed root path.
                 if self.check_and_update_path_root():
                     return
-
-                # Check for and perform reindexing.
-                if self._should_rebuild_index():
-                    self.rebuild_index()
 
                 if not running.is_set():
                     return
