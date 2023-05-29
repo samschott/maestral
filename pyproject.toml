@@ -49,8 +49,8 @@ content-type = "text/markdown"
 
 [project.optional-dependencies]
 gui = [
-    "maestral-qt>=1.7.3.dev4;sys_platform=='linux'",
-    "maestral-cocoa>=1.7.3.dev4;sys_platform=='darwin'",
+    "maestral-qt>=1.7.3;sys_platform=='linux'",
+    "maestral-cocoa>=1.7.3;sys_platform=='darwin'",
 ]
 syslog = ["systemd-python"]
 lint = [
