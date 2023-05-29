@@ -5,8 +5,6 @@ could also be achieved with psutils, but we want to avoid the large dependency.
 from __future__ import annotations
 
 import os
-import platform
-import enum
 import resource
 import requests
 import time
@@ -18,8 +16,6 @@ from urllib.parse import urlparse
 
 __all__ = [
     "cat",
-    "get_ac_state",
-    "ACState",
     "get_inotify_limits",
     "CPU_CORE_COUNT",
     "cpu_usage_percent",
@@ -46,83 +42,6 @@ def cat(*paths: "os.PathLike[str]") -> Union[bytes, None]:
             pass
 
     return None
-
-
-class ACState(enum.Enum):
-    """Enumeration of AC power states"""
-
-    Connected = "Connected"
-    Disconnected = "Disconnected"
-    Undetermined = "Undetermined"
-
-
-def get_ac_state() -> ACState:
-    """
-    Checks if the current device has AC power or is running on battery.
-
-    :returns: ``True`` if the device has AC power, ``False`` otherwise.
-    """
-    if platform.system() == "Darwin":
-        from ctypes import c_double
-        from rubicon.objc.runtime import load_library
-
-        iokit = load_library("IOKit")
-        kIOPSTimeRemainingUnlimited = -2.0
-
-        iokit.IOPSGetTimeRemainingEstimate.restype = c_double
-
-        remaining_time = iokit.IOPSGetTimeRemainingEstimate()
-
-        if remaining_time == kIOPSTimeRemainingUnlimited:
-            return ACState.Connected
-        else:
-            return ACState.Disconnected
-
-    elif platform.system() == "Linux":
-        # taken from https://github.com/giampaolo/psutil
-
-        try:
-            supply_entry = list(os.scandir(LINUX_POWER_SUPPLY_PATH))
-        except FileNotFoundError:
-            return ACState.Undetermined
-
-        ac_paths = [
-            Path(entry.path)
-            for entry in supply_entry
-            if entry.name.startswith("A") or "ac" in entry.name.lower()
-        ]
-
-        battery_paths = [
-            Path(entry.path)
-            for entry in supply_entry
-            if entry.name.startswith("B") or "battery" in entry.name.lower()
-        ]
-
-        online = cat(*iter(path / "online" for path in ac_paths))
-
-        if online is not None:
-            if online == b"1":
-                return ACState.Connected
-            else:
-                return ACState.Disconnected
-
-        elif len(battery_paths) > 0:
-            # Get the first available battery. Usually this is "BAT0", except
-            # some rare exceptions:
-            # https://github.com/giampaolo/psutil/issues/1238
-            bat0 = sorted(battery_paths)[0]
-
-            try:
-                status = (bat0 / "status").read_text().strip().lower()
-            except OSError:
-                status = ""
-
-            if status == "discharging":
-                return ACState.Disconnected
-            elif status in ("charging", "full"):
-                return ACState.Connected
-
-    return ACState.Undetermined
 
 
 def get_inotify_limits() -> Tuple[int, int, int]:
