@@ -593,7 +593,8 @@ class SyncEngine:
 
             self._logger.warning("Database error, resetting sync state")
 
-            self.reset_sync_state()
+            self._state.reset_to_defaults("sync")
+            self.reload_cached_config()
             delete(self._db_path)
 
             self._create_or_load_db()
