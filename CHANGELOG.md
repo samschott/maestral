@@ -1,5 +1,9 @@
 ## v1.7.3.dev
 
+This is the last release that supports Python 3.7 which will reach end-of-life on 27
+Jun 2023. The macOS app always ships with its own Python runtime, but custom
+installations will require at least Python 3.8 starting with the next release.
+
 #### Changed:
 
 * Preparation for upcoming API changes in `watchdog` dependency.
