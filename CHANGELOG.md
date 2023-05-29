@@ -1,5 +1,9 @@
 ## v1.7.3.dev
 
+#### Changed:
+
+* Preparation for upcoming API changes in `watchdog` dependency.
+
 #### Fixed:
 
 * Fixes autostart entries for the GUI being malformed when Maestral is installed in a
