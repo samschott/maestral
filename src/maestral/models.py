@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 # external imports
 from watchdog.events import (
     FileSystemEvent,
+    FileMovedEvent,
+    DirMovedEvent,
     EVENT_TYPE_CREATED,
     EVENT_TYPE_DELETED,
     EVENT_TYPE_MOVED,
@@ -43,6 +45,19 @@ __all__ = [
     "HashCacheEntry",
     "SyncErrorEntry",
 ]
+
+
+def get_dest_path(event: FileSystemEvent) -> str:
+    """
+    Returns the dest_path of a file system event if present (moved events only)
+    otherwise returns the src_path (which is also the "destination").
+
+    :param event: Watchdog file system event.
+    :returns: Destination path for moved event, source path otherwise.
+    """
+    if isinstance(event, (FileMovedEvent, DirMovedEvent)):
+        return event.dest_path
+    return event.src_path
 
 
 class SyncDirection(enum.Enum):
@@ -366,7 +381,7 @@ class SyncEvent(Model):
             # This is useful for testing.
             change_dbid = ""
 
-        to_path = getattr(event, "dest_path", event.src_path)
+        to_path = get_dest_path(event)
         from_path = None
 
         if event.event_type == EVENT_TYPE_CREATED:
