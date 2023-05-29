@@ -3,6 +3,11 @@
 #### Changed:
 
 * Preparation for upcoming API changes in `watchdog` dependency.
+* No more automatic reindexing: Maestral would automatically rebuild its index  every 14
+  days. This could occasionally lead to conflicting copies if a file was modified 
+  remotely during this process. This reindexing is not necessary, especially as syncing
+  has become very reliable. Starting with this release, reindexing needs to be triggered
+  manually through the GUI or CLI if required.
 
 #### Fixed:
 
