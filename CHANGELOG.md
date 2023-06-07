@@ -1,4 +1,12 @@
-## v1.7.3.dev
+## v1.8.0.dev
+
+#### Fixed:
+
+* Fixes the default systemd service name when enabling autostart on Linux. This was a
+  regression in v1.7.3. Autostart entries created with `maestral autostart -Y` prior to
+  v1.7.3 will continue to work.
+
+## v1.7.3
 
 This is the last release that supports Python 3.7 which will reach end-of-life on 27
 Jun 2023. The macOS app always ships with its own Python runtime, but custom
