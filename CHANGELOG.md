@@ -5,6 +5,8 @@
 * Fixes the default systemd service name when enabling autostart on Linux. This was a
   regression in v1.7.3. Autostart entries created with `maestral autostart -Y` prior to
   v1.7.3 will continue to work.
+* Fixes an issue where data transport errors that are retried could result in zero byte
+  files being created in the cloud if the local file size is smaller than 4 MB.
 
 ## v1.7.3
 
