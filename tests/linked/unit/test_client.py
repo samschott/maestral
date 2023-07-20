@@ -88,6 +88,22 @@ def test_upload_hash_mismatch(client: DropboxClient, monkeypatch) -> None:
     assert not client.get_metadata("/file.txt")
 
 
+def test_upload_hash_mismatch_retry(client: DropboxClient, monkeypatch) -> None:
+    """Test that upload succeeds after 3 failed attempts when starting session."""
+
+    file = resources + "/file.txt"
+
+    hasher = failing_content_hasher(0, 3)
+    monkeypatch.setattr(maestral.client, "DropboxContentHasher", hasher)
+
+    md = client.upload(file, "/file.txt")
+
+    local_hash = content_hash(file)[0]
+
+    assert md.content_hash == local_hash
+    assert client.get_metadata("/file.txt").content_hash == local_hash
+
+
 def test_upload_session_start_hash_mismatch(client: DropboxClient, monkeypatch) -> None:
     """Test that DataCorruptionError is raised after 10 failed attempts when starting
     to upload session."""
