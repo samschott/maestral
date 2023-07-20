@@ -345,7 +345,7 @@ class AutoStart:
             )
 
             self._impl = AutoStartSystemd(
-                service_name=f"maestral-daemon@{config_name}.service",
+                service_name="maestral-daemon@maestral.service",
                 start_cmd=" ".join(start_cmd),
                 unit_dict={"Description": "Maestral daemon for the config %i"},
                 service_dict={
