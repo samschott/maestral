@@ -328,7 +328,9 @@ def delete(
     """
     err: Optional[OSError] = None
 
-    if force_case_sensitive and path != to_existing_unnormalized_path(path):
+    if force_case_sensitive and not equal_but_for_unicode_norm(
+        path, to_existing_unnormalized_path(path)
+    ):
         err = FileNotFoundError(f"No such file '{path}'")
         if raise_error:
             raise err
