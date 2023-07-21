@@ -72,7 +72,7 @@ docs = [
     "furo==2023.5.20",
     "sphinx==7.0.1",
     "sphinxext-opengraph==0.8.2",
-    "sphinx-autoapi==2.1.0",
+    "sphinx-autoapi==2.1.1",
     "sphinx-mdinclude==0.5.3",
 ]
 dev = [
