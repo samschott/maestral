@@ -1,5 +1,9 @@
 ## v1.8.0.dev
 
+#### Changed:
+
+* Dropped support for Python 3.7 which was reached end-of-life on 27 Jun 2023.
+
 #### Fixed:
 
 * Fixes the default systemd service name when enabling autostart on Linux. This was a
