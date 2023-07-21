@@ -1300,14 +1300,14 @@ class SyncEngine:
         2) If the parent directory is already in our sync index, performance is slower
            because it requires a sqlite query but still O(1).
         3) If the parent directory is unknown to us, its metadata (including the correct
-           casing of directory's basename) is queried from Dropbox. This is used to
+           casing of the directory's basename) is queried from Dropbox. This is used to
            construct a correctly cased path by calling :meth:`correct_case` again. At
            best, performance will be of O(2) if the parent directory is known to us, at
-           worst it will be of order O(n) involving queries to Dropbox servers for each
-           parent directory.
+           worst it will be of order O(N) involving queries to Dropbox servers for each
+           of the N parent directories.
 
         When calling :meth:`correct_case` repeatedly for paths from the same tree, it is
-        therefore best to do so in hierarchical order.
+        therefore best to do so in top-down traversal.
 
         :param dbx_path: Dropbox path with correctly cased basename, as provided by
             :attr:`dropbox.files.Metadata.path_display` or
