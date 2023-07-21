@@ -918,15 +918,20 @@ class DropboxClient:
         if file_was_modified(os.stat(f.fileno()), old_stat):
             raise DataChangedError("File was modified during read")
 
-        with convert_api_errors(dbx_path=dbx_path):
-            md = self.dbx.files_upload(
-                self._throttled_upload_iter(data),
-                dbx_path,
-                client_modified=datetime.utcfromtimestamp(stat.st_mtime),
-                content_hash=get_hash(data),
-                mode=mode,
-                autorename=autorename,
-            )
+        try:
+            with convert_api_errors(dbx_path=dbx_path):
+                md = self.dbx.files_upload(
+                    self._throttled_upload_iter(data),
+                    dbx_path,
+                    client_modified=datetime.utcfromtimestamp(stat.st_mtime),
+                    content_hash=get_hash(data),
+                    mode=mode,
+                    autorename=autorename,
+                )
+        except Exception:
+            # Return to beginning of file.
+            f.seek(0)
+            raise
 
         if sync_event:
             sync_event.completed = f.tell()
