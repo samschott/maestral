@@ -24,11 +24,7 @@ import sys
 from pathlib import Path
 from enum import Enum
 from typing import Any
-
-try:
-    from importlib.metadata import files, PackageNotFoundError
-except ImportError:  # Python 3.7 and lower
-    from importlib_metadata import files, PackageNotFoundError
+from importlib.metadata import files, PackageNotFoundError
 
 # local imports
 from .utils.appdirs import get_home_dir, get_conf_path, get_data_path
