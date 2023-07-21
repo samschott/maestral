@@ -1285,7 +1285,7 @@ class SyncEngine:
                 f"{self._file_cache_path}.",
             )
 
-    def correct_case(self, dbx_path: str) -> str:
+    def correct_case(self, dbx_path_basename_cased: str) -> str:
         """
         Converts a Dropbox path with correctly cased basename to a fully cased path.
         This is useful because the Dropbox API guarantees the correct casing for the
@@ -1309,14 +1309,14 @@ class SyncEngine:
         When calling :meth:`correct_case` repeatedly for paths from the same tree, it is
         therefore best to do so in top-down traversal.
 
-        :param dbx_path: Dropbox path with correctly cased basename, as provided by
-            :attr:`dropbox.files.Metadata.path_display` or
+        :param dbx_path_basename_cased: Dropbox path with correctly cased basename, as
+            provided by :attr:`dropbox.files.Metadata.path_display` or
             :attr:`dropbox.files.Metadata.name`.
         :returns: Correctly cased Dropbox path.
         """
-        dbx_path_lower = normalize(dbx_path)
+        dbx_path_lower = normalize(dbx_path_basename_cased)
 
-        dirname, basename = osp.split(dbx_path)
+        dirname, basename = osp.split(dbx_path_basename_cased)
         dirname_lower = osp.dirname(dbx_path_lower)
 
         dirname_cased = self._correct_case_helper(dirname, dirname_lower)
@@ -1416,7 +1416,7 @@ class SyncEngine:
         :returns: Corresponding local path on drive.
         """
         dbx_path_cased = self.correct_case(dbx_path)
-        return f"{self.dropbox_path}{dbx_path_cased}"
+        return self.to_local_path_from_cased(dbx_path)
 
     def is_excluded(self, path: str) -> bool:
         """
