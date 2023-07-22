@@ -28,8 +28,6 @@ def main() -> None:
     pass
 
 
-main = cast(OrderedGroup, main)
-
 main.add_command(start, section="Core Commands")
 main.add_command(stop, section="Core Commands")
 main.add_command(gui, section="Core Commands")
