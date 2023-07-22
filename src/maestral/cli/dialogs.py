@@ -10,7 +10,6 @@ from typing import Callable, Sequence, TypeVar
 from typing_extensions import ParamSpec
 
 import survey
-import wrapio
 
 
 P = ParamSpec("P")
@@ -124,7 +123,6 @@ def select_path(
     files_allowed: bool = True,
     dirs_allowed: bool = True,
 ) -> str:
-    track = wrapio.Track()
     styled_message = _style_message(message)
 
     def check(value: str) -> None:
@@ -155,7 +153,6 @@ def select_path(
     result = survey.routines.input(
         styled_message,
         reply=reply,
-        callback=track.invoke,
         validate=check,
         escapable=True,
         mark_color=survey.colors.basic("cyan"),
