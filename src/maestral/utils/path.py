@@ -328,7 +328,9 @@ def delete(
     """
     err: Optional[OSError] = None
 
-    if force_case_sensitive and path != to_existing_unnormalized_path(path):
+    if force_case_sensitive and not equal_but_for_unicode_norm(
+        path, to_existing_unnormalized_path(path)
+    ):
         err = FileNotFoundError(f"No such file '{path}'")
         if raise_error:
             raise err
@@ -563,6 +565,10 @@ def isdir(path: _AnyPath) -> bool:
 def getsize(path: _AnyPath) -> int:
     """Returns the size. Returns False for symlinks."""
     return os.lstat(path).st_size
+
+
+def equal_but_for_unicode_norm(s0: str, s1: str) -> bool:
+    return normalize_unicode(s0) == normalize_unicode(s1)
 
 
 def get_symlink_target(local_path: str) -> Optional[str]:

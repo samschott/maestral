@@ -130,6 +130,7 @@ from .utils.path import (
     normalize,
     normalize_case,
     normalize_unicode,
+    equal_but_for_unicode_norm,
     get_existing_equivalent_paths,
     to_existing_unnormalized_path,
     get_symlink_target,
@@ -378,8 +379,7 @@ class FSEventHandler(FileSystemEventHandler):
             return
 
         # Ignore moves onto itself, they may be erroneously emitted on older versions of
-        # macOS when changing the unicode normalisation of a path with os.rename().
-        # See https://github.com/samschott/maestral/issues/671.
+        # macOS. See https://github.com/samschott/maestral/issues/671.
         if is_moved(event) and event.src_path == event.dest_path:
             return
 
@@ -912,7 +912,9 @@ class SyncEngine:
     def get_index_entry_for_local_path(self, local_path: str) -> IndexEntry | None:
         """
         Gets the index entry for the given local path. Ensures that the index entry has
-        the correct casing.
+        the correct casing but ignore unicode normalisation differences. Dropbox always
+        normalizes to composed (NFC) on upload, even in the display_path, so we cannot
+        distinguish.
 
         :param local_path: Local path as returned by file system APIs.
         :returns: Index entry or ``None`` if no entry exists for the given path.
@@ -925,7 +927,7 @@ class SyncEngine:
         if not index_entry:
             return None
 
-        if index_entry.dbx_path_cased == dbx_path_cased:
+        if equal_but_for_unicode_norm(index_entry.dbx_path_cased, dbx_path_cased):
             return index_entry
 
         return None
@@ -1416,7 +1418,7 @@ class SyncEngine:
         :returns: Corresponding local path on drive.
         """
         dbx_path_cased = self.correct_case(dbx_path)
-        return self.to_local_path_from_cased(dbx_path)
+        return self.to_local_path_from_cased(dbx_path_cased)
 
     def is_excluded(self, path: str) -> bool:
         """
@@ -1826,7 +1828,7 @@ class SyncEngine:
 
         try:
             local_path_displayed = to_existing_unnormalized_path(local_path)
-            return local_path_displayed == local_path
+            return equal_but_for_unicode_norm(local_path_displayed, local_path)
         except (FileNotFoundError, NotADirectoryError):
             return False
 
@@ -2220,11 +2222,9 @@ class SyncEngine:
 
         if len(equivalent_paths) > 1:
             # We have different file names that would map to the same normalized path!
-
             conflict_path = next(p for p in equivalent_paths if p != event.local_path)
 
             # Check if we have a case conflict or a unicode conflict.
-
             if normalize_case(event.local_path) == normalize_case(conflict_path):
                 suffix = "case conflict"
             elif normalize_unicode(event.local_path) == normalize_case(conflict_path):
@@ -2378,6 +2378,16 @@ class SyncEngine:
             return SyncStatus.Skipped
 
         dbx_path_from = cast(str, event.dbx_path_from)
+        local_path_from = cast(str, event.local_path_from)
+
+        # Ignore changes in unicode normalization only. This avoids deleting and
+        # recreating files on Dropbox which always normalizes to composed (NFC).
+        if equal_but_for_unicode_norm(local_path_from, event.local_path):
+            self._logger.debug(
+                "Ignoring rename in unicode norm only: %s -> %s",
+                local_path_from.encode(),
+                event.local_path.encode(),
+            )
 
         # If a file at the destination should be replaced, remove it first, but only if
         # its rev matches the rev of the local overwritten file.
