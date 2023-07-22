@@ -4,11 +4,13 @@ This module provides interactive commandline dialogs which are based on the
 """
 from __future__ import annotations
 
+import os
 import functools
 from typing import Callable, Sequence, TypeVar
 from typing_extensions import ParamSpec
 
-import click
+import survey
+import wrapio
 
 
 P = ParamSpec("P")
@@ -24,14 +26,12 @@ def _style_hint(hint: str) -> str:
 
 
 def _style_error(message: str) -> str:
-    return click.style(message, fg="red")
+    return survey.utils.paint(survey.colors.basic("red"), message)
 
 
 def exit_on_keyboard_interrupt(func: Callable[P, T]) -> Callable[P, T]:
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-        import survey
-
         try:
             return func(*args, **kwargs)
         except (KeyboardInterrupt, survey.widgets.Escape):
@@ -45,39 +45,43 @@ def prompt(
     message: str,
     validate: Callable[[str], bool] | None = None,
 ) -> str:
-    import survey
-
     def check(value: str) -> None:
         if validate is not None and not validate(value):
             raise survey.widgets.Abort(_style_error(f"'{value}' is not allowed"))
 
     return survey.routines.input(
-        _style_message(message), validate=check, escapable=True
+        _style_message(message),
+        validate=check,
+        escapable=True,
+        mark_color=survey.colors.basic("cyan"),
     )
 
 
 @exit_on_keyboard_interrupt
 def confirm(message: str, default: bool | None = True) -> bool:
-    import survey
-
     default_to_str = {True: "y", False: "n", None: None}
 
     return survey.routines.inquire(
-        _style_message(message), default=default_to_str[default], escapable=True
+        _style_message(message),
+        default=default_to_str[default],
+        escapable=True,
+        mark_color=survey.colors.basic("cyan"),
     )
 
 
 @exit_on_keyboard_interrupt
 def select(message: str, options: Sequence[str], hint: str | None = "") -> int:
-    import survey
-
     if hint is None:
         kwargs = {}
     else:
         kwargs = {"hint": _style_hint(hint)}
 
     return survey.routines.select(
-        _style_message(message), options=options, escapable=True, **kwargs
+        _style_message(message),
+        options=options,
+        escapable=True,
+        mark_color=survey.colors.basic("cyan"),
+        **kwargs,
     )
 
 
@@ -85,8 +89,6 @@ def select(message: str, options: Sequence[str], hint: str | None = "") -> int:
 def select_multiple(
     message: str, options: Sequence[str], hint: str | None = None
 ) -> list[int]:
-    import survey
-
     if hint is None:
         kwargs = {}
     else:
@@ -108,6 +110,7 @@ def select_multiple(
         negative_mark="[ ] ",
         reply=reply,
         escapable=True,
+        mark_color=survey.colors.basic("cyan"),
         **kwargs,
     )
 
@@ -121,12 +124,7 @@ def select_path(
     files_allowed: bool = True,
     dirs_allowed: bool = True,
 ) -> str:
-    import os
-    import survey
-    import wrapio
-
     track = wrapio.Track()
-
     styled_message = _style_message(message)
 
     def check(value: str) -> None:
@@ -160,6 +158,7 @@ def select_path(
         callback=track.invoke,
         validate=check,
         escapable=True,
+        mark_color=survey.colors.basic("cyan"),
         **kwargs,
     )
 
