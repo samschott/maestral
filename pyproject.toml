@@ -37,7 +37,7 @@ dependencies = [
     "rich",
     "rubicon-objc>=0.4.1;sys_platform=='darwin'",
     "setuptools",
-    "survey>=3.4.3,<4.0",
+    "survey>=4.0",
     "typing_extensions",
     "watchdog>=2.0.1",
 ]
