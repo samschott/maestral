@@ -1021,7 +1021,10 @@ class Maestral:
         """
         self._check_linked()
         self._logger.info(f"Restoring '{dbx_path} to {rev}'")
-        return self.client.restore(dbx_path, rev)
+        res = self.client.restore(dbx_path, rev)
+        self._logger.info(f"Restored '{dbx_path} to {rev}'")
+        self._logger.info(IDLE)
+        return res
 
     def _delete_old_profile_pics(self) -> None:
         for file in os.listdir(get_cache_path("maestral")):
