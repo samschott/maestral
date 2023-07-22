@@ -1,5 +1,3 @@
-from typing import cast
-
 # external imports
 import click
 
