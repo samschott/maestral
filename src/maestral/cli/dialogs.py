@@ -9,8 +9,6 @@ import functools
 from typing import Callable, Sequence, TypeVar
 from typing_extensions import ParamSpec
 
-import survey
-
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -25,12 +23,16 @@ def _style_hint(hint: str) -> str:
 
 
 def _style_error(message: str) -> str:
+    import survey
+
     return survey.utils.paint(survey.colors.basic("red"), message)
 
 
 def exit_on_keyboard_interrupt(func: Callable[P, T]) -> Callable[P, T]:
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        import survey
+
         try:
             return func(*args, **kwargs)
         except (KeyboardInterrupt, survey.widgets.Escape):
@@ -44,6 +46,8 @@ def prompt(
     message: str,
     validate: Callable[[str], bool] | None = None,
 ) -> str:
+    import survey
+
     def check(value: str) -> None:
         if validate is not None and not validate(value):
             raise survey.widgets.Abort(_style_error(f"'{value}' is not allowed"))
@@ -58,6 +62,8 @@ def prompt(
 
 @exit_on_keyboard_interrupt
 def confirm(message: str, default: bool | None = True) -> bool:
+    import survey
+
     default_to_str = {True: "y", False: "n", None: None}
 
     return survey.routines.inquire(
@@ -70,6 +76,8 @@ def confirm(message: str, default: bool | None = True) -> bool:
 
 @exit_on_keyboard_interrupt
 def select(message: str, options: Sequence[str], hint: str | None = "") -> int:
+    import survey
+
     if hint is None:
         kwargs = {}
     else:
@@ -88,6 +96,8 @@ def select(message: str, options: Sequence[str], hint: str | None = "") -> int:
 def select_multiple(
     message: str, options: Sequence[str], hint: str | None = None
 ) -> list[int]:
+    import survey
+
     if hint is None:
         kwargs = {}
     else:
@@ -123,6 +133,8 @@ def select_path(
     files_allowed: bool = True,
     dirs_allowed: bool = True,
 ) -> str:
+    import survey
+
     styled_message = _style_message(message)
 
     def check(value: str) -> None:
