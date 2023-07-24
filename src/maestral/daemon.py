@@ -402,9 +402,6 @@ def start_maestral_daemon(
         return
 
     try:
-        # Nice ourselves to give other processes priority.
-        os.nice(10)
-
         # ==== System integration ======================================================
         # Integrate with CFRunLoop in macOS.
         event_loop_policy: asyncio.AbstractEventLoopPolicy
