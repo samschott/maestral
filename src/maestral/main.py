@@ -1490,6 +1490,8 @@ class Maestral:
         if self.shutdown_future and self._loop and self._loop.is_running():
             self._loop.call_soon_threadsafe(self.shutdown_future.set_result, True)
 
+        self._logger.info("Shutting down")
+
     # ==== Verifiers ===================================================================
 
     def _check_linked(self) -> None:
