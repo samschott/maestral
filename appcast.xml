@@ -6,6 +6,126 @@
     <description>Stable releases of Maestral</description>
     <language>en</language>
     <item>
+      <title>v1.8.0 available</title>
+      <pubDate>2023-07-24T21:32:46Z</pubDate>
+      <sparkle:version>93</sparkle:version>
+      <sparkle:shortVersionString>1.8.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <!DOCTYPE html>
+        <html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="generator" content="pandoc" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+          <title>v1.8.0</title>
+          <style>
+            code{white-space: pre-wrap;}
+            span.smallcaps{font-variant: small-caps;}
+            div.columns{display: flex; gap: min(4vw, 1.5em);}
+            div.column{flex: auto; overflow-x: auto;}
+            div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+            /* The extra [class] is a hack that increases specificity enough to
+               override a similar rule in reveal.js */
+            ul.task-list[class]{list-style: none;}
+            ul.task-list li input[type="checkbox"] {
+              font-size: inherit;
+              width: 0.8em;
+              margin: 0 0.8em 0.2em -1.6em;
+              vertical-align: middle;
+            }
+            .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+          </style>
+          <link rel="stylesheet" href="" />
+          <style>
+                :root {
+                    font-size: 11px;
+                }
+                body {
+                    padding: 0 0.5rem 0 0.5rem;
+                    font-family: -apple-system;
+                    line-height: 1.2rem;
+                }
+                h1 {
+                    font-size: 1.3rem;
+                }
+                h2,h3,h4 {
+                    font-size: 1.2rem;
+                    margin-block-end: 1rem;
+                }
+                ul {
+                    padding-left: 2rem;
+                    margin-top: 0rem;
+                    margin-bottom: 1.3rem;
+                }
+                li, p {
+                    margin-left: 0;
+                    margin-top: 0;
+                    margin-bottom: 0.5rem;
+                    font-size: 1.1rem;
+                }
+                .annotation {
+                    font-size: 1.1rem;
+                }
+                @media (prefers-color-scheme: light) {
+                    h1 {
+                        color: #272727;
+                    }
+                    a {
+                        color: #0948be;
+                    }
+                }
+                @media (prefers-color-scheme: dark) {
+                    body {
+                        background-color: #1e1e1e;
+                        color: #D9D9D9; /* For headers */
+                    }
+                    li, p {
+                        color:#FFFFFF;
+                    }
+                    a {
+                        color: #3586FF;
+                    }
+                }
+            </style>
+          <!--[if lt IE 9]>
+            <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+          <![endif]-->
+        </head>
+        <body>
+        <header id="title-block-header">
+        <h1 class="title">v1.8.0</h1>
+        </header>
+        <h4 id="changed">Changed:</h4>
+        <ul>
+        <li>Dropped support for Python 3.7 which was reached end-of-life on 27
+        Jun 2023.</li>
+        </ul>
+        <h4 id="fixed">Fixed:</h4>
+        <ul>
+        <li>Fixes the default systemd service name when enabling autostart on
+        Linux. This was a regression in v1.7.3. Autostart entries created with
+        <code>maestral autostart -Y</code> prior to v1.7.3 will continue to
+        work.</li>
+        <li>Fixes an issue where data transport errors that are retried could
+        result in zero byte files being created in the cloud if the local file
+        size is smaller than 4 MB.</li>
+        <li>Fixes an issue where renaming a local file by making unicode
+        normalisation changes only could lead to a cycle of deletion and
+        re-creation on Dropbox servers when syncing with Maestral from multiple
+        machines.</li>
+        </ul>
+        </body>
+        </html>
+
+      ]]>
+      </description>
+      <enclosure
+        url="https://github.com/samschott/maestral/releases/download/v1.8.0/Maestral-1.8.0.dmg"
+        sparkle:edSignature="Y+5VBEXlrYNQQK1t99BznC1vlBIrCCtXyTalLQz0E2/jR0xhlVrOZpN5BOLE2oAojnDKiDN5XKYyQJ4uHak1BA==" length="21410935"
+        type="application/octet-stream"/>
+    </item>
+    <item>
       <title>v1.7.3 available</title>
       <pubDate>2023-05-29T20:29:39Z</pubDate>
       <sparkle:version>90</sparkle:version>
@@ -25,8 +145,11 @@
             div.columns{display: flex; gap: min(4vw, 1.5em);}
             div.column{flex: auto; overflow-x: auto;}
             div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-            ul.task-list{list-style: none;}
+            /* The extra [class] is a hack that increases specificity enough to
+               override a similar rule in reveal.js */
+            ul.task-list[class]{list-style: none;}
             ul.task-list li input[type="checkbox"] {
+              font-size: inherit;
               width: 0.8em;
               margin: 0 0.8em 0.2em -1.6em;
               vertical-align: middle;
@@ -116,8 +239,8 @@
         app bundle. This applies to autostart entries created with
         <code>maestral autostart -Y</code> and not using the “Start on login”
         checkbox in the GUI.</li>
-        <li>The <code>filestatus</code> now is case-sensitive when checking on a
-        case-sensitive file system.</li>
+        <li>The <code>filestatus</code> command now is case-sensitive when
+        checking on a case-sensitive file system.</li>
         <li>Fixes an issue where renaming a file by changing the casing only
         would not be picked up if Maestral was not running during the
         rename.</li>
@@ -152,8 +275,11 @@
             div.columns{display: flex; gap: min(4vw, 1.5em);}
             div.column{flex: auto; overflow-x: auto;}
             div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-            ul.task-list{list-style: none;}
+            /* The extra [class] is a hack that increases specificity enough to
+               override a similar rule in reveal.js */
+            ul.task-list[class]{list-style: none;}
             ul.task-list li input[type="checkbox"] {
+              font-size: inherit;
               width: 0.8em;
               margin: 0 0.8em 0.2em -1.6em;
               vertical-align: middle;
@@ -278,8 +404,11 @@
             div.columns{display: flex; gap: min(4vw, 1.5em);}
             div.column{flex: auto; overflow-x: auto;}
             div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-            ul.task-list{list-style: none;}
+            /* The extra [class] is a hack that increases specificity enough to
+               override a similar rule in reveal.js */
+            ul.task-list[class]{list-style: none;}
             ul.task-list li input[type="checkbox"] {
+              font-size: inherit;
               width: 0.8em;
               margin: 0 0.8em 0.2em -1.6em;
               vertical-align: middle;
@@ -380,8 +509,11 @@
             div.columns{display: flex; gap: min(4vw, 1.5em);}
             div.column{flex: auto; overflow-x: auto;}
             div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-            ul.task-list{list-style: none;}
+            /* The extra [class] is a hack that increases specificity enough to
+               override a similar rule in reveal.js */
+            ul.task-list[class]{list-style: none;}
             ul.task-list li input[type="checkbox"] {
+              font-size: inherit;
               width: 0.8em;
               margin: 0 0.8em 0.2em -1.6em;
               vertical-align: middle;
@@ -488,142 +620,6 @@
       <enclosure
         url="https://github.com/samschott/maestral/releases/download/v1.7.0/Maestral-1.7.0.dmg"
         sparkle:edSignature="9Ym+kNMjaIGg+K0p4I2GHM7hc1Hop+gpgB+iYzNBVAxIEYCwZyG/ImXhh2n3077cjRxrW6Q+ZReq543F1ShnAA==" length="21984702"
-        type="application/octet-stream"/>
-    </item>
-    <item>
-      <title>v1.6.4 available</title>
-      <pubDate>2022-12-04T13:33:38Z</pubDate>
-      <sparkle:version>70</sparkle:version>
-      <sparkle:shortVersionString>1.6.4</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
-      <description><![CDATA[
-        <!DOCTYPE html>
-        <html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
-        <head>
-          <meta charset="utf-8" />
-          <meta name="generator" content="pandoc" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-          <title>v1.6.4</title>
-          <style>
-            code{white-space: pre-wrap;}
-            span.smallcaps{font-variant: small-caps;}
-            div.columns{display: flex; gap: min(4vw, 1.5em);}
-            div.column{flex: auto; overflow-x: auto;}
-            div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-            ul.task-list{list-style: none;}
-            ul.task-list li input[type="checkbox"] {
-              width: 0.8em;
-              margin: 0 0.8em 0.2em -1.6em;
-              vertical-align: middle;
-            }
-            .display.math{display: block; text-align: center; margin: 0.5rem auto;}
-          </style>
-          <link rel="stylesheet" href="" />
-          <style>
-                :root {
-                    font-size: 11px;
-                }
-                body {
-                    padding: 0 0.5rem 0 0.5rem;
-                    font-family: -apple-system;
-                    line-height: 1.2rem;
-                }
-                h1 {
-                    font-size: 1.3rem;
-                }
-                h2,h3,h4 {
-                    font-size: 1.2rem;
-                    margin-block-end: 1rem;
-                }
-                ul {
-                    padding-left: 2rem;
-                    margin-top: 0rem;
-                    margin-bottom: 1.3rem;
-                }
-                li, p {
-                    margin-left: 0;
-                    margin-top: 0;
-                    margin-bottom: 0.5rem;
-                    font-size: 1.1rem;
-                }
-                .annotation {
-                    font-size: 1.1rem;
-                }
-                @media (prefers-color-scheme: light) {
-                    h1 {
-                        color: #272727;
-                    }
-                    a {
-                        color: #0948be;
-                    }
-                }
-                @media (prefers-color-scheme: dark) {
-                    body {
-                        background-color: #1e1e1e;
-                        color: #D9D9D9; /* For headers */
-                    }
-                    li, p {
-                        color:#FFFFFF;
-                    }
-                    a {
-                        color: #3586FF;
-                    }
-                }
-            </style>
-          <!--[if lt IE 9]>
-            <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
-          <![endif]-->
-        </head>
-        <body>
-        <header id="title-block-header">
-        <h1 class="title">v1.6.4</h1>
-        </header>
-        <h4 id="changed">Changed:</h4>
-        <ul>
-        <li>Drops support for macOS 10.13 and 10.14. macOS 10.15 or later is now
-        required, reflecting the support status from Apple. In the future, we
-        will drop support for macOS versions once they no longer receive
-        security updates.</li>
-        <li>Improved status messages: the sync count is now updated as items are
-        uploaded or downloaded instead of with a delay.</li>
-        <li><code>maestral activity</code> now shows animating progress bars to
-        view upload and download progress.</li>
-        <li><code>maestral sharelink list</code> now outputs plain urls,
-        separated by new lines. Use the <code>--long | -l</code> option if you
-        would like a pretty-printed table with additional information about each
-        link.</li>
-        <li><code>maestral history</code> now shows where the listed changes
-        occurred (local vs remote).</li>
-        <li>When multiple GUIs are installed (for example Qt and Cocoa), ask the
-        user to choose when running <code>maestral gui</code> instead of
-        selecting a default.</li>
-        </ul>
-        <h4 id="fixed">Fixed:</h4>
-        <ul>
-        <li>Fixes an error which would prevent running Maestral on Python
-        3.7.</li>
-        <li>Fixes a regression where the CLI command
-        <code>maestral activity</code> would fail when run from a macOS app
-        bundle.</li>
-        <li>Fixes an issue where reauthorizing Maestral’s Dropbox access could
-        hang indefinitely.</li>
-        <li>Fixes an issue on macOS where changing the casing of two local file
-        names in the same folder in quick succession could result in the second
-        file being deleted during sync.</li>
-        </ul>
-        <h4 id="dependencies">Dependencies:</h4>
-        <ul>
-        <li>Introduced <code>rich</code> dependency.</li>
-        <li>Removed <code>sdnotify</code> dependency.</li>
-        </ul>
-        </body>
-        </html>
-
-      ]]>
-      </description>
-      <enclosure
-        url="https://github.com/samschott/maestral/releases/download/v1.6.4/Maestral-1.6.4.dmg"
-        sparkle:edSignature="K0MwaIDT/y3MekdwAlvT5GouKwjJ18rEE9x4xBS4CBvpRTVeZCr7ou2q/6HBXJ0Ig/LD9qOk9/Pkm2SJFHJjBg==" length="21882947"
         type="application/octet-stream"/>
     </item>
   </channel>

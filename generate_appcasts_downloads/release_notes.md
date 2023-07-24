@@ -1,20 +1,18 @@
 #### Changed:
 
-* Drops support for macOS 10.13 and 10.14. macOS 10.15 or later is now required, reflecting the support status from Apple. In the future, we will drop support for macOS versions once they no longer receive security updates.
-* Improved status messages: the sync count is now updated as items are uploaded or downloaded instead of with a delay.
-* `maestral activity` now shows animating progress bars to view upload and download progress.
-* `maestral sharelink list` now outputs plain urls, separated by new lines. Use the `--long | -l` option if you would like a pretty-printed table with additional information about each link.
-* `maestral history` now shows where the listed changes occurred (local vs remote).
-* When multiple GUIs are installed (for example Qt and Cocoa), ask the user to choose when running `maestral gui` instead of selecting a default.
+* Allow limiting the upload and download bandwidth used for syncing, either by setting the config file values, by using the CLI `maestral bandwidth-limit up|down`, or through the Settings pane in the GUI.
+* Add config file items for the maximum number of parallel file transfers.
+* Speed up querying the sync status of folders.
+* Added support for Python 3.12.
 
 #### Fixed:
 
-* Fixes an error which would prevent running Maestral on Python 3.7.
-* Fixes a regression where the CLI command `maestral activity` would fail when run from a macOS app bundle.
-* Fixes an issue where reauthorizing Maestral's Dropbox access could hang indefinitely.
-* Fixes an issue on macOS where changing the casing of two local file names in the same folder in quick succession could result in the second file being deleted during sync.
+* Fixes the download sync of remote symlinks. The local item now is an actual symlink instead of a 0 KB file.
+* Fixes an issue where the Login Items entry for Maestral would incorrectly be listed with the developer name instead of the app name in macOS Ventura's System Settings.
+* Fixes an issue which would prevent periodic reindexing.
+* Fixes an issue with interrupted downloads of folders which are newly included by selective sync not automatically resuming when Maestral restarts.
+* Fixes an issue with detect the init system on some Linux distributions, a prerequisite for the autostart functionality.
 
-#### Dependencies:
+#### Removed:
 
-* Introduced `rich` dependency.
-* Removed `sdnotify` dependency.
+* Removed support for access token authentication. Users who linked Maestral to their Dropbox account before September 2020 will be asked to reauthenticate so that Maestral can retrieve a refresh token instead.
