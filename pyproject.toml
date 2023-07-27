@@ -69,7 +69,7 @@ test = [
 ]
 docs = [
     "furo==2023.7.26",
-    "sphinx==7.0.1",
+    "sphinx==7.1.0",
     "sphinxext-opengraph==0.8.2",
     "sphinx-autoapi==2.1.1",
     "sphinx-mdinclude==0.5.3",
