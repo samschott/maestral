@@ -101,7 +101,7 @@ def convert_api_errors(
             # Can occur on macOS, see https://bugs.python.org/issue33450.
             raise DropboxConnectionError(
                 "Cannot connect to Dropbox",
-                "Please check you internet connection and try again later.",
+                "Please check your internet connection and try again later.",
             )
         else:
             raise os_to_maestral_error(exc, dbx_path, local_path)
