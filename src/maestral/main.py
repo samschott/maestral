@@ -16,7 +16,7 @@ import mimetypes
 import difflib
 import logging
 from asyncio import AbstractEventLoop, Future
-from typing import Iterator, Any, Sequence
+from typing import Iterator, Any, Sequence, Collection
 
 # external imports
 import requests
@@ -394,7 +394,7 @@ class Maestral:
             return self.sync.dropbox_path
 
     @property
-    def excluded_items(self) -> list[str]:
+    def excluded_items(self) -> set[str]:
         """
         The list of files and folders excluded by selective sync. Any changes to this
         list will be applied immediately if we have already performed the initial sync.
@@ -405,18 +405,18 @@ class Maestral:
         items from selective sync.
         """
         if self.pending_link:
-            return []
+            return set()
         else:
             return self.sync.excluded_items
 
     @excluded_items.setter
-    def excluded_items(self, items: list[str]) -> None:
+    def excluded_items(self, items: Collection[str]) -> None:
         """Setter: excluded_items"""
         excluded_items = self.sync.clean_excluded_items_list(items)
         old_excluded_items = self.excluded_items
 
-        added_excluded_items = set(excluded_items) - set(old_excluded_items)
-        added_included_items = set(old_excluded_items) - set(excluded_items)
+        added_excluded_items = excluded_items - old_excluded_items
+        added_included_items = old_excluded_items - excluded_items
 
         has_changes = len(added_excluded_items) > 0 or len(added_included_items) > 0
 
@@ -1117,7 +1117,7 @@ class Maestral:
             try:
                 # ---- update excluded items list --------------------------------------
                 excluded_items = self.sync.excluded_items
-                excluded_items.append(dbx_path_lower)
+                excluded_items.add(dbx_path_lower)
 
                 self.sync.excluded_items = excluded_items
 
@@ -1189,13 +1189,10 @@ class Maestral:
             return
 
         # ---- update excluded items list ----------------------------------------------
-        excluded_items = set(self.sync.excluded_items)
+        excluded_items = self.sync.excluded_items
 
         # Remove dbx_path from list.
-        try:
-            excluded_items.remove(dbx_path_lower)
-        except KeyError:
-            pass
+        excluded_items.discard(dbx_path_lower)
 
         excluded_parent: str | None = None
 
@@ -1218,7 +1215,7 @@ class Maestral:
 
         if self.sync.sync_lock.acquire(blocking=False):
             try:
-                self.sync.excluded_items = list(excluded_items)
+                self.sync.excluded_items = excluded_items
 
                 # ---- download item from Dropbox --------------------------------------
                 if excluded_parent:

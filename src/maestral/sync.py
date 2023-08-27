@@ -620,7 +620,7 @@ class SyncEngine:
         self._mignore_path: str = osp.join(self._dropbox_path, MIGNORE_FILE)
         self._file_cache_path: str = osp.join(self._dropbox_path, FILE_CACHE)
 
-        self._excluded_items: list[str] = self._conf.get("sync", "excluded_items")
+        self._excluded_items: set[str] = set(self._conf.get("sync", "excluded_items"))
         self._max_cpu_percent: float = (
             self._conf.get("sync", "max_cpu_percent") * CPU_CORE_COUNT
         )
@@ -681,8 +681,8 @@ class SyncEngine:
         return self._file_cache_path
 
     @property
-    def excluded_items(self) -> list[str]:
-        """List of all files and folders excluded from sync. Changes are saved to the
+    def excluded_items(self) -> set[str]:
+        """Set of all files and folders excluded from sync. Changes are saved to the
         config file. If a parent folder is excluded, its children will automatically be
         removed from the list. If only children are given but not the parent folder, any
         new items added to the parent will be synced. Change this property *before*
@@ -690,31 +690,29 @@ class SyncEngine:
         return self._excluded_items
 
     @excluded_items.setter
-    def excluded_items(self, folder_list: list[str]) -> None:
+    def excluded_items(self, dbx_paths: Collection[str]) -> None:
         """Setter: excluded_items"""
         with self.sync_lock:
-            clean_list = self.clean_excluded_items_list(folder_list)
-            self._excluded_items = clean_list
-            self._conf.set("sync", "excluded_items", clean_list)
+            self._excluded_items = self.clean_excluded_items_list(dbx_paths)
+            self._conf.set("sync", "excluded_items", list(self._excluded_items))
 
     @staticmethod
-    def clean_excluded_items_list(folder_list: Collection[str]) -> list[str]:
+    def clean_excluded_items_list(dbx_paths: Collection[str]) -> set[str]:
         """
         Removes all duplicates and children of excluded items from the excluded items
         list. Normalises all paths to lower case.
 
-        :param folder_list: Dropbox paths to exclude.
+        :param dbx_paths: Dropbox paths to exclude.
         :returns: Cleaned up items.
         """
         # Remove duplicate entries by creating set, strip trailing '/'.
-        folder_set = {normalize(f).rstrip("/") for f in folder_list}
+        dbx_paths_lower = {normalize(f).rstrip("/") for f in dbx_paths}
 
         # Remove all children of excluded folders.
-        clean_list = list(folder_set)
-        for folder in folder_set:
-            clean_list = [f for f in clean_list if not is_child(f, folder)]
+        for path in dbx_paths_lower.copy():
+            dbx_paths_lower = {p for p in dbx_paths_lower if not is_child(p, path)}
 
-        return clean_list
+        return dbx_paths_lower
 
     @property
     def max_cpu_percent(self) -> float:
@@ -1290,6 +1288,7 @@ class SyncEngine:
     def correct_case(self, dbx_path_basename_cased: str) -> str:
         """
         Converts a Dropbox path with correctly cased basename to a fully cased path.
+
         This is useful because the Dropbox API guarantees the correct casing for the
         basename only. In practice, casing of parent directories is often incorrect.
         This method retrieves the correct casing of all ancestors in the path, either
@@ -3025,11 +3024,11 @@ class SyncEngine:
             if is_excluded:
                 if event.is_deleted:
                     # Remove deleted item and its children from the excluded list.
-                    new_excluded = [
+                    new_excluded = {
                         path
                         for path in new_excluded
                         if not is_equal_or_child(path, event.dbx_path_lower)
-                    ]
+                    }
 
             else:
                 level = event.dbx_path.count("/")

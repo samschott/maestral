@@ -219,25 +219,25 @@ def test_selective_sync_global(m: Maestral) -> None:
     wait_for_idle(m)
 
     # exclude "/selective_sync_test_folder" and one child from sync
-    m.excluded_items = [
+    m.excluded_items = {
         "/selective_sync_test_folder",
         "/selective_sync_test_folder/subfolder_0",
-    ]
+    }
     wait_for_idle(m)
 
     # check that local items have been deleted
     assert not osp.exists(m.to_local_path("/selective_sync_test_folder"))
 
     # check that `Maestral.excluded_items` has been updated correctly
-    assert m.excluded_items == ["/selective_sync_test_folder"]
+    assert m.excluded_items == {"/selective_sync_test_folder"}
 
     # exclude only child folder from sync, check that it worked
-    m.excluded_items = ["/selective_sync_test_folder/subfolder_0"]
+    m.excluded_items = {"/selective_sync_test_folder/subfolder_0"}
     wait_for_idle(m)
 
     assert osp.exists(m.to_local_path("/selective_sync_test_folder"))
     assert osp.exists(m.to_local_path("/selective_sync_test_folder/subfolder_1"))
-    assert m.excluded_items == ["/selective_sync_test_folder/subfolder_0"]
+    assert m.excluded_items == {"/selective_sync_test_folder/subfolder_0"}
 
     # check for fatal errors
     assert not m.fatal_errors

@@ -58,12 +58,11 @@ def excluded() -> None:
 @inject_proxy(fallback=True, existing_config=True)
 def excluded_list(m: Maestral) -> None:
     excluded_items = m.excluded_items
-    excluded_items.sort()
 
     if len(excluded_items) == 0:
         echo("No excluded files or folders.")
     else:
-        for item in excluded_items:
+        for item in sorted(excluded_items):
             echo(item)
 
 
