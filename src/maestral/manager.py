@@ -487,10 +487,9 @@ class SyncManager:
 
                 # Migrate all excluded items.
                 self._logger.debug("Migrating excluded items")
-                new_excluded = [
+                self.sync.excluded_items = {
                     new_user_home_path + path for path in self.sync.excluded_items
-                ]
-                self.sync.excluded_items = new_excluded
+                }
 
             elif new_root_type == "user" and current_root_type == "team":
                 # User left a team.
@@ -533,13 +532,11 @@ class SyncManager:
                 # prefix from excluded items. If the user folder itself is
                 # excluded, keep it excluded.
                 self._logger.debug("Migrating excluded items")
-                new_excluded = [
+                self.sync.excluded_items = {
                     removeprefix(path, current_user_home_path_lower)
                     for path in self.sync.excluded_items
                     if is_child(path, current_user_home_path_lower)
-                ]
-
-                self.sync.excluded_items = new_excluded
+                }
 
             elif new_root_type == "team" and current_root_type == "team":
                 # User switched between different teams.
@@ -559,12 +556,11 @@ class SyncManager:
                 # Prune all teams folders from excluded list. If the user folder
                 # itself is excluded, keep it excluded.
                 self._logger.debug("Migrating excluded items")
-                new_excluded = [
+                self.sync.excluded_items = {
                     path
                     for path in self.sync.excluded_items
                     if is_equal_or_child(path, current_user_home_path_lower)
-                ]
-                self.sync.excluded_items = new_excluded
+                }
 
             # Update path root of client.
             self.sync.client.update_path_root(root_info)

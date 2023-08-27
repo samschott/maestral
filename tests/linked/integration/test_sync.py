@@ -415,7 +415,7 @@ def test_excluded_folder_cleared_on_deletion(m: Maestral) -> None:
     wait_for_idle(m)
 
     # Exclude the folder from sync.
-    m.exclude_item(dbx_path)
+    m.exclude_items(dbx_path)
     wait_for_idle(m)
 
     assert normalize(dbx_path) in m.excluded_items
@@ -793,7 +793,7 @@ def test_selective_sync_conflict(m: Maestral) -> None:
     wait_for_idle(m)
 
     # exclude 'folder' from sync
-    m.exclude_item("/folder")
+    m.exclude_items("/folder")
     wait_for_idle(m)
 
     assert_synced(m, {})

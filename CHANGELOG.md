@@ -1,3 +1,9 @@
+## v1.8.1.dev:
+
+#### Changed:
+
+* Allow passing multiple paths to `maestral excluded add | remove` CLI commands.
+
 ## v1.8.0
 
 #### Changed:
