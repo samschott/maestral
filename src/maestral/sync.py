@@ -148,6 +148,7 @@ __all__ = [
     "SyncEngine",
     "ActivityNode",
     "ActivityTree",
+    "pf_repr",
 ]
 
 umask = os.umask(0o22)
@@ -687,7 +688,7 @@ class SyncEngine:
         removed from the list. If only children are given but not the parent folder, any
         new items added to the parent will be synced. Change this property *before*
         downloading newly included items or deleting excluded items."""
-        return self._excluded_items
+        return self._excluded_items.copy()
 
     @excluded_items.setter
     def excluded_items(self, dbx_paths: Collection[str]) -> None:

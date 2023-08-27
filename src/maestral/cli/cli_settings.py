@@ -68,38 +68,41 @@ def excluded_list(m: Maestral) -> None:
 
 @excluded.command(
     name="add",
-    help="Add a file or folder to the excluded list and re-sync.",
+    help="Add files or folders to the excluded list and re-sync.",
 )
-@click.argument("dropbox_path", type=DropboxPath())
+@click.argument("dropbox_path", type=DropboxPath(), nargs=-1)
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
-def excluded_add(m: Maestral, dropbox_path: str) -> None:
-    if dropbox_path == "/":
+def excluded_add(m: Maestral, dropbox_paths: list[str]) -> None:
+    if any(p == "/" for p in dropbox_paths):
         raise CliException("Cannot exclude the root directory.")
 
-    m.exclude_item(dropbox_path)
-    ok(f"Excluded '{dropbox_path}'.")
+    m.exclude_items(*dropbox_paths)
+    for path in dropbox_paths:
+        ok(f"Excluded '{path}'")
 
 
 @excluded.command(
     name="remove",
     help="""
-Remove a file or folder from the excluded list and re-sync.
+Remove files or folders from the excluded list and re-sync.
 
 It is safe to call this method with items which have already been included, they will
 not be downloaded again. If the given path lies inside an excluded folder, the parent
 folder will be included as well (but no other items inside it).
 """,
 )
-@click.argument("dropbox_path", type=DropboxPath())
+@click.argument("dropbox_path", type=DropboxPath(), nargs=-1)
 @inject_proxy(fallback=False, existing_config=True)
 @convert_api_errors
-def excluded_remove(m: Maestral, dropbox_path: str) -> None:
-    if dropbox_path == "/":
+def excluded_remove(m: Maestral, dropbox_paths: str) -> None:
+    if any(p == "/" for p in dropbox_paths):
         return echo("The root directory is always included")
 
-    m.include_item(dropbox_path)
-    ok(f"Included '{dropbox_path}'. Now downloading...")
+    m.include_items(*dropbox_paths)
+    for path in dropbox_paths:
+        ok(f"Included '{path}'")
+    ok("Downloading...")
 
 
 @click.group(help="Manage desktop notifications.")
