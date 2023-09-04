@@ -10,7 +10,7 @@ jobs:
   pypi:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4.7.0
         with:
           python-version: '3.x'
@@ -39,7 +39,7 @@ jobs:
     needs: pypi
     steps:
       - name: Checkout project
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Fetching tags
         run: git fetch --prune --unshallow --force --tags
