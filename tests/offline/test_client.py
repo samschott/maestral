@@ -194,7 +194,7 @@ def test_convert_space_usage_individual():
 
     space_usage = convert_space_usage(dbx_space_usage)
 
-    assert isinstance(space_usage, core.SpaceUsage)
+    assert isinstance(space_usage, core.PersonalSpaceUsage)
     assert space_usage.used == 10
     assert space_usage.allocated == 20
     assert space_usage.team_usage is None
@@ -215,10 +215,10 @@ def test_convert_space_usage_team():
 
     space_usage = convert_space_usage(dbx_space_usage)
 
-    assert isinstance(space_usage, core.SpaceUsage)
+    assert isinstance(space_usage, core.PersonalSpaceUsage)
     assert space_usage.used == 10
     assert space_usage.allocated == 30
-    assert space_usage.team_usage == core.TeamSpaceUsage(20, 30)
+    assert space_usage.team_usage == core.SpaceUsage(20, 30)
 
     dbx_space_usage = users.SpaceUsage(
         used=10,
@@ -234,10 +234,10 @@ def test_convert_space_usage_team():
 
     space_usage = convert_space_usage(dbx_space_usage)
 
-    assert isinstance(space_usage, core.SpaceUsage)
+    assert isinstance(space_usage, core.PersonalSpaceUsage)
     assert space_usage.used == 10
     assert space_usage.allocated == 15
-    assert space_usage.team_usage == core.TeamSpaceUsage(20, 30)
+    assert space_usage.team_usage == core.SpaceUsage(20, 30)
 
 
 def test_convert_space_usage_other():
@@ -248,7 +248,7 @@ def test_convert_space_usage_other():
 
     space_usage = convert_space_usage(dbx_space_usage)
 
-    assert isinstance(space_usage, core.SpaceUsage)
+    assert isinstance(space_usage, core.PersonalSpaceUsage)
     assert space_usage.used == 10
     assert space_usage.allocated == 0
     assert space_usage.team_usage is None
