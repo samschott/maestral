@@ -36,7 +36,7 @@ from .keyring import CredentialStorage
 from .core import (
     SharedLinkMetadata,
     FullAccount,
-    SpaceUsage,
+    PersonalSpaceUsage,
     Metadata,
     FileMetadata,
     LinkAudience,
@@ -746,7 +746,7 @@ class Maestral:
         self._check_linked()
         return self.client.get_account_info()
 
-    def get_space_usage(self) -> SpaceUsage:
+    def get_space_usage(self) -> PersonalSpaceUsage:
         """
         Gets the space usage from Dropbox and returns it as a dictionary.
 

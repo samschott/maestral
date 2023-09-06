@@ -50,8 +50,8 @@ from .core import (
     UserRootInfo,
     TeamRootInfo,
     FullAccount,
-    TeamSpaceUsage,
     SpaceUsage,
+    PersonalSpaceUsage,
     WriteMode,
     Metadata,
     DeletedMetadata,
@@ -657,7 +657,7 @@ class DropboxClient:
 
         return self._cached_account_info
 
-    def get_space_usage(self) -> SpaceUsage:
+    def get_space_usage(self) -> PersonalSpaceUsage:
         """
         :returns: The space usage of the currently linked account.
         """
@@ -1662,7 +1662,7 @@ def convert_full_account(res: users.FullAccount) -> FullAccount:
     )
 
 
-def convert_space_usage(res: users.SpaceUsage) -> SpaceUsage:
+def convert_space_usage(res: users.SpaceUsage) -> PersonalSpaceUsage:
     if res.allocation.is_team():
         team_allocation = res.allocation.get_team()
         if team_allocation.user_within_team_space_allocated == 0:
@@ -1670,16 +1670,16 @@ def convert_space_usage(res: users.SpaceUsage) -> SpaceUsage:
             allocated = team_allocation.allocated
         else:
             allocated = team_allocation.user_within_team_space_allocated
-        return SpaceUsage(
+        return PersonalSpaceUsage(
             res.used,
             allocated,
-            TeamSpaceUsage(team_allocation.used, team_allocation.allocated),
+            SpaceUsage(team_allocation.used, team_allocation.allocated),
         )
     elif res.allocation.is_individual():
         individual_allocation = res.allocation.get_individual()
-        return SpaceUsage(res.used, individual_allocation.allocated, None)
+        return PersonalSpaceUsage(res.used, individual_allocation.allocated, None)
     else:
-        return SpaceUsage(res.used, 0, None)
+        return PersonalSpaceUsage(res.used, 0, None)
 
 
 def convert_metadata(res):  # type:ignore[no-untyped-def]
