@@ -124,7 +124,7 @@ class SyncEvent(Model):
     """
 
     sync_time = NonNullColumn(SqlFloat())
-    """The time the SyncEvent was registered."""
+    """Timestamp in Unix epoch seconds the SyncEvent was registered."""
 
     dbx_id = Column(SqlString())
     """
@@ -197,6 +197,8 @@ class SyncEvent(Model):
 
     change_time = Column(SqlFloat())
     """
+    Timestamp in Unix epoch seconds when the file was last modified.
+
     Local ctime or remote ``client_modified`` time for files. ``None`` for folders or
     for remote deletions. Note that ``client_modified`` may not be reliable as it is set
     by other clients and not verified.
