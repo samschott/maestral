@@ -69,9 +69,9 @@ __all__ = [
 
 # systemd environment
 NOTIFY_SOCKET = os.getenv("NOTIFY_SOCKET")
-WATCHDOG_PID = int(os.getenv("WATCHDOG_PID", os.getpid()))
 WATCHDOG_USEC = os.getenv("WATCHDOG_USEC")
-IS_WATCHDOG = WATCHDOG_USEC and WATCHDOG_PID == os.getpid()
+WATCHDOG_PID = os.getenv("WATCHDOG_PID")
+IS_WATCHDOG = WATCHDOG_PID is None or WATCHDOG_PID == str(os.getpid())
 
 
 URI = "PYRO:maestral.{0}@{1}"
