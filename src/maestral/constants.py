@@ -12,12 +12,14 @@ from importlib_metadata import metadata, PackageNotFoundError
 from typing import ContextManager
 
 try:
+    # For Python 3.9 and later.
     from importlib.resources import as_file, files  # type: ignore
 
     def resource_path(package: str, resource: str) -> ContextManager[pathlib.Path]:
         return as_file(files(package) / resource)
 
 except ImportError:
+    # Fallback for Python 3.8
     from importlib.resources import path as resource_path
 
 
