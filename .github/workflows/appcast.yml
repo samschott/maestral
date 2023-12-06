@@ -13,7 +13,7 @@ jobs:
         with:
           ref: website
 
-      - uses: actions/setup-python@v4.7.1
+      - uses: actions/setup-python@v5.0.0
         with:
           python-version: '3.x'
 
