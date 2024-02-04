@@ -6,6 +6,7 @@ emitter which uses period directory snapshots and compares them with a
 :class:`watchdog.utils.dirsnapshot.DirectorySnapshotDiff` to generate file system
 events.
 """
+
 from __future__ import annotations
 
 from typing import Type, Union, TYPE_CHECKING

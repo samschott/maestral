@@ -611,12 +611,10 @@ class DropboxClient:
     # ---- SDK wrappers ----------------------------------------------------------------
 
     @overload
-    def get_account_info(self, dbid: None = None) -> FullAccount:
-        ...
+    def get_account_info(self, dbid: None = None) -> FullAccount: ...
 
     @overload
-    def get_account_info(self, dbid: str) -> Account:
-        ...
+    def get_account_info(self, dbid: str) -> Account: ...
 
     def get_account_info(self, dbid: str | None = None) -> Account:
         """

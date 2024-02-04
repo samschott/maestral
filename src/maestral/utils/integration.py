@@ -2,6 +2,7 @@
 This module provides functions for platform integration. Most of the functionality here
 could also be achieved with psutils, but we want to avoid the large dependency.
 """
+
 from __future__ import annotations
 
 import os

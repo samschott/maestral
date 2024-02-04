@@ -2,6 +2,7 @@
 This module provides interactive commandline dialogs which are based on the
 :mod:`survey` Python library.
 """
+
 from __future__ import annotations
 
 import os

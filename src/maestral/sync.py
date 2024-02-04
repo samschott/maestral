@@ -3873,13 +3873,13 @@ def is_created(event: FileSystemEvent) -> TypeGuard[FileCreatedEvent | DirCreate
 @overload
 def split_moved_event(
     event: FileMovedEvent,
-) -> tuple[FileDeletedEvent, FileCreatedEvent]:
-    ...
+) -> tuple[FileDeletedEvent, FileCreatedEvent]: ...
 
 
 @overload
-def split_moved_event(event: DirMovedEvent) -> tuple[DirDeletedEvent, DirCreatedEvent]:
-    ...
+def split_moved_event(
+    event: DirMovedEvent,
+) -> tuple[DirDeletedEvent, DirCreatedEvent]: ...
 
 
 def split_moved_event(

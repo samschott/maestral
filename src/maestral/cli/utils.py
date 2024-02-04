@@ -1,6 +1,7 @@
 """
 Module to print neatly formatted tables and grids to the terminal.
 """
+
 from __future__ import annotations
 
 import sys

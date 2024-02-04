@@ -3,6 +3,7 @@ This module provides custom click command line parameters for Maestral such
 :class:`DropboxPath`, :class:`ConfigKey` and :class:`ConfigName`, as well as an ordered
 command group class which prints its help output in sections.
 """
+
 from __future__ import annotations
 
 import os

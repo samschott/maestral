@@ -75,12 +75,10 @@ class Column(Generic[T, ST]):
         self.private_name = "_" + name
 
     @overload
-    def __get__(self, obj: None, objtype: type | None = None) -> Column[T, ST]:
-        ...
+    def __get__(self, obj: None, objtype: type | None = None) -> Column[T, ST]: ...
 
     @overload
-    def __get__(self, obj: Any, objtype: type | None = None) -> T | None:
-        ...
+    def __get__(self, obj: Any, objtype: type | None = None) -> T | None: ...
 
     def __get__(
         self, obj: Any, objtype: type | None = None
@@ -182,12 +180,10 @@ class NonNullColumn(Column[T, ST]):
         setattr(obj, self.private_name, value)
 
     @overload
-    def __get__(self, obj: None, objtype: type | None = None) -> Column[T, ST]:
-        ...
+    def __get__(self, obj: None, objtype: type | None = None) -> Column[T, ST]: ...
 
     @overload
-    def __get__(self, obj: Any, objtype: type | None = None) -> T:
-        ...
+    def __get__(self, obj: Any, objtype: type | None = None) -> T: ...
 
     def __get__(self, obj: Any, objtype: type | None = None) -> Column[T, ST] | T:
         res = super().__get__(obj, objtype)
