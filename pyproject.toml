@@ -87,7 +87,7 @@ maestral = "maestral.cli:main"
 "share/icons/hicolor/512x512/apps" = ["src/maestral/resources/maestral.png"]
 
 [tool.flake8]
-ignore = "E203,E501,W503,H306"
+ignore = "E203,E501,E704,W503,H306"
 statistics = "True"
 
 [tool.mypy]
