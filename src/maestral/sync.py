@@ -351,7 +351,7 @@ class FSEventHandler(FileSystemEventHandler):
                     continue
 
                 if event.event_type == EVENT_TYPE_MOVED and not is_equal_or_child(
-                    event.dest_path, ignore_event.dest_path  # type:ignore[attr-defined]
+                    event.dest_path, ignore_event.dest_path
                 ):
                     continue
 
