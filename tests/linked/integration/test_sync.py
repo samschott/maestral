@@ -7,6 +7,7 @@ import os.path as osp
 import time
 import shutil
 import timeit
+from datetime import datetime, timezone
 from typing import Union, Mapping, TypeVar, cast
 
 import pytest
@@ -112,6 +113,21 @@ def test_file_lifecycle(m: Maestral, name: str) -> None:
 
     assert_no_errors(m)
     assert_synced(m, {})
+
+
+def test_remote_mtime_applied(m: Maestral) -> None:
+    dbx_path = "/test.txt"
+    local_path = m.to_local_path(dbx_path)
+    mtime = datetime.fromisoformat("2019-12-04")
+    m.client.dbx.files_upload(
+        "content", dbx_path, mode=files.WriteMode.overwrite, client_modified=mtime
+    )
+
+    wait_for_idle(m)
+
+    local_mtime = os.stat(local_path).st_mtime
+    remote_mtime = mtime.replace(tzinfo=timezone.utc).timestamp()
+    assert local_mtime == remote_mtime
 
 
 def test_folder_tree_local(m: Maestral) -> None:
