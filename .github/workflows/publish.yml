@@ -23,7 +23,7 @@ jobs:
       - name: Build and publish
         run: |
           python -m build
-          twine upload --skip-existing
+          twine upload dist/* --skip-existing
 
   docker-hub:
     runs-on: ubuntu-latest
