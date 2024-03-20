@@ -40,7 +40,7 @@ from fasteners import InterProcessLock
 from .utils import exc_info_tuple
 from .utils.appdirs import get_runtime_path
 from .utils.integration import SystemdNotifier
-from .constants import IS_MACOS, ENV
+from .constants import IS_MACOS, IS_BSD, ENV
 from . import core, models, exceptions
 
 
@@ -240,7 +240,7 @@ class Lock:
             except OSError:
                 return None
 
-            if IS_MACOS:
+            if IS_MACOS or IS_BSD:
                 fmt = "qqihh"
                 pid_index = 2
                 flock = struct.pack(fmt, 0, 0, 0, fcntl.F_WRLCK, 0)
@@ -373,7 +373,6 @@ def start_maestral_daemon(
     :param log_to_stderr: If ``True``, write logs to stderr.
     :raises RuntimeError: if a daemon for the given ``config_name`` is already running.
     """
-
     import asyncio
     from .main import Maestral
     from .logging import scoped_logger, setup_logging

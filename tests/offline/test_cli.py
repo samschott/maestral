@@ -1,4 +1,6 @@
 import logging
+import platform
+import pytest
 
 from click.testing import CliRunner
 
@@ -8,8 +10,8 @@ from maestral.autostart import AutoStart
 from maestral.notify import level_number_to_name, level_name_to_number
 from maestral.daemon import MaestralProxy, start_maestral_daemon_process, Start
 from maestral.logging import scoped_logger
+from maestral.constants import IS_BSD
 from maestral.utils.appdirs import get_log_path
-
 
 TEST_TIMEOUT = 60
 
@@ -109,7 +111,12 @@ def test_filestatus(m: Maestral) -> None:
     assert "'/invalid-dir' does not exist" in result.output
 
 
+@pytest.mark.skipif(
+    IS_BSD,
+    reason="BSD doesn't have an autostart mechanism (beyond the .xsession file)",
+)
 def test_autostart(m: Maestral) -> None:
+
     autostart = AutoStart(m.config_name)
     autostart.disable()
 

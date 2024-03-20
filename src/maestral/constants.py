@@ -41,7 +41,7 @@ for package in (
 APP_NAME = "Maestral"
 BUNDLE_ID = "com.samschott.maestral"
 APP_ICON_PATH = resource_path("maestral.resources", "maestral.png").__enter__()
-ENV = {"PYTHONOPTIMIZE": "2", "LC_CTYPE": "UTF-8"}
+ENV = {"PYTHONOPTIMIZE": "2", "LC_CTYPE": "C.UTF-8"}
 DEFAULT_CONFIG_NAME = "maestral"
 
 # sync
@@ -94,6 +94,7 @@ class FileStatus(Enum):
 # platform detection
 IS_MACOS = platform.system() == "Darwin"
 IS_LINUX = platform.system() == "Linux"
+IS_BSD = platform.system() in {"OpenBSD", "FreeBSD", "NetBSD"}
 
 # keys
 DROPBOX_APP_KEY = "2jmbq42w7vof78h"
