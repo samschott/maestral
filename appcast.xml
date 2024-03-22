@@ -6,6 +6,110 @@
     <description>Stable releases of Maestral</description>
     <language>en</language>
     <item>
+      <title>v1.9.1 available</title>
+      <pubDate>2024-03-22T20:38:17Z</pubDate>
+      <sparkle:version>100</sparkle:version>
+      <sparkle:shortVersionString>1.9.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <!DOCTYPE html>
+        <html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="generator" content="pandoc" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+          <title>v1.9.1</title>
+          <style>
+            code{white-space: pre-wrap;}
+            span.smallcaps{font-variant: small-caps;}
+            div.columns{display: flex; gap: min(4vw, 1.5em);}
+            div.column{flex: auto; overflow-x: auto;}
+            div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+            /* The extra [class] is a hack that increases specificity enough to
+               override a similar rule in reveal.js */
+            ul.task-list[class]{list-style: none;}
+            ul.task-list li input[type="checkbox"] {
+              font-size: inherit;
+              width: 0.8em;
+              margin: 0 0.8em 0.2em -1.6em;
+              vertical-align: middle;
+            }
+            .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+          </style>
+          <link rel="stylesheet" href="" />
+          <style>
+                :root {
+                    font-size: 11px;
+                }
+                body {
+                    padding: 0 0.5rem 0 0.5rem;
+                    font-family: -apple-system;
+                    line-height: 1.2rem;
+                }
+                h1 {
+                    font-size: 1.3rem;
+                }
+                h2,h3,h4 {
+                    font-size: 1.2rem;
+                    margin-block-end: 1rem;
+                }
+                ul {
+                    padding-left: 2rem;
+                    margin-top: 0rem;
+                    margin-bottom: 1.3rem;
+                }
+                li, p {
+                    margin-left: 0;
+                    margin-top: 0;
+                    margin-bottom: 0.5rem;
+                    font-size: 1.1rem;
+                }
+                .annotation {
+                    font-size: 1.1rem;
+                }
+                @media (prefers-color-scheme: light) {
+                    h1 {
+                        color: #272727;
+                    }
+                    a {
+                        color: #0948be;
+                    }
+                }
+                @media (prefers-color-scheme: dark) {
+                    body {
+                        background-color: #1e1e1e;
+                        color: #D9D9D9; /* For headers */
+                    }
+                    li, p {
+                        color:#FFFFFF;
+                    }
+                    a {
+                        color: #3586FF;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+        <header id="title-block-header">
+        <h1 class="title">v1.9.1</h1>
+        </header>
+        <h4 id="fixed">Fixed:</h4>
+        <ul>
+        <li>Fixes a regression in v1.9.0 in the macOS GUI which prevented
+        several buttons and menu items from reacting to clicks. This was a side
+        effect from a new GUI framework API.</li>
+        </ul>
+        </body>
+        </html>
+
+      ]]>
+      </description>
+      <enclosure
+        url="https://github.com/samschott/maestral/releases/download/v1.9.1/Maestral-1.9.1.dmg"
+        sparkle:edSignature="35B7S30IvZoPOADO5BgcOhBHLTvhz35JLpooK8LplUO7z29F6VtrV/e7srAgHNLZAS86XrvnbWnSBZNjo6eTCA==" length="30590153"
+        type="application/octet-stream"/>
+    </item>
+    <item>
       <title>v1.9.0 available</title>
       <pubDate>2024-03-22T19:51:14Z</pubDate>
       <sparkle:version>99</sparkle:version>
@@ -482,108 +586,6 @@
       <enclosure
         url="https://github.com/samschott/maestral/releases/download/v1.7.2/Maestral-1.7.2.dmg"
         sparkle:edSignature="aWNYu5dn2MDv+zZ7O0lBKFffcd7x4GUNv5kTQAoWcei4RBCo3Vj2LXwGs2VVzhsh2Z0jaYeSTkPGhsPL4oPNDA==" length="21685448"
-        type="application/octet-stream"/>
-    </item>
-    <item>
-      <title>v1.7.1 available</title>
-      <pubDate>2023-02-26T16:16:56Z</pubDate>
-      <sparkle:version>82</sparkle:version>
-      <sparkle:shortVersionString>1.7.1</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
-      <description><![CDATA[
-        <!DOCTYPE html>
-        <html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
-        <head>
-          <meta charset="utf-8" />
-          <meta name="generator" content="pandoc" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-          <title>v1.7.1</title>
-          <style>
-            code{white-space: pre-wrap;}
-            span.smallcaps{font-variant: small-caps;}
-            div.columns{display: flex; gap: min(4vw, 1.5em);}
-            div.column{flex: auto; overflow-x: auto;}
-            div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-            /* The extra [class] is a hack that increases specificity enough to
-               override a similar rule in reveal.js */
-            ul.task-list[class]{list-style: none;}
-            ul.task-list li input[type="checkbox"] {
-              font-size: inherit;
-              width: 0.8em;
-              margin: 0 0.8em 0.2em -1.6em;
-              vertical-align: middle;
-            }
-            .display.math{display: block; text-align: center; margin: 0.5rem auto;}
-          </style>
-          <link rel="stylesheet" href="" />
-          <style>
-                :root {
-                    font-size: 11px;
-                }
-                body {
-                    padding: 0 0.5rem 0 0.5rem;
-                    font-family: -apple-system;
-                    line-height: 1.2rem;
-                }
-                h1 {
-                    font-size: 1.3rem;
-                }
-                h2,h3,h4 {
-                    font-size: 1.2rem;
-                    margin-block-end: 1rem;
-                }
-                ul {
-                    padding-left: 2rem;
-                    margin-top: 0rem;
-                    margin-bottom: 1.3rem;
-                }
-                li, p {
-                    margin-left: 0;
-                    margin-top: 0;
-                    margin-bottom: 0.5rem;
-                    font-size: 1.1rem;
-                }
-                .annotation {
-                    font-size: 1.1rem;
-                }
-                @media (prefers-color-scheme: light) {
-                    h1 {
-                        color: #272727;
-                    }
-                    a {
-                        color: #0948be;
-                    }
-                }
-                @media (prefers-color-scheme: dark) {
-                    body {
-                        background-color: #1e1e1e;
-                        color: #D9D9D9; /* For headers */
-                    }
-                    li, p {
-                        color:#FFFFFF;
-                    }
-                    a {
-                        color: #3586FF;
-                    }
-                }
-            </style>
-        </head>
-        <body>
-        <header id="title-block-header">
-        <h1 class="title">v1.7.1</h1>
-        </header>
-        <h4 id="fixed">Fixed:</h4>
-        <ul>
-        <li>Fixes running the app bundle version on Intel Macs.</li>
-        </ul>
-        </body>
-        </html>
-
-      ]]>
-      </description>
-      <enclosure
-        url="https://github.com/samschott/maestral/releases/download/v1.7.1/Maestral-1.7.1.dmg"
-        sparkle:edSignature="GpoZu66ENCUbDWDIZV7RsPx9VG1RiWvzIZptgKfokgHZ257msb5AtkcPD1XgSoKpXSZzu00lK1zCgPawghQdBw==" length="21971112"
         type="application/octet-stream"/>
     </item>
   </channel>
