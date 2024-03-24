@@ -269,7 +269,7 @@ def get_command_path(dist: str, command: str) -> str:
     if dist_files:
         try:
             rel_path = next(p for p in dist_files if p.match(f"**/bin/{command}"))
-            path = rel_path.locate()
+            path = rel_path.locate()  # type: ignore[assignment] # returns PathLike
         except StopIteration:
             path = None
     else:
