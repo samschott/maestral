@@ -1,3 +1,7 @@
+import os
+import stat
+
+import xattr
 import pytest
 
 from maestral.utils.path import (
@@ -5,8 +9,13 @@ from maestral.utils.path import (
     get_existing_equivalent_paths,
     is_fs_case_sensitive,
     is_child,
+    move,
 )
 from maestral.utils.appdirs import get_home_dir
+
+
+def touch(path: str) -> None:
+    open(path, "w").close()
 
 
 def test_normalized_path_exists(tmp_path):
@@ -79,3 +88,34 @@ def test_is_child():
     assert is_child("/parent/path/child/", "/parent/path")
     assert not is_child("/parent/path", "/parent/path")
     assert not is_child("/path1", "/path2")
+
+
+def test_move_preserves_permissions(tmp_path):
+    src_path = str(tmp_path / "source.txt")
+    dest_path = str(tmp_path / "dest.txt")
+
+    touch(src_path)
+    touch(dest_path)
+
+    os.chmod(dest_path, stat.S_IEXEC)
+
+    move(src_path, dest_path, keep_target_permissions=True)
+
+    assert bool(os.stat(dest_path).st_mode & stat.S_IEXEC)
+
+
+def test_move_preserves_xattrs(tmp_path):
+    src_path = str(tmp_path / "source.txt")
+    dest_path = str(tmp_path / "dest.txt")
+
+    touch(src_path)
+    touch(dest_path)
+
+    try:
+        xattr.setxattr(dest_path, "com.samschott.maestral.test", "value".encode())
+    except OSError:
+        pytest.skip("Xattr not supported by this system")
+
+    move(src_path, dest_path, keep_target_xattrs=True)
+
+    assert xattr.getxattr(dest_path, "com.samschott.maestral.test") == "value".encode()
