@@ -380,7 +380,7 @@ def move(
         # save dest permissions
         try:
             orig_mode = os.lstat(dest_path).st_mode & 0o777
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError):
             pass
 
     try:
@@ -392,12 +392,11 @@ def move(
         err = exc
     else:
         if orig_mode:
-            # reapply dest permissions
+            # Reapply dest permissions. If the dest is a symlink, only apply permissions
+            # if this is supported for symlinks by the platform.
             try:
                 if os.chmod in os.supports_follow_symlinks:
                     os.chmod(dest_path, orig_mode, follow_symlinks=False)
-                else:
-                    os.chmod(dest_path, orig_mode)
             except OSError:
                 pass
 
@@ -530,36 +529,32 @@ def opener_no_symlink(path: _AnyPath, flags: int) -> int:
     return os.open(path, flags=flags)
 
 
-def _get_stats_no_symlink(path: _AnyPath) -> Optional[os.stat_result]:
-    try:
-        return os.lstat(path)
-    except (FileNotFoundError, NotADirectoryError):
-        return None
-
-
 def exists(path: _AnyPath) -> bool:
     """Returns whether an item exists at the path. Returns True for symlinks."""
-    return _get_stats_no_symlink(path) is not None
+    try:
+        os.lstat(path)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    else:
+        return True
 
 
 def isfile(path: _AnyPath) -> bool:
     """Returns whether a file exists at the path. Returns True for symlinks."""
-    stat = _get_stats_no_symlink(path)
-
-    if stat is None:
-        return False
-    else:
+    try:
+        stat = os.lstat(path)
         return not S_ISDIR(stat.st_mode)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
 
 
 def isdir(path: _AnyPath) -> bool:
     """Returns whether a folder exists at the path. Returns False for symlinks."""
-    stat = _get_stats_no_symlink(path)
-
-    if stat is None:
-        return False
-    else:
+    try:
+        stat = os.lstat(path)
         return S_ISDIR(stat.st_mode)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
 
 
 def getsize(path: _AnyPath) -> int:

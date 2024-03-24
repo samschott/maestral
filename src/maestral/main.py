@@ -211,9 +211,6 @@ class Maestral:
 
     @staticmethod
     def _check_system_compatibility() -> None:
-        if os.stat not in os.supports_follow_symlinks:
-            raise RuntimeError("Maestral requires lstat support")
-
         if not (IS_MACOS or IS_LINUX):
             raise RuntimeError("Only macOS and Linux are supported")
 
