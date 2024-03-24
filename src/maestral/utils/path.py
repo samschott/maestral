@@ -14,6 +14,9 @@ import platform
 from stat import S_ISDIR
 from typing import List, Optional, Tuple, Callable, Iterator, Iterable, Union
 
+# third party imports
+import xattr
+
 # local imports
 from .hashing import DropboxContentHasher
 
@@ -355,7 +358,8 @@ def move(
     src_path: str,
     dest_path: str,
     raise_error: bool = False,
-    preserve_dest_permissions: bool = False,
+    keep_target_permissions: bool = False,
+    keep_target_xattrs: bool = False,
 ) -> Optional[OSError]:
     """
     Moves a file or folder from ``src_path`` to ``dest_path``. If either the source or
@@ -369,20 +373,29 @@ def move(
         by the move. Any existing **empty** folder will be replaced if the source is
         also a folder.
     :param raise_error: Whether to raise errors or return them.
-    :param preserve_dest_permissions: Whether to apply the permissions of the source
-        path to the destination path. Permissions will not be set recursively and may
-        will be set for symlinks if this is not supported by the platform, i.e., if
-        ``os.chmod not in os.supports_follow_symlinks``.
+    :param keep_target_permissions: Whether to preserve the permissions of a file at the
+        destination, if any.
+    :param keep_target_xattrs: Whether to preserve the extended attributes of a file at
+        the destination, if any.
     :returns: Any caught exception during the move.
     """
     err: Optional[OSError] = None
-    orig_mode: Optional[int] = None
 
-    if preserve_dest_permissions:
-        # save dest permissions
+    if keep_target_permissions:
         try:
-            orig_mode = os.lstat(dest_path).st_mode & 0o777
+            dest_mode = os.lstat(dest_path).st_mode & 0o777
+            follow_symlinks = os.chmod not in os.supports_follow_symlinks
+            os.chmod(src_path, dest_mode, follow_symlinks=follow_symlinks)
         except (FileNotFoundError, NotADirectoryError):
+            pass
+
+    if keep_target_xattrs:
+        try:
+            dest_attrs = xattr.xattr(dest_path)
+            for key, value in dest_attrs.iteritems():
+                xattr.setxattr(src_path, key, value)
+        except OSError:
+            # Fail gracefully if extended attributes are not supported by the system.
             pass
 
     try:
@@ -392,15 +405,6 @@ def move(
         pass
     except OSError as exc:
         err = exc
-    else:
-        if orig_mode:
-            # Reapply dest permissions. If the dest is a symlink, only apply permissions
-            # if this is supported for symlinks by the platform.
-            try:
-                if os.chmod in os.supports_follow_symlinks:
-                    os.chmod(dest_path, orig_mode, follow_symlinks=False)
-            except OSError:
-                pass
 
     if raise_error and err:
         raise err
