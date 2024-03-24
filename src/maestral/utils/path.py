@@ -370,7 +370,9 @@ def move(
         also a folder.
     :param raise_error: Whether to raise errors or return them.
     :param preserve_dest_permissions: Whether to apply the permissions of the source
-        path to the destination path. Permissions will not be set recursively.
+        path to the destination path. Permissions will not be set recursively and may
+        will be set for symlinks if this is not supported by the platform, i.e., if
+        ``os.chmod not in os.supports_follow_symlinks``.
     :returns: Any caught exception during the move.
     """
     err: Optional[OSError] = None
