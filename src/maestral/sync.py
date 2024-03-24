@@ -57,6 +57,7 @@ from watchdog.events import (
     DirMovedEvent,
     FileMovedEvent,
     FileSystemEvent,
+    FileSystemMovedEvent,
 )
 
 # local imports
@@ -350,10 +351,11 @@ class FSEventHandler(FileSystemEventHandler):
                 if not is_equal_or_child(event.src_path, ignore_event.src_path):
                     continue
 
-                if event.event_type == EVENT_TYPE_MOVED and not is_equal_or_child(
-                    event.dest_path, ignore_event.dest_path
+                if isinstance(event, FileSystemMovedEvent) and isinstance(
+                    ignore_event, FileSystemMovedEvent
                 ):
-                    continue
+                    if not is_equal_or_child(event.dest_path, ignore_event.dest_path):
+                        continue
 
                 return True
 
@@ -2562,7 +2564,7 @@ class SyncEngine:
 
                     return SyncStatus.Skipped
             else:
-                md_new = self.client.make_dir(event.dbx_path, autorename=False)
+                md_new = self.client.make_dir(event.dbx_path)
         except FolderConflictError:
             self._logger.debug(
                 'No conflict for "%s": the folder already exists', event.local_path
