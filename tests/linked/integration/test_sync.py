@@ -450,10 +450,6 @@ def test_excluded_folder_cleared_on_deletion(m: Maestral) -> None:
     assert_no_errors(m)
 
 
-@pytest.mark.skipif(
-    os.chmod not in os.supports_follow_symlinks,
-    reason="chmod does not support follow_symlinks=False",
-)
 def test_unix_permissions(m: Maestral) -> None:
     """
     Tests that a newly downloaded file is created with default permissions for our

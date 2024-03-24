@@ -77,7 +77,6 @@ from .constants import (
     EXCLUDED_DIR_NAMES,
     MIGNORE_FILE,
     FILE_CACHE,
-    IS_MACOS,
 )
 from .exceptions import (
     SyncError,
@@ -3585,14 +3584,7 @@ class SyncEngine:
             # Preserve permissions of the destination file if we are only syncing an
             # update to the file content (Dropbox ID of the file remains the same).
             old_entry = self.get_index_entry(event.dbx_path_lower)
-            preserve_permissions = bool(old_entry and event.dbx_id == old_entry.dbx_id)
-
-            if preserve_permissions:
-                # Ignore FileModifiedEvent when changing permissions.
-                # Note that two FileModifiedEvents may be emitted on macOS.
-                ignore_events.append(FileModifiedEvent(event.local_path))
-                if IS_MACOS:
-                    ignore_events.append(FileModifiedEvent(event.local_path))
+            preserve_metadata = bool(old_entry and event.dbx_id == old_entry.dbx_id)
 
             if isfile(event.local_path):
                 # Ignore FileDeletedEvent when replacing old file.
@@ -3607,7 +3599,8 @@ class SyncEngine:
                     move(
                         tmp_fname,
                         event.local_path,
-                        preserve_dest_permissions=preserve_permissions,
+                        keep_target_permissions=preserve_metadata,
+                        keep_target_xattrs=preserve_metadata,
                         raise_error=True,
                     )
 
