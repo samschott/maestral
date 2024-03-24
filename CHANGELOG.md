@@ -1,3 +1,9 @@
+## v1.9.2:
+
+#### Changed:
+
+* Preserve extended attributes of local files when downloading remote changes.
+
 ## v1.9.1:
 
 #### Fixed:
