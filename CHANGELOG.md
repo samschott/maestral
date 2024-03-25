@@ -3,6 +3,12 @@
 #### Changed:
 
 * Preserve extended attributes of local files when downloading remote changes.
+* The macOS app bundle is now built with Python 3.12. This supports detecting and using
+  SOCKS proxies configured in macOS Settings.
+
+#### Fixed:
+
+* Fixes a regression with opening windows from the menu bar on macOS 13 and earlier.
 
 ## v1.9.1:
 
