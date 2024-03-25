@@ -1,12 +1,13 @@
+This is the last release that supports Python 3.7 which will reach end-of-life on 27 Jun 2023. The macOS app always ships with its own Python runtime, but custom installations will require at least Python 3.8 starting with the next release.
+
 #### Changed:
 
-* Improved support for systems where some file system calls don't accept a `follow_symlinks = False` option, notably `chmod` and `utime`.
-* Abort uploads if the file is modified between the upload of individual chunks. This saves some bandwidth and prevents us from ever committing an inconsistent file to Dropbox's version history.
-* Show desktop notifications when a conflicting copy is created both during upload and download sync. Unlike regular notifications, those notifications are shown for each conflicting copy instead of giving a summary count.
-* Append the username and date to the file name of a conflicting copy, for example `myfile (Sam's conflicting copy 2022-08-30).pdf`.
+* Preparation for upcoming API changes in `watchdog` dependency.
+* No more automatic reindexing: Maestral would automatically rebuild its index  every 14 days. This could occasionally lead to conflicting copies if a file was modified remotely during this process. This reindexing is not necessary, especially as syncing has become very reliable. Starting with this release, reindexing needs to be triggered manually through the GUI or CLI if required.
 
 #### Fixed:
 
-* Fixes an issue for systems that do not provide /sys/class/power_supply such as Synology devices. Power supply state is periodically queried to prevent automatic reindexing when on battery power.
-* Fixes potentially inconsistent error messages if Maestral does not have permissions to perform file moves within the local Dropbox folder.
-* Fixes a regression with some icon buttons in the macOS GUI not being displayed.
+* Fixes autostart entries for the GUI being malformed when Maestral is installed in a Python virtual environment.
+* Fixes autostart entries for the daemon being malformed for the macOS app bundle. This applies to autostart entries created with `maestral autostart -Y` and not using the "Start on login" checkbox in the GUI.
+* The `filestatus` command now is case-sensitive when checking on a case-sensitive file system.
+* Fixes an issue where renaming a file by changing the casing only would not be picked up if Maestral was not running during the rename.
