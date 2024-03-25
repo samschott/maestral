@@ -108,14 +108,18 @@ def test_move_preserves_xattrs(tmp_path):
     src_path = str(tmp_path / "source.txt")
     dest_path = str(tmp_path / "dest.txt")
 
+    # Extended attributes set by the user need to be prefixed with 'user.' in Linux.
+    attr_name = "user.test"
+    attr_value = "hello!".encode()
+
     touch(src_path)
     touch(dest_path)
 
     try:
-        xattr.setxattr(dest_path, "com.samschott.maestral.test", "value".encode())
+        xattr.setxattr(dest_path, attr_name, attr_value)
     except OSError:
         pytest.skip("Xattr not supported by this system")
 
     move(src_path, dest_path, keep_target_xattrs=True)
 
-    assert xattr.getxattr(dest_path, "com.samschott.maestral.test") == "value".encode()
+    assert xattr.getxattr(dest_path, attr_name) == attr_value
