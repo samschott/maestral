@@ -11,6 +11,7 @@ from maestral.utils.path import (
     is_child,
     move,
 )
+from maestral.constants import IS_LINUX
 from maestral.utils.appdirs import get_home_dir
 
 
@@ -109,16 +110,12 @@ def test_move_preserves_xattrs(tmp_path):
     dest_path = str(tmp_path / "dest.txt")
 
     # Extended attributes set by the user need to be prefixed with 'user.' in Linux.
-    attr_name = "user.test"
+    attr_name = "user.test" if IS_LINUX else "com.myapp.test"
     attr_value = "hello!".encode()
 
     touch(src_path)
     touch(dest_path)
-
-    try:
-        xattr.setxattr(dest_path, attr_name, attr_value)
-    except OSError:
-        pytest.skip("Xattr not supported by this system")
+    xattr.setxattr(dest_path, attr_name, attr_value)
 
     move(src_path, dest_path, keep_target_xattrs=True)
 

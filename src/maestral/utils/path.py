@@ -19,6 +19,7 @@ import xattr
 
 # local imports
 from .hashing import DropboxContentHasher
+from ..constants import IS_LINUX
 
 F_GETPATH = 50
 
@@ -393,7 +394,8 @@ def move(
         try:
             dest_attrs = xattr.xattr(dest_path)
             for key, value in dest_attrs.iteritems():
-                xattr.setxattr(src_path, key, value)
+                if key.startswith('user.') or not IS_LINUX:
+                    xattr.setxattr(src_path, key, value)
         except OSError:
             # Fail gracefully if extended attributes are not supported by the system.
             pass
