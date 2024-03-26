@@ -70,7 +70,7 @@ def excluded_list(m: Maestral) -> None:
     name="add",
     help="Add files or folders to the excluded list and re-sync.",
 )
-@click.argument("dropbox_path", type=DropboxPath(), nargs=-1)
+@click.argument("dropbox_paths", type=DropboxPath(), nargs=-1)
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def excluded_add(m: Maestral, dropbox_paths: list[str]) -> None:
@@ -92,7 +92,7 @@ not be downloaded again. If the given path lies inside an excluded folder, the p
 folder will be included as well (but no other items inside it).
 """,
 )
-@click.argument("dropbox_path", type=DropboxPath(), nargs=-1)
+@click.argument("dropbox_paths", type=DropboxPath(), nargs=-1)
 @inject_proxy(fallback=False, existing_config=True)
 @convert_api_errors
 def excluded_remove(m: Maestral, dropbox_paths: str) -> None:
