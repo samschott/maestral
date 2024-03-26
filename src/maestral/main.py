@@ -1135,7 +1135,7 @@ class Maestral:
         self.sync.remove_node_from_index(dbx_path_lower)
         self.sync.clear_sync_errors_for_path(dbx_path_lower, recursive=True)
 
-        # Remove folder from local drive.
+        # Remove item from local drive.
         local_path_uncased = f"{self.dropbox_path}{dbx_path_lower}"
 
         try:
