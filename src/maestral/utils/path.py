@@ -217,8 +217,8 @@ def get_existing_equivalent_paths(
 
 def _macos_get_canonically_cased_path(path: str) -> str:
     # Use fcntl to get FS path, there can only be one.
-    fd = open(path, "a", opener=opener_no_symlink)
-    fs_path = fcntl.fcntl(fd.fileno(), F_GETPATH, b"\x00" * 1024)
+    with open(path, opener=opener_no_symlink) as fd:
+        fs_path = fcntl.fcntl(fd.fileno(), F_GETPATH, b"\x00" * 1024)
     return os.fsdecode(fs_path.strip(b"\x00"))
 
 
