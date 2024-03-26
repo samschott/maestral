@@ -394,7 +394,7 @@ def move(
         try:
             dest_attrs = xattr.xattr(dest_path)
             for key, value in dest_attrs.iteritems():
-                if key.startswith('user.') or not IS_LINUX:
+                if key.startswith("user.") or not IS_LINUX:
                     xattr.setxattr(src_path, key, value)
         except OSError:
             # Fail gracefully if extended attributes are not supported by the system.
