@@ -147,6 +147,22 @@ def test_excluded_list(m: Maestral) -> None:
     assert result.output == "No excluded files or folders.\n"
 
 
+def test_excluded_add_raises_not_linked_error(m: Maestral) -> None:
+    runner = CliRunner()
+    result = runner.invoke(main, ["excluded", "add", "test", "-c", m.config_name])
+
+    assert result.exit_code == 1
+    assert "No Dropbox account linked" in result.output
+
+
+def test_excluded_remove_raises_not_running_error(m: Maestral) -> None:
+    runner = CliRunner()
+    result = runner.invoke(main, ["excluded", "remove", "test", "-c", m.config_name])
+
+    assert result.exit_code == 1
+    assert "Maestral daemon is not running" in result.output
+
+
 def test_notify_level(config_name: str) -> None:
     start_maestral_daemon_process(config_name, timeout=TEST_TIMEOUT)
     m = MaestralProxy(config_name)
