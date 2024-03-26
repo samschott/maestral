@@ -53,6 +53,7 @@ jobs:
           flags: pytest
           env_vars: OS,PYTHON,TYPE
           name: pytests -v
+          token: ${{ secrets.CODECOV_TOKEN }}
         env:
           OS: ${{ matrix.platform }}
           PYTHON: ${{ matrix.python-version }}
@@ -119,6 +120,7 @@ jobs:
           flags: pytest
           env_vars: OS,PYTHON,TYPE
           name: pytests
+          token: ${{ secrets.CODECOV_TOKEN }}
         env:
           OS: ${{ matrix.platform }}
           PYTHON: ${{ matrix.python-version }}
@@ -192,6 +194,7 @@ jobs:
           flags: pytest
           env_vars: OS,PYTHON,TYPE
           name: pytests
+          token: ${{ secrets.CODECOV_TOKEN }}
         env:
           OS: ${{ matrix.platform }}
           PYTHON: ${{ matrix.python-version }}
