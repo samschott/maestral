@@ -1,3 +1,10 @@
+## v1.9.3:
+
+#### Fixed:
+
+* Fixed `maestral excluded add | remove` commands failing with an incorrect argument
+  name.
+
 ## v1.9.2:
 
 #### Changed:
