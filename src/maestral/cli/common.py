@@ -105,7 +105,7 @@ def inject_proxy(
                 proxy = ctx.with_resource(MaestralProxy(config_name, fallback=fallback))
             except CommunicationError:
                 click.echo("Maestral daemon is not running.")
-                ctx.exit(0)
+                ctx.exit(1)
             else:
                 return ctx.invoke(f, proxy, *args, **kwargs)
 
