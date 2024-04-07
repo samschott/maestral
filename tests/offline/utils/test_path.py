@@ -115,7 +115,11 @@ def test_move_preserves_xattrs(tmp_path):
 
     touch(src_path)
     touch(dest_path)
-    xattr.setxattr(dest_path, attr_name, attr_value)
+
+    try:
+        xattr.setxattr(dest_path, attr_name, attr_value)
+    except OSError:
+        pytest.skip("Setting Xattr is not supported on this system")
 
     move(src_path, dest_path, keep_target_xattrs=True)
 
