@@ -4,6 +4,8 @@
 
 * Fixed `maestral excluded add | remove` commands failing with an incorrect argument
   name.
+* Fixed a segfault in the macOS GUI triggerd by various actions in the selective sync
+  dialog.
 
 ## v1.9.2:
 
