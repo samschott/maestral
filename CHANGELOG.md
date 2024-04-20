@@ -1,5 +1,9 @@
 ## v1.9.3:
 
+#### Changed:
+
+* Disable sync issues menu item if there are no sync issues.
+
 #### Fixed:
 
 * Fixed `maestral excluded add | remove` commands failing with an incorrect argument
