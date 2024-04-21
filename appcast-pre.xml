@@ -6,6 +6,116 @@
     <description>Prereleases of Maestral</description>
     <language>en</language>
     <item>
+      <title>v1.9.3 available</title>
+      <pubDate>2024-04-21T15:21:16Z</pubDate>
+      <sparkle:version>105</sparkle:version>
+      <sparkle:shortVersionString>1.9.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <!DOCTYPE html>
+        <html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="generator" content="pandoc" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+          <title>v1.9.3</title>
+          <style>
+            code{white-space: pre-wrap;}
+            span.smallcaps{font-variant: small-caps;}
+            div.columns{display: flex; gap: min(4vw, 1.5em);}
+            div.column{flex: auto; overflow-x: auto;}
+            div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+            /* The extra [class] is a hack that increases specificity enough to
+               override a similar rule in reveal.js */
+            ul.task-list[class]{list-style: none;}
+            ul.task-list li input[type="checkbox"] {
+              font-size: inherit;
+              width: 0.8em;
+              margin: 0 0.8em 0.2em -1.6em;
+              vertical-align: middle;
+            }
+            .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+          </style>
+          <link rel="stylesheet" href="" />
+          <style>
+                :root {
+                    font-size: 11px;
+                }
+                body {
+                    padding: 0 0.5rem 0 0.5rem;
+                    font-family: -apple-system;
+                    line-height: 1.2rem;
+                }
+                h1 {
+                    font-size: 1.3rem;
+                }
+                h2,h3,h4 {
+                    font-size: 1.2rem;
+                    margin-block-end: 1rem;
+                }
+                ul {
+                    padding-left: 2rem;
+                    margin-top: 0rem;
+                    margin-bottom: 1.3rem;
+                }
+                li, p {
+                    margin-left: 0;
+                    margin-top: 0;
+                    margin-bottom: 0.5rem;
+                    font-size: 1.1rem;
+                }
+                .annotation {
+                    font-size: 1.1rem;
+                }
+                @media (prefers-color-scheme: light) {
+                    h1 {
+                        color: #272727;
+                    }
+                    a {
+                        color: #0948be;
+                    }
+                }
+                @media (prefers-color-scheme: dark) {
+                    body {
+                        background-color: #1e1e1e;
+                        color: #D9D9D9; /* For headers */
+                    }
+                    li, p {
+                        color:#FFFFFF;
+                    }
+                    a {
+                        color: #3586FF;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+        <header id="title-block-header">
+        <h1 class="title">v1.9.3</h1>
+        </header>
+        <h4 id="changed">Changed:</h4>
+        <ul>
+        <li>Disable the Sync Issues menu item in the status bar menu if there
+        are no sync issues.</li>
+        </ul>
+        <h4 id="fixed">Fixed:</h4>
+        <ul>
+        <li>Fixed <code>maestral excluded add | remove</code> commands failing
+        with an incorrect argument name.</li>
+        <li>Fixed a segfault in the macOS GUI triggerd by various actions in the
+        selective sync dialog.</li>
+        </ul>
+        </body>
+        </html>
+
+      ]]>
+      </description>
+      <enclosure
+        url="https://github.com/samschott/maestral/releases/download/v1.9.3/Maestral-1.9.3.dmg"
+        sparkle:edSignature="8fMcjJ4YtjT/5ciwCkQEXj3jqDK0GYCvqbnLo9A01PWClQ8VKVnXhriySvbiRotx1u+f80saeLCpWRH5gFP8DA==" length="30743566"
+        type="application/octet-stream"/>
+    </item>
+    <item>
       <title>v1.9.2 available</title>
       <pubDate>2024-03-25T23:17:04Z</pubDate>
       <sparkle:version>102</sparkle:version>
@@ -445,133 +555,6 @@
       <enclosure
         url="https://github.com/samschott/maestral/releases/download/v1.8.0/Maestral-1.8.0.dmg"
         sparkle:edSignature="Y+5VBEXlrYNQQK1t99BznC1vlBIrCCtXyTalLQz0E2/jR0xhlVrOZpN5BOLE2oAojnDKiDN5XKYyQJ4uHak1BA==" length="21410935"
-        type="application/octet-stream"/>
-    </item>
-    <item>
-      <title>v1.7.3 available</title>
-      <pubDate>2023-05-29T20:29:39Z</pubDate>
-      <sparkle:version>90</sparkle:version>
-      <sparkle:shortVersionString>1.7.3</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
-      <description><![CDATA[
-        <!DOCTYPE html>
-        <html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
-        <head>
-          <meta charset="utf-8" />
-          <meta name="generator" content="pandoc" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-          <title>v1.7.3</title>
-          <style>
-            code{white-space: pre-wrap;}
-            span.smallcaps{font-variant: small-caps;}
-            div.columns{display: flex; gap: min(4vw, 1.5em);}
-            div.column{flex: auto; overflow-x: auto;}
-            div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-            /* The extra [class] is a hack that increases specificity enough to
-               override a similar rule in reveal.js */
-            ul.task-list[class]{list-style: none;}
-            ul.task-list li input[type="checkbox"] {
-              font-size: inherit;
-              width: 0.8em;
-              margin: 0 0.8em 0.2em -1.6em;
-              vertical-align: middle;
-            }
-            .display.math{display: block; text-align: center; margin: 0.5rem auto;}
-          </style>
-          <link rel="stylesheet" href="" />
-          <style>
-                :root {
-                    font-size: 11px;
-                }
-                body {
-                    padding: 0 0.5rem 0 0.5rem;
-                    font-family: -apple-system;
-                    line-height: 1.2rem;
-                }
-                h1 {
-                    font-size: 1.3rem;
-                }
-                h2,h3,h4 {
-                    font-size: 1.2rem;
-                    margin-block-end: 1rem;
-                }
-                ul {
-                    padding-left: 2rem;
-                    margin-top: 0rem;
-                    margin-bottom: 1.3rem;
-                }
-                li, p {
-                    margin-left: 0;
-                    margin-top: 0;
-                    margin-bottom: 0.5rem;
-                    font-size: 1.1rem;
-                }
-                .annotation {
-                    font-size: 1.1rem;
-                }
-                @media (prefers-color-scheme: light) {
-                    h1 {
-                        color: #272727;
-                    }
-                    a {
-                        color: #0948be;
-                    }
-                }
-                @media (prefers-color-scheme: dark) {
-                    body {
-                        background-color: #1e1e1e;
-                        color: #D9D9D9; /* For headers */
-                    }
-                    li, p {
-                        color:#FFFFFF;
-                    }
-                    a {
-                        color: #3586FF;
-                    }
-                }
-            </style>
-        </head>
-        <body>
-        <header id="title-block-header">
-        <h1 class="title">v1.7.3</h1>
-        </header>
-        <p>This is the last release that supports Python 3.7 which will reach
-        end-of-life on 27 Jun 2023. The macOS app always ships with its own
-        Python runtime, but custom installations will require at least Python
-        3.8 starting with the next release.</p>
-        <h4 id="changed">Changed:</h4>
-        <ul>
-        <li>Preparation for upcoming API changes in <code>watchdog</code>
-        dependency.</li>
-        <li>No more automatic reindexing: Maestral would automatically rebuild
-        its index every 14 days. This could occasionally lead to conflicting
-        copies if a file was modified remotely during this process. This
-        reindexing is not necessary, especially as syncing has become very
-        reliable. Starting with this release, reindexing needs to be triggered
-        manually through the GUI or CLI if required.</li>
-        </ul>
-        <h4 id="fixed">Fixed:</h4>
-        <ul>
-        <li>Fixes autostart entries for the GUI being malformed when Maestral is
-        installed in a Python virtual environment.</li>
-        <li>Fixes autostart entries for the daemon being malformed for the macOS
-        app bundle. This applies to autostart entries created with
-        <code>maestral autostart -Y</code> and not using the “Start on login”
-        checkbox in the GUI.</li>
-        <li>The <code>filestatus</code> command now is case-sensitive when
-        checking on a case-sensitive file system.</li>
-        <li>Fixes an issue where renaming a file by changing the casing only
-        would not be picked up if Maestral was not running during the
-        rename.</li>
-        </ul>
-        </body>
-        </html>
-
-      ]]>
-      </description>
-      <enclosure
-        url="https://github.com/samschott/maestral/releases/download/v1.7.3/Maestral-1.7.3.dmg"
-        sparkle:edSignature="SlnkMTAachP0lVprQRuCmQoVQNxu+uMByBnqegPUT2ZqMjuRyQ5qqUS0qS4e6BYU6CbNLjBCeSN/vOkpWMwrDQ==" length="21706009"
         type="application/octet-stream"/>
     </item>
   </channel>
