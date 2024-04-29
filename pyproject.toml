@@ -70,7 +70,7 @@ test = [
     "pytest-rerunfailures",
 ]
 docs = [
-    "furo==2024.1.29",
+    "furo==2024.4.27",
     "sphinx==7.3.7",
     "sphinxext-opengraph==0.9.1",
     "sphinx-autoapi==3.0.0",
