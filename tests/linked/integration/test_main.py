@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import os
 import os.path as osp
+import time
 import subprocess
 
 import pytest
@@ -20,8 +21,6 @@ from maestral.constants import FileStatus, IDLE
 from maestral.utils.path import delete
 from maestral.utils.integration import get_inotify_limits
 
-from .conftest import wait_for_idle
-
 
 if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.environ):
     pytest.skip("Requires auth token", allow_module_level=True)
@@ -34,6 +33,22 @@ def _create_file_with_content(
         content = content.encode()
 
     return m.client.dbx.files_upload(content, dbx_path, mode=files.WriteMode.overwrite)
+
+
+def wait_for_idle(m: Maestral, cycles: int = 6) -> None:
+    """Blocks until Maestral instance is idle for at least ``cycles`` sync cycles."""
+
+    count = 0
+
+    while count < cycles:
+        if m.sync.busy():
+            # Wait until we can acquire the sync lock => we are idle.
+            m.sync.sync_lock.acquire()
+            m.sync.sync_lock.release()
+            count = 0
+        else:
+            time.sleep(1)
+            count += 1
 
 
 def test_status_properties(m: Maestral) -> None:

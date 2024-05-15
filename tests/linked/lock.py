@@ -12,10 +12,10 @@ from maestral.errorhandling import convert_api_errors
 
 class DropboxTestLock:
     """
-    A lock on a Dropbox account for running sync tests. The lock will be acquired by
-    create a file at ``lock_path`` and released by deleting the file on the remote
-    Dropbox. This can be used to synchronise tests running on the same Dropbox account.
-    Lock files older than 1h are considered expired and will be discarded.
+    A lock on a Dropbox account to synchronize running tests.
+
+    The lock is acquired by creating a file at ``lock_path`` and released by deleting
+    the file on the remote Dropbox.
 
     :param client: Linked client instance.
     :param lock_path: Path for the lock folder.
@@ -26,8 +26,8 @@ class DropboxTestLock:
     def __init__(
         self,
         client: DropboxClient,
-        lock_path: str = "/test.lock",
-        expires_after: float = 15 * 60,
+        lock_path,
+        expires_after: float = 60 * 60,
     ) -> None:
         self.client = client
         self.lock_path = lock_path
@@ -47,13 +47,12 @@ class DropboxTestLock:
             If positive, blocking must be set to True.
         :returns: Whether the lock could be acquired (within timeout).
         """
-
         if not blocking and timeout > 0:
             raise ValueError("can't specify a timeout for a non-blocking call")
 
         t0 = time.time()
 
-        # we encode the expiry time in the client_modified time stamp
+        # we store the expiry time in the client_modified time stamp
         expiry_time = datetime.utcfromtimestamp(time.time() + self.expires_after)
 
         while True:
@@ -86,15 +85,12 @@ class DropboxTestLock:
 
         :returns: True if locked, False otherwise.
         """
-
         md = self.client.get_metadata(self.lock_path)
 
-        if not md:
+        if not md or not isinstance(md, FileMetadata):
             return False
 
-        elif isinstance(md, FileMetadata) and md.client_modified < datetime.now(
-            timezone.utc
-        ):
+        if md.client_modified < datetime.now(timezone.utc):
             # lock has expired, remove
             try:
                 self.client.remove(self.lock_path, parent_rev=md.rev)
@@ -103,8 +99,8 @@ class DropboxTestLock:
                 pass
 
             return False
-        else:
-            return True
+
+        return True
 
     def release(self) -> None:
         """
