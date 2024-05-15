@@ -26,7 +26,7 @@ requires-python = ">=3.8"
 dependencies = [
     "click>=8.0.2",
     "desktop-notifier>=3.3.0",
-    "dropbox>=11.28.0,<12.0",
+    "dropbox>=11.28.0,<13.0",
     "fasteners>=0.15",
     "keyring>=22",
     "keyrings.alt>=3.1.0",
