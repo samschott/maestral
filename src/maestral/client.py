@@ -283,7 +283,7 @@ class DropboxClient:
                 if wait_time > self.DATA_TRANSFER_MIN_SLEEP_TIME:
                     time.sleep(wait_time)
 
-    def _throttled_upload_iter(self, data: bytes) -> Iterator[bytes] | bytes:
+    def _throttled_upload_iter(self, data: bytes) -> Iterator[bytes]:
         pos = 0
         while pos < len(data):
             tick = time.monotonic()
