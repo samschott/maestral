@@ -74,7 +74,7 @@ docs = [
     "sphinx==7.3.7",
     "sphinxext-opengraph==0.9.1",
     "sphinx-autoapi==3.0.0",
-    "sphinx-mdinclude==0.6.0",
+    "sphinx-mdinclude==0.6.1",
 ]
 dev = [
     "bump2version",
