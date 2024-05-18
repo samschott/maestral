@@ -18,7 +18,6 @@ from maestral.exceptions import (
     InotifyError,
 )
 from maestral.constants import FileStatus, IDLE
-from maestral.utils.path import delete
 from maestral.utils.integration import get_inotify_limits
 
 
@@ -136,21 +135,15 @@ def test_move_dropbox_folder_to_itself(m: Maestral) -> None:
     assert m.running
 
 
-def test_move_dropbox_folder_to_existing(m: Maestral) -> None:
-    new_dir_short = "~/New Dropbox"
-    new_dir = osp.realpath(osp.expanduser(new_dir_short))
-    os.mkdir(new_dir)
+def test_move_dropbox_folder_to_existing(m: Maestral, tmp_path) -> None:
+    new_dir = tmp_path / "new_dbx_dir"
+    new_dir.mkdir()
 
-    try:
-        with pytest.raises(FileExistsError):
-            m.move_dropbox_directory(new_dir)
+    with pytest.raises(FileExistsError):
+        m.move_dropbox_directory(str(new_dir))
 
-        # assert that sync is still running
-        assert m.running
-
-    finally:
-        # cleanup
-        delete(new_dir)
+    # assert that sync is still running
+    assert m.running
 
 
 # API integration tests
