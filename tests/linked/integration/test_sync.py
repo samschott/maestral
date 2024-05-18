@@ -44,8 +44,6 @@ from maestral.exceptions import (
 )
 from maestral.errorhandling import convert_api_errors
 
-from .conftest import wait_for_idle
-
 
 # mypy cannot yet check recursive type definitions...
 DirTreeType = Mapping[str, Union[str, Mapping[str, Union[str, Mapping[str, str]]]]]
@@ -56,6 +54,23 @@ if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.en
 
 
 HOME = get_home_dir()
+LOCK_PATH = "/test.lock"
+
+
+def wait_for_idle(m: Maestral, cycles: int = 6) -> None:
+    """Blocks until Maestral instance is idle for at least ``cycles`` sync cycles."""
+
+    count = 0
+
+    while count < cycles:
+        if m.sync.busy():
+            # Wait until we can acquire the sync lock => we are idle.
+            m.sync.sync_lock.acquire()
+            m.sync.sync_lock.release()
+            count = 0
+        else:
+            time.sleep(1)
+            count += 1
 
 
 # ==== test basic sync =================================================================
@@ -1411,7 +1426,6 @@ def assert_synced(m: Maestral, tree: DirTreeType | None = None) -> None:
 
     local file system state == local sync index state == tree
     """
-
     listing = m.client.list_folder("/", recursive=True)
 
     remote_items_map = {md.path_lower: md for md in listing.entries}
@@ -1484,6 +1498,8 @@ def assert_synced(m: Maestral, tree: DirTreeType | None = None) -> None:
 def assert_local_tree(m: Maestral, tree: DirTreeType) -> None:
     actual_tree = {}  # type: ignore
 
+    local_lockpath = m.to_local_path(LOCK_PATH)
+
     for dirpath, dirnames, filenames in os.walk(m.dropbox_path):
         relative_path = dirpath.replace(m.dropbox_path + "/", "")
 
@@ -1501,7 +1517,11 @@ def assert_local_tree(m: Maestral, tree: DirTreeType) -> None:
             node[dirname] = {}
 
         for filename in filenames:
-            with open(osp.join(dirpath, filename)) as f:
+            path = osp.join(dirpath, filename)
+            if path == local_lockpath:
+                continue
+
+            with open(path) as f:
                 node[filename] = f.read()
 
     # Allow for unicode normalisation differences on macOS since the reported local

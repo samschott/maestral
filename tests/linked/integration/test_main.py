@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import os
 import os.path as osp
+import time
 import subprocess
 
 import pytest
@@ -17,10 +18,7 @@ from maestral.exceptions import (
     InotifyError,
 )
 from maestral.constants import FileStatus, IDLE
-from maestral.utils.path import delete
 from maestral.utils.integration import get_inotify_limits
-
-from .conftest import wait_for_idle
 
 
 if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.environ):
@@ -34,6 +32,22 @@ def _create_file_with_content(
         content = content.encode()
 
     return m.client.dbx.files_upload(content, dbx_path, mode=files.WriteMode.overwrite)
+
+
+def wait_for_idle(m: Maestral, cycles: int = 6) -> None:
+    """Blocks until Maestral instance is idle for at least ``cycles`` sync cycles."""
+
+    count = 0
+
+    while count < cycles:
+        if m.sync.busy():
+            # Wait until we can acquire the sync lock => we are idle.
+            m.sync.sync_lock.acquire()
+            m.sync.sync_lock.release()
+            count = 0
+        else:
+            time.sleep(1)
+            count += 1
 
 
 def test_status_properties(m: Maestral) -> None:
@@ -121,21 +135,15 @@ def test_move_dropbox_folder_to_itself(m: Maestral) -> None:
     assert m.running
 
 
-def test_move_dropbox_folder_to_existing(m: Maestral) -> None:
-    new_dir_short = "~/New Dropbox"
-    new_dir = osp.realpath(osp.expanduser(new_dir_short))
-    os.mkdir(new_dir)
+def test_move_dropbox_folder_to_existing(m: Maestral, tmp_path) -> None:
+    new_dir = tmp_path / "new_dbx_dir"
+    new_dir.mkdir()
 
-    try:
-        with pytest.raises(FileExistsError):
-            m.move_dropbox_directory(new_dir)
+    with pytest.raises(FileExistsError):
+        m.move_dropbox_directory(str(new_dir))
 
-        # assert that sync is still running
-        assert m.running
-
-    finally:
-        # cleanup
-        delete(new_dir)
+    # assert that sync is still running
+    assert m.running
 
 
 # API integration tests

@@ -17,11 +17,12 @@ from maestral.exceptions import (
 from maestral.utils.path import normalize, content_hash
 from maestral.utils.hashing import DropboxContentHasher
 
-from .conftest import resources
-
 
 if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.environ):
     pytest.skip("Requires auth token", allow_module_level=True)
+
+
+resources = os.path.dirname(os.path.dirname(__file__)) + "/resources"
 
 
 # Client API unit tests: we currently test those method calls which are not covered
