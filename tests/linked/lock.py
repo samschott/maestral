@@ -20,14 +20,14 @@ class DropboxTestLock:
     :param client: Linked client instance.
     :param lock_path: Path for the lock folder.
     :param expires_after: The lock will be considered as expired after the given time in
-        seconds since the acquire call. Defaults to 15 min.
+        seconds since the acquire call. Defaults to 10 min.
     """
 
     def __init__(
         self,
         client: DropboxClient,
         lock_path,
-        expires_after: float = 60 * 60,
+        expires_after: float = 10 * 60,
     ) -> None:
         self.client = client
         self.lock_path = lock_path
@@ -78,6 +78,16 @@ class DropboxTestLock:
                 return False
             else:
                 time.sleep(5)
+
+    def renew(self, expires_after: float = 10 * 60) -> None:
+        expiry_time = datetime.utcfromtimestamp(time.time() + expires_after)
+        md = self.client.dbx.files_upload(
+            uuid.uuid4().bytes,
+            self.lock_path,
+            mode=files.WriteMode.update(self._rev),
+            client_modified=expiry_time,
+        )
+        self._rev = md.rev
 
     def locked(self):
         """

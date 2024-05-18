@@ -59,6 +59,8 @@ def m(pytestconfig, test_lock):
 
     Acquires a lock on the account for the duration of the session.
     """
+    test_lock.renew()
+
     if pytestconfig.option.OBSERVER == "inotify":
         from watchdog.observers.inotify import InotifyObserver
 

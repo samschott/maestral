@@ -51,6 +51,8 @@ def client(test_lock):
     """
     Returns a Dropbox client instance linked to a test account.
     """
+    test_lock.renew()
+
     config_name = "test-config"
 
     cred_storage = CredentialStorage(config_name)
