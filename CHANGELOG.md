@@ -1,3 +1,13 @@
+## v1.9.4:
+
+#### Changed:
+
+* Automatically exclude some macOS system folders and files that are created on external
+  drives from syncing.
+* Bump to the latest version of the Dropbox SDK which no longer pins security
+  certificates. This change is required for Maestral to continue syncing after
+  January 1, 2026.
+
 ## v1.9.3:
 
 #### Changed:
