@@ -1,9 +1,7 @@
 #### Changed:
 
-* Dropped support for Python 3.7 which was reached end-of-life on 27 Jun 2023.
+* Allow passing multiple paths to `maestral excluded add | remove` CLI commands.
 
 #### Fixed:
 
-* Fixes the default systemd service name when enabling autostart on Linux. This was a regression in v1.7.3. Autostart entries created with `maestral autostart -Y` prior to v1.7.3 will continue to work.
-* Fixes an issue where data transport errors that are retried could result in zero byte files being created in the cloud if the local file size is smaller than 4 MB.
-* Fixes an issue where renaming a local file by making unicode normalisation changes only could lead to a cycle of deletion and re-creation on Dropbox servers when syncing with Maestral from multiple machines.
+* Fixes an issue where syncing remote changes would lead to the modified time of a file being set to the download time instead of the time of original modification.
