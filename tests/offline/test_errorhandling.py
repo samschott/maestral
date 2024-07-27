@@ -141,6 +141,11 @@ def test_get_session_lookup_error_msg(error, maestral_exc):
         (RelocationError.insufficient_quota, InsufficientSpaceError),
         (RelocationError.internal_error, DropboxServerError),
         (RelocationError.too_many_files, SyncError),
+        (
+            RelocationError.cant_move_into_family(MoveIntoFamilyError.is_shared_folder),
+            SyncError,
+        ),
+        (RelocationError.cant_move_into_family(MoveIntoFamilyError.other), SyncError),
         (RelocationError.other, MaestralApiError),
         (CreateFolderError.path(WriteError.team_folder), SyncError),
         (DeleteError.path_lookup(LookupError.not_found), NotFoundError),
