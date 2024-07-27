@@ -1,3 +1,10 @@
+## v1.9.5
+
+#### Changed:
+
+* Add a useful error message when attempting moving a shared folder into a family
+  folder.
+
 ## v1.9.4:
 
 #### Changed:
