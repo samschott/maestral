@@ -1,25 +1,24 @@
 from __future__ import annotations
 
-import sys
 import os
 import os.path as osp
-import time
 import subprocess
+import sys
+import time
 
 import pytest
 from dropbox import files
 
-from maestral.main import Maestral
+from maestral.constants import IDLE, FileStatus
 from maestral.core import FileMetadata
 from maestral.exceptions import (
-    NotFoundError,
-    UnsupportedFileTypeForDiff,
-    SyncError,
     InotifyError,
+    NotFoundError,
+    SyncError,
+    UnsupportedFileTypeForDiff,
 )
-from maestral.constants import FileStatus, IDLE
+from maestral.main import Maestral
 from maestral.utils.integration import get_inotify_limits
-
 
 if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.environ):
     pytest.skip("Requires auth token", allow_module_level=True)

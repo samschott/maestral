@@ -2,27 +2,28 @@
 
 from __future__ import annotations
 
+import asyncio
+import difflib
+import gc
+import logging
+import mimetypes
+
 # system imports
 import os
 import os.path as osp
+import random
 import shutil
 import sqlite3
-import time
-import asyncio
-import random
-import gc
 import tempfile
-import mimetypes
-import difflib
-import logging
+import time
 from asyncio import AbstractEventLoop, Future
-from typing import Iterator, Any, Sequence, Collection
+from datetime import datetime, timezone
+from typing import Any, Collection, Iterator, Sequence
 
 # external imports
 import requests
-from watchdog.events import DirDeletedEvent, FileDeletedEvent
 from packaging.version import Version
-from datetime import datetime, timezone
+from watchdog.events import DirDeletedEvent, FileDeletedEvent
 
 try:
     from systemd import journal
@@ -32,62 +33,61 @@ except ImportError:
 # local imports
 from . import __version__
 from .client import DropboxClient
-from .keyring import CredentialStorage
+from .config import MaestralConfig, MaestralState, validate_config_name
+from .constants import (
+    CONNECTING,
+    DEFAULT_CONFIG_NAME,
+    GITHUB_RELEASES_API,
+    IDLE,
+    IS_LINUX,
+    IS_MACOS,
+    PAUSED,
+    FileStatus,
+)
 from .core import (
-    SharedLinkMetadata,
-    FullAccount,
-    PersonalSpaceUsage,
-    Metadata,
     FileMetadata,
-    LinkAudience,
+    FullAccount,
     LinkAccessLevel,
+    LinkAudience,
+    Metadata,
+    PersonalSpaceUsage,
+    SharedLinkMetadata,
     UpdateCheckResult,
 )
-from .sync import SyncDirection, SyncEngine, pf_repr
-from .manager import SyncManager
-from .models import SyncEvent, SyncErrorEntry, SyncStatus
-from .notify import MaestralDesktopNotifier
+from .database.core import Database
+from .errorhandling import CONNECTION_ERRORS, convert_api_errors
 from .exceptions import (
-    MaestralApiError,
-    NotLinkedError,
-    NoDropboxDirError,
-    NotFoundError,
     BusyError,
     KeyringAccessError,
+    MaestralApiError,
+    NoDropboxDirError,
+    NotFoundError,
+    NotLinkedError,
     UnsupportedFileTypeForDiff,
     UpdateCheckError,
 )
-from .errorhandling import convert_api_errors, CONNECTION_ERRORS
-from .config import MaestralConfig, MaestralState, validate_config_name
+from .keyring import CredentialStorage
 from .logging import (
+    LOG_FMT_SHORT,
     AwaitableHandler,
     CachedHandler,
     scoped_logger,
     setup_logging,
-    LOG_FMT_SHORT,
 )
+from .manager import SyncManager
+from .models import SyncErrorEntry, SyncEvent, SyncStatus
+from .notify import MaestralDesktopNotifier
+from .sync import SyncDirection, SyncEngine, pf_repr
 from .utils import get_newer_version
+from .utils.appdirs import get_cache_path, get_data_path
 from .utils.path import (
-    isdir,
+    delete,
     is_child,
     is_equal_or_child,
-    to_existing_unnormalized_path,
+    isdir,
     normalize,
-    delete,
+    to_existing_unnormalized_path,
 )
-from .utils.appdirs import get_cache_path, get_data_path
-from .database.core import Database
-from .constants import (
-    IS_LINUX,
-    IS_MACOS,
-    IDLE,
-    PAUSED,
-    CONNECTING,
-    DEFAULT_CONFIG_NAME,
-    GITHUB_RELEASES_API,
-    FileStatus,
-)
-
 
 __all__ = ["Maestral"]
 

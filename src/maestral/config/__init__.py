@@ -1,10 +1,9 @@
 import os
 from typing import List, TypeVar
 
+from ..utils.appdirs import get_conf_path, get_data_path
 from .main import MaestralConfig, MaestralState
 from .user import PersistentMutableSet
-from ..utils.appdirs import get_conf_path, get_data_path
-
 
 __all__ = [
     "MaestralConfig",

@@ -1,17 +1,16 @@
-import os
 import logging
+import os
 import time
 
 import pytest
 
 import maestral.manager
-from maestral.main import Maestral
 from maestral.client import DropboxClient
 from maestral.config import remove_configuration
-from maestral.utils.path import generate_cc_name, delete
+from maestral.exceptions import DropboxAuthError, NotFoundError
+from maestral.main import Maestral
 from maestral.utils.appdirs import get_home_dir
-from maestral.exceptions import NotFoundError, DropboxAuthError
-
+from maestral.utils.path import delete, generate_cc_name
 
 fsevents_logger = logging.getLogger("fsevents")
 fsevents_logger.setLevel(logging.DEBUG)

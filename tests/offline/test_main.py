@@ -1,9 +1,10 @@
 import pytest
 import requests
+
 import maestral.main
-from maestral.main import Maestral
 from maestral.constants import GITHUB_RELEASES_API
 from maestral.exceptions import NotLinkedError
+from maestral.main import Maestral
 
 
 def test_check_for_updates(m: Maestral) -> None:

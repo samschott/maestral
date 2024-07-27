@@ -59,18 +59,18 @@ into Deleted and Created events by Maestral.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from watchdog.observers.polling import PollingEmitter, PollingObserver
 from watchdog.events import (
-    FileDeletedEvent,
-    FileModifiedEvent,
-    FileMovedEvent,
-    FileCreatedEvent,
+    DirCreatedEvent,
     DirDeletedEvent,
     DirModifiedEvent,
     DirMovedEvent,
-    DirCreatedEvent,
+    FileCreatedEvent,
+    FileDeletedEvent,
+    FileModifiedEvent,
+    FileMovedEvent,
 )
-from watchdog.observers.api import BaseObserver, DEFAULT_OBSERVER_TIMEOUT
+from watchdog.observers.api import DEFAULT_OBSERVER_TIMEOUT, BaseObserver
+from watchdog.observers.polling import PollingEmitter, PollingObserver
 from watchdog.utils.dirsnapshot import DirectorySnapshot, DirectorySnapshotDiff
 
 

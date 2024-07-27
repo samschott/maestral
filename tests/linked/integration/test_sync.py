@@ -1,49 +1,48 @@
 from __future__ import annotations
 
-import platform
-import sys
 import os
 import os.path as osp
-import time
+import platform
 import shutil
+import sys
+import time
 import timeit
 from datetime import datetime, timezone
-from typing import Union, Mapping, TypeVar, cast
+from typing import Mapping, TypeVar, Union, cast
 
 import pytest
+from dropbox import files
 from watchdog.events import (
+    DirCreatedEvent,
+    DirDeletedEvent,
     FileCreatedEvent,
     FileDeletedEvent,
-    DirDeletedEvent,
-    DirCreatedEvent,
 )
-from dropbox import files
 
-from maestral.main import Maestral
 from maestral.core import FileMetadata, FolderMetadata
-from maestral.models import SyncEvent, SyncDirection
+from maestral.errorhandling import convert_api_errors
+from maestral.exceptions import (
+    FolderConflictError,
+    InsufficientPermissionsError,
+    NoDropboxDirError,
+    PathError,
+    SymlinkError,
+    SyncError,
+)
+from maestral.main import Maestral
+from maestral.models import SyncDirection, SyncEvent
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import (
     delete,
-    move,
+    fs_max_lengths_for_path,
+    get_symlink_target,
     is_fs_case_sensitive,
+    move,
     normalize,
     normalize_unicode,
-    fs_max_lengths_for_path,
     to_existing_unnormalized_path,
     walk,
-    get_symlink_target,
 )
-from maestral.exceptions import (
-    PathError,
-    SymlinkError,
-    NoDropboxDirError,
-    InsufficientPermissionsError,
-    SyncError,
-    FolderConflictError,
-)
-from maestral.errorhandling import convert_api_errors
-
 
 # mypy cannot yet check recursive type definitions...
 DirTreeType = Mapping[str, Union[str, Mapping[str, Union[str, Mapping[str, str]]]]]

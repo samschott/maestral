@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import os
-import io
 import ast
+import io
 import logging
+import os
 import textwrap
 from os import path as osp
-from typing import cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import click
 from click.shell_completion import get_completion_class
@@ -14,11 +14,11 @@ from rich.console import Console
 from rich.text import Text
 
 from .cli_core import select_dbx_path_dialog
-from .dialogs import confirm, select
-from .output import ok, warn, echo, echo_via_pager, RichDateField, rich_table
-from .utils import get_term_size
 from .common import convert_api_errors, existing_config_option, inject_proxy
-from .core import DropboxPath, ConfigKey, CliException
+from .core import CliException, ConfigKey, DropboxPath
+from .dialogs import confirm, select
+from .output import RichDateField, echo, echo_via_pager, ok, rich_table, warn
+from .utils import get_term_size
 
 if TYPE_CHECKING:
     from ..main import Maestral
@@ -404,7 +404,7 @@ instance, setting a boolean config value to 1 will actually set it to True.
 @inject_proxy(fallback=True, existing_config=True)
 @convert_api_errors
 def config_set(m: Maestral, key: str, value: str) -> None:
-    from ..config.main import KEY_SECTION_MAP, DEFAULTS_CONFIG
+    from ..config.main import DEFAULTS_CONFIG, KEY_SECTION_MAP
 
     section = KEY_SECTION_MAP.get(key, "")
 

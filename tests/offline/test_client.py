@@ -1,23 +1,22 @@
-from datetime import datetime
-from datetime import timezone
+from datetime import datetime, timezone
+from unittest.mock import Mock
 
 import pytest
 import requests
-from unittest.mock import Mock
+from dropbox import common, files, sharing, team_common, users, users_common
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect
-from dropbox import users, users_common, common, team_common, files, sharing
+
+from maestral import core
 from maestral.client import (
     DropboxClient,
     convert_account,
     convert_full_account,
-    convert_space_usage,
     convert_metadata,
     convert_shared_link_metadata,
+    convert_space_usage,
 )
-from maestral.keyring import CredentialStorage
-from maestral import core
 from maestral.exceptions import NotLinkedError
-
+from maestral.keyring import CredentialStorage
 
 # ==== DropboxClient tests =============================================================
 

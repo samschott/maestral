@@ -2,144 +2,137 @@
 
 from __future__ import annotations
 
+import enum
+
 # system imports
 import errno
-import sys
+import gc
 import os
 import os.path as osp
+import random
+import sqlite3
+import sys
 import threading
 import time
-import random
 import urllib.parse
-import enum
-import sqlite3
-import gc
-from stat import S_ISDIR
-from pprint import pformat
-from threading import Event, Condition, RLock, current_thread
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from queue import Queue, Empty
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
-from tempfile import NamedTemporaryFile
 from datetime import datetime
+from pprint import pformat
+from queue import Empty, Queue
+from stat import S_ISDIR
+from tempfile import NamedTemporaryFile
+from threading import Condition, Event, RLock, current_thread
 from typing import (
     Any,
-    Iterator,
-    Iterable,
-    Collection,
-    Sequence,
     Callable,
+    Collection,
+    Iterable,
+    Iterator,
+    Sequence,
     Type,
     TypeVar,
     cast,
     overload,
 )
-from typing_extensions import ParamSpec, TypeGuard
 
 # external imports
 import click
 from pathspec import PathSpec
-from watchdog.events import FileSystemEventHandler
+from typing_extensions import ParamSpec, TypeGuard
 from watchdog.events import (
     EVENT_TYPE_CREATED,
     EVENT_TYPE_DELETED,
-    EVENT_TYPE_MOVED,
     EVENT_TYPE_MODIFIED,
-)
-from watchdog.events import (
-    DirModifiedEvent,
-    FileModifiedEvent,
+    EVENT_TYPE_MOVED,
     DirCreatedEvent,
-    FileCreatedEvent,
     DirDeletedEvent,
-    FileDeletedEvent,
+    DirModifiedEvent,
     DirMovedEvent,
+    FileCreatedEvent,
+    FileDeletedEvent,
+    FileModifiedEvent,
     FileMovedEvent,
     FileSystemEvent,
+    FileSystemEventHandler,
     FileSystemMovedEvent,
 )
 
 # local imports
 from . import notify
+from .client import DropboxClient
 from .config import MaestralConfig, MaestralState
+from .constants import (
+    EXCLUDED_DIR_NAMES,
+    EXCLUDED_FILE_NAMES,
+    FILE_CACHE,
+    IDLE,
+    MIGNORE_FILE,
+)
 from .core import (
-    Metadata,
+    DeletedMetadata,
     FileMetadata,
     FolderMetadata,
-    DeletedMetadata,
-    WriteMode,
     ListFolderResult,
+    Metadata,
+    WriteMode,
 )
-from .constants import (
-    IDLE,
-    EXCLUDED_FILE_NAMES,
-    EXCLUDED_DIR_NAMES,
-    MIGNORE_FILE,
-    FILE_CACHE,
-)
+from .database.core import Database
+from .database.orm import Manager
+from .database.query import AllQuery, AndQuery, MatchQuery, PathTreeQuery, Query
+from .errorhandling import convert_api_errors, os_to_maestral_error
 from .exceptions import (
-    SyncError,
-    CancelledError,
-    NoDropboxDirError,
     CacheDirError,
-    PathError,
-    NotFoundError,
+    CancelledError,
+    DatabaseError,
+    DataChangedError,
     FileConflictError,
     FolderConflictError,
-    IsAFolderError,
-    NotAFolderError,
-    DataChangedError,
     InvalidDbidError,
-    DatabaseError,
-)
-from .errorhandling import os_to_maestral_error, convert_api_errors
-from .client import (
-    DropboxClient,
-)
-from .models import (
-    SyncEvent,
-    HashCacheEntry,
-    IndexEntry,
-    SyncErrorEntry,
-    SyncDirection,
-    SyncStatus,
-    ItemType,
-    ChangeType,
+    IsAFolderError,
+    NoDropboxDirError,
+    NotAFolderError,
+    NotFoundError,
+    PathError,
+    SyncError,
 )
 from .logging import scoped_logger
-from .utils import removeprefix, sanitize_string, exc_info_tuple
-from .utils.caches import LRUCache
-from .utils.integration import (
-    cpu_usage_percent,
-    CPU_CORE_COUNT,
+from .models import (
+    ChangeType,
+    HashCacheEntry,
+    IndexEntry,
+    ItemType,
+    SyncDirection,
+    SyncErrorEntry,
+    SyncEvent,
+    SyncStatus,
 )
+from .utils import exc_info_tuple, removeprefix, sanitize_string
+from .utils.appdirs import get_data_path
+from .utils.caches import LRUCache
+from .utils.integration import CPU_CORE_COUNT, cpu_usage_percent
 from .utils.path import (
-    exists,
-    isfile,
-    isdir,
-    getsize,
-    generate_cc_name,
-    move,
+    content_hash,
     delete,
+    equal_but_for_unicode_norm,
+    exists,
+    generate_cc_name,
+    get_existing_equivalent_paths,
+    get_symlink_target,
+    getsize,
     is_child,
     is_equal_or_child,
     is_fs_case_sensitive,
-    content_hash,
-    walk,
+    isdir,
+    isfile,
+    move,
     normalize,
     normalize_case,
     normalize_unicode,
-    equal_but_for_unicode_norm,
-    get_existing_equivalent_paths,
     to_existing_unnormalized_path,
-    get_symlink_target,
+    walk,
 )
-from .database.orm import Manager
-from .database.core import Database
-from .database.query import PathTreeQuery, MatchQuery, AllQuery, AndQuery, Query
-from .utils.appdirs import get_data_path
-
 
 __all__ = [
     "Conflict",

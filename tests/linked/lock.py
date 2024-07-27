@@ -4,10 +4,10 @@ from datetime import datetime, timezone
 
 from dropbox import files
 
-from maestral.core import FileMetadata
 from maestral.client import DropboxClient
-from maestral.exceptions import NotFoundError, FileConflictError
+from maestral.core import FileMetadata
 from maestral.errorhandling import convert_api_errors
+from maestral.exceptions import FileConflictError, NotFoundError
 
 
 class DropboxTestLock:

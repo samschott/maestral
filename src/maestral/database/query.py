@@ -6,7 +6,7 @@ queries.
 from __future__ import annotations
 
 import os
-from typing import Sequence, Iterator, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Iterator, Sequence
 
 from .types import SqlPath
 

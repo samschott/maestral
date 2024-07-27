@@ -5,8 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "maestral"
 version = "1.9.4"
-authors = [{name = "Sam Schott", email = "sam.schott@outlook.com"}]
-license = {text = "MIT"}
+authors = [{ name = "Sam Schott", email = "sam.schott@outlook.com" }]
+license = { text = "MIT" }
 description = "Open-source Dropbox client for macOS and Linux."
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -21,7 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3 :: Only",
 ]
-urls = {Homepage = "https://maestral.app"}
+urls = { Homepage = "https://maestral.app" }
 requires-python = ">=3.8"
 dependencies = [
     "click>=8.0.2",
@@ -58,6 +58,7 @@ lint = [
     "black",
     "flake8",
     "flake8-pyproject",
+    "isort",
     "mypy",
     "pyupgrade",
     "types-pkg_resources",
@@ -103,3 +104,6 @@ ignore_missing_imports = true
 [tool.black]
 line-length = 88
 target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.isort]
+profile = "black"

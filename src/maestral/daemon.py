@@ -5,44 +5,45 @@ objects for a running daemon.
 
 from __future__ import annotations
 
+import argparse
+import enum
+import fcntl
+
 # system imports
 import inspect
-import sys
 import os
-import time
-import signal
-import enum
-import threading
-import fcntl
-import struct
-import argparse
-import re
 import pickle
+import re
+import signal
+import struct
+import sys
+import threading
+import time
 from pprint import pformat
 from shlex import quote
-from typing import Any, Iterable, ContextManager, TYPE_CHECKING
 from types import TracebackType
+from typing import TYPE_CHECKING, Any, ContextManager, Iterable
 
 # external imports
 import Pyro5
-from Pyro5.errors import CommunicationError
+from fasteners import InterProcessLock
 from Pyro5.api import (
     Daemon,
     Proxy,
     expose,
-    register_dict_to_class,
     register_class_to_dict,
+    register_dict_to_class,
 )
+from Pyro5.errors import CommunicationError
 from Pyro5.serializers import serpent
-from fasteners import InterProcessLock
+
+from . import core, exceptions, models
+from .constants import ENV, IS_MACOS
 
 # local imports
 from .utils import exc_info_tuple
 from .utils.appdirs import get_runtime_path
 from .utils.integration import SystemdNotifier
-from .constants import IS_MACOS, ENV
-from . import core, models, exceptions
-
 
 if TYPE_CHECKING:
     from .main import Maestral
@@ -375,8 +376,9 @@ def start_maestral_daemon(
     """
 
     import asyncio
-    from .main import Maestral
+
     from .logging import scoped_logger, setup_logging
+    from .main import Maestral
 
     setup_logging(config_name, stderr=log_to_stderr)
     dlogger = scoped_logger(__name__, config_name)

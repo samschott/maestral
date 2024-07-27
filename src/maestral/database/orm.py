@@ -9,12 +9,12 @@ memory is constrained.
 
 from __future__ import annotations
 
+from typing import Any, Generator, Generic, Optional, TypeVar, Union, cast, overload
 from weakref import WeakValueDictionary
-from typing import Any, Generator, TypeVar, Generic, Union, Optional, cast, overload
 
 from .core import Database
 from .query import Query
-from .types import SqlType, SqlEnum
+from .types import SqlEnum, SqlType
 
 SQLSafeType = Union[str, int, float, None]
 T = TypeVar("T")

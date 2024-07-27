@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 
 import pytest
 
@@ -9,7 +9,6 @@ from maestral.exceptions import DropboxAuthError
 from maestral.keyring import CredentialStorage
 
 from .lock import DropboxTestLock
-
 
 fsevents_logger = logging.getLogger("fsevents")
 fsevents_logger.setLevel(logging.DEBUG)

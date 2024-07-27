@@ -7,24 +7,25 @@ from __future__ import annotations
 # system imports
 from threading import RLock
 
-# external imports
-import requests
 import keyring.backends
+import keyring.backends.kwallet
 import keyring.backends.macOS
 import keyring.backends.SecretService
 import keyrings.alt.file
-import keyring.backends.kwallet
+
+# external imports
+import requests
 from keyring.backend import KeyringBackend
 from keyring.core import load_keyring
-from keyring.errors import KeyringLocked, PasswordDeleteError, InitError
+from keyring.errors import InitError, KeyringLocked, PasswordDeleteError
+
+from .cli import output
 
 # local imports
 from .config import MaestralConfig
 from .exceptions import KeyringAccessError
-from .cli import output
-from .utils import exc_info_tuple
 from .logging import scoped_logger
-
+from .utils import exc_info_tuple
 
 __all__ = ["CredentialStorage"]
 

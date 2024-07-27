@@ -7,14 +7,14 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime
-from typing import Iterable, Callable
+from typing import Callable, Iterable
 
 import click
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.measure import Measurement
-from rich.text import Text
 from rich.style import Style
-from rich.table import Table, Column
+from rich.table import Column, Table
+from rich.text import Text
 
 TABLE_STYLE = dict(padding=(0, 2, 0, 0), box=None)
 

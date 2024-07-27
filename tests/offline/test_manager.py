@@ -2,11 +2,12 @@ import os
 from unittest import mock
 
 import pytest
-from maestral.main import Maestral
-from maestral.core import FullAccount, TeamRootInfo, UserRootInfo, AccountType
+
+from maestral.core import AccountType, FullAccount, TeamRootInfo, UserRootInfo
 from maestral.exceptions import NoDropboxDirError
+from maestral.main import Maestral
 from maestral.utils.appdirs import get_home_dir
-from maestral.utils.path import generate_cc_name, delete
+from maestral.utils.path import delete, generate_cc_name
 
 
 def fake_linked(m: Maestral, account_info: FullAccount) -> None:

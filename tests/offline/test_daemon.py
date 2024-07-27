@@ -1,8 +1,8 @@
-import sys
 import os
-import time
 import subprocess
+import sys
 import threading
+import time
 import uuid
 
 import pytest
@@ -10,16 +10,15 @@ from Pyro5.api import Proxy
 
 from maestral.daemon import (
     CommunicationError,
+    Lock,
     MaestralProxy,
-    start_maestral_daemon_process,
-    stop_maestral_daemon_process,
     Start,
     Stop,
-    Lock,
+    start_maestral_daemon_process,
+    stop_maestral_daemon_process,
 )
-from maestral.main import Maestral
 from maestral.exceptions import NotLinkedError
-
+from maestral.main import Maestral
 
 # locking tests
 
