@@ -4,9 +4,9 @@ from typing import TYPE_CHECKING
 
 import click
 
-from .output import echo, ok
 from .common import convert_api_errors, existing_config_option, inject_proxy
-from .core import DropboxPath, CliException
+from .core import CliException, DropboxPath
+from .output import echo, ok
 
 if TYPE_CHECKING:
     from ..main import Maestral

@@ -1,9 +1,8 @@
 from datetime import datetime
 from queue import Queue
 
-from maestral.sync import ActivityTree, ActivityNode
-from maestral.models import SyncEvent, SyncDirection, SyncStatus, ChangeType, ItemType
-
+from maestral.models import ChangeType, ItemType, SyncDirection, SyncEvent, SyncStatus
+from maestral.sync import ActivityNode, ActivityTree
 
 EVENT1 = SyncEvent(
     dbx_path="/d0/file1.txt",

@@ -11,26 +11,29 @@ neither support pip installed packages nor multiple configurations.
 
 from __future__ import annotations
 
+import configparser
+
 # system imports
 import os
 import os.path as osp
+import plistlib
 import re
 import shutil
 import stat
 import subprocess
-import plistlib
-import configparser
 import sys
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
 from typing import Any
-from importlib_metadata import files, PackageNotFoundError
+
+from importlib_metadata import PackageNotFoundError, files
+
+from .constants import BUNDLE_ID, ENV, FROZEN, IS_LINUX, IS_MACOS
+from .exceptions import MaestralApiError
 
 # local imports
-from .utils.appdirs import get_home_dir, get_conf_path, get_data_path
+from .utils.appdirs import get_conf_path, get_data_path, get_home_dir
 from .utils.integration import cat
-from .constants import BUNDLE_ID, ENV, IS_LINUX, IS_MACOS, FROZEN
-from .exceptions import MaestralApiError
 
 
 class SupportedImplementations(Enum):

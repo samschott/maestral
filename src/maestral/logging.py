@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
-import os
 import concurrent.futures
 import logging
+import os
 import time
-from logging.handlers import RotatingFileHandler
 from collections import deque
 from concurrent.futures import Future, InvalidStateError
+from logging.handlers import RotatingFileHandler
 from typing import Sequence
 
 from .config import MaestralConfig
 from .utils import sanitize_string
 from .utils.appdirs import get_log_path
 from .utils.integration import SystemdNotifier
-
 
 __all__ = [
     "AwaitableHandler",

@@ -1,24 +1,24 @@
 from __future__ import annotations
 
-import sys
 import os
+import sys
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Tuple
 
 import click
+from rich.columns import Columns
 from rich.console import Console, ConsoleRenderable
+from rich.filesize import decimal
+from rich.progress import BarColumn, DownloadColumn, Progress, TaskID, TextColumn
 from rich.table import Column
 from rich.text import Text
-from rich.columns import Columns
-from rich.filesize import decimal
-from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn, TaskID
 
-from .output import echo, RichDateField, rich_table
-from .common import convert_api_errors, check_for_fatal_errors, inject_proxy
-from .core import DropboxPath
+from ..core import DeletedMetadata, FileMetadata, FolderMetadata
 from ..models import SyncDirection, SyncEvent, SyncStatus
-from ..core import FileMetadata, FolderMetadata, DeletedMetadata
+from .common import check_for_fatal_errors, convert_api_errors, inject_proxy
+from .core import DropboxPath
+from .output import RichDateField, echo, rich_table
 
 if TYPE_CHECKING:
     from ..main import Maestral
@@ -283,13 +283,13 @@ def ls(m: Maestral, long: bool, dropbox_path: str, include_deleted: bool) -> Non
     help="Remove config files without a linked account.",
 )
 def config_files(clean: bool) -> None:
-    from ..daemon import is_running
     from ..config import (
         MaestralConfig,
         MaestralState,
         list_configs,
         remove_configuration,
     )
+    from ..daemon import is_running
 
     if clean:
         # Clean up stale config files.

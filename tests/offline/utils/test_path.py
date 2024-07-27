@@ -1,18 +1,18 @@
 import os
 import stat
 
-import xattr
 import pytest
+import xattr
 
-from maestral.utils.path import (
-    normalized_path_exists,
-    get_existing_equivalent_paths,
-    is_fs_case_sensitive,
-    is_child,
-    move,
-)
 from maestral.constants import IS_LINUX
 from maestral.utils.appdirs import get_home_dir
+from maestral.utils.path import (
+    get_existing_equivalent_paths,
+    is_child,
+    is_fs_case_sensitive,
+    move,
+    normalized_path_exists,
+)
 
 
 def touch(path: str) -> None:

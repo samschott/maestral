@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import os
 from types import TracebackType
-from typing import Iterator, TypeVar, Optional, Iterable, Tuple, Type
+from typing import Iterable, Iterator, Optional, Tuple, Type, TypeVar
 
 from packaging.version import Version
 
 from .path import normalize
-
 
 _N = TypeVar("_N", float, int)
 _T = TypeVar("_T")

@@ -9,7 +9,6 @@ import platform
 from os import path as osp
 from typing import Optional
 
-
 __all__ = [
     "get_log_path",
     "get_cache_path",

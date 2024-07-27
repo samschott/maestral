@@ -4,9 +4,9 @@ Module to print neatly formatted tables and grids to the terminal.
 
 from __future__ import annotations
 
-import sys
 import os
 import shutil
+import sys
 
 
 def get_term_size() -> os.terminal_size:

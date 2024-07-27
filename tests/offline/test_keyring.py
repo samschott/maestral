@@ -1,14 +1,14 @@
 from unittest import mock
 
 import pytest
-
-from maestral.keyring import CredentialStorage
-from maestral.config import remove_configuration, MaestralConfig
-from maestral.exceptions import KeyringAccessError
 from keyring.backend import KeyringBackend
-from keyring.errors import KeyringLocked
 from keyring.backends.SecretService import Keyring as SecretServiceKeyring
+from keyring.errors import KeyringLocked
 from keyrings.alt.file import PlaintextKeyring
+
+from maestral.config import MaestralConfig, remove_configuration
+from maestral.exceptions import KeyringAccessError
+from maestral.keyring import CredentialStorage
 
 
 @pytest.fixture

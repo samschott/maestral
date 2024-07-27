@@ -2,14 +2,14 @@ import os
 from pathlib import Path
 
 from watchdog.events import (
-    DirModifiedEvent,
     DirCreatedEvent,
+    DirModifiedEvent,
     DirMovedEvent,
     FileMovedEvent,
 )
 
+from maestral.models import ChangeType, ItemType
 from maestral.sync import SyncDirection, SyncEngine
-from maestral.models import ItemType, ChangeType
 from maestral.utils.path import move
 
 

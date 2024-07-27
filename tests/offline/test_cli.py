@@ -2,14 +2,13 @@ import logging
 
 from click.testing import CliRunner
 
-from maestral.main import Maestral
-from maestral.cli import main
 from maestral.autostart import AutoStart
-from maestral.notify import level_number_to_name, level_name_to_number
-from maestral.daemon import MaestralProxy, start_maestral_daemon_process, Start
+from maestral.cli import main
+from maestral.daemon import MaestralProxy, Start, start_maestral_daemon_process
 from maestral.logging import scoped_logger
+from maestral.main import Maestral
+from maestral.notify import level_name_to_number, level_number_to_name
 from maestral.utils.appdirs import get_log_path
-
 
 TEST_TIMEOUT = 60
 

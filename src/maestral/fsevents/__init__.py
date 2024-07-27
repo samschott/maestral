@@ -9,13 +9,14 @@ events.
 
 from __future__ import annotations
 
-from typing import Type, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Type, Union
 
 from watchdog.utils import platform
 
 if TYPE_CHECKING:
-    from watchdog.observers.inotify import InotifyObserver
     from watchdog.observers.fsevents import FSEventsObserver
+    from watchdog.observers.inotify import InotifyObserver
+
     from .polling import OrderedPollingObserver
 
 

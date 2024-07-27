@@ -7,29 +7,30 @@ Class instances then represent table rows.
 
 from __future__ import annotations
 
+import enum
+
 # system imports
 import os
 import time
-import enum
 from typing import TYPE_CHECKING
 
 # external imports
 from watchdog.events import (
-    FileSystemEvent,
-    FileMovedEvent,
-    DirMovedEvent,
     EVENT_TYPE_CREATED,
     EVENT_TYPE_DELETED,
-    EVENT_TYPE_MOVED,
     EVENT_TYPE_MODIFIED,
+    EVENT_TYPE_MOVED,
+    DirMovedEvent,
+    FileMovedEvent,
+    FileSystemEvent,
 )
 
 # local imports
-from .core import Metadata, DeletedMetadata, FileMetadata, FolderMetadata
-from .database.orm import Model, Column, NonNullColumn
-from .database.types import SqlInt, SqlLargeInt, SqlFloat, SqlString, SqlPath, SqlEnum
+from .core import DeletedMetadata, FileMetadata, FolderMetadata, Metadata
+from .database.orm import Column, Model, NonNullColumn
+from .database.types import SqlEnum, SqlFloat, SqlInt, SqlLargeInt, SqlPath, SqlString
+from .exceptions import NotLinkedError, SyncError
 from .utils.path import normalize
-from .exceptions import SyncError, NotLinkedError
 
 if TYPE_CHECKING:
     from .sync import SyncEngine

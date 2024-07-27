@@ -7,21 +7,20 @@ from os import path as osp
 from typing import TYPE_CHECKING
 
 import click
-
 from rich.console import Console, ConsoleRenderable
 
-from .dialogs import select_path, select, confirm, prompt, select_multiple
-from .output import warn, ok, info, echo, RichDateField, rich_table
+from ..core import FolderMetadata, SharedLinkMetadata
+from ..utils.path import delete
 from .common import (
-    convert_api_errors,
     check_for_fatal_errors,
     config_option,
+    convert_api_errors,
     existing_config_option,
     inject_proxy,
 )
-from .core import DropboxPath, CliException
-from ..core import FolderMetadata, SharedLinkMetadata
-from ..utils.path import delete
+from .core import CliException, DropboxPath
+from .dialogs import confirm, prompt, select, select_multiple, select_path
+from .output import RichDateField, echo, info, ok, rich_table, warn
 
 if TYPE_CHECKING:
     from ..daemon import MaestralProxy
@@ -37,7 +36,7 @@ def stop_daemon_with_cli_feedback(config_name: str) -> None:
     """Wrapper around :meth:`daemon.stop_maestral_daemon_process`
     with command line feedback."""
 
-    from ..daemon import stop_maestral_daemon_process, Stop
+    from ..daemon import Stop, stop_maestral_daemon_process
 
     echo("Stopping Maestral...", nl=False)
     res = stop_maestral_daemon_process(config_name)
@@ -165,13 +164,13 @@ def link_dialog(m: MaestralProxy | Maestral) -> None:
 @convert_api_errors
 def start(foreground: bool, verbose: bool, config_name: str) -> None:
     from ..daemon import (
+        CommunicationError,
         MaestralProxy,
+        Start,
+        is_running,
         start_maestral_daemon,
         start_maestral_daemon_process,
         wait_for_startup,
-        is_running,
-        Start,
-        CommunicationError,
     )
 
     if is_running(config_name):
@@ -262,9 +261,9 @@ def stop(config_name: str) -> None:
 def gui(config_name: str) -> None:
     import termios
 
-    from packaging.version import Version
-    from packaging.requirements import Requirement
     from importlib_metadata import entry_points, requires, version
+    from packaging.requirements import Requirement
+    from packaging.version import Version
 
     # Find all entry points for "maestral_gui" registered by other packages.
     gui_entry_points = entry_points(group="maestral_gui")

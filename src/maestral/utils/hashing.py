@@ -4,7 +4,6 @@ from __future__ import annotations
 
 # system imports
 import hashlib
-
 from typing import BinaryIO, Union
 
 _WritableBuffer = Union[bytes, bytearray]

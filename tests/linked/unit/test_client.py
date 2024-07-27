@@ -9,14 +9,13 @@ import maestral.client
 from maestral.client import DropboxClient
 from maestral.core import AccountType, FolderMetadata
 from maestral.exceptions import (
+    DataCorruptionError,
     NotFoundError,
     PathError,
-    DataCorruptionError,
     SharedLinkError,
 )
-from maestral.utils.path import normalize, content_hash
 from maestral.utils.hashing import DropboxContentHasher
-
+from maestral.utils.path import content_hash, normalize
 
 if not ("DROPBOX_ACCESS_TOKEN" in os.environ or "DROPBOX_REFRESH_TOKEN" in os.environ):
     pytest.skip("Requires auth token", allow_module_level=True)

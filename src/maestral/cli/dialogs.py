@@ -5,11 +5,11 @@ This module provides interactive commandline dialogs which are based on the
 
 from __future__ import annotations
 
-import os
 import functools
+import os
 from typing import Callable, Sequence, TypeVar
-from typing_extensions import ParamSpec
 
+from typing_extensions import ParamSpec
 
 P = ParamSpec("P")
 T = TypeVar("T")

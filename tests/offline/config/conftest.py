@@ -1,7 +1,7 @@
 import pytest
 from packaging.version import Version
-from maestral.config.user import UserConfig
 
+from maestral.config.user import UserConfig
 
 DEFAULTS_CONFIG = {
     "auth": {

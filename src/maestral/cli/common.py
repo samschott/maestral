@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import functools
 import sys
-from typing import Callable, Any, TypeVar, TYPE_CHECKING
-from typing_extensions import ParamSpec
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 import click
+from typing_extensions import ParamSpec
 
+from ..constants import DEFAULT_CONFIG_NAME
 from .core import ConfigName
 from .output import warn
 from .utils import get_term_size
-from ..constants import DEFAULT_CONFIG_NAME
 
 if TYPE_CHECKING:
     from ..daemon import MaestralProxy
@@ -94,7 +94,7 @@ def inject_proxy(
 ) -> Callable[[Callable[P, T]], Callable[P, Any]]:
     def decorator(f: Callable[P, T]) -> Callable[P, Any]:
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
-            from ..daemon import MaestralProxy, CommunicationError
+            from ..daemon import CommunicationError, MaestralProxy
 
             ctx = click.get_current_context()
 

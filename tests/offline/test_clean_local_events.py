@@ -1,18 +1,18 @@
 import pytest
 from watchdog.events import (
+    DirCreatedEvent,
+    DirDeletedEvent,
+    DirMovedEvent,
     FileCreatedEvent,
     FileDeletedEvent,
     FileModifiedEvent,
     FileMovedEvent,
-    DirCreatedEvent,
-    DirDeletedEvent,
-    DirMovedEvent,
 )
 
-from maestral.sync import SyncEngine
 from maestral.client import DropboxClient
-from maestral.keyring import CredentialStorage
 from maestral.config import remove_configuration
+from maestral.keyring import CredentialStorage
+from maestral.sync import SyncEngine
 
 
 @pytest.fixture

@@ -1,23 +1,23 @@
 # external imports
 import click
 
-# local imports
-from .core import OrderedGroup
-from .cli_core import start, stop, gui, pause, resume, auth, sharelink
-from .cli_info import status, filestatus, activity, history, ls, config_files
-from .cli_settings import autostart, excluded, notify, bandwidth_limit
+from .. import __version__
+from .cli_core import auth, gui, pause, resume, sharelink, start, stop
+from .cli_info import activity, config_files, filestatus, history, ls, status
 from .cli_maintenance import (
+    completion,
+    config,
+    diff,
+    log,
     move_dir,
     rebuild_index,
-    revs,
-    diff,
     restore,
-    log,
-    config,
-    completion,
+    revs,
 )
+from .cli_settings import autostart, bandwidth_limit, excluded, notify
 
-from .. import __version__
+# local imports
+from .core import OrderedGroup
 
 
 @click.group(cls=OrderedGroup, help="Dropbox client for Linux and macOS.")

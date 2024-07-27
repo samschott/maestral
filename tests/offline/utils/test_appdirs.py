@@ -1,14 +1,15 @@
 import platform
 
 import pytest
+
 from maestral.utils.appdirs import (
-    get_home_dir,
-    get_runtime_path,
-    get_conf_path,
-    get_log_path,
-    get_cache_path,
-    get_data_path,
     get_autostart_path,
+    get_cache_path,
+    get_conf_path,
+    get_data_path,
+    get_home_dir,
+    get_log_path,
+    get_runtime_path,
 )
 
 

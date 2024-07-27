@@ -3,13 +3,15 @@ This module provides constants used throughout the maestral, the GUI and CLI. It
 be kept free of memory heavy imports.
 """
 
+import pathlib
+import platform
+
 # system imports
 import sys
-import platform
-import pathlib
 from enum import Enum
-from importlib_metadata import metadata, PackageNotFoundError
 from typing import ContextManager
+
+from importlib_metadata import PackageNotFoundError, metadata
 
 try:
     # For Python 3.9 and later.

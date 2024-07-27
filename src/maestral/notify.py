@@ -6,20 +6,20 @@ backend for cross-platform desktop notifications.
 
 from __future__ import annotations
 
+import asyncio
+
 # system imports
 import logging
 import time
-import asyncio
 from asyncio import AbstractEventLoop
-from typing import Callable, Any, cast
+from typing import Any, Callable, cast
 
 # external imports
-from desktop_notifier import DesktopNotifier, Urgency, Button
+from desktop_notifier import Button, DesktopNotifier, Urgency
 
 # local imports
 from .config import MaestralConfig
-from .constants import APP_NAME, APP_ICON_PATH
-
+from .constants import APP_ICON_PATH, APP_NAME
 
 __all__ = [
     "NONE",

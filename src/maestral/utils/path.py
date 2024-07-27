@@ -2,24 +2,26 @@
 This module contains functions for common path operations.
 """
 
+import errno
+import fcntl
+import itertools
+
 # system imports
 import os
 import os.path as osp
-import errno
-import shutil
-import itertools
-import unicodedata
-import fcntl
 import platform
+import shutil
+import unicodedata
 from stat import S_ISDIR
-from typing import List, Optional, Tuple, Callable, Iterator, Iterable, Union
+from typing import Callable, Iterable, Iterator, List, Optional, Tuple, Union
 
 # third party imports
 import xattr
 
+from ..constants import IS_LINUX
+
 # local imports
 from .hashing import DropboxContentHasher
-from ..constants import IS_LINUX
 
 F_GETPATH = 50
 

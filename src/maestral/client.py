@@ -5,84 +5,84 @@ and handles exceptions, chunked uploads or downloads, etc.
 
 from __future__ import annotations
 
+import functools
+
 # system imports
 import os
 import re
 import time
-import functools
-from contextlib import contextmanager, closing
+from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from typing import (
+    TYPE_CHECKING,
+    Any,
+    BinaryIO,
     Callable,
     Iterator,
     Sequence,
     TypeVar,
-    Any,
-    BinaryIO,
-    overload,
     cast,
-    TYPE_CHECKING,
+    overload,
 )
-from typing_extensions import ParamSpec, Concatenate
 
 # external imports
 import requests
-from dropbox import files, sharing, users, common
-from dropbox import Dropbox, create_session, exceptions
+from dropbox import Dropbox, common, create_session, exceptions, files, sharing, users
+from dropbox.dropbox_client import (
+    USER_AUTH,
+    BadInputException,
+    RouteErrorResult,
+    RouteResult,
+)
 from dropbox.oauth import DropboxOAuth2FlowNoRedirect
 from dropbox.session import API_HOST
-from dropbox.dropbox_client import (
-    BadInputException,
-    RouteResult,
-    RouteErrorResult,
-    USER_AUTH,
-)
+from typing_extensions import Concatenate, ParamSpec
 
 # local imports
 from . import __version__
-from .keyring import CredentialStorage
-from .logging import scoped_logger
+from .config import MaestralState
+from .constants import DROPBOX_APP_KEY
 from .core import (
-    AccountType,
-    Team,
     Account,
-    RootInfo,
-    UserRootInfo,
-    TeamRootInfo,
-    FullAccount,
-    SpaceUsage,
-    PersonalSpaceUsage,
-    WriteMode,
-    Metadata,
+    AccountType,
     DeletedMetadata,
     FileMetadata,
     FolderMetadata,
-    ListFolderResult,
+    FullAccount,
     LinkAccessLevel,
     LinkAudience,
     LinkPermissions,
-    SharedLinkMetadata,
+    ListFolderResult,
     ListSharedLinkResult,
-)
-from .exceptions import (
-    MaestralApiError,
-    SyncError,
-    PathError,
-    NotFoundError,
-    NotLinkedError,
-    DataCorruptionError,
-    DataChangedError,
+    Metadata,
+    PersonalSpaceUsage,
+    RootInfo,
+    SharedLinkMetadata,
+    SpaceUsage,
+    Team,
+    TeamRootInfo,
+    UserRootInfo,
+    WriteMode,
 )
 from .errorhandling import (
+    CONNECTION_ERRORS,
     convert_api_errors,
     dropbox_to_maestral_error,
-    CONNECTION_ERRORS,
 )
-from .config import MaestralState
-from .constants import DROPBOX_APP_KEY
-from .utils import natural_size, chunks, clamp
-from .utils.path import opener_no_symlink, delete
+from .exceptions import (
+    DataChangedError,
+    DataCorruptionError,
+    MaestralApiError,
+    NotFoundError,
+    NotLinkedError,
+    PathError,
+    SyncError,
+)
+from .keyring import CredentialStorage
+from .logging import scoped_logger
+from .utils import chunks, clamp, natural_size
 from .utils.hashing import DropboxContentHasher, StreamHasher
+from .utils.path import delete, opener_no_symlink
 
 if TYPE_CHECKING:
     from .models import SyncEvent

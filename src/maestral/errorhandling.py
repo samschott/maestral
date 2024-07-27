@@ -5,51 +5,50 @@ exceptions to instances of :exc:`maestral.exceptions.MaestralApiError`.
 
 from __future__ import annotations
 
+import contextlib
+import errno
+
 # system imports
 import os
-import errno
-import contextlib
-from typing import Iterator, Union, TypeVar, Callable, Any
+from typing import Any, Callable, Iterator, TypeVar, Union
 
 # external imports
 import requests
-from dropbox import files, sharing, users, async_, auth, common
-from dropbox import exceptions
+from dropbox import async_, auth, common, exceptions, files, sharing, users
 from dropbox.stone_validators import ValidationError
 
 # local imports
 from .exceptions import (
-    MaestralApiError,
-    SyncError,
-    InsufficientPermissionsError,
-    PathError,
-    FileReadError,
-    InsufficientSpaceError,
-    FileConflictError,
-    FolderConflictError,
-    ConflictError,
-    UnsupportedFileError,
-    RestrictedContentError,
-    NotFoundError,
-    NotAFolderError,
-    IsAFolderError,
-    FileSizeError,
-    SymlinkError,
-    OutOfMemoryError,
     BadInputError,
+    ConflictError,
+    CursorResetError,
+    DataCorruptionError,
     DropboxAuthError,
+    DropboxConnectionError,
+    DropboxServerError,
+    FileConflictError,
+    FileReadError,
+    FileSizeError,
+    FolderConflictError,
+    InsufficientPermissionsError,
+    InsufficientSpaceError,
+    InvalidDbidError,
+    IsAFolderError,
+    MaestralApiError,
+    NotAFolderError,
+    NotFoundError,
+    OutOfMemoryError,
+    PathError,
+    PathRootError,
+    RestrictedContentError,
+    SharedLinkError,
+    SymlinkError,
+    SyncError,
     TokenExpiredError,
     TokenRevokedError,
-    CursorResetError,
-    DropboxServerError,
-    InvalidDbidError,
-    SharedLinkError,
-    DropboxConnectionError,
-    PathRootError,
-    DataCorruptionError,
+    UnsupportedFileError,
 )
 from .utils.path import fs_max_lengths_for_path
-
 
 __all__ = [
     "CONNECTION_ERRORS",

@@ -5,15 +5,16 @@ could also be achieved with psutils, but we want to avoid the large dependency.
 
 from __future__ import annotations
 
+import logging
 import os
 import resource
-import requests
-import time
-import logging
 import socket
+import time
 from pathlib import Path
-from typing import Union, Tuple, Optional
+from typing import Optional, Tuple, Union
 from urllib.parse import urlparse
+
+import requests
 
 __all__ = [
     "cat",

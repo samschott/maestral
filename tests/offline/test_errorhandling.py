@@ -5,47 +5,49 @@ import errno
 
 import pytest
 from dropbox import exceptions
-from dropbox.files import *
 from dropbox.async_ import *
-from dropbox.users import *
-from dropbox.sharing import *
 from dropbox.auth import *
 from dropbox.common import *
+from dropbox.files import *
+from dropbox.sharing import *
+from dropbox.users import *
 
-from maestral.exceptions import (
-    MaestralApiError,
-    InvalidDbidError,
-    DropboxAuthError,
-    TokenExpiredError,
-    TokenRevokedError,
-    CursorResetError,
-    BadInputError,
-    OutOfMemoryError,
-    SharedLinkError,
-    SyncError,
-    InsufficientPermissionsError,
-    InsufficientSpaceError,
-    PathError,
-    NotFoundError,
-    ConflictError,
-    IsAFolderError,
-    NotAFolderError,
-    DropboxServerError,
-    RestrictedContentError,
-    UnsupportedFileError,
-    FileSizeError,
-    FileReadError,
-    FileConflictError,
-    FolderConflictError,
-    DataCorruptionError,
-)
-from maestral.exceptions import PathRootError as MPRE
 from maestral.errorhandling import (
-    os_to_maestral_error,
     dropbox_to_maestral_error,
     get_lookup_error_msg,
-    get_write_error_msg,
     get_session_lookup_error_msg,
+    get_write_error_msg,
+    os_to_maestral_error,
+)
+from maestral.exceptions import (
+    BadInputError,
+    ConflictError,
+    CursorResetError,
+    DataCorruptionError,
+    DropboxAuthError,
+    DropboxServerError,
+    FileConflictError,
+    FileReadError,
+    FileSizeError,
+    FolderConflictError,
+    InsufficientPermissionsError,
+    InsufficientSpaceError,
+    InvalidDbidError,
+    IsAFolderError,
+    MaestralApiError,
+    NotAFolderError,
+    NotFoundError,
+    OutOfMemoryError,
+    PathError,
+)
+from maestral.exceptions import PathRootError as MPRE
+from maestral.exceptions import (
+    RestrictedContentError,
+    SharedLinkError,
+    SyncError,
+    TokenExpiredError,
+    TokenRevokedError,
+    UnsupportedFileError,
 )
 
 

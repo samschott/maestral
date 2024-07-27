@@ -4,10 +4,9 @@ Dataclasses for our internal and external APIs.
 
 from __future__ import annotations
 
-from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
-
+from enum import Enum
 
 # ==== user ============================================================================
 

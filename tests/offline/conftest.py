@@ -1,16 +1,16 @@
+import logging
 import os
 import os.path as osp
-import logging
 
 import pytest
 
-from maestral.main import Maestral
-from maestral.sync import SyncEngine
-from maestral.fsevents import Observer
 from maestral.client import DropboxClient
 from maestral.config import list_configs, remove_configuration
-from maestral.daemon import stop_maestral_daemon_process, Stop
+from maestral.daemon import Stop, stop_maestral_daemon_process
+from maestral.fsevents import Observer
 from maestral.keyring import CredentialStorage
+from maestral.main import Maestral
+from maestral.sync import SyncEngine
 from maestral.utils.appdirs import get_home_dir
 from maestral.utils.path import delete
 

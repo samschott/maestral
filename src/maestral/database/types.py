@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import os
 from enum import Enum
-from typing import Iterable, TypeVar, Generic, cast
-
+from typing import Generic, Iterable, TypeVar, cast
 
 T = TypeVar("T")
 ST = TypeVar("ST")

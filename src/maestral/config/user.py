@@ -11,17 +11,16 @@ config module of the Spyder IDE.
 from __future__ import annotations
 
 import ast
+import configparser as cp
+import copy
+import logging
 import os
 import os.path as osp
 import shutil
-import copy
-import logging
-import configparser as cp
 from threading import RLock
-from typing import Iterator, Any, Dict, TypeVar, MutableSet
+from typing import Any, Dict, Iterator, MutableSet, TypeVar
 
 from packaging.version import Version
-
 
 logger = logging.getLogger(__name__)
 

@@ -15,7 +15,6 @@ from click.shell_completion import CompletionItem
 
 from .output import warn
 
-
 # ==== Custom parameter types ==========================================================
 
 # A custom parameter:
@@ -63,8 +62,9 @@ class DropboxPath(click.ParamType):
         incomplete: str,
     ) -> list[CompletionItem]:
         from click.shell_completion import CompletionItem
-        from ..utils import removeprefix
+
         from ..config import MaestralConfig
+        from ..utils import removeprefix
 
         matches: list[str] = []
         completions: list[CompletionItem] = []
@@ -126,6 +126,7 @@ class ConfigKey(click.ParamType):
         incomplete: str,
     ) -> list[CompletionItem]:
         from click.shell_completion import CompletionItem
+
         from ..config.main import KEY_SECTION_MAP as KEYS
 
         return [CompletionItem(key) for key in KEYS if key.startswith(incomplete)]
@@ -154,7 +155,7 @@ class ConfigName(click.ParamType):
         if value is None:
             return value
 
-        from ..config import validate_config_name, list_configs
+        from ..config import list_configs, validate_config_name
 
         if not self.existing:
             # accept all valid config names
@@ -180,6 +181,7 @@ class ConfigName(click.ParamType):
         incomplete: str,
     ) -> list[CompletionItem]:
         from click.shell_completion import CompletionItem
+
         from ..config import list_configs
 
         matches = [conf for conf in list_configs() if conf.startswith(incomplete)]

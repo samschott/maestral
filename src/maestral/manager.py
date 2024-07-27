@@ -2,52 +2,45 @@
 
 from __future__ import annotations
 
+import ctypes
+import errno
+import gc
+
 # system imports
 import os
-import errno
 import time
-import gc
-import ctypes
 from contextlib import contextmanager
 from functools import wraps
 from queue import Empty, Queue
-from threading import Event, RLock, Thread
 from tempfile import TemporaryDirectory
-from typing import Iterator, TypeVar, Callable, Generic, Any
-from typing_extensions import ParamSpec, Concatenate
+from threading import Event, RLock, Thread
+from typing import Any, Callable, Generic, Iterator, TypeVar
+
+from typing_extensions import Concatenate, ParamSpec
 
 # local imports
-from . import __url__
-from . import notify
+from . import __url__, notify
 from .client import API_HOST
-from .core import TeamRootInfo, UserRootInfo
-from .fsevents import Observer, ObserverType
 from .config import MaestralConfig, MaestralState, PersistentMutableSet
 from .config.user import UserConfig
-from .constants import (
-    DISCONNECTED,
-    CONNECTING,
-    SYNCING,
-    IDLE,
-    PAUSED,
-    CONNECTED,
-)
+from .constants import CONNECTED, CONNECTING, DISCONNECTED, IDLE, PAUSED, SYNCING
+from .core import TeamRootInfo, UserRootInfo
 from .exceptions import (
     CancelledError,
     DropboxConnectionError,
-    MaestralApiError,
+    DropboxServerError,
     InotifyError,
+    MaestralApiError,
     NoDropboxDirError,
     PathRootError,
-    DropboxServerError,
 )
-from .sync import SyncEngine
+from .fsevents import Observer, ObserverType
 from .logging import scoped_logger
 from .notify import MaestralDesktopNotifier
+from .sync import SyncEngine
 from .utils import removeprefix
 from .utils.integration import check_connection, get_inotify_limits
-from .utils.path import move, delete, is_equal_or_child, is_child, normalize
-
+from .utils.path import delete, is_child, is_equal_or_child, move, normalize
 
 __all__ = ["SyncManager"]
 
