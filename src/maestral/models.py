@@ -48,7 +48,7 @@ __all__ = [
 ]
 
 
-def get_dest_path(event: FileSystemEvent) -> str:
+def get_dest_path(event: FileSystemEvent) -> str | bytes:
     """
     Returns the dest_path of a file system event if present (moved events only)
     otherwise returns the src_path (which is also the "destination").
@@ -425,7 +425,7 @@ class SyncEvent(Model):
             change_time = stat.st_ctime if stat else None
             size = stat.st_size if stat else 0
             try:
-                symlink_target = os.readlink(event.src_path)
+                symlink_target = os.readlink(os.fsdecode(event.src_path))
             except OSError:
                 symlink_target = None
 

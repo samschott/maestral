@@ -15,7 +15,7 @@ from asyncio import AbstractEventLoop
 from typing import Any, Callable, cast
 
 # external imports
-from desktop_notifier import Button, DesktopNotifier, Urgency
+from desktop_notifier import Button, DesktopNotifier, Icon, Urgency
 
 # local imports
 from .config import MaestralConfig
@@ -36,7 +36,7 @@ logger.setLevel(logging.ERROR)
 
 _desktop_notifier = DesktopNotifier(
     app_name=APP_NAME,
-    app_icon=APP_ICON_PATH.as_uri(),
+    app_icon=Icon(path=APP_ICON_PATH),
 )
 
 

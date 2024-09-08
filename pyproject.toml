@@ -25,7 +25,7 @@ urls = { Homepage = "https://maestral.app" }
 requires-python = ">=3.8"
 dependencies = [
     "click>=8.0.2",
-    "desktop-notifier>=3.3.0",
+    "desktop-notifier>=5.0.0",
     "dropbox>=11.28.0,<13.0",
     "fasteners>=0.15",
     "keyring>=22",
