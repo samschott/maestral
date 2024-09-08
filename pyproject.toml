@@ -61,8 +61,8 @@ lint = [
     "isort",
     "mypy",
     "pyupgrade",
-    "types-pkg_resources",
     "types-requests",
+    "types-setuptools",
 ]
 test = [
     "pytest",
