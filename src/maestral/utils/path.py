@@ -2,6 +2,8 @@
 This module contains functions for common path operations.
 """
 
+from __future__ import annotations
+
 import errno
 import fcntl
 import itertools
@@ -36,7 +38,9 @@ _AnyPath = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
 # ==== path relationships ==============================================================
 
 
-def is_child(path: str, parent: str, case_sensitive: bool = True) -> bool:
+def is_child(
+    path: str | bytes, parent: str | bytes, case_sensitive: bool = True
+) -> bool:
     """
     Checks if ``path`` semantically is inside ``parent``. Neither path needs to
     refer to an actual item on the drive. This function is case-sensitive.
@@ -49,6 +53,9 @@ def is_child(path: str, parent: str, case_sensitive: bool = True) -> bool:
     if not case_sensitive:
         path = normalize(path)
         parent = normalize(parent)
+    else:
+        path = os.fsdecode(path)
+        parent = os.fsdecode(parent)
 
     parent = parent.rstrip(osp.sep) + osp.sep
     path = path.rstrip(osp.sep)
@@ -56,7 +63,9 @@ def is_child(path: str, parent: str, case_sensitive: bool = True) -> bool:
     return path.startswith(parent)
 
 
-def is_equal_or_child(path: str, parent: str, case_sensitive: bool = True) -> bool:
+def is_equal_or_child(
+    path: str | bytes, parent: str | bytes, case_sensitive: bool = True
+) -> bool:
     """
     Checks if ``path`` semantically is inside ``parent`` or equals ``parent``. Neither
     path needs to refer to an actual item on the drive. This function is case-sensitive.
@@ -67,11 +76,7 @@ def is_equal_or_child(path: str, parent: str, case_sensitive: bool = True) -> bo
     :returns: ``True`` if ``path`` semantically lies inside ``parent`` or
         ``path == parent``.
     """
-    if not case_sensitive:
-        path = normalize(path)
-        parent = normalize(parent)
-
-    return is_child(path, parent) or path == parent
+    return is_child(path, parent, case_sensitive) or path == parent
 
 
 # ==== case sensitivity and normalization ==============================================
@@ -98,7 +103,7 @@ def normalize_unicode(string: str) -> str:
     return unicodedata.normalize("NFC", string)
 
 
-def normalize(string: str) -> str:
+def normalize(path: str | bytes) -> str:
     """
     Replicates the path normalization performed by Dropbox servers. This typically only
     involves converting the path to lower case, with a few (undocumented) exceptions:
@@ -121,7 +126,7 @@ def normalize(string: str) -> str:
     :param string: Original path.
     :returns: Normalized path.
     """
-    return normalize_case(normalize_unicode(string))
+    return normalize_case(normalize_unicode(os.fsdecode(path)))
 
 
 def is_fs_case_sensitive(path: str) -> bool:
@@ -417,7 +422,7 @@ def move(
 
 
 def walk(
-    root: str,
+    root: str | bytes,
     listdir: Callable[[str], Iterable["os.DirEntry[str]"]] = os.scandir,
 ) -> Iterator[Tuple[str, os.stat_result]]:
     """
@@ -427,7 +432,7 @@ def walk(
     :param listdir: Function to call to get the folder content.
     :returns: Iterator over (path, stat) results.
     """
-    for entry in listdir(root):
+    for entry in listdir(os.fsdecode(root)):
         try:
             path = entry.path
             stat = entry.stat(follow_symlinks=False)
