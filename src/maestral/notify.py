@@ -37,7 +37,6 @@ logger.setLevel(logging.ERROR)
 _desktop_notifier = DesktopNotifier(
     app_name=APP_NAME,
     app_icon=APP_ICON_PATH.as_uri(),
-    notification_limit=10,
 )
 
 
