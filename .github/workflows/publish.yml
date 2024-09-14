@@ -16,7 +16,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5.1.1
+      - uses: actions/setup-python@v5.2.0
         with:
           python-version: '3.x'
 
