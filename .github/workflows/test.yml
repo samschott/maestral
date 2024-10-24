@@ -33,7 +33,7 @@ jobs:
         if: github.event_name != 'pull_request_target'
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5.2.0
+        uses: actions/setup-python@v5.3.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -87,7 +87,7 @@ jobs:
         if: github.event_name != 'pull_request_target'
 
       - name: Set up Python
-        uses: actions/setup-python@v5.2.0
+        uses: actions/setup-python@v5.3.0
         with:
           python-version: '3.12'
 
@@ -161,7 +161,7 @@ jobs:
         if: github.event_name != 'pull_request_target'
 
       - name: Set up Python
-        uses: actions/setup-python@v5.2.0
+        uses: actions/setup-python@v5.3.0
         with:
           python-version: '3.12'
 
