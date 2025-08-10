@@ -147,7 +147,7 @@ class SyncManager:
         self.local_observer_thread: ObserverType | None = None
 
     def _with_lock(  # type:ignore[misc]
-        fn: Callable[Concatenate[SyncManager, P], T]
+        fn: Callable[Concatenate[SyncManager, P], T],
     ) -> Callable[Concatenate[SyncManager, P], T]:
         @wraps(fn)
         def wrapper(__self: SyncManager, *args: P.args, **kwargs: P.kwargs) -> T:

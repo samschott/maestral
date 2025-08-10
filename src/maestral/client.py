@@ -320,7 +320,7 @@ class DropboxClient:
         """
 
         def decorator(
-            func: Callable[Concatenate[DropboxClient, P], T]
+            func: Callable[Concatenate[DropboxClient, P], T],
         ) -> Callable[Concatenate[DropboxClient, P], T]:
             @functools.wraps(func)
             def wrapper(__self: DropboxClient, *args: P.args, **kwargs: P.kwargs) -> T:
