@@ -18,7 +18,7 @@ import os
 import os.path as osp
 import shutil
 from threading import RLock
-from typing import Any, Dict, Iterator, MutableSet, TypeVar
+from typing import Any, Dict, Iterator, MutableSet, TypeVar, Iterable
 
 from packaging.version import Version
 
@@ -501,14 +501,14 @@ class PersistentMutableSet(MutableSet[_T]):
             state_list.discard(entry)
             self._conf.set(self.section, self.option, list(state_list))
 
-    def update(self, *others: _T) -> None:
+    def update(self, *others: Iterable[_T]) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)
             state_list.update(*others)
             self._conf.set(self.section, self.option, list(state_list))
 
-    def difference_update(self, *others: _T) -> None:
+    def difference_update(self, *others: Iterable[_T]) -> None:
         with self._lock:
             state_list = self._conf.get(self.section, self.option)
             state_list = set(state_list)
