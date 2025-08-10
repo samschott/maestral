@@ -123,7 +123,7 @@ def normalize(path: str | bytes) -> str:
 
     Todo: Follow Python 2.5 / Dropbox conventions instead of Python 3 conventions.
 
-    :param string: Original path.
+    :param path: Original path.
     :returns: Normalized path.
     """
     return normalize_case(normalize_unicode(os.fsdecode(path)))
