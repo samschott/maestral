@@ -47,7 +47,7 @@ jobs:
           python -m pytest --cov=maestral --cov-report=xml tests/offline
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: ./coverage.xml
           flags: pytest
@@ -114,7 +114,7 @@ jobs:
           pytest -v --cov=maestral --cov-report=xml tests/linked/unit
 
       - name: Upload Code Coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: ./coverage.xml
           flags: pytest
@@ -188,7 +188,7 @@ jobs:
           pytest --verbose --cov=maestral --cov-report=xml tests/linked/integration --fs-observer ${{ matrix.observer }}
 
       - name: Upload Code Coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: ./coverage.xml
           flags: pytest
