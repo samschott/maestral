@@ -137,9 +137,6 @@ def MaestralConfig(config_name: str) -> UserConfig:
         be created if none exists for the given config_name.
     :return: Maestral config instance which saves any changes to the drive.
     """
-
-    global _config_instances
-
     with _config_lock:
         config_path = get_conf_path(CONFIG_DIR_NAME, f"{config_name}.ini")
         return _get_conf(config_name, config_path, DEFAULTS_CONFIG, _config_instances)
@@ -157,9 +154,6 @@ def MaestralState(config_name: str) -> UserConfig:
         be created if none exists for the given config_name.
     :return: Maestral state instance which saves any changes to the drive.
     """
-
-    global _state_instances
-
     with _state_lock:
         state_path = get_data_path(CONFIG_DIR_NAME, f"{config_name}.state")
         return _get_conf(config_name, state_path, DEFAULTS_STATE, _state_instances)

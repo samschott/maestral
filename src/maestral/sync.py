@@ -1661,7 +1661,7 @@ class SyncEngine:
         return SyncEvent.from_file_system_event(fs_event, self)
 
     def _sync_events_from_fs_events(
-        self, fs_events: Collection[FileSystemEvent]
+        self, fs_events: list[FileSystemEvent]
     ) -> list[SyncEvent]:
         """Convert local file system events to sync events. This is done in a thread
         pool to parallelize content hashing."""
@@ -1736,7 +1736,7 @@ class SyncEngine:
         :returns: Tuple containing local file system events and a cursor / timestamp
             for the changes.
         """
-        changes = []
+        changes: list[FileSystemEvent] = []
         snapshot_time = time.time()
 
         # Get modified or added items.
@@ -3825,30 +3825,33 @@ class SyncEngine:
 
 def do_parallel(
     func: Callable[P, T],
-    *iterable: Collection[P.args],
+    *iterables: list[Any],
     thread_name_prefix: str = "",
     on_progress: Callable[[int, int], Any] | None = None,
 ) -> Iterable[T]:
     """
     Similar to ``ThreadPoolExecutor.map()`` but yields results as they become available.
 
-    :param func: Apply this callable to every item of ``iterable``.
-    :param iterable: Iterable with arguments to pass to ``func``.
+    :param func: A callable that will take as many arguments as there are passed iterables.
+    :param iterables: Arguments to pass to ``func``. All iterables must have the same size.
     :param thread_name_prefix: Used for internal ThreadPoolExecutor.
     :param on_progress: Callback when each task is completed. Takes the number of
         completed items and the total number of items as arguments.
     """
     with ThreadPoolExecutor(
         max_workers=NUM_THREADS, thread_name_prefix=thread_name_prefix
-    ) as tpe:
-        fs = [tpe.submit(func, *args) for args in zip(*iterable)]
+    ) as thread_pool_executor:
+        futures = [
+            thread_pool_executor.submit(func, *args)  # type:ignore[call-arg]
+            for args in zip(*iterables)
+        ]
 
         n_done = 0
-        for f in as_completed(fs):
+        for future in as_completed(futures):
             n_done += 1
             if on_progress:
-                on_progress(n_done, len(iterable[0]))
-            yield f.result()
+                on_progress(n_done, len(iterables[0]))
+            yield future.result()
 
 
 def is_moved(event: FileSystemEvent) -> TypeGuard[FileMovedEvent | DirMovedEvent]:

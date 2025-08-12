@@ -26,7 +26,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from importlib_metadata import PackageNotFoundError, files
+from importlib.metadata import PackageNotFoundError, files
 
 from .constants import BUNDLE_ID, ENV, FROZEN, IS_LINUX, IS_MACOS
 from .exceptions import MaestralApiError
@@ -272,7 +272,7 @@ def get_command_path(dist: str, command: str) -> str:
     if dist_files:
         try:
             rel_path = next(p for p in dist_files if p.match(f"**/bin/{command}"))
-            path = rel_path.locate()  # type: ignore[assignment] # returns PathLike
+            path = rel_path.locate()
         except StopIteration:
             path = None
     else:

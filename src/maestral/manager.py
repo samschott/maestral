@@ -320,7 +320,7 @@ class SyncManager:
             else:
                 raise MaestralApiError(
                     "Could not start watch of local directory",
-                    exc.strerror,
+                    exc.strerror or "Unknown error",
                 )
 
         return local_observer_thread
