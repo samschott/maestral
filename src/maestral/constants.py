@@ -10,7 +10,7 @@ import platform
 import sys
 from enum import Enum
 from typing import ContextManager
-from importlib_metadata import PackageNotFoundError, metadata
+from importlib.metadata import PackageNotFoundError, metadata
 from importlib.resources import as_file, files
 
 
