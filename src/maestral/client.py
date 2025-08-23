@@ -919,7 +919,9 @@ class DropboxClient:
                 md = self.dbx.files_upload(
                     self._throttled_upload_iter(data),
                     dbx_path,
-                    client_modified=datetime.utcfromtimestamp(stat.st_mtime),
+                    client_modified=datetime.fromtimestamp(
+                        stat.st_mtime, tz=timezone.utc
+                    ),
                     content_hash=get_hash(data),
                     mode=mode,
                     autorename=autorename,
@@ -1035,7 +1037,7 @@ class DropboxClient:
         # Finish upload session and return metadata.
         commit = files.CommitInfo(
             path=dbx_path,
-            client_modified=datetime.utcfromtimestamp(stat.st_mtime),
+            client_modified=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
             autorename=autorename,
             mode=mode,
         )
