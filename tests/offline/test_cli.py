@@ -20,7 +20,8 @@ def test_help() -> None:
     result_no_arg = runner.invoke(main)
     result_help_arg = runner.invoke(main, ["--help"])
 
-    assert result_no_arg.exit_code == 0, result_no_arg.output
+    assert result_no_arg.exit_code == 2, result_no_arg.output
+    assert result_help_arg.exit_code == 0, result_no_arg.output
     assert result_no_arg.output.startswith("Usage: main [OPTIONS] COMMAND [ARGS]")
 
     assert result_no_arg.output == result_help_arg.output

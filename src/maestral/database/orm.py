@@ -101,11 +101,7 @@ class Column(Generic[T, ST]):
         constraints = []
 
         if isinstance(self.type, SqlEnum):
-            # Mypy type narrowing does not work well with generics.
-            # See https://github.com/python/mypy/issues/12060.
-            values = ", ".join(
-                repr(member.name) for member in self.type.enum_type  # type:ignore
-            )
+            values = ", ".join(repr(member.name) for member in self.type.enum_type)
             constraints.append(f"CHECK( {self.name} IN ({values}) )")
 
         if self.unique:
