@@ -53,7 +53,9 @@ class DropboxTestLock:
         t0 = time.time()
 
         # we store the expiry time in the client_modified time stamp
-        expiry_time = datetime.utcfromtimestamp(time.time() + self.expires_after)
+        expiry_time = datetime.fromtimestamp(
+            time.time() + self.expires_after, tz=timezone.utc
+        )
 
         while True:
             try:
