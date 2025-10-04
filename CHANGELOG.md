@@ -4,6 +4,8 @@
 
 * Add a useful error message when attempting moving a shared folder into a family
   folder.
+* Updated macOS GUI for macOS 26 Tahoe's Liquid Glass UI.
+* Update Dropbox SDK to the latest version to support root certificate changes.
 
 ## v1.9.4:
 
