@@ -6,7 +6,7 @@
     <description>Stable releases of Maestral</description>
     <language>en</language>
     <item>
-      <title>v1.6.5 available</title>
+      <title>v1.9.5 available</title>
       <pubDate>2025-10-04T19:45:20Z</pubDate>
       <sparkle:version>113</sparkle:version>
       <sparkle:shortVersionString>1.9.5</sparkle:shortVersionString>
@@ -18,7 +18,7 @@
           <meta charset="utf-8" />
           <meta name="generator" content="pandoc" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-          <title>v1.6.5</title>
+          <title>v1.9.5</title>
           <style>
             /* Default styles provided by pandoc.
             ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -94,7 +94,7 @@
         </head>
         <body>
         <header id="title-block-header">
-        <h1 class="title">v1.6.5</h1>
+        <h1 class="title">v1.9.5</h1>
         </header>
         <h4 id="changed">Changed:</h4>
         <ul>
