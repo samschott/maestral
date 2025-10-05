@@ -98,7 +98,7 @@
         </header>
         <h4 id="changed">Changed:</h4>
         <ul>
-        <li>Add a useful error message when attempting moving a shared folder
+        <li>Add a useful error message when attempting to move a shared folder
         into a family folder.</li>
         <li>Updated macOS GUI for macOS 26 Tahoe’s Liquid Glass UI.</li>
         <li>Update Dropbox SDK to the latest version to support root certificate
