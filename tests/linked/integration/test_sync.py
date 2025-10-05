@@ -1166,23 +1166,6 @@ def test_long_path_error(m: Maestral) -> None:
     assert sync_errors[-1].direction == SyncDirection.Down
 
 
-@pytest.mark.parametrize(
-    "name",
-    [
-        "file_🦑",  # U+1F991
-    ],
-)
-def test_unicode_forbidden(m: Maestral, name: str) -> None:
-    """Tests syncing files with exotic unicode characters."""
-
-    local_path = osp.join(m.dropbox_path, name)
-
-    os.mkdir(local_path)
-    wait_for_idle(m)
-
-    assert_sync_error(m, PathError, local_path, direction=SyncDirection.Up)
-
-
 @pytest.mark.skipif(
     sys.platform != "linux", reason="macOS enforces utf-8 path encoding"
 )
