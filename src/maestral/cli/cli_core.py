@@ -287,7 +287,7 @@ def gui(config_name: str) -> None:
 
     entry_point = gui_entry_points[entry_point_names[index]]
 
-    if entry_point in {"maestral_cocoa", "maestral_qt"}:
+    if entry_point.name in {"maestral_cocoa", "maestral_qt"}:
         # For 1st party GUIs "maestral_cocoa" or "maestral_qt", check if the installed
         # version fulfills requirements in maestral's gui extra.
         requirement_names = requires("maestral")
