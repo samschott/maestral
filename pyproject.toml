@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "maestral"
-version = "1.9.5"
+version = "1.9.6.dev0"
 authors = [{ name = "Sam Schott", email = "sam.schott@outlook.com" }]
 license = { text = "MIT" }
 description = "Open-source Dropbox client for macOS and Linux."
