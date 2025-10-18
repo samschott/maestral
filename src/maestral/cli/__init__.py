@@ -4,5 +4,6 @@ local to the command or method that requires them to ensure a responsive CLI.
 """
 
 from .cli_main import main
+from .utils import freeze_support
 
-__all__ = ["main"]
+__all__ = ["main", "freeze_support"]
