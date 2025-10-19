@@ -265,6 +265,8 @@ def gui(config_name: str) -> None:
     from packaging.requirements import Requirement
     from packaging.version import Version
 
+    from ..daemon import start_maestral_daemon_process
+
     # Find all entry points for "maestral_gui" registered by other packages.
     gui_entry_points = entry_points(group="maestral_gui")
 
@@ -300,10 +302,12 @@ def gui(config_name: str) -> None:
                         raise CliException(
                             f"{r.name}{r.specifier} required but you have {version_str}"
                         )
+    # Start the daemon
+    res = start_maestral_daemon_process(config_name)
 
     # Run the GUI.
     run = entry_point.load()
-    run(config_name)
+    run(config_name, res)
 
 
 @click.command(help="Pause syncing.")
