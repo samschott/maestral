@@ -429,7 +429,6 @@ def start_maestral_daemon(
 
         # Notify systemd periodically if alive.
         if IS_WATCHDOG and WATCHDOG_USEC:
-
             async def periodic_watchdog() -> None:
                 if WATCHDOG_USEC:
                     sleep = int(WATCHDOG_USEC)
