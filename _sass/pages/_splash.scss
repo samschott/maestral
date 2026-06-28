@@ -40,7 +40,8 @@
     }
 
     .header__title,
-    .header__lead {
+    .header__lead
+    .header__notice {
       text-align: center;
       margin: 1em auto;
       font-family: $sans-serif-narrow;
