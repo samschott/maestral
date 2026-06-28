@@ -1,3 +1,12 @@
+# Archived
+
+As of 2026-07-28, this project is archived. It's been a fun challenge to develop a
+syncing client, but unfortunately, I find too little time to invest in Maestral these
+days. I've also moved away from using Dropbox myself.
+
+Maestral will still remain usable in the medium term, but will no longer be actively
+maintained or receive updates.
+
 # Maestral website
 
 This branch contains the website of the project which is build using jekyll and hosted
