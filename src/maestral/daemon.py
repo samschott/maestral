@@ -113,6 +113,7 @@ class Start(enum.Enum):
     Ok = 0
     AlreadyRunning = 1
     Failed = 2
+    Uninitialized = 3
 
 
 # ==== error serialization =============================================================
