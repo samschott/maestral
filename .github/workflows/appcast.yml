@@ -9,7 +9,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout website
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: website
 
